@@ -9,6 +9,7 @@ import {
 } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { Simulation } from '../public/js/sim.js';
+import { sampleLanePoints } from './balance-sim.mjs';
 
 function mapWithArchetype(archetypeId, modifierId = null) {
   const seed = `test-${archetypeId}-${modifierId || 'none'}`;
@@ -100,6 +101,33 @@ test('多入口移动：敌人沿各自 lane 前进并独立结算漏怪', () =>
   assert.notDeepEqual([a.x, a.y], [b.x, b.y]);
   for (let i = 0; i < 600; i++) sim.update(1 / 60);
   assert.ok(sim.enemies.every((enemy) => enemy.progress > 0));
+});
+
+test('平衡机器人：塔位覆盖采样遍历所有 lane（含路径终点）', () => {
+  let candidate = null;
+  for (let i = 0; i < 120 && !candidate; i++) {
+    candidate = generateMapCandidates(`coverage-${i}`, 3).find((item) => item.lanes.length >= 3);
+  }
+  assert.ok(candidate, '需要一张至少三入口的地图');
+  const sim = new Simulation({
+    map: candidate,
+    seed: candidate.seed,
+    difficulty: 'standard',
+    gold: 1000,
+    baseHp: 20,
+    maxBaseHp: 20,
+    relics: [],
+    towers: [],
+  });
+  const points = sampleLanePoints(sim);
+  assert.equal(new Set(points.map((point) => point.lane)).size, sim.lanes.length);
+  sim.lanes.forEach((lane, index) => {
+    const lanePoints = points.filter((point) => point.lane === index);
+    assert.ok(lanePoints.length >= 2, `lane ${index} 至少采样两个点`);
+    const end = lane.pts[lane.pts.length - 1];
+    const last = lanePoints[lanePoints.length - 1];
+    assert.ok(Math.abs(last.x - end.x) < 1e-9 && Math.abs(last.y - end.y) < 1e-9);
+  });
 });
 
 test('词缀：薄雾降低射程，富矿提高击杀金币，计分乘数生效', () => {

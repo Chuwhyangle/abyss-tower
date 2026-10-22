@@ -9,6 +9,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { clampFinishPayload, computeOutcome } from '../public/js/shared/scoring.js';
+import { DIFFICULTIES } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 18600 + Math.floor(Math.random() * 300);
@@ -99,7 +100,7 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(started.data.difficulty, 'abyss');
   assert.equal(started.data.startingGold, 240); // 260 - 20
   assert.equal(started.data.baseHp, 17); // 20 - 3
-  assert.equal(started.data.difficultyConfig.hpMul, 1.18);
+  assert.equal(started.data.difficultyConfig.hpMul, DIFFICULTIES.abyss.hpMul);
   assert.equal(started.data.candidates.length, 3);
   const runId = started.data.runId;
 
