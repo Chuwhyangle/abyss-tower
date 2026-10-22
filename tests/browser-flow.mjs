@@ -2,15 +2,25 @@
 // 使用隔离服务端、临时数据库与独立 Chrome 配置。
 import fs from 'node:fs';
 import path from 'node:path';
-import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
+import {
+  startTestServer,
+  launchBrowser,
+  chooseFirstMap,
+  registerAndLogin,
+} from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
 async function main() {
   const server = await startTestServer();
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-flow' });
+    browser = await launchBrowser({
+      base: server.base,
+      name: 'rtd-flow',
+      cookie: session.rawCookie,
+    });
 
     // 开局与预建三塔
     await browser.evaluate(`document.querySelector('#btn-play').click()`);

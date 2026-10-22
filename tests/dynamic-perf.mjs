@@ -8,6 +8,7 @@ import {
   startTestServer,
   launchBrowser,
   chooseFirstMap,
+  registerAndLogin,
   TEST_SEED_SCRIPT,
   ROOT,
 } from './harness.mjs';
@@ -48,12 +49,14 @@ function percentile(values, p) {
 
 async function main() {
   const server = await startTestServer({ seedHeader: true });
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
     browser = await launchBrowser({
       base: server.base,
       name: 'rtd-perf',
       initScript: TEST_SEED_SCRIPT,
+      cookie: session.rawCookie,
     });
 
     await browser.evaluate(`document.querySelector('#btn-play').click()`);

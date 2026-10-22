@@ -1,110 +1,9 @@
-import { DatabaseSync } from 'node:sqlite';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+// 玩家档案/对局的兼容读写层：对上层保持旧接口形状，底层使用新的可扩展表。
+import { db } from './db/index.mjs';
 import { DIFFICULTY_ORDER, normalizeRelicStates } from '../public/js/shared/data.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, 'data');
-fs.mkdirSync(dataDir, { recursive: true });
-
-const DB_PATH = process.env.DB_PATH || path.join(dataDir, 'game.db');
-export const db = new DatabaseSync(DB_PATH);
-
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA synchronous = NORMAL;
-
-  CREATE TABLE IF NOT EXISTS profiles (
-    token TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    cores INTEGER NOT NULL DEFAULT 0,
-    unlocks TEXT NOT NULL DEFAULT '[]',
-    stats TEXT NOT NULL DEFAULT '{}',
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS runs (
-    id TEXT PRIMARY KEY,
-    token TEXT NOT NULL,
-    mode TEXT NOT NULL,
-    difficulty TEXT NOT NULL DEFAULT 'standard',
-    seed TEXT NOT NULL,
-    day TEXT NOT NULL,
-    waves_served INTEGER NOT NULL DEFAULT 0,
-    cleared_waves INTEGER NOT NULL DEFAULT 0,
-    map_choice INTEGER NOT NULL DEFAULT -1,
-    relics TEXT NOT NULL DEFAULT '[]',
-    offers TEXT NOT NULL DEFAULT '{}',
-    rerolls_used INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'active',
-    victory INTEGER NOT NULL DEFAULT 0,
-    score INTEGER NOT NULL DEFAULT 0,
-    wave_reached INTEGER NOT NULL DEFAULT 0,
-    kills INTEGER NOT NULL DEFAULT 0,
-    duration_ms INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL,
-    finished_at INTEGER
-  );
-  CREATE INDEX IF NOT EXISTS idx_runs_token ON runs(token, status);
-
-  CREATE TABLE IF NOT EXISTS leaderboard (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    token TEXT NOT NULL,
-    name TEXT NOT NULL,
-    mode TEXT NOT NULL,
-    difficulty TEXT NOT NULL DEFAULT 'standard',
-    day TEXT NOT NULL,
-    seed TEXT NOT NULL,
-    wave INTEGER NOT NULL,
-    score INTEGER NOT NULL,
-    kills INTEGER NOT NULL,
-    victory INTEGER NOT NULL DEFAULT 0,
-    duration_ms INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
-  );
-  CREATE INDEX IF NOT EXISTS idx_lb_mode ON leaderboard(mode, score DESC);
-  CREATE INDEX IF NOT EXISTS idx_lb_day ON leaderboard(mode, day, score DESC);
-`);
-
-// 兼容原型阶段创建的旧库：补列而不是重建。
-function ensureColumn(table, name, ddl) {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
-  if (!columns.some((column) => column.name === name)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
-    return true;
-  }
-  return false;
-}
-
-ensureColumn('runs', 'difficulty', "TEXT NOT NULL DEFAULT 'standard'");
-ensureColumn('runs', 'victory', 'INTEGER NOT NULL DEFAULT 0');
-ensureColumn('runs', 'duration_ms', 'INTEGER NOT NULL DEFAULT 0');
-const clearedWavesAdded = ensureColumn('runs', 'cleared_waves', 'INTEGER NOT NULL DEFAULT 0');
-if (clearedWavesAdded) {
-  // 旧数据无法区分"进行中"和"已清"：已结束局按结算波次回填，进行中局保守回退一波。
-  db.exec(`
-    UPDATE runs
-       SET cleared_waves = CASE
-         WHEN status = 'finished' THEN wave_reached
-         WHEN waves_served > 0 THEN waves_served - 1
-         ELSE 0
-       END
-  `);
-}
-
-const mapChoiceAdded = ensureColumn('runs', 'map_choice', 'INTEGER NOT NULL DEFAULT -1');
-if (mapChoiceAdded) {
-  // 旧局没有地图候选数据；已结束局按 0 回填，进行中局弃用以免旧塔位落在新路径上。
-  db.exec(`
-    UPDATE runs SET map_choice = 0 WHERE map_choice < 0 AND status = 'finished';
-    UPDATE runs SET status = 'abandoned', finished_at = created_at WHERE status = 'active' AND map_choice < 0;
-  `);
-}
-ensureColumn('leaderboard', 'difficulty', "TEXT NOT NULL DEFAULT 'standard'");
-ensureColumn('leaderboard', 'victory', 'INTEGER NOT NULL DEFAULT 0');
-ensureColumn('leaderboard', 'duration_ms', 'INTEGER NOT NULL DEFAULT 0');
+export { db };
+export { DB_PATH } from './db/index.mjs';
 
 export function defaultStats() {
   const byDifficulty = {};
@@ -140,60 +39,189 @@ export function normalizeStats(raw) {
   return stats;
 }
 
+function readStats(accountId) {
+  const stats = defaultStats();
+  const rows = db
+    .prepare('SELECT stat_key, scope_key, value_num FROM player_stats WHERE account_id = ?')
+    .all(accountId);
+  const globalKeys = new Set(['runs', 'kills', 'wins']);
+  const difficultyKeys = {
+    best_wave: 'bestWave',
+    best_score: 'bestScore',
+    wins: 'wins',
+    runs: 'runs',
+  };
+  for (const row of rows) {
+    const amount = Number(row.value_num) || 0;
+    if (!row.scope_key) {
+      if (globalKeys.has(row.stat_key)) stats[row.stat_key] = amount;
+      continue;
+    }
+    if (!row.scope_key.startsWith('difficulty:')) continue;
+    const difficulty = row.scope_key.slice('difficulty:'.length);
+    const target = stats.byDifficulty[difficulty];
+    const key = difficultyKeys[row.stat_key];
+    if (target && key) target[key] = amount;
+  }
+  return stats;
+}
+
+function writeStats(accountId, rawStats) {
+  const stats = normalizeStats(rawStats);
+  const now = Date.now();
+  const insert = db.prepare(`
+    INSERT INTO player_stats (account_id, stat_key, scope_key, value_num, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare('DELETE FROM player_stats WHERE account_id = ?').run(accountId);
+    insert.run(accountId, 'runs', '', stats.runs, now);
+    insert.run(accountId, 'kills', '', stats.kills, now);
+    insert.run(accountId, 'wins', '', stats.wins, now);
+    for (const difficulty of DIFFICULTY_ORDER) {
+      const entry = stats.byDifficulty[difficulty];
+      const scope = `difficulty:${difficulty}`;
+      insert.run(accountId, 'best_wave', scope, entry.bestWave, now);
+      insert.run(accountId, 'best_score', scope, entry.bestScore, now);
+      insert.run(accountId, 'wins', scope, entry.wins, now);
+      insert.run(accountId, 'runs', scope, entry.runs, now);
+    }
+    db.exec('COMMIT');
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* ignore */
+    }
+    throw error;
+  }
+}
+
 export function hydrateProfile(row) {
   if (!row) return null;
+  return getProfile(row.account_id || row.token);
+}
+
+export function getProfile(accountId) {
+  if (!accountId) return null;
+  const row = db
+    .prepare(
+      `SELECT p.account_id, p.display_name, p.created_at, a.kind, a.username
+         FROM player_profiles p
+         JOIN accounts a ON a.id = p.account_id
+        WHERE p.account_id = ?`
+    )
+    .get(accountId);
+  if (!row) return null;
+  const wallet = db
+    .prepare(
+      "SELECT balance FROM player_wallets WHERE account_id = ? AND currency_id = 'cores'"
+    )
+    .get(accountId);
+  const unlocks = db
+    .prepare(
+      'SELECT unlock_id FROM player_unlocks WHERE account_id = ? ORDER BY unlocked_at ASC'
+    )
+    .all(accountId)
+    .map((entry) => entry.unlock_id);
   return {
-    token: row.token,
-    name: row.name,
-    cores: row.cores,
-    unlocks: safeParse(row.unlocks, []),
-    stats: normalizeStats(safeParse(row.stats, {})),
+    token: accountId,
+    accountId,
+    name: row.display_name,
+    cores: wallet?.balance || 0,
+    unlocks,
+    stats: readStats(accountId),
+    accountKind: row.kind,
+    username: row.username || null,
     createdAt: row.created_at,
   };
 }
 
-export function getProfile(token) {
-  return hydrateProfile(db.prepare('SELECT * FROM profiles WHERE token = ?').get(token));
-}
-
-export function createProfile(token, name = null) {
+export function createProfile(accountId, name = null) {
   const now = Date.now();
-  const finalName = name || `指挥官-${token.slice(-4).toUpperCase()}`;
+  const displayName = name || `指挥官-${String(accountId).slice(-4).toUpperCase()}`;
   db.prepare(
-    'INSERT INTO profiles (token, name, cores, unlocks, stats, created_at, updated_at) VALUES (?, ?, 0, ?, ?, ?, ?)'
-  ).run(token, finalName, '[]', JSON.stringify(defaultStats()), now, now);
-  return getProfile(token);
+    `INSERT OR IGNORE INTO player_profiles
+       (account_id, display_name, title_id, avatar_id, created_at, updated_at, meta)
+     VALUES (?, ?, NULL, NULL, ?, ?, '{}')`
+  ).run(accountId, displayName, now, now);
+  db.prepare(
+    `INSERT OR IGNORE INTO player_wallets (account_id, currency_id, balance, updated_at)
+     VALUES (?, 'cores', 0, ?)`
+  ).run(accountId, now);
+  return getProfile(accountId);
 }
 
-export function updateProfile(token, { name, cores, unlocks, stats }) {
-  const current = getProfile(token);
+export function updateProfile(accountId, { name, cores, unlocks, stats } = {}) {
+  const current = getProfile(accountId);
   if (!current) return null;
-  db.prepare(
-    'UPDATE profiles SET name = ?, cores = ?, unlocks = ?, stats = ?, updated_at = ? WHERE token = ?'
-  ).run(
-    name ?? current.name,
-    cores ?? current.cores,
-    JSON.stringify(unlocks ?? current.unlocks),
-    JSON.stringify(stats ? normalizeStats(stats) : current.stats),
-    Date.now(),
-    token
-  );
-  return getProfile(token);
+  const now = Date.now();
+  if (name != null) {
+    db.prepare(
+      'UPDATE player_profiles SET display_name = ?, updated_at = ? WHERE account_id = ?'
+    ).run(name, now, accountId);
+  }
+  if (cores != null) {
+    db.prepare(
+      `INSERT INTO player_wallets (account_id, currency_id, balance, updated_at)
+       VALUES (?, 'cores', ?, ?)
+       ON CONFLICT(account_id, currency_id) DO UPDATE SET
+         balance = excluded.balance,
+         updated_at = excluded.updated_at`
+    ).run(accountId, Math.max(0, Math.floor(Number(cores) || 0)), now);
+  }
+  if (Array.isArray(unlocks)) {
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      db.prepare('DELETE FROM player_unlocks WHERE account_id = ?').run(accountId);
+      const insert = db.prepare(
+        `INSERT OR IGNORE INTO player_unlocks (account_id, unlock_id, unlocked_at, meta)
+         VALUES (?, ?, ?, '{}')`
+      );
+      for (const unlock of new Set(unlocks.filter((item) => typeof item === 'string'))) {
+        insert.run(accountId, unlock, now);
+      }
+      db.exec('COMMIT');
+    } catch (error) {
+      try {
+        db.exec('ROLLBACK');
+      } catch {
+        /* ignore */
+      }
+      throw error;
+    }
+  }
+  if (stats != null) writeStats(accountId, stats);
+  db.prepare('UPDATE player_profiles SET updated_at = ? WHERE account_id = ?').run(now, accountId);
+  return getProfile(accountId);
 }
 
 export function getRun(id) {
   return db.prepare('SELECT * FROM runs WHERE id = ?').get(id) || null;
 }
 
+export function getActiveRun(accountId) {
+  const row = db
+    .prepare(
+      "SELECT * FROM runs WHERE account_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1"
+    )
+    .get(accountId);
+  return hydrateRun(row);
+}
+
 export function hydrateRun(row) {
   if (!row) return null;
   return {
     id: row.id,
-    token: row.token,
+    token: row.account_id,
+    accountId: row.account_id,
     mode: row.mode,
+    boardKey: row.board_key || null,
     difficulty: row.difficulty || 'standard',
     seed: row.seed,
     day: row.day,
+    contentVersion: row.content_version || null,
     wavesServed: row.waves_served,
     clearedWaves: row.cleared_waves ?? 0,
     mapChoice: row.map_choice ?? -1,
@@ -206,6 +234,7 @@ export function hydrateRun(row) {
     waveReached: row.wave_reached,
     kills: row.kills,
     durationMs: row.duration_ms || 0,
+    result: safeParse(row.result_json, {}),
     createdAt: row.created_at,
   };
 }

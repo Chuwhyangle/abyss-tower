@@ -1,6 +1,6 @@
 # 《渊塔守卫》账号、进度与数据模型设计 v0.1
 
-- 状态：**待评审**（评审通过后再动代码）
+- 状态：**P0 已实现**（2026-10-22，分支 `worktree-feature+accounts-auth`）
 - 对应代码：当前 `main` @ `037b8ab`（v1.3 + 手机端横屏）
 - 目标：把「浏览器匿名令牌」升级为可跨设备登录的账号体系，并建立一套**加内容不需要改表**的进度/游戏数据模型。
 - 关联文档：`docs/PRD.md`、`docs/TECH_DESIGN.md`、`docs/PARALLEL_DEV_PLAN.md`
@@ -202,6 +202,7 @@ CREATE TABLE accounts (
   username      TEXT,                          -- 登录名，unclaimed 为 NULL
   username_norm TEXT,                          -- lower(username)，唯一
   password_hash TEXT,                          -- scrypt 格式，unclaimed 为 NULL
+  recovery_hash TEXT,                          -- 一次性恢复码的哈希
   status        TEXT NOT NULL DEFAULT 'active'
                 CHECK (status IN ('active','disabled','deleted')),
   meta          TEXT NOT NULL DEFAULT '{}',    -- JSON：来源、实验组、管理备注
@@ -354,6 +355,7 @@ CREATE TABLE runs (
   ruleset_json    TEXT NOT NULL DEFAULT '{}',  -- 本局生效规则快照（倍率、上限、修正）
   waves_served    INTEGER NOT NULL DEFAULT 0,
   cleared_waves   INTEGER NOT NULL DEFAULT 0,
+  map_choice      INTEGER NOT NULL DEFAULT -1, -- 三张候选地图中的选择（内容线字段）
   relics          TEXT NOT NULL DEFAULT '[]',  -- [{id,level}]，内容形态仍可扩展
   offers          TEXT NOT NULL DEFAULT '{}',
   rerolls_used    INTEGER NOT NULL DEFAULT 0,
@@ -639,4 +641,13 @@ server/
 - TECH_DESIGN 第 343 行「启动时 CREATE TABLE + ALTER TABLE 补列」——改为编号迁移 + 校验和。
 - 排行榜从 `leaderboard(mode, day)` 迁移为 `leaderboard_entries(board_key)`，旧接口参数保留兼容。
 
-评审通过后，我会先更新 PRD/TECH_DESIGN 的对应段落，再进入 S1。
+## 15. P0 实现记录
+
+- 迁移：`server/db/migrations/0001_accounts.mjs` 将「建表 + 旧数据导入」合并为一个事务迁移；迁移执行器在 `server/db/index.mjs`，带 checksum 校验与迁移前 `VACUUM INTO` 备份。
+- 兼容层：`server/db.mjs` 对上层保持旧 `getProfile/updateProfile/getRun/hydrateRun` 形状，底层读写 `player_*`、`runs(account_id)`、`leaderboard_entries(board_key)`。
+- 认证：`server/auth/*`（scrypt、Cookie 会话、限流、Origin 校验、注册/登录/登出/me/legacy/claim/password/recovery）。
+- 前端：`public/js/auth-ui.js` + `public/auth.css`；`main.js` 启动先过 `ensureAuthGate()`，未登录不初始化大厅/战斗。
+- 测试：`tests/auth.test.mjs`（8 项接口/迁移测试）、`tests/browser-auth.mjs`（注册→恢复码→大厅→退出→登录）；`tests/harness.mjs` 增加 `registerAndLogin()`，所有浏览器测试先登录。
+- 开关：默认 `AUTH_ENABLED=1`；`AUTH_ENABLED=0` 回退旧 `x-player-token` 匿名模式，旧接口测试走该路径。
+- 未做（按 P0 范围）：OAuth/Passkey、云同步设置、管理 CLI、游客进度合并；schema 已预留。
+- 部署前仍需：更新 PRD/TECH_DESIGN 的旧描述，并在真实库上先跑一次迁移演练与备份校验（本次未触碰线上数据）。

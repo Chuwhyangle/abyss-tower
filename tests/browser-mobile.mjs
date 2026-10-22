@@ -1,14 +1,24 @@
 // 手机端验收：竖屏提示、横屏无遮挡、触控建塔、设置/遗物弹窗。
-import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
+import {
+  startTestServer,
+  launchBrowser,
+  chooseFirstMap,
+  registerAndLogin,
+} from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function main() {
   const server = await startTestServer();
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-mobile' });
+    browser = await launchBrowser({
+      base: server.base,
+      name: 'rtd-mobile',
+      cookie: session.rawCookie,
+    });
     const setViewport = (width, height) =>
       browser.send('Emulation.setDeviceMetricsOverride', {
         width, height, deviceScaleFactor: 3, mobile: true,
