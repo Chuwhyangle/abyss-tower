@@ -13,6 +13,7 @@
     "test:settings": "node tests/browser-settings.mjs",
     "test:relics": "node tests/browser-relics.mjs",
     "test:mobile": "node tests/browser-mobile.mjs",
+    "test:map": "node tests/browser-map.mjs",
     "test:auth": "node --test tests/auth.test.mjs",
     "test:auth:ui": "node tests/browser-auth.mjs",
     "perf": "node tests/dynamic-perf.mjs",

@@ -147,7 +147,7 @@ sudo systemctl status rogue-td
 - 凭据：`/home/wenjin/.cloudflared/cert.pem` 与 `<tunnel-id>.json`，权限 600/400，**不提交仓库**。
 - 服务器不开放 80/443 入站，Cloudflare Tunnel 只使用出站连接。
 - 重建步骤：先恢复 `rogue-td`，再安装 `deploy/cloudflared-rogue-td.service`，确保两个服务均 active。
-- 公网可直接访问且无账号体系；如需限制访问，可在 Cloudflare Zero Trust 中加 Access 策略。
+- 公网访问需要注册/登录；如需再加一层访问限制，可在 Cloudflare Zero Trust 中配置 Access 策略。
 
 数据备份（在线一致性快照，无需停服）：
 

@@ -6,3 +6,4 @@ server/data/*.db-shm
 .DS_Store
 backups/
 .claude/
+server/data/backups/

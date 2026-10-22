@@ -1,7 +1,7 @@
 // 地图 v2 体验验收：三选一弹窗/预览、放弃与刷新恢复、多入口渲染与 HUD、汇流几何。
 // 使用隔离服务端 + 固定测试种子，确保同时覆盖单入口、双入口与三入口地图。
 import assert from 'node:assert/strict';
-import { startTestServer, launchBrowser } from './harness.mjs';
+import { startTestServer, launchBrowser, registerAndLogin } from './harness.mjs';
 import { generateMapCandidates } from '../public/js/shared/mapgen.js';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
@@ -144,6 +144,7 @@ async function readRunStatus(browser, runId) {
 
 async function main() {
   const server = await startTestServer({ seedHeader: true });
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
     assert.equal(EXPECTED.length, 3);
@@ -154,6 +155,7 @@ async function main() {
       base: server.base,
       name: 'rtd-map',
       initScript: SEED_SCRIPT,
+      cookie: session.rawCookie,
       width: 1440,
       height: 1000,
     });
