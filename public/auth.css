@@ -1,0 +1,243 @@
+/* 账号/登录界面：独立样式，避免和游戏 UI 的大改互相冲突。 */
+.auth-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(700px 420px at 50% 0%, rgba(92, 226, 208, 0.12), transparent 70%),
+    rgba(4, 8, 11, 0.92);
+  backdrop-filter: blur(10px);
+  overflow-y: auto;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, rgba(17, 29, 37, 0.98), rgba(10, 17, 22, 0.98));
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.auth-brand {
+  margin: 0 0 14px;
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.28em;
+}
+
+.auth-card h2 {
+  margin: 0 0 8px;
+  font-size: 26px;
+  letter-spacing: 0.04em;
+}
+
+.auth-sub {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(7, 11, 14, 0.65);
+}
+
+.auth-tabs button {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.auth-tabs button.active {
+  background: rgba(92, 226, 208, 0.12);
+  color: var(--text);
+}
+
+.auth-form {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.auth-form input {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 11, 14, 0.72);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.auth-form input:focus {
+  border-color: rgba(92, 226, 208, 0.65);
+  box-shadow: 0 0 0 3px rgba(92, 226, 208, 0.1);
+}
+
+.auth-error {
+  margin: 0;
+  padding: 9px 11px;
+  border: 1px solid rgba(255, 107, 125, 0.35);
+  border-radius: 9px;
+  background: rgba(255, 107, 125, 0.08);
+  color: var(--red);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-submit {
+  width: 100%;
+  margin-top: 2px;
+}
+
+.auth-note {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.auth-legacy {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px dashed rgba(255, 211, 107, 0.45);
+  border-radius: 12px;
+  background: rgba(255, 211, 107, 0.06);
+}
+
+.auth-legacy-info {
+  margin: 0 0 10px;
+  color: var(--gold);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.auth-legacy .btn {
+  width: 100%;
+}
+
+.auth-recovery {
+  display: block;
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid rgba(92, 226, 208, 0.35);
+  border-radius: 12px;
+  background: rgba(92, 226, 208, 0.08);
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  word-break: break-all;
+  user-select: all;
+}
+
+.auth-recovery-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.auth-widget {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(10, 17, 22, 0.88);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+}
+
+.auth-widget-name {
+  max-width: 140px;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auth-widget-logout {
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.auth-widget-logout:hover {
+  border-color: rgba(255, 107, 125, 0.45);
+  color: var(--red);
+}
+
+@media (max-width: 640px) {
+  .auth-overlay {
+    padding: 14px;
+    align-items: start;
+    padding-top: max(24px, env(safe-area-inset-top));
+  }
+
+  .auth-card {
+    padding: 22px 18px;
+  }
+
+  .auth-card h2 {
+    font-size: 22px;
+  }
+
+  .auth-widget {
+    left: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+  }
+}
+
+/* 横屏手机：登录页保持可滚动，不锁横屏。 */
+@media (max-height: 520px) and (orientation: landscape) {
+  .auth-overlay {
+    align-items: start;
+    padding: 12px;
+  }
+
+  .auth-card {
+    width: min(560px, 100%);
+    padding: 18px 20px;
+  }
+
+  .auth-sub {
+    margin-bottom: 12px;
+  }
+}

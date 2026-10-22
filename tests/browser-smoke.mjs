@@ -1,15 +1,25 @@
 // 无头浏览器冒烟：选难度 → 建塔 → 开波。使用隔离服务端与临时数据库。
 // 用法：node tests/browser-smoke.mjs
 import path from 'node:path';
-import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
+import {
+  startTestServer,
+  launchBrowser,
+  chooseFirstMap,
+  registerAndLogin,
+} from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
 async function main() {
   const server = await startTestServer();
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-smoke' });
+    browser = await launchBrowser({
+      base: server.base,
+      name: 'rtd-smoke',
+      cookie: session.rawCookie,
+    });
 
     const bootErrors = await browser.evaluate(`window.__bootErrors || []`);
     if (bootErrors.length) throw new Error(`页面启动错误：${bootErrors.join(' | ')}`);

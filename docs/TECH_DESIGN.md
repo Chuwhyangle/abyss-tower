@@ -351,7 +351,7 @@ leaderboard(
   }
 }
 ```
-- 迁移策略：启动时 `CREATE TABLE IF NOT EXISTS`；对原型库用 `PRAGMA table_info` 检查并 `ALTER TABLE ADD COLUMN` 补齐新增列。
+- 迁移策略：`server/db/migrations/` 编号迁移 + checksum 校验；启动时按序执行，迁移前 `VACUUM INTO` 备份，失败拒绝启动。旧匿名令牌数据迁移为 `unclaimed` 账号，通过 `/api/auth/claim` 原地升级。
 - 索引：`runs(token,status)`、`leaderboard(mode,score)`、`leaderboard(mode,day,score)`。
 - 榜单口径：同一玩家在同一榜单（远征 / 某日每日）取最高分，不按难度拆榜；难度列仅用于展示标签。
 

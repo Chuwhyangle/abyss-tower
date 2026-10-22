@@ -48,6 +48,7 @@ test('旧库自动补列、回填已清波次并归一化遗物', async () => {
 
   try {
     process.env.DB_PATH = dbPath;
+    process.env.DB_BACKUP = '0';
     const dbModule = await import('../server/db.mjs');
     const columns = dbModule.db.prepare('PRAGMA table_info(runs)').all().map((c) => c.name);
     for (const name of ['cleared_waves', 'map_choice', 'difficulty', 'victory', 'duration_ms']) {

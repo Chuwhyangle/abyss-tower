@@ -41,7 +41,14 @@ async function startRun(mode, difficulty, token = TOKEN) {
 before(async () => {
   server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
     cwd: ROOT,
-    env: { ...process.env, PORT: String(PORT), HOST: '127.0.0.1', DB_PATH: DB },
+    env: {
+      ...process.env,
+      PORT: String(PORT),
+      HOST: '127.0.0.1',
+      DB_PATH: DB,
+      AUTH_ENABLED: '0',
+      DB_BACKUP: '0',
+    },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   server.stdout.on('data', (chunk) => {

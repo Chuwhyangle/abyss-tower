@@ -1,11 +1,21 @@
 // 遗物升级 UI：Ⅰ→Ⅱ 展示、升级生效、补位奖励展示与应用。
-import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
+import {
+  startTestServer,
+  launchBrowser,
+  chooseFirstMap,
+  registerAndLogin,
+} from './harness.mjs';
 
 async function main() {
   const server = await startTestServer();
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-relics' });
+    browser = await launchBrowser({
+      base: server.base,
+      name: 'rtd-relics',
+      cookie: session.rawCookie,
+    });
 
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');

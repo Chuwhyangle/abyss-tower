@@ -88,7 +88,15 @@ public/
     shared/       前后端共享：RNG / 地图 / 波次 / 数值 / 难度 / 遗物等级 / 计分 / 存档兼容
 server/
   index.mjs       HTTP 服务与业务接口
-  db.mjs          SQLite 连接、建表与迁移
+  config.mjs      账号开关、注册策略、内容版本
+  db.mjs          玩家档案/对局兼容读写层
+  db/
+    index.mjs     SQLite 连接、迁移执行与迁移前备份
+    migrations/   版本化迁移（只有账号/平台线新增）
+    accounts.mjs  账号与旧令牌别名
+    sessions.mjs  会话
+    leaderboard.mjs 榜单
+  auth/           密码、Cookie、限流、认证路由与身份解析
   data/game.db    运行时数据库（自动创建）
 tests/
   *.test.mjs      单元与接口测试
@@ -108,6 +116,8 @@ npm run flow          # 端到端：波中刷新重放→遗物选择恢复→�
 npm run test:settings # 画质设置：预设/持久化/暂停恢复/损坏回退
 npm run test:relics   # 遗物升级与补位 UI
 npm run test:mobile   # 手机端：竖屏提示、横屏布局、触控建塔
+npm run test:auth     # 账号接口：注册/登录/限流/CSRF/旧令牌绑定/回退模式
+npm run test:auth:ui  # 登录门槛端到端：注册→恢复码→进入大厅→退出→登录
 npm run perf          # 动态战斗性能（固定种子，约 1 分钟）
 npm run balance       # 40 种子平衡模拟（约 20 秒）
 npm run balance:write # 重写 docs/BALANCE.md
@@ -148,9 +158,25 @@ npm run backup -- /path/to.db     # 指定目标（不会覆盖已存在文件�
 
 备份使用 SQLite `VACUUM INTO`，不会受到 WAL 未落盘的影响。
 
+## 账号与登录
+
+- **必须注册账号才能进入游戏**；打开页面未登录时只显示登录/注册页。
+- 注册开放、无邀请码、无邮箱验证；按 IP 限流（注册 5 次/小时，登录失败 5 次/15 分钟）。
+- 密码使用 Node 内置 scrypt 哈希；会话使用 HttpOnly + SameSite=Lax Cookie，数据库只存令牌哈希。
+- 进度（星核、解锁、统计、进行中远征）跟随账号，可在其他设备登录继续。
+- 注册时展示一次恢复码；忘记密码可用「用户名 + 恢复码」重置，恢复码使用后自动轮换。
+- 旧匿名令牌玩家：用原来保存过进度的浏览器打开，登录页会显示「绑定老账号并保留进度」，设置用户名密码即可原地迁移；绑定后旧令牌立即失效。
+- 关键环境变量：
+  - `AUTH_ENABLED=1`（默认）：账号模式；设为 `0` 可回退旧的 `x-player-token` 匿名模式。
+  - `REGISTRATION_MODE=open|closed`（默认 `open`）：`closed` 仅用于紧急关闭注册，不使用邀请码。
+  - `AUTH_IP_SALT=<random>`：IP 哈希盐，生产建议设置。
+  - `COOKIE_SECURE=1`：强制 Secure Cookie；在 Cloudflare 后面通常由 `X-Forwarded-Proto` 自动识别 HTTPS。
+- 首次启动会自动执行数据库迁移，并在 `server/data/backups/` 生成迁移前快照（`DB_BACKUP=0` 可跳过）。
+- 账号接口：`/api/auth/register|login|logout|me|legacy|claim|password|recovery`；公开配置 `/api/config`。
+
 ## 已知边界
 
-- 单机/小圈子使用，无账号密码，仅用浏览器本地匿名令牌识别玩家。
+- 单机/小圈子使用，必须注册账号；不再提供匿名游客游玩。
 - 战斗模拟在客户端进行，服务端做波次放行/清波确认、数值封顶与结算校验，不追求强反作弊。
 - 排行榜合并三档难度，深渊 1.5× 分数倍率会带来榜位优势（评审时的取舍）。
 - 首版不做无尽模式、多人联机、移动端触控深度适配。

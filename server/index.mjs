@@ -10,9 +10,15 @@ import {
   createProfile,
   updateProfile,
   getRun,
+  getActiveRun,
   hydrateRun,
   normalizeStats,
 } from './db.mjs';
+import { AUTH_ENABLED, CONTENT_VERSION, REGISTRATION_MODE } from './config.mjs';
+import { handleAuthRoute } from './auth/routes.mjs';
+import { resolveGameAccount } from './auth/identity.mjs';
+import { listBoard, personalBest, rankFor, recordLeaderboardEntry } from './db/leaderboard.mjs';
+import { recordPlayerEvent } from './db/events.mjs';
 import { generateMapCandidates } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
@@ -105,7 +111,7 @@ function readJson(req) {
 function finishedDailyToday(token) {
   return db
     .prepare(
-      `SELECT COUNT(*) AS c FROM runs WHERE token = ? AND mode = 'daily' AND day = ? AND status = 'finished'`
+      `SELECT COUNT(*) AS c FROM runs WHERE account_id = ? AND mode = 'daily' AND day = ? AND status = 'finished'`
     )
     .get(token, today()).c;
 }
@@ -139,10 +145,22 @@ async function handleApi(req, res, url) {
     return json(res, 200, { ok: true, uptime: Math.round(process.uptime()) });
   }
 
-  const token = String(req.headers['x-player-token'] || '');
-  if (!isValidToken(token)) return fail(res, 401, '缺少有效的玩家令牌');
+  if (pathname === '/api/config' && method === 'GET') {
+    return json(res, 200, {
+      authEnabled: AUTH_ENABLED,
+      registrationMode: REGISTRATION_MODE,
+      contentVersion: CONTENT_VERSION,
+    });
+  }
 
-  let profile = getProfile(token) || createProfile(token);
+  if ((await handleAuthRoute(req, res, url, { json, fail, readJson })) !== false) return;
+
+  const identity = resolveGameAccount(req);
+  if (!identity) {
+    return json(res, 401, { error: '请先登录', code: 'AUTH_REQUIRED' });
+  }
+  const token = identity.account.id;
+  let profile = getProfile(token) || createProfile(token, identity.account.username || null);
 
   if (pathname === '/api/session' && method === 'POST') {
     const body = await readJson(req);
@@ -158,35 +176,52 @@ async function handleApi(req, res, url) {
     return json(res, 200, { profile });
   }
 
+  if (pathname === '/api/profile/progress' && method === 'GET') {
+    const type = url.searchParams.get('type');
+    const rows = type
+      ? db
+          .prepare(
+            'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ? AND progress_type = ?'
+          )
+          .all(token, type)
+      : db
+          .prepare(
+            'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ?'
+          )
+          .all(token);
+    const progress = rows.map((row) => {
+      let state = {};
+      try {
+        state = JSON.parse(row.state_json) || {};
+      } catch {
+        state = {};
+      }
+      return {
+        type: row.progress_type,
+        key: row.progress_key,
+        value: row.value_num,
+        state,
+        updatedAt: row.updated_at,
+      };
+    });
+    return json(res, 200, {
+      stats: profile.stats,
+      unlocks: profile.unlocks,
+      wallet: { cores: profile.cores },
+      progress,
+    });
+  }
+
   if (pathname === '/api/leaderboard' && method === 'GET') {
     const mode = url.searchParams.get('mode') === 'daily' ? 'daily' : 'normal';
     const day = url.searchParams.get('day') || today();
-    const sql =
-      mode === 'daily'
-        ? `SELECT name, difficulty, wave, score, kills, victory, duration_ms, created_at FROM (
-             SELECT name, difficulty, wave, score, kills, victory, duration_ms, created_at,
-                    ROW_NUMBER() OVER (PARTITION BY token ORDER BY score DESC, duration_ms ASC) AS rn
-             FROM leaderboard WHERE mode = 'daily' AND day = ?
-           ) WHERE rn = 1 ORDER BY score DESC, duration_ms ASC LIMIT 20`
-        : `SELECT name, difficulty, wave, score, kills, victory, duration_ms, created_at FROM (
-             SELECT name, difficulty, wave, score, kills, victory, duration_ms, created_at,
-                    ROW_NUMBER() OVER (PARTITION BY token ORDER BY score DESC, duration_ms ASC) AS rn
-             FROM leaderboard WHERE mode = 'normal'
-           ) WHERE rn = 1 ORDER BY score DESC, duration_ms ASC LIMIT 20`;
-    const rows = mode === 'daily' ? db.prepare(sql).all(day) : db.prepare(sql).all();
     return json(res, 200, {
       mode,
       day,
-      entries: rows.map((row) => ({
-        name: row.name,
-        difficulty: row.difficulty || 'standard',
-        wave: row.wave,
-        score: row.score,
-        kills: row.kills,
-        victory: !!row.victory,
-        durationMs: row.duration_ms || 0,
-        createdAt: row.created_at,
-      })),
+      entries: listBoard(mode, day, {
+        includeUnclaimed: !AUTH_ENABLED,
+        limit: 20,
+      }),
     });
   }
 
@@ -228,16 +263,30 @@ async function handleApi(req, res, url) {
       : [];
 
     db.prepare(
-      `UPDATE runs SET status = 'abandoned', finished_at = ? WHERE token = ? AND status = 'active'`
+      `UPDATE runs SET status = 'abandoned', finished_at = ? WHERE account_id = ? AND status = 'active'`
     ).run(Date.now(), token);
 
     const id = crypto.randomBytes(9).toString('base64url');
     const candidates = generateMapCandidates(seed, 3);
+    const boardKey = mode === 'daily' ? `daily:${day}` : 'normal';
     db.prepare(
       `INSERT INTO runs
-         (id, token, mode, difficulty, seed, day, waves_served, cleared_waves, map_choice, relics, offers, rerolls_used, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 0, -1, ?, '{}', 0, 'active', ?)`
-    ).run(id, token, mode, difficulty, seed, day, JSON.stringify(startRelics), Date.now());
+         (id, account_id, mode, board_key, difficulty, seed, day, content_version,
+          ruleset_json, waves_served, cleared_waves, map_choice, relics, offers,
+          rerolls_used, status, result_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', 0, 0, -1, ?, '{}', 0, 'active', '{}', ?)`
+    ).run(
+      id,
+      token,
+      mode,
+      boardKey,
+      difficulty,
+      seed,
+      day,
+      CONTENT_VERSION,
+      JSON.stringify(startRelics),
+      Date.now()
+    );
 
     return json(res, 200, {
       runId: id,
@@ -255,6 +304,36 @@ async function handleApi(req, res, url) {
       clearedWaves: 0,
       wavesServed: 0,
       dailyAttemptsLeft: mode === 'daily' ? dailyAttemptsLeft(token) : null,
+    });
+  }
+
+  if (pathname === '/api/runs/active' && method === 'GET') {
+    const active = getActiveRun(token);
+    if (!active) return json(res, 200, { run: null });
+    const candidates = generateMapCandidates(active.seed, 3);
+    const chosen = active.mapChoice >= 0 ? candidates[active.mapChoice] || null : null;
+    return json(res, 200, {
+      run: {
+        id: active.id,
+        mode: active.mode,
+        difficulty: active.difficulty,
+        difficultyConfig: difficultyPayload(active.difficulty),
+        seed: active.seed,
+        day: active.day,
+        wavesServed: active.wavesServed,
+        clearedWaves: active.clearedWaves,
+        inProgress: active.clearedWaves < active.wavesServed,
+        currentWave: active.clearedWaves < active.wavesServed ? active.wavesServed : active.clearedWaves,
+        mapChoice: active.mapChoice,
+        map: chosen,
+        mapMeta: chosen?.meta || null,
+        relics: normalizeRelicStates(active.relics),
+        status: active.status,
+        maxRerolls: maxRerollsFor(profile),
+        rerollsUsed: active.rerollsUsed,
+        towersUnlocked: unlockedTowerIds(profile.unlocks),
+        createdAt: active.createdAt,
+      },
     });
   }
 
@@ -495,47 +574,43 @@ async function handleApi(req, res, url) {
       const now = Date.now();
       const durationMs = Math.max(0, now - run.createdAt);
 
-      const prevBestSql =
-        run.mode === 'daily'
-          ? `SELECT MAX(score) AS s FROM leaderboard WHERE token = ? AND mode = ? AND day = ?`
-          : `SELECT MAX(score) AS s FROM leaderboard WHERE token = ? AND mode = ?`;
-      const prevBest =
-        run.mode === 'daily'
-          ? db.prepare(prevBestSql).get(token, run.mode, run.day)
-          : db.prepare(prevBestSql).get(token, run.mode);
-      const personalBest = outcome.score > (prevBest?.s || 0);
+      const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day);
 
       db.prepare(
         `UPDATE runs SET status = 'finished', victory = ?, score = ?, wave_reached = ?,
-           kills = ?, duration_ms = ?, finished_at = ? WHERE id = ?`
+           kills = ?, duration_ms = ?, result_json = ?, finished_at = ? WHERE id = ?`
       ).run(
         outcome.victory ? 1 : 0,
         outcome.score,
         payload.waveReached,
         payload.kills,
         durationMs,
+        JSON.stringify({
+          rawScore: outcome.rawScore,
+          coresEarned: outcome.cores,
+          goldLeft: payload.goldLeft,
+          baseHp: payload.baseHp,
+          contentVersion: run.contentVersion,
+        }),
         now,
         runId
       );
 
-      db.prepare(
-        `INSERT INTO leaderboard
-           (token, name, mode, difficulty, day, seed, wave, score, kills, victory, duration_ms, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        token,
-        profile.name,
-        run.mode,
-        run.difficulty,
-        run.day,
-        run.seed,
-        payload.waveReached,
-        outcome.score,
-        payload.kills,
-        outcome.victory ? 1 : 0,
+      recordLeaderboardEntry({
+        accountId: token,
+        displayName: profile.name,
+        runId,
+        mode: run.mode,
+        day: run.day,
+        difficulty: run.difficulty,
+        score: outcome.score,
         durationMs,
-        now
-      );
+        wave: payload.waveReached,
+        kills: payload.kills,
+        victory: outcome.victory,
+        contentVersion: run.contentVersion || CONTENT_VERSION,
+        createdAt: now,
+      });
 
       const stats = normalizeStats(profile.stats);
       stats.runs += 1;
@@ -552,18 +627,18 @@ async function handleApi(req, res, url) {
         stats,
       });
 
-      const rankSql =
-        run.mode === 'daily'
-          ? `SELECT COUNT(*) AS c FROM (
-               SELECT token, MAX(score) AS s FROM leaderboard WHERE mode = 'daily' AND day = ? GROUP BY token
-             ) WHERE s > ?`
-          : `SELECT COUNT(*) AS c FROM (
-               SELECT token, MAX(score) AS s FROM leaderboard WHERE mode = 'normal' GROUP BY token
-             ) WHERE s > ?`;
-      const rank =
-        (run.mode === 'daily'
-          ? db.prepare(rankSql).get(run.day, outcome.score)
-          : db.prepare(rankSql).get(outcome.score)).c + 1;
+      recordPlayerEvent(token, 'run_finished', {
+        runId,
+        mode: run.mode,
+        difficulty: run.difficulty,
+        score: outcome.score,
+        victory: outcome.victory,
+        waveReached: payload.waveReached,
+      });
+
+      const rank = rankFor(run.mode, run.day, outcome.score, {
+        includeUnclaimed: !AUTH_ENABLED,
+      });
 
       return json(res, 200, {
         victory: outcome.victory,
@@ -573,7 +648,7 @@ async function handleApi(req, res, url) {
         score: outcome.score,
         coresEarned: outcome.cores,
         totalCores: updated.cores,
-        personalBest,
+        personalBest: isPersonalBest,
         rank,
         durationMs,
         dailyAttemptsLeft: run.mode === 'daily' ? dailyAttemptsLeft(token) : null,
@@ -598,6 +673,10 @@ async function handleApi(req, res, url) {
     const updated = updateProfile(token, {
       cores: profile.cores - unlock.cost,
       unlocks: [...profile.unlocks, unlock.id],
+    });
+    recordPlayerEvent(token, 'unlock_bought', {
+      unlockId: unlock.id,
+      cost: unlock.cost,
     });
     return json(res, 200, { profile: updated });
   }
@@ -655,6 +734,24 @@ function serveStatic(req, res, pathname) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   try {
+    const mutating = req.method !== 'GET' && req.method !== 'HEAD';
+    if (url.pathname.startsWith('/api/') && mutating) {
+      const origin = req.headers.origin;
+      if (origin) {
+        let originHost = null;
+        try {
+          originHost = new URL(origin).host;
+        } catch {
+          originHost = null;
+        }
+        if (!originHost || originHost !== req.headers.host) {
+          return fail(res, 403, '来源校验失败');
+        }
+      }
+      if (String(req.headers['sec-fetch-site'] || '') === 'cross-site') {
+        return fail(res, 403, '来源校验失败');
+      }
+    }
     if (url.pathname.startsWith('/api/')) {
       await handleApi(req, res, url);
       return;

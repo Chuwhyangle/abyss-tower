@@ -1,11 +1,21 @@
 // 画质设置 UI：默认低配、预设应用、持久化、局内暂停恢复、损坏存储回退。
-import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
+import {
+  startTestServer,
+  launchBrowser,
+  chooseFirstMap,
+  registerAndLogin,
+} from './harness.mjs';
 
 async function main() {
   const server = await startTestServer();
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-settings' });
+    browser = await launchBrowser({
+      base: server.base,
+      name: 'rtd-settings',
+      cookie: session.rawCookie,
+    });
 
     const defaults = await browser.evaluate(`window.__rtd.state.settings`);
     if (defaults.fps !== 30 || defaults.dpr !== 1 || defaults.decorations !== 'light') {

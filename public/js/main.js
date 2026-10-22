@@ -12,6 +12,7 @@ import { ui } from './ui.js';
 import { audio } from './audio.js';
 import { normalizeSnapshot } from './shared/save.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { ensureAuthGate, mountAuthWidget } from './auth-ui.js';
 
 const SNAPSHOT_KEY = 'abyss-tower.snapshot.v2';
 // 选图阶段尚无战斗快照：单独记录开局参数，刷新/重进后可恢复同一组候选地图。
@@ -134,6 +135,11 @@ async function boot() {
     'is-touch',
     navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches
   );
+
+  // 账号模式：未登录只渲染登录/注册页，不初始化大厅与战斗。
+  const authenticated = await ensureAuthGate();
+  if (!authenticated) return;
+
   ui.init({
     onPlay: () => ui.showDifficultySelect('normal', { dailyLeft: state.dailyLeft }),
     onDaily: () => {
@@ -187,6 +193,7 @@ async function boot() {
     hasSnapshot: !!loadSnapshot(),
     dailyLeft: state.dailyLeft,
   });
+  mountAuthWidget(state.profile, () => api.logout());
   // 调试/冒烟测试入口（单机游戏，不涉及敏感状态）。
   window.__rtd = { state, ui, api };
   // 选图阶段刷新：恢复服务端尚未选定地图的远征与同一组候选。

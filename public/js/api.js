@@ -1,26 +1,51 @@
-// 服务端 API 封装：玩家身份保存在 localStorage。
-const TOKEN_KEY = 'abyss-tower.token';
+// 服务端 API 封装：账号会话走 HttpOnly Cookie，旧的匿名令牌只用于绑定老账号。
+const LEGACY_TOKEN_KEY = 'abyss-tower.token';
+let legacyMode = false;
 
-function playerToken() {
-  let token = localStorage.getItem(TOKEN_KEY);
+export function legacyToken() {
+  try {
+    return localStorage.getItem(LEGACY_TOKEN_KEY) || '';
+  } catch {
+    return '';
+  }
+}
+
+function requestLegacyToken() {
+  if (!legacyMode) return '';
+  let token = legacyToken();
   if (!token) {
     token =
       typeof crypto !== 'undefined' && crypto.randomUUID
         ? crypto.randomUUID()
         : `p_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
-    localStorage.setItem(TOKEN_KEY, token);
+    try {
+      localStorage.setItem(LEGACY_TOKEN_KEY, token);
+    } catch {
+      /* ignore */
+    }
   }
   return token;
 }
 
-async function request(path, { method = 'GET', body } = {}) {
+export function clearLegacyToken() {
+  try {
+    localStorage.removeItem(LEGACY_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+async function request(path, { method = 'GET', body, headers = {} } = {}) {
   let response;
+  const legacy = requestLegacyToken();
   try {
     response = await fetch(path, {
       method,
+      credentials: 'same-origin',
       headers: {
-        'x-player-token': playerToken(),
         ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+        ...(legacy ? { 'x-player-token': legacy } : {}),
+        ...headers,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -38,12 +63,52 @@ async function request(path, { method = 'GET', body } = {}) {
   if (!response.ok) {
     const error = new Error(data?.error || `请求失败 (${response.status})`);
     error.status = response.status;
+    error.code = data?.code;
+    error.data = data;
     throw error;
   }
   return data;
 }
 
+function legacyHeaders() {
+  const token = legacyToken();
+  return token ? { 'x-player-token': token } : {};
+}
+
 export const api = {
+  async config() {
+    const config = await request('/api/config');
+    legacyMode = !config.authEnabled;
+    return config;
+  },
+  authMe() {
+    return request('/api/auth/me');
+  },
+  register(username, password) {
+    return request('/api/auth/register', {
+      method: 'POST',
+      body: { username, password },
+    });
+  },
+  login(username, password) {
+    return request('/api/auth/login', {
+      method: 'POST',
+      body: { username, password },
+    });
+  },
+  logout() {
+    return request('/api/auth/logout', { method: 'POST', body: {} });
+  },
+  legacyStatus() {
+    return request('/api/auth/legacy', { headers: legacyHeaders() });
+  },
+  claim(username, password) {
+    return request('/api/auth/claim', {
+      method: 'POST',
+      body: { username, password },
+      headers: legacyHeaders(),
+    });
+  },
   session(name) {
     return request('/api/session', {
       method: 'POST',
@@ -53,8 +118,15 @@ export const api = {
   profile() {
     return request('/api/profile');
   },
+  progress(type) {
+    const query = type ? `?type=${encodeURIComponent(type)}` : '';
+    return request(`/api/profile/progress${query}`);
+  },
   leaderboard(mode = 'normal') {
     return request(`/api/leaderboard?mode=${encodeURIComponent(mode)}`);
+  },
+  activeRun() {
+    return request('/api/runs/active');
   },
   startRun(mode, difficulty = 'standard') {
     return request('/api/runs', { method: 'POST', body: { mode, difficulty } });

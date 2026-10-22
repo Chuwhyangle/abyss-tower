@@ -1,5 +1,9 @@
-// 手机端验收：竖屏提示、横屏无遮挡、选图弹窗、多入口触控建塔、设置/遗物弹窗。
-import { startTestServer, launchBrowser } from './harness.mjs';
+// 手机端验收：登录、竖屏提示、横屏无遮挡、选图弹窗、多入口触控建塔。
+import {
+  startTestServer,
+  launchBrowser,
+  registerAndLogin,
+} from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 const TEST_SEED = 'ux-1';
@@ -34,12 +38,14 @@ async function chooseMultiEntryMap(browser) {
 
 async function main() {
   const server = await startTestServer({ seedHeader: true });
+  const session = await registerAndLogin(server.base);
   let browser = null;
   try {
     browser = await launchBrowser({
       base: server.base,
       name: 'rtd-mobile',
       initScript: SEED_SCRIPT,
+      cookie: session.rawCookie,
     });
     const setViewport = (width, height) =>
       browser.send('Emulation.setDeviceMetricsOverride', {

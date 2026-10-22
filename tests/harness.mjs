@@ -12,19 +12,24 @@ function randomPort(min = 20000, max = 29999) {
   return min + Math.floor(Math.random() * (max - min));
 }
 
-export async function startTestServer({ seedHeader = false } = {}) {
+export async function startTestServer({ seedHeader = false, dbPath = null, env = {} } = {}) {
   let lastError = '';
   for (let attempt = 0; attempt < 8; attempt++) {
     const port = randomPort();
-    const dbPath = path.join(os.tmpdir(), `rtd-test-${process.pid}-${Date.now()}-${port}.db`);
+    const databasePath =
+      dbPath || path.join(os.tmpdir(), `rtd-test-${process.pid}-${Date.now()}-${port}.db`);
     const child = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
       cwd: ROOT,
       env: {
         ...process.env,
         PORT: String(port),
         HOST: '127.0.0.1',
-        DB_PATH: dbPath,
+        DB_PATH: databasePath,
         ALLOW_TEST_SEED: seedHeader ? '1' : '0',
+        AUTH_ENABLED: '1',
+        REGISTRATION_MODE: 'open',
+        DB_BACKUP: '0',
+        ...env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -41,14 +46,14 @@ export async function startTestServer({ seedHeader = false } = {}) {
           return {
             base,
             port,
-            dbPath,
+            dbPath: databasePath,
             log: () => log,
             async stop() {
               if (child.exitCode == null) child.kill('SIGTERM');
               for (let j = 0; j < 30 && child.exitCode == null; j++) await sleep(50);
               if (child.exitCode == null) child.kill('SIGKILL');
               for (const suffix of ['', '-wal', '-shm']) {
-                try { fs.rmSync(`${dbPath}${suffix}`, { force: true }); } catch { /* ignore */ }
+                try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch { /* ignore */ }
               }
             },
           };
@@ -186,6 +191,39 @@ export class Browser {
   }
 }
 
+export function testUsername(prefix = 'u') {
+  const stamp = Date.now().toString(36).slice(-8);
+  const random = Math.random().toString(36).slice(2, 6);
+  return `${prefix}${stamp}${random}`.slice(0, 16);
+}
+
+// 注册一个隔离测试账号，返回可直接放进 Cookie 头的字符串。
+export async function registerAndLogin(base, { username, password } = {}) {
+  const user = username || testUsername();
+  const pass = password || 'rtd-test-password';
+  const response = await fetch(`${base}/api/auth/register`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: user, password: pass }),
+  });
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new Error(`测试账号注册失败：${response.status} ${data?.error || ''}`);
+  }
+  const setCookies = response.headers.getSetCookie?.() || [];
+  const rawSetCookie = setCookies[0] || response.headers.get('set-cookie') || '';
+  const rawCookie = rawSetCookie.split(';')[0];
+  if (!rawCookie) throw new Error('测试账号注册成功但没有返回会话 Cookie');
+  const [cookieName, cookieValue] = rawCookie.split('=');
+  return {
+    username: user,
+    password: pass,
+    data,
+    rawCookie,
+    cookie: { name: cookieName, value: cookieValue },
+  };
+}
+
 export async function launchBrowser({
   base,
   name = 'rtd-test',
@@ -193,6 +231,8 @@ export async function launchBrowser({
   width = 1440,
   height = 1000,
   onError = null,
+  cookie = null,
+  awaitBoot = true,
 } = {}) {
   const debugPort = randomPort(30000, 39999);
   const profileDir = path.join(os.tmpdir(), `${name}-${process.pid}-${Date.now()}-${debugPort}`);
@@ -227,11 +267,15 @@ export async function launchBrowser({
   const browser = new Browser(ws, chrome, profileDir, { onError });
   await browser.send('Page.enable');
   await browser.send('Runtime.enable');
+  await browser.send('Network.enable');
+  if (cookie) {
+    await browser.send('Network.setExtraHTTPHeaders', { headers: { Cookie: cookie } });
+  }
   if (initScript) {
     await browser.send('Page.addScriptToEvaluateOnNewDocument', { source: initScript });
   }
   await browser.send('Page.navigate', { url: `${base}/` });
-  await browser.waitBoot();
+  if (awaitBoot) await browser.waitBoot();
   return browser;
 }
 
