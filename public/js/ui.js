@@ -214,6 +214,53 @@ class UI {
     modal.querySelector('#btn-cancel-diff').onclick = () => this.closeModal();
   }
 
+  showMapSelect({ candidates, onChoose, onCancel }) {
+    const cards = candidates
+      .map((candidate, index) => {
+        const modifier = candidate.modifier;
+        const color = modifier?.color || '#9fb0c3';
+        const preview = mapPreviewSvg(candidate);
+        return `
+          <button class="map-card" data-index="${index}" style="--lane:${color}">
+            <div class="map-preview">${preview}</div>
+            <div class="map-card-head">
+              <b>${candidate.archetypeName}</b>
+              <span class="map-portals">${candidate.spawns.length} 入口</span>
+            </div>
+            <p class="map-desc">${candidate.meta?.merge ? '路径汇流，关键路口价值高' : '单路推进，塔位充足'}</p>
+            <div class="map-mod" style="color:${color}">
+              <b>${modifier?.name || '无词缀'}</b>
+              <span>${modifier?.desc || '标准地图'}</span>
+            </div>
+            <div class="map-foot">
+              <span>分数 ×${candidate.meta?.scoreMul?.toFixed(2) || '1.00'}</span>
+              <span class="pick">选择此图</span>
+            </div>
+          </button>`;
+      })
+      .join('');
+
+    const modal = this.openModal(
+      `
+        <div class="map-select">
+          <p class="eyebrow">EXPEDITION MAP</p>
+          <h2>选择远征地图</h2>
+          <p class="muted">三张候选地图共享本局种子；入口、汇流与词缀会改变防守策略。</p>
+          <div class="map-cards">${cards}</div>
+          <div class="modal-actions">
+            <button class="btn ghost" id="btn-cancel-map">放弃本局</button>
+          </div>
+        </div>
+      `,
+      { className: 'map-modal', closable: false }
+    );
+
+    modal.querySelectorAll('.map-card').forEach((card) => {
+      card.onclick = () => onChoose?.(Number(card.dataset.index));
+    });
+    modal.querySelector('#btn-cancel-map').onclick = () => onCancel?.();
+  }
+
   showGame({ game, profile }) {
     this.game = game;
     if (profile) this.profile = profile;
@@ -246,11 +293,13 @@ class UI {
     }
 
     if (hud.phase === 'wave') {
-      this.el.waveState.textContent = hud.waveDef?.finalBoss
+      const portals = hud.activePortals?.length || 1;
+      const portalText = portals > 1 ? ` · ${portals} 入口` : '';
+      this.el.waveState.textContent = (hud.waveDef?.finalBoss
         ? '⚠ 最终首领'
         : hud.waveDef?.boss
           ? '⚠ 首领波次'
-          : '战斗中';
+          : '战斗中') + portalText;
       this.el.waveState.classList.add('live');
       this.el.nextWave.disabled = true;
       this.el.nextWave.textContent = `战斗中 · ${hud.enemies} 敌`;
@@ -859,6 +908,39 @@ class UI {
       }, 260);
     }, duration);
   }
+}
+
+function mapPreviewSvg(map) {
+  const w = 220;
+  const h = 120;
+  const pad = 7;
+  const sx = (w - pad * 2) / map.cols;
+  const sy = (h - pad * 2) / map.rows;
+  const lanes = (map.lanes || [])
+    .map((lane) => {
+      const points = lane.polyline
+        .map((p) => `${(pad + p.x * sx).toFixed(1)},${(pad + p.y * sy).toFixed(1)}`)
+        .join(' ');
+      return `<polyline points="${points}" fill="none" stroke="${lane.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.9" />`;
+    })
+    .join('');
+  const spawns = (map.spawns || [])
+    .map(
+      (spawn) =>
+        `<circle cx="${(pad + spawn.x * sx).toFixed(1)}" cy="${(pad + spawn.y * sy).toFixed(1)}" r="4.2" fill="${spawn.color}" stroke="#071014" stroke-width="1.5" />`
+    )
+    .join('');
+  const base = `<circle cx="${(pad + map.base.x * sx).toFixed(1)}" cy="${(pad + map.base.y * sy).toFixed(1)}" r="5" fill="#4fd8c8" stroke="#d8fff9" stroke-width="1.5" />`;
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="地图预览">
+    <rect width="${w}" height="${h}" rx="10" fill="#0a1319" />
+    <g opacity="0.12" stroke="#6fa78a" stroke-width="0.5">
+      ${Array.from({ length: map.cols + 1 }, (_, i) => `<line x1="${pad + i * sx}" y1="${pad}" x2="${pad + i * sx}" y2="${h - pad}" />`).join('')}
+      ${Array.from({ length: map.rows + 1 }, (_, i) => `<line x1="${pad}" y1="${pad + i * sy}" x2="${w - pad}" y2="${pad + i * sy}" />`).join('')}
+    </g>
+    ${lanes}
+    ${spawns}
+    ${base}
+  </svg>`;
 }
 
 function escapeHtml(text) {

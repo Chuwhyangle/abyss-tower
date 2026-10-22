@@ -34,6 +34,7 @@ db.exec(`
     day TEXT NOT NULL,
     waves_served INTEGER NOT NULL DEFAULT 0,
     cleared_waves INTEGER NOT NULL DEFAULT 0,
+    map_choice INTEGER NOT NULL DEFAULT -1,
     relics TEXT NOT NULL DEFAULT '[]',
     offers TEXT NOT NULL DEFAULT '{}',
     rerolls_used INTEGER NOT NULL DEFAULT 0,
@@ -90,6 +91,15 @@ if (clearedWavesAdded) {
          WHEN waves_served > 0 THEN waves_served - 1
          ELSE 0
        END
+  `);
+}
+
+const mapChoiceAdded = ensureColumn('runs', 'map_choice', 'INTEGER NOT NULL DEFAULT -1');
+if (mapChoiceAdded) {
+  // 旧局没有地图候选数据；已结束局按 0 回填，进行中局弃用以免旧塔位落在新路径上。
+  db.exec(`
+    UPDATE runs SET map_choice = 0 WHERE map_choice < 0 AND status = 'finished';
+    UPDATE runs SET status = 'abandoned', finished_at = created_at WHERE status = 'active' AND map_choice < 0;
   `);
 }
 ensureColumn('leaderboard', 'difficulty', "TEXT NOT NULL DEFAULT 'standard'");
@@ -186,6 +196,7 @@ export function hydrateRun(row) {
     day: row.day,
     wavesServed: row.waves_served,
     clearedWaves: row.cleared_waves ?? 0,
+    mapChoice: row.map_choice ?? -1,
     relics: normalizeRelicStates(safeParse(row.relics, [])),
     offers: safeParse(row.offers, {}),
     rerollsUsed: row.rerolls_used,

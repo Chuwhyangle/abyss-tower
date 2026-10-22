@@ -4,7 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-import { startTestServer, launchBrowser, TEST_SEED_SCRIPT, ROOT } from './harness.mjs';
+import {
+  startTestServer,
+  launchBrowser,
+  chooseFirstMap,
+  TEST_SEED_SCRIPT,
+  ROOT,
+} from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 const MEASURE_MS = Number(process.env.PERF_MS || 4000);
@@ -53,7 +59,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="standard"]').click()`);
-    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.app)`, '游戏创建');
+    await chooseFirstMap(browser);
 
     // 页面内固定场景构造器
     await browser.evaluate(`

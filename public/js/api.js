@@ -62,6 +62,12 @@ export const api = {
   getRun(id) {
     return request(`/api/runs/${encodeURIComponent(id)}`);
   },
+  selectMap(id, index) {
+    return request(`/api/runs/${encodeURIComponent(id)}/map`, {
+      method: 'POST',
+      body: { index },
+    });
+  },
   startWave(id) {
     return request(`/api/runs/${encodeURIComponent(id)}/wave`, { method: 'POST', body: {} });
   },

@@ -235,6 +235,13 @@ export async function launchBrowser({
   return browser;
 }
 
+// 新开局流程：难度卡片点击后需要从三张地图中选一张。
+export async function chooseFirstMap(browser) {
+  await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗');
+  await browser.evaluate(`document.querySelector('.map-card').click()`);
+  await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '地图加载完成');
+}
+
 // 让页面里的 fetch 带上固定测试种子（仅在隔离服务的 ALLOW_TEST_SEED=1 时生效）。
 export const TEST_SEED_SCRIPT = `
   (() => {

@@ -2,7 +2,7 @@
 // 使用隔离服务端、临时数据库与独立 Chrome 配置。
 import fs from 'node:fs';
 import path from 'node:path';
-import { startTestServer, launchBrowser } from './harness.mjs';
+import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
@@ -16,7 +16,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
-    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '模拟创建');
+    await chooseFirstMap(browser);
     await browser.waitFor(`document.getElementById('game-screen').hidden === false`, '战斗界面');
 
     const built = await browser.evaluate(`
@@ -230,7 +230,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗（第二局）');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
-    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '第二局模拟');
+    await chooseFirstMap(browser);
     await browser.evaluate(`document.querySelector('#btn-next-wave').click()`);
     await browser.waitFor(`window.__rtd.state.sim.phase === 'wave'`, '第二局波次开始');
     await browser.evaluate(`

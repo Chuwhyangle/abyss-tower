@@ -33,11 +33,12 @@ export function computeOutcome({
   goldLeft,
   baseHp,
   difficulty = 'standard',
+  scoreMul = 1,
 }) {
   const diff = getDifficulty(difficulty);
   const victory = isVictory(waveReached, wavesServed);
   const rawScore = computeRawScore({ waveReached, kills, goldLeft, baseHp, victory });
-  const score = Math.round(rawScore * diff.scoreMul);
+  const score = Math.round(rawScore * diff.scoreMul * scoreMul);
   const cores = Math.round(
     (Math.floor(waveReached) * 2 + Math.floor(rawScore / 2500) + (victory ? VICTORY_CORES : 0)) *
       diff.coresMul

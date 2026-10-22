@@ -13,7 +13,7 @@ import {
   hydrateRun,
   normalizeStats,
 } from './db.mjs';
-import { generateMap } from '../public/js/shared/mapgen.js';
+import { generateMapCandidates } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
   rollRelicOffers,
@@ -232,10 +232,11 @@ async function handleApi(req, res, url) {
     ).run(Date.now(), token);
 
     const id = crypto.randomBytes(9).toString('base64url');
+    const candidates = generateMapCandidates(seed, 3);
     db.prepare(
       `INSERT INTO runs
-         (id, token, mode, difficulty, seed, day, waves_served, cleared_waves, relics, offers, rerolls_used, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, '{}', 0, 'active', ?)`
+         (id, token, mode, difficulty, seed, day, waves_served, cleared_waves, map_choice, relics, offers, rerolls_used, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, -1, ?, '{}', 0, 'active', ?)`
     ).run(id, token, mode, difficulty, seed, day, JSON.stringify(startRelics), Date.now());
 
     return json(res, 200, {
@@ -245,7 +246,7 @@ async function handleApi(req, res, url) {
       difficulty,
       difficultyConfig: difficultyPayload(difficulty),
       day,
-      map: generateMap(seed),
+      candidates,
       startingGold,
       baseHp,
       relics: startRelics,
@@ -257,7 +258,7 @@ async function handleApi(req, res, url) {
     });
   }
 
-  const runMatch = pathname.match(/^\/api\/runs\/([A-Za-z0-9_-]+)(?:\/(wave|clear|relics|relic|finish|abandon))?$/);
+  const runMatch = pathname.match(/^\/api\/runs\/([A-Za-z0-9_-]+)(?:\/(wave|clear|map|relics|relic|finish|abandon))?$/);
   if (runMatch) {
     const runId = runMatch[1];
     const action = runMatch[2] || 'info';
@@ -265,6 +266,8 @@ async function handleApi(req, res, url) {
     if (!run) return fail(res, 404, '远征不存在');
 
     if (action === 'info' && method === 'GET') {
+      const candidates = generateMapCandidates(run.seed, 3);
+      const chosen = run.mapChoice >= 0 ? candidates[run.mapChoice] || null : null;
       return json(res, 200, {
         run: {
           id: run.id,
@@ -277,6 +280,9 @@ async function handleApi(req, res, url) {
           clearedWaves: run.clearedWaves,
           inProgress: run.clearedWaves < run.wavesServed,
           currentWave: run.clearedWaves < run.wavesServed ? run.wavesServed : run.clearedWaves,
+          mapChoice: run.mapChoice,
+          map: chosen,
+          mapMeta: chosen?.meta || null,
           relics: normalizeRelicStates(run.relics),
           status: run.status,
           victory: !!run.victory,
@@ -290,12 +296,39 @@ async function handleApi(req, res, url) {
 
     if (run.status !== 'active') return fail(res, 409, '该远征已结束');
 
+    if (action === 'map' && method === 'POST') {
+      const body = await readJson(req);
+      const index = Math.floor(Number(body.index));
+      if (!Number.isInteger(index) || index < 0 || index > 2) {
+        return fail(res, 400, '地图编号不合法');
+      }
+      const candidates = generateMapCandidates(run.seed, 3);
+      const chosen = candidates[index];
+      if (!chosen) return fail(res, 400, '地图不存在');
+      if (run.wavesServed > 0) return fail(res, 409, '远征已经开始，不能更换地图');
+      if (run.mapChoice >= 0) {
+        if (run.mapChoice === index) {
+          return json(res, 200, { map: chosen, mapMeta: chosen.meta, mapChoice: index });
+        }
+        return fail(res, 409, '本局地图已经选择');
+      }
+      db.prepare('UPDATE runs SET map_choice = ? WHERE id = ?').run(index, runId);
+      return json(res, 200, { map: chosen, mapMeta: chosen.meta, mapChoice: index });
+    }
+
     if (action === 'wave' && method === 'POST') {
+      if (run.mapChoice < 0) return fail(res, 409, '请先选择地图');
+      const candidates = generateMapCandidates(run.seed, 3);
+      const mapMeta = candidates[run.mapChoice]?.meta || {};
+      const waveOptions = {
+        portalCount: mapMeta.portalCount || 1,
+        modifier: mapMeta.modifier || null,
+      };
       // 有未结算波次时重放当前波，不推进波次、不重复发奖。
       if (run.clearedWaves < run.wavesServed) {
         const current = run.wavesServed;
         return json(res, 200, {
-          wave: generateWave(run.seed, current, run.difficulty),
+          wave: generateWave(run.seed, current, run.difficulty, waveOptions),
           replay: true,
           clearedWaves: run.clearedWaves,
           wavesServed: run.wavesServed,
@@ -305,7 +338,7 @@ async function handleApi(req, res, url) {
       const next = run.wavesServed + 1;
       db.prepare('UPDATE runs SET waves_served = ? WHERE id = ?').run(next, runId);
       return json(res, 200, {
-        wave: generateWave(run.seed, next, run.difficulty),
+        wave: generateWave(run.seed, next, run.difficulty, waveOptions),
         replay: false,
         clearedWaves: run.clearedWaves,
         wavesServed: next,
@@ -449,10 +482,15 @@ async function handleApi(req, res, url) {
     if (action === 'finish' && method === 'POST') {
       const body = await readJson(req);
       const payload = clampFinishPayload(body, run.clearedWaves);
+      const mapMeta =
+        run.mapChoice >= 0
+          ? generateMapCandidates(run.seed, 3)[run.mapChoice]?.meta || null
+          : null;
       const outcome = computeOutcome({
         ...payload,
         wavesServed: run.clearedWaves,
         difficulty: run.difficulty,
+        scoreMul: mapMeta?.scoreMul || 1,
       });
       const now = Date.now();
       const durationMs = Math.max(0, now - run.createdAt);

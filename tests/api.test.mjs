@@ -99,9 +99,20 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(started.data.difficulty, 'abyss');
   assert.equal(started.data.startingGold, 240); // 260 - 20
   assert.equal(started.data.baseHp, 17); // 20 - 3
-  assert.equal(started.data.map.cols, 22);
   assert.equal(started.data.difficultyConfig.hpMul, 1.18);
+  assert.equal(started.data.candidates.length, 3);
   const runId = started.data.runId;
+
+  const noMapWave = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
+  assert.equal(noMapWave.status, 409);
+
+  const pickedMap = await api(`/api/runs/${runId}/map`, {
+    method: 'POST',
+    body: { index: 0 },
+  });
+  assert.equal(pickedMap.status, 200);
+  assert.equal(pickedMap.data.map.cols, 22);
+  assert.equal(pickedMap.data.map.spawns.length, pickedMap.data.mapMeta.portalCount);
 
   const wave = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
   assert.equal(wave.status, 200);
@@ -193,6 +204,7 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
     ...clamped,
     wavesServed: 1,
     difficulty: 'abyss',
+    scoreMul: pickedMap.data.mapMeta.scoreMul,
   });
   assert.equal(finished.data.score, expected.score);
   assert.equal(finished.data.coresEarned, expected.cores);
@@ -236,6 +248,11 @@ test('通关校验：必须清空第 30 波，途中死亡/重放不算通关', 
   const unfinished = await startRun('normal', 'standard');
   assert.equal(unfinished.status, 200);
   const unfinishedId = unfinished.data.runId;
+  const unfinishedMap = await api(`/api/runs/${unfinishedId}/map`, {
+    method: 'POST',
+    body: { index: 0 },
+  });
+  assert.equal(unfinishedMap.status, 200);
   for (let wave = 1; wave <= 29; wave++) {
     await serve(unfinishedId, wave);
     await clear(unfinishedId, wave);
@@ -257,6 +274,7 @@ test('通关校验：必须清空第 30 波，途中死亡/重放不算通关', 
   const started = await startRun('normal', 'standard');
   assert.equal(started.status, 200);
   const runId = started.data.runId;
+  await api(`/api/runs/${runId}/map`, { method: 'POST', body: { index: 0 } });
 
   for (let wave = 1; wave <= 30; wave++) {
     const served = await serve(runId, wave);
@@ -297,6 +315,10 @@ test('每日挑战：自选难度、三次结算上限', async () => {
 
     if (attempt === 1) {
       // 重放同一波不额外消耗每日次数
+      await api(`/api/runs/${started.data.runId}/map`, {
+        method: 'POST',
+        body: { index: 0 },
+      });
       const wave = await api(`/api/runs/${started.data.runId}/wave`, {
         method: 'POST',
         body: {},

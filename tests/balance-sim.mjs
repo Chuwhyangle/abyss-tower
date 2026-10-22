@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Simulation } from '../public/js/sim.js';
-import { generateMap } from '../public/js/shared/mapgen.js';
+import { generateMapCandidates } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
   DIFFICULTIES,
@@ -65,7 +65,9 @@ function offerValue(offer) {
 
 function buildCoverage(map, sim) {
   const samples = [];
-  for (let d = 0; d < sim.pathLen; d += 0.5) samples.push(sim.posAt(d));
+  sim.lanes.forEach((lane, laneIndex) => {
+    for (let d = 0; d < lane.len; d += 0.5) samples.push(sim.posAt(d, laneIndex));
+  });
 
   const cells = [];
   for (let r = 0; r < map.rows; r++) {
@@ -132,7 +134,7 @@ function spendGold(sim, wave, cells) {
 
 function runOne(seed, difficulty, meta) {
   const diff = DIFFICULTIES[difficulty];
-  const map = generateMap(seed);
+  const map = generateMapCandidates(seed, 3)[0];
   const waveLog = [];
   const baseHp = Math.max(8, 20 + (meta ? 3 : 0) + diff.hpBonus);
   const startGold = Math.max(100, 260 + (meta ? 40 : 0) + diff.goldBonus);
@@ -169,7 +171,7 @@ function runOne(seed, difficulty, meta) {
   let lastWave = 0;
 
   for (let wave = 1; wave <= MAX_WAVE; wave++) {
-    const waveDef = generateWave(seed, wave, difficulty);
+    const waveDef = generateWave(seed, wave, difficulty, map.meta);
     lastWave = wave;
     sim.beginWave(waveDef);
 

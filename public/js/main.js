@@ -151,7 +151,39 @@ async function startRun(mode, difficulty) {
   try {
     const data = await api.startRun(mode, difficulty);
     clearSnapshot();
-    beginGame(data, null);
+    if (data.candidates?.length) {
+      let choosing = false;
+      ui.showMapSelect({
+        candidates: data.candidates,
+        onChoose: async (index) => {
+          if (choosing) return;
+          choosing = true;
+          try {
+            const selection = await api.selectMap(data.runId, index);
+            ui.closeModal();
+            beginGame({ ...data, ...selection }, null);
+          } catch (error) {
+            choosing = false;
+            ui.toast(error.message, 3000);
+          }
+        },
+        onCancel: async () => {
+          try {
+            await api.abandonRun(data.runId);
+          } catch {
+            /* 忽略 */
+          }
+          ui.closeModal();
+          ui.showTitle(state.profile, {
+            hasSnapshot: !!loadSnapshot(),
+            dailyLeft: state.dailyLeft,
+          });
+        },
+      });
+    } else {
+      // 兼容旧服务端：直接返回 map
+      beginGame(data, null);
+    }
   } catch (error) {
     ui.toast(error.message, 3000);
   } finally {
@@ -201,6 +233,8 @@ function beginGame(data, snapshot) {
     rerollsUsed: data.rerollsUsed ?? 0,
     clearedWaves: data.clearedWaves ?? sim.clearedWave,
     wavesServed: data.wavesServed ?? sim.clearedWave,
+    mapChoice: data.mapChoice ?? sim.map.index ?? 0,
+    mapMeta: data.mapMeta || sim.map.meta || null,
   };
   if (data.dailyAttemptsLeft != null) state.dailyLeft = data.dailyAttemptsLeft;
 
@@ -232,7 +266,8 @@ async function resumeRun() {
       seed: run.seed,
       mode: run.mode,
       difficulty: run.difficulty,
-      map: generateMap(run.seed),
+      map: run.map || generateMap(run.seed),
+      mapMeta: run.mapMeta || run.map?.meta || null,
       startingGold: snap.gold,
       baseHp: snap.baseHp,
       maxBaseHp: snap.maxBaseHp,

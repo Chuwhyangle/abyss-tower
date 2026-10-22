@@ -147,31 +147,41 @@ export const DIFFICULTIES = {
 - 难度只影响参数，不改变 30 波结构。
 - 每日挑战允许自选难度；排行榜合并，最终分数已包含难度倍率。
 
-### 4.3 地图生成
+### 4.3 地图生成（路径图）
 
-- 网格 22×12；随机 DFS 从 `(0, startRow)` 到任意 `col=21` 的格子。
-- 约束：路径格不可重复；新格不得与已有路径正交相邻（当前格除外）；失败重试 80 次，兜底蛇形路径。
-- 简化共线点；输出：
-  - `polyline`（格中心，tile 坐标）
-  - `pathCells`
-  - `buildable[r][c]`
-  - `blocked[r][c]` 与 `rocks`
-  - `spawn` / `base`
-- 服务端与客户端使用同一函数；服务端下发完整地图对象。
+- 网格 22×12；每张地图由 1–3 条 lane 组成，每条 lane 从左侧入口出发，可共享汇流段/支路。
+- 5 种原型：`canyon / twin / triple / ring / cross`；每种原型有 spawn 数、蜿蜒系数、分数倍率。
+- 生成流程：选基地与汇流点 → 生成主路/支路 → 用带约束的随机 DFS 生成各入口到汇流点/基地的路径 → 校验长度差、可建造比例、路径不重叠 → 失败重试 140 次，最终兜底单径蛇形。
+- 输出：
+  ```js
+  {
+    archetype, modifier, meta: { portalCount, scoreMul, merge },
+    lanes: [{ id, cells, polyline, length, color }],
+    spawns: [{ id, c, r, x, y, color }],
+    base, pathCells, buildable, blocked, rocks,
+    // 兼容字段：polyline/spawn 指向第一条 lane
+  }
+  ```
+- `generateMapCandidates(seed, 3)` 生成三张候选；同种子完全一致，至少包含一张单径/双径低复杂度地图。
+- 4 个词缀：`rich / swift / mist / rift`；`rift` 增加一个入口，`cross` 与 `rift` 组合会自动换词缀避免过度拥挤。
+- 服务端与客户端使用同一生成器；服务端下发完整地图与 `meta`。
 
 ### 4.4 波次生成
 
 ```js
-generateWave(seed, wave, difficulty) -> {
-  index, groups[{type,count,interval,delay}], hpMul, speedMul, reward, boss, totalCount
+generateWave(seed, wave, difficulty, mapMeta) -> {
+  index, groups[{type,count,interval,delay,portal}],
+  hpMul, speedMul, reward, boss, totalCount,
+  portals, modifierId
 }
 ```
 
-- 基础公式：`hpMul = 1.165^(wave-1) × 难度 hpMul`；`count = round(baseCount × 类型系数 × 难度 countMul)`。
+- 基础公式：`hpMul = 1.165^(wave-1) × 难度 hpMul × 词缀 hpMul`；`count` 规则不变。
 - 数量预算：`4.5 + 1.05×wave`，第 10 波后每波额外 `+0.6`；单波上限 80。
-- 每 5 波首领；第 30 波为最终首领。首领基础 900 血 / 3 点漏怪伤害 / 5 护甲，避免单点墙。
+- **入口计划**：前 5 波单入口；12 波后随机双入口；25 波后与首领/最终波使用全部入口。每个 group 分配 `portal`，客户端按 lane 生成敌人。
+- 每 5 波首领；第 30 波为最终首领。首领基础 900 血 / 3 点漏怪伤害 / 5 护甲。
 - 清波奖励 `20 + 3×wave`；击杀金币随波次小幅增长（0.5%/波）。
-- 相同 `(seed, wave, difficulty)` 结果完全一致。
+- 相同 `(seed, wave, difficulty, mapMeta)` 结果完全一致。
 - 以上数值集中在 `shared/config.js`，由 `tests/balance-sim.mjs` 回归验证。
 
 ### 4.5 遗物等级与抽取
@@ -304,6 +314,7 @@ runs(
   day TEXT NOT NULL,               -- YYYY-MM-DD（UTC）
   waves_served INTEGER NOT NULL DEFAULT 0,   -- 最高已放行波次
   cleared_waves INTEGER NOT NULL DEFAULT 0,  -- 已确认清波数（进行中 < 已放行）
+  map_choice INTEGER NOT NULL DEFAULT -1,    -- 三张候选地图中的选择；-1 未选择
   relics TEXT NOT NULL DEFAULT '[]',
   offers TEXT NOT NULL DEFAULT '{}',
   rerolls_used INTEGER NOT NULL DEFAULT 0,
@@ -354,7 +365,8 @@ leaderboard(
 | GET | `/api/profile` | — | `{profile}` |
 | POST | `/api/runs` | `{mode, difficulty}` | 见下 |
 | GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls） |
-| POST | `/api/runs/:id/wave` | `{}` | `{wave, replay, clearedWaves, wavesServed}`；有未清波次时重放当前波 |
+| POST | `/api/runs/:id/map` | `{index}` | `{map, mapMeta, mapChoice}`；开局前选择三张候选之一 |
+| POST | `/api/runs/:id/wave` | `{}` | `{wave, replay, clearedWaves, wavesServed}`；有未清波次时重放当前波；未选地图 409 |
 | POST | `/api/runs/:id/clear` | `{wave}` | `{ok, clearedWaves, wavesServed, nextWave, duplicate?}` |
 | POST | `/api/runs/:id/relics` | `{reroll?:boolean}` | `{wave, offers[{kind,id,fromLevel,toLevel}|{kind,amount}], picked, relics, rerollsUsed, maxRerolls}` |
 | POST | `/api/runs/:id/relic` | `{index}`（兼容 `{relicId}`） | `{applied, picked, relics}` |
@@ -403,7 +415,7 @@ rawScore =
   baseHp * 150 +
   (victory ? 10000 : 0);
 
-score = Math.round(rawScore * difficulty.scoreMul);
+score = Math.round(rawScore * difficulty.scoreMul * mapMeta.scoreMul);
 
 cores = Math.round(
   (waveReached * 2 + Math.floor(rawScore / 2500) + (victory ? 15 : 0)) *

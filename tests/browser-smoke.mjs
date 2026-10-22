@@ -1,7 +1,7 @@
 // 无头浏览器冒烟：选难度 → 建塔 → 开波。使用隔离服务端与临时数据库。
 // 用法：node tests/browser-smoke.mjs
 import path from 'node:path';
-import { startTestServer, launchBrowser } from './harness.mjs';
+import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
@@ -20,7 +20,7 @@ async function main() {
     await browser.screenshot(path.join(OUT_DIR, 'rtd-02-difficulty.png'));
 
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
-    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '模拟创建');
+    await chooseFirstMap(browser);
     await browser.waitFor(
       `document.getElementById('game-screen').hidden === false`,
       '战斗界面'
