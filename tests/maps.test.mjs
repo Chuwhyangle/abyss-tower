@@ -102,6 +102,81 @@ test('多入口移动：敌人沿各自 lane 前进并独立结算漏怪', () =>
   assert.ok(sim.enemies.every((enemy) => enemy.progress > 0));
 });
 
+function pointOnPolyline(pts, x, y) {
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const cross = (x - a.x) * (b.y - a.y) - (y - a.y) * (b.x - a.x);
+    if (Math.abs(cross) > 1e-9) continue;
+    if (x < Math.min(a.x, b.x) - 1e-9 || x > Math.max(a.x, b.x) + 1e-9) continue;
+    if (y < Math.min(a.y, b.y) - 1e-9 || y > Math.max(a.y, b.y) + 1e-9) continue;
+    return true;
+  }
+  return false;
+}
+
+test('多入口路径：起点/终点、lane 配色、汇流点与共享主干', () => {
+  let checked = 0;
+  for (let i = 0; i < 120; i++) {
+    for (const candidate of generateMapCandidates(`lane-geom-${i}`, 3)) {
+      assert.ok(candidate.lanes.length >= 1);
+      candidate.lanes.forEach((lane, index) => {
+        const spawn = candidate.spawns[index];
+        assert.equal(spawn.color, lane.color, `${candidate.seed} 入口 ${index} 配色`);
+        const first = lane.polyline[0];
+        const last = lane.polyline[lane.polyline.length - 1];
+        assert.equal(first.x, spawn.x, `${candidate.seed} 路径起点 x`);
+        assert.equal(first.y, spawn.y, `${candidate.seed} 路径起点 y`);
+        assert.equal(last.x, candidate.base.x, `${candidate.seed} 路径终点 x`);
+        assert.equal(last.y, candidate.base.y, `${candidate.seed} 路径终点 y`);
+        for (let p = 1; p < lane.polyline.length; p++) {
+          const a = lane.polyline[p - 1];
+          const b = lane.polyline[p];
+          assert.ok(
+            a.x === b.x || a.y === b.y,
+            `${candidate.seed} lane ${index} 存在斜线段`
+          );
+        }
+      });
+
+      if (candidate.spawns.length > 1) {
+        checked++;
+        const merge = candidate.meta.merge;
+        assert.ok(merge, `${candidate.seed} 多入口缺少汇流点`);
+        const mergeX = merge.c + 0.5;
+        const mergeY = merge.r + 0.5;
+        for (const lane of candidate.lanes) {
+          assert.ok(
+            pointOnPolyline(lane.polyline, mergeX, mergeY),
+            `${candidate.seed} 汇流点不在 lane ${lane.id} 的路径上`
+          );
+          assert.ok(
+            lane.cells.some((cell) => cell.c === merge.c && cell.r === merge.r),
+            `${candidate.seed} 汇流点不在 lane ${lane.id} 的格子中`
+          );
+        }
+
+        if (candidate.archetype !== 'cross') {
+          // 中途汇流：所有 lane 共享汇流后的主干格子（折线化简后未必保留汇流点顶点）。
+          const cells = candidate.lanes.map((lane) => lane.cells);
+          const minLen = Math.min(...cells.map((item) => item.length));
+          let suffix = 0;
+          while (
+            suffix < minLen &&
+            cells.every(
+              (item) =>
+                item[item.length - 1 - suffix].c === cells[0][cells[0].length - 1 - suffix].c &&
+                item[item.length - 1 - suffix].r === cells[0][cells[0].length - 1 - suffix].r
+            )
+          ) suffix++;
+          assert.ok(suffix >= 2, `${candidate.seed} 汇流后未共享主干：${suffix}`);
+        }
+      }
+    }
+  }
+  assert.ok(checked > 50, `多入口地图样本不足：${checked}`);
+});
+
 test('词缀：薄雾降低射程，富矿提高击杀金币，计分乘数生效', () => {
   const mistMap = mapWithArchetype('canyon', 'mist');
   const mist = new Simulation({

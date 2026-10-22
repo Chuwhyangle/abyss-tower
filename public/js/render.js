@@ -245,25 +245,50 @@ export class Renderer {
     }
   }
 
+  // 入口视觉状态：整备阶段全部常态；波中仅激活入口高亮，其余变暗。
+  // 暴露给验收测试，避免直接读取 Canvas 像素。
+  portalStates() {
+    const map = this.game.map;
+    const spawns = map.spawns?.length
+      ? map.spawns
+      : [{ x: map.spawn.x, y: map.spawn.y, color: '#c9a8ff' }];
+    const inWave = this.game.phase === 'wave';
+    const active = new Set(
+      inWave
+        ? this.game.activePortals?.length
+          ? this.game.activePortals
+          : [0]
+        : spawns.map((_, index) => index)
+    );
+    return spawns.map((spawn, index) => {
+      const isActive = active.has(index);
+      return {
+        index,
+        label: index + 1,
+        color: spawn.color || '#c9a8ff',
+        active: isActive,
+        dimmed: inWave && !isActive,
+      };
+    });
+  }
+
   drawPortals(g) {
     const map = this.game.map;
     const t = this.time;
     const glowOn = this.settings.glow;
+    const states = this.portalStates();
     const spawns = map.spawns?.length
       ? map.spawns
       : [{ x: map.spawn.x, y: map.spawn.y, color: '#c9a8ff' }];
-    const active = new Set(
-      this.game.activePortals?.length ? this.game.activePortals : [0]
-    );
     const pulse = 0.85 + Math.sin(t * 3) * 0.15;
 
     spawns.forEach((spawn, index) => {
       const sx = spawn.x * T;
       const sy = spawn.y * T;
       const color = spawn.color || '#c9a8ff';
-      const isActive = active.has(index);
+      const isActive = states[index]?.active !== false;
       g.save();
-      if (!isActive) g.globalAlpha = 0.35;
+      if (!isActive) g.globalAlpha = 0.42;
 
       if (glowOn) {
         const grad = g.createRadialGradient(sx, sy, 2, sx, sy, 30 * pulse);
@@ -294,7 +319,7 @@ export class Renderer {
       g.font = '700 10px "DejaVu Sans Mono", ui-monospace, monospace';
       g.textAlign = 'center';
       g.textBaseline = 'middle';
-      g.fillText(String(index + 1), 0, 0);
+      g.fillText(String(states[index]?.label ?? index + 1), 0, 0);
       g.restore();
     });
 
