@@ -1,12 +1,19 @@
 // 无头平衡模拟：用真实 Simulation 跑完整 30 波，机器人自动建塔/选遗物。
 // 结果用于三档难度的相对比较与回归，不代替真人试玩。
-// 用法：node tests/balance-sim.mjs [seeds] [--write]
+// 用法：node tests/balance-sim.mjs [seeds] [--write] [--detail] [--candidates=N]
+//
+// 每个种子默认跑 3 张候选地图（与真人开局三选一一致），并按地图原型/词缀/候选序号
+// 分别统计，避免只看 candidate 0 造成的抽样偏差。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Simulation } from '../public/js/sim.js';
-import { generateMapCandidates } from '../public/js/shared/mapgen.js';
+import {
+  ARCHETYPES,
+  MODIFIER_BY_ID,
+  generateMapCandidates,
+} from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
   DIFFICULTIES,
@@ -22,7 +29,14 @@ const STEP = 1 / 60;
 const MAX_WAVE_SECONDS = 180;
 const MAX_SIM_STEPS_PER_WAVE = Math.ceil(MAX_WAVE_SECONDS / STEP);
 
+function numericArg(flag, fallback) {
+  const raw = process.argv.find((arg) => arg.startsWith(`--${flag}=`));
+  const value = Number(raw ? raw.slice(flag.length + 3) : NaN);
+  return Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
+}
+
 const SEEDS = Math.max(1, Number(process.argv[2]) || 6);
+const CANDIDATES = Math.min(3, numericArg('candidates', 3));
 const WRITE_DOC = process.argv.includes('--write');
 const DETAIL = process.argv.includes('--detail');
 
@@ -63,11 +77,23 @@ function offerValue(offer) {
   return 0;
 }
 
-function buildCoverage(map, sim) {
+// 按 lane 采样路径点：每条 lane 都从入口采到基地（含终点），保证多入口地图的
+// 覆盖评分不会漏掉任何一路。返回的 lane 字段用于校验/调试。
+export function sampleLanePoints(sim, step = 0.5) {
   const samples = [];
   sim.lanes.forEach((lane, laneIndex) => {
-    for (let d = 0; d < lane.len; d += 0.5) samples.push(sim.posAt(d, laneIndex));
+    const count = Math.max(1, Math.ceil(lane.len / step));
+    for (let i = 0; i <= count; i++) {
+      const d = Math.min(lane.len, i * step);
+      const pos = sim.posAt(d, laneIndex);
+      samples.push({ x: pos.x, y: pos.y, lane: laneIndex });
+    }
   });
+  return samples;
+}
+
+function buildCoverage(map, sim) {
+  const samples = sampleLanePoints(sim);
 
   const cells = [];
   for (let r = 0; r < map.rows; r++) {
@@ -132,9 +158,10 @@ function spendGold(sim, wave, cells) {
 
 // ---------- 单局模拟 ----------
 
-function runOne(seed, difficulty, meta) {
+function runOne(seed, difficulty, meta, candidateIndex = 0) {
   const diff = DIFFICULTIES[difficulty];
-  const map = generateMapCandidates(seed, 3)[0];
+  const candidates = generateMapCandidates(seed, 3);
+  const map = candidates[Math.max(0, Math.min(candidates.length - 1, candidateIndex))];
   const waveLog = [];
   const baseHp = Math.max(8, 20 + (meta ? 3 : 0) + diff.hpBonus);
   const startGold = Math.max(100, 260 + (meta ? 40 : 0) + diff.goldBonus);
@@ -231,6 +258,13 @@ function runOne(seed, difficulty, meta) {
 
   return {
     seed,
+    candidateIndex: map.index ?? candidateIndex,
+    archetype: map.archetype,
+    archetypeName: map.archetypeName || ARCHETYPES[map.archetype]?.name || map.archetype,
+    modifier: map.modifier?.id || 'none',
+    modifierName: map.modifier?.name || '无',
+    portalCount: map.meta?.portalCount || map.lanes?.length || 1,
+    scoreMul: map.meta?.scoreMul || 1,
     difficulty,
     meta,
     victory: !!stats.victory,
@@ -249,38 +283,70 @@ function runOne(seed, difficulty, meta) {
 
 // ---------- 汇总 ----------
 
-function summarize(rows) {
+function statsOf(list) {
+  const wins = list.filter((row) => row.victory).length;
+  const waves = list.map((row) => row.cleared).sort((a, b) => a - b);
+  const sum = (pick) => list.reduce((total, row) => total + pick(row), 0);
+  return {
+    runs: list.length,
+    wins,
+    winRate: wins / list.length,
+    avgWave: sum((row) => row.cleared) / list.length,
+    medianWave: waves[Math.floor(waves.length / 2)],
+    maxWave: waves[waves.length - 1],
+    avgScore: Math.round(sum((row) => row.score) / list.length),
+    avgTowers: (sum((row) => row.towers) / list.length).toFixed(1),
+    avgHp: (sum((row) => row.hp) / list.length).toFixed(1),
+    avgGold: Math.round(sum((row) => row.gold) / list.length),
+    avgSeconds: Math.round(sum((row) => row.simSeconds) / list.length),
+    avgPortals: (sum((row) => row.portalCount) / list.length).toFixed(2),
+    stuck: list.filter((row) => row.stuck).length,
+  };
+}
+
+const DIFF_ORDER = { roam: 0, standard: 1, abyss: 2 };
+
+function aggregate(rows, keyFn) {
   const groups = new Map();
   for (const row of rows) {
-    const key = `${row.difficulty}:${row.meta ? 'full' : 'base'}`;
+    const key = keyFn(row);
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(row);
   }
-  const output = [];
-  for (const [key, list] of groups) {
-    const [difficulty, meta] = key.split(':');
-    const wins = list.filter((row) => row.victory).length;
-    const waves = list.map((row) => row.cleared).sort((a, b) => a - b);
-    output.push({
-      difficulty,
-      meta,
-      runs: list.length,
-      wins,
-      winRate: wins / list.length,
-      avgWave: waves.reduce((sum, n) => sum + n, 0) / waves.length,
-      medianWave: waves[Math.floor(waves.length / 2)],
-      maxWave: waves[waves.length - 1],
-      avgScore: Math.round(list.reduce((sum, row) => sum + row.score, 0) / list.length),
-      avgTowers: (list.reduce((sum, row) => sum + row.towers, 0) / list.length).toFixed(1),
-      avgHp: (list.reduce((sum, row) => sum + row.hp, 0) / list.length).toFixed(1),
-      avgGold: Math.round(list.reduce((sum, row) => sum + row.gold, 0) / list.length),
-      avgSeconds: Math.round(list.reduce((sum, row) => sum + row.simSeconds, 0) / list.length),
-      stuck: list.filter((row) => row.stuck).length,
-    });
-  }
-  const order = { roam: 0, standard: 1, abyss: 2 };
-  output.sort((a, b) => order[a.difficulty] - order[b.difficulty] || a.meta.localeCompare(b.meta));
+  return [...groups.entries()].map(([key, list]) => ({ key, ...statsOf(list) }));
+}
+
+// 保留旧导出：按 难度 × 解锁状态 汇总。
+function summarize(rows) {
+  const output = aggregate(rows, (row) => `${row.difficulty}:${row.meta ? 'full' : 'base'}`).map(
+    (group) => {
+      const [difficulty, meta] = group.key.split(':');
+      const { key, ...rest } = group;
+      return { difficulty, meta, ...rest };
+    }
+  );
+  output.sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty] || a.meta.localeCompare(b.meta));
   return output;
+}
+
+function summarizeBy(rows, dimension) {
+  const keyOf = {
+    archetype: (row) => row.archetype,
+    modifier: (row) => row.modifier,
+    candidate: (row) => row.candidateIndex,
+  }[dimension];
+  return aggregate(rows, (row) => `${row.difficulty}:${keyOf(row)}`)
+    .map((group) => {
+      const split = group.key.indexOf(':');
+      const difficulty = group.key.slice(0, split);
+      let label = group.key.slice(split + 1);
+      if (dimension === 'archetype') label = ARCHETYPES[label]?.name || label;
+      if (dimension === 'modifier') label = label === 'none' ? '无' : MODIFIER_BY_ID[label]?.name || label;
+      if (dimension === 'candidate') label = `候选 ${Number(label) + 1}`;
+      const { key, ...rest } = group;
+      return { difficulty, label, ...rest };
+    })
+    .sort((a, b) => DIFF_ORDER[a.difficulty] - DIFF_ORDER[b.difficulty] || a.label.localeCompare(b.label));
 }
 
 function formatTable(rows) {
@@ -312,23 +378,150 @@ function formatTable(rows) {
   return lines.join('\n');
 }
 
+function formatArchetypeTable(rows) {
+  const header = ['难度', '原型', '平均入口', '局数', '通关', '通关率', '平均波次', '平均生命', '平均塔数'];
+  const lines = [header.join(' | ')];
+  lines.push(header.map(() => '---').join(' | '));
+  for (const row of rows) {
+    lines.push(
+      [
+        DIFFICULTIES[row.difficulty].name,
+        row.label,
+        row.avgPortals,
+        row.runs,
+        row.wins,
+        `${(row.winRate * 100).toFixed(0)}%`,
+        row.avgWave.toFixed(1),
+        row.avgHp,
+        row.avgTowers,
+      ].join(' | ')
+    );
+  }
+  return lines.join('\n');
+}
+
+function formatModifierTable(rows) {
+  const header = ['难度', '词缀', '局数', '通关', '通关率', '平均波次', '平均生命', '平均塔数'];
+  const lines = [header.join(' | ')];
+  lines.push(header.map(() => '---').join(' | '));
+  for (const row of rows) {
+    lines.push(
+      [
+        DIFFICULTIES[row.difficulty].name,
+        row.label,
+        row.runs,
+        row.wins,
+        `${(row.winRate * 100).toFixed(0)}%`,
+        row.avgWave.toFixed(1),
+        row.avgHp,
+        row.avgTowers,
+      ].join(' | ')
+    );
+  }
+  return lines.join('\n');
+}
+
+function formatCandidateTable(rows) {
+  const header = ['难度', '候选', '局数', '通关', '通关率', '平均波次', '平均生命', '平均塔数'];
+  const lines = [header.join(' | ')];
+  lines.push(header.map(() => '---').join(' | '));
+  for (const row of rows) {
+    lines.push(
+      [
+        DIFFICULTIES[row.difficulty].name,
+        row.label,
+        row.runs,
+        row.wins,
+        `${(row.winRate * 100).toFixed(0)}%`,
+        row.avgWave.toFixed(1),
+        row.avgHp,
+        row.avgTowers,
+      ].join(' | ')
+    );
+  }
+  return lines.join('\n');
+}
+
+function detailLines(rows) {
+  const header = '| 难度 | 解锁 | 种子 | 候选 | 原型 | 词缀 | 结果 | 波次 | 生命 | 金币 | 击杀 | 塔数 | 分数 | 模拟时长 |';
+  const sep = '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |';
+  const lines = rows.map((row) =>
+    [
+      DIFFICULTIES[row.difficulty].name,
+      row.meta ? '全解锁' : '零解锁',
+      row.seed,
+      row.candidateIndex + 1,
+      row.archetypeName,
+      row.modifierName,
+      row.victory ? '通关' : row.stuck ? '超时' : '失败',
+      row.wave,
+      row.hp,
+      row.gold,
+      row.kills,
+      row.towers,
+      row.score,
+      `${row.simSeconds}s`,
+    ].join(' | ')
+  );
+  return [header, sep, ...lines.map((line) => `| ${line} |`)].join('\n');
+}
+
+function compareToTarget(summary) {
+  const targets = {
+    roam: [0.8, 0.9],
+    standard: [0.25, 0.35],
+    abyss: [0.05, 0.15],
+  };
+  return DIFFICULTY_ORDER.map((difficulty) => {
+    const row = summary.find((item) => item.difficulty === difficulty && item.meta === 'full');
+    const [low, high] = targets[difficulty];
+    const rate = row?.winRate ?? 0;
+    const status = rate < low ? '低于目标' : rate > high ? '高于目标' : '达标';
+    return `| ${DIFFICULTIES[difficulty].name} | ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}% | ${(rate * 100).toFixed(0)}% | ${status} |`;
+  }).join('\n');
+}
+
 function main() {
   const started = Date.now();
   const rows = [];
+  const candidateCount = Math.max(1, Math.min(3, CANDIDATES));
   for (const difficulty of DIFFICULTY_ORDER) {
     for (const meta of [false, true]) {
       for (let i = 0; i < SEEDS; i++) {
         // 同一地图/波次/遗物种子贯穿三档与两种解锁状态，保证配对比较。
         const seed = `balance-${i}`;
-        rows.push(runOne(seed, difficulty, meta));
+        for (let candidate = 0; candidate < candidateCount; candidate++) {
+          rows.push(runOne(seed, difficulty, meta, candidate));
+        }
       }
     }
   }
   const summary = summarize(rows);
   const table = formatTable(summary);
 
-  console.log(`\n平衡模拟结果（${rows.length} 局，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`);
+  const fullRows = rows.filter((row) => row.meta);
+  const baseRows = rows.filter((row) => !row.meta);
+  const archetypeFull = summarizeBy(fullRows, 'archetype');
+  const modifierFull = summarizeBy(fullRows, 'modifier');
+  const candidateFull = summarizeBy(fullRows, 'candidate');
+  const archetypeBase = summarizeBy(baseRows, 'archetype');
+  const modifierBase = summarizeBy(baseRows, 'modifier');
+  const archetypeTable = formatArchetypeTable(archetypeFull);
+  const modifierTable = formatModifierTable(modifierFull);
+  const candidateTable = formatCandidateTable(candidateFull);
+  const archetypeBaseTable = formatArchetypeTable(archetypeBase);
+  const modifierBaseTable = formatModifierTable(modifierBase);
+
+  console.log(
+    `\n平衡模拟结果（${rows.length} 局，每种子 ${candidateCount} 张候选地图，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
+  );
   console.log(table);
+  console.log('\n全解锁 · 地图原型\n');
+  console.log(archetypeTable);
+  console.log('\n全解锁 · 地图词缀\n');
+  console.log(modifierTable);
+  console.log('\n全解锁 · 候选序号\n');
+  console.log(candidateTable);
   console.log('\n提示：机器人只用于相对比较；绝对通关率以真人试玩为准。');
 
   // 分难度明细（便于观察哪一波开始崩）
@@ -345,7 +538,7 @@ function main() {
       const row = rows.find((item) => item.difficulty === difficulty && item.meta);
       if (!row) continue;
       console.log(
-        `\n明细 · ${DIFFICULTIES[difficulty].name} · ${row.seed} · ${
+        `\n明细 · ${DIFFICULTIES[difficulty].name} · ${row.seed} · 候选 ${row.candidateIndex + 1} · ${row.archetypeName} / ${row.modifierName} · ${
           row.victory ? '通关' : row.stuck ? '卡死/超时' : '失败'
         }`
       );
@@ -366,41 +559,56 @@ function main() {
       '# 平衡模拟记录',
       '',
       `- 生成时间：${new Date().toISOString()}`,
-      `- 种子数：每档 ${SEEDS} 个`,
+      `- 种子数：每档 ${SEEDS} 个；每个种子跑 ${candidateCount} 张候选地图（真人开局三选一的完整候选集）`,
       `- 总对局：${rows.length}`,
       '- 方法：真实 Simulation + 固定机器人策略（无渲染）',
+      '- 地图原型/词缀由种子生成；候选地图与真人三选一使用同一生成器，机器人按候选序号逐一模拟（不挑图）。',
       '',
-      '## 汇总',
+      '## 目标达成（全解锁、机器人口径）',
+      '',
+      '| 难度 | 目标区间 | 本轮 | 状态 |',
+      '| --- | --- | --- | --- |',
+      compareToTarget(summary),
+      '',
+      '## 总体（难度 × 解锁状态）',
       '',
       table,
       '',
+      '## 全解锁 · 地图原型',
+      '',
+      archetypeTable,
+      '',
+      '## 全解锁 · 地图词缀',
+      '',
+      modifierTable,
+      '',
+      '## 全解锁 · 候选序号',
+      '',
+      '同名种子下三张候选的难度差异；用于确认“只看 candidate 0”是否会带来抽样偏差。',
+      '',
+      candidateTable,
+      '',
+      '## 零解锁 · 地图原型',
+      '',
+      archetypeBaseTable,
+      '',
+      '## 零解锁 · 地图词缀',
+      '',
+      modifierBaseTable,
+      '',
       '## 明细',
       '',
-      '| 难度 | 解锁 | 种子 | 结果 | 波次 | 生命 | 金币 | 击杀 | 塔数 | 分数 | 模拟时长 |',
-      '| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |',
-      ...rows.map((row) =>
-        [
-          DIFFICULTIES[row.difficulty].name,
-          row.meta ? '全解锁' : '零解锁',
-          row.seed,
-          row.victory ? '通关' : '失败',
-          row.wave,
-          row.hp,
-          row.gold,
-          row.kills,
-          row.towers,
-          row.score,
-          `${row.simSeconds}s`,
-        ].join(' | ')
-      ).map((line) => `| ${line} |`),
+      detailLines(rows),
       '',
       '## 说明',
       '',
       '- 机器人不等同真人：它不会针对性换塔，也不会手动卖塔，通关率仅用于相对比较。',
-      '- 若某档通关率明显偏离目标，先调 `DIFFICULTIES` 倍率，再调波次/经济。',
+      '- 机器人固定策略：第 1 波前完成开局整备、18 塔上限、固定建塔顺序、不卖塔/不针对性换塔；因此不能把机器人通关率当真人通关率。',
+      '- 每种子跑满 3 张候选地图，总体表按候选均匀加权，接近“玩家随机选图”的口径，而不是只看第一张。',
       '- 目标（全解锁、机器人口径）：漫游 80–90%、远征 25–35%、深渊 5–15%。',
-      '- 机器人在第 1 波前完成开局整备，固定 18 塔上限、固定建塔顺序、不会卖塔/针对性换塔；不同 seed 集差异明显，结论以 40 种子为准。',
-      '- 机器人策略固定，绝对通关率以真人试玩为准；零解锁状态显著更难，用于体现星核解锁价值。',
+      '- 偏离目标时先调 `DIFFICULTIES` 倍率（`shared/data.js`），其次调 `shared/config.js` 的波次/经济与 `mapgen.js` 的原型 `scoreMul`/词缀数值。',
+      '- 零解锁状态显著更难，用于体现星核解锁价值；单独成表报告，不与全解锁混算。',
+      '- 不同 seed 集结果波动明显，结论以 40 种子为准；绝对值以真人试玩校准。',
       '',
     ].join('\n');
     fs.writeFileSync(docPath, content);
@@ -408,7 +616,7 @@ function main() {
   }
 }
 
-export { runOne, summarize, formatTable };
+export { runOne, summarize, summarizeBy, formatTable, buildCoverage };
 
 const invokedDirectly =
   process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

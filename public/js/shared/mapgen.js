@@ -11,19 +11,19 @@ export const ARCHETYPES = {
     desc: '一条主路，塔位充足，适合稳定构筑。',
   },
   twin: {
-    id: 'twin', name: '双径汇流', spawns: 2, wind: 0.42, scoreMul: 1.0,
+    id: 'twin', name: '双径汇流', spawns: 2, wind: 0.42, scoreMul: 0.97,
     desc: '两条入口在中段汇合，汇流点是黄金火力点。',
   },
   triple: {
-    id: 'triple', name: '三径裂隙', spawns: 3, wind: 0.38, scoreMul: 1.08,
+    id: 'triple', name: '三径裂隙', spawns: 3, wind: 0.38, scoreMul: 1.07,
     desc: '三路同时施压，考验覆盖与取舍。',
   },
   ring: {
-    id: 'ring', name: '环形回廊', spawns: 2, wind: 0.6, scoreMul: 1.03,
+    id: 'ring', name: '环形回廊', spawns: 2, wind: 0.6, scoreMul: 1.02,
     desc: '两条长回廊绕行后汇合，适合减速与持续输出。',
   },
   cross: {
-    id: 'cross', name: '交叉回廊', spawns: 2, wind: 0.4, scoreMul: 1.05,
+    id: 'cross', name: '交叉回廊', spawns: 2, wind: 0.4, scoreMul: 1.1,
     desc: '两路先汇合再分叉到基地，需要二次分配火力。',
   },
 };
@@ -36,8 +36,8 @@ export const MAP_MODIFIERS = [
   },
   {
     id: 'swift', name: '疾风', color: '#5fb6ea',
-    desc: '敌人移速 +12%，击杀金币 +15%',
-    hpMul: 1, speedMul: 1.12, goldMul: 1.15, rangeMul: 1, scoreMul: 1.0, extraPortal: 0,
+    desc: '敌人移速 +14%，击杀金币 +12%',
+    hpMul: 1, speedMul: 1.14, goldMul: 1.12, rangeMul: 1, scoreMul: 1.0, extraPortal: 0,
   },
   {
     id: 'mist', name: '薄雾', color: '#b48cff',
