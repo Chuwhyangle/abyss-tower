@@ -61,6 +61,9 @@ export class Simulation {
     // 视觉降级只影响特效/飘字的生成，不改变战斗逻辑。
     this.effectsLevel = 'full';
     this.floatersMode = 'all';
+    this.mapMeta = this.map.meta || opts.mapMeta || {};
+    this.modifier = this.mapMeta.modifier || null;
+    this.activePortals = [];
 
     this.buildPath();
     this.recomputeMods();
@@ -87,42 +90,50 @@ export class Simulation {
   // ---------- 路径 ----------
 
   buildPath() {
-    const pts = this.map.polyline;
-    this.pathPts = pts;
-    this.pathCum = [0];
-    this.pathLen = 0;
-    for (let i = 1; i < pts.length; i++) {
-      const dx = pts[i].x - pts[i - 1].x;
-      const dy = pts[i].y - pts[i - 1].y;
-      this.pathLen += Math.hypot(dx, dy);
-      this.pathCum.push(this.pathLen);
-    }
+    const source = this.map.lanes?.length
+      ? this.map.lanes
+      : [{ id: 0, polyline: this.map.polyline, color: '#5ce2d0' }];
+    this.lanes = source.map((lane) => {
+      const pts = lane.polyline;
+      const cum = [0];
+      let len = 0;
+      for (let i = 1; i < pts.length; i++) {
+        len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+        cum.push(len);
+      }
+      return { pts, cum, len, color: lane.color || '#5ce2d0' };
+    });
+    // 兼容旧代码：pathPts/posAt() 默认指向第一条路
+    this.pathPts = this.lanes[0].pts;
+    this.pathCum = this.lanes[0].cum;
+    this.pathLen = this.lanes[0].len;
   }
 
-  posAt(distance) {
-    const pts = this.pathPts;
+  posAt(distance, laneIndex = 0) {
+    const lane = this.lanes[laneIndex] || this.lanes[0];
+    const pts = lane.pts;
     if (pts.length < 2) return { x: pts[0].x, y: pts[0].y, angle: 0 };
     if (distance <= 0) {
       const a = pts[0];
       const b = pts[1];
       return { x: a.x, y: a.y, angle: Math.atan2(b.y - a.y, b.x - a.x) };
     }
-    if (distance >= this.pathLen) {
+    if (distance >= lane.len) {
       const a = pts[pts.length - 1];
       const b = pts[pts.length - 2];
       return { x: a.x, y: a.y, angle: Math.atan2(a.y - b.y, a.x - b.x) };
     }
     let lo = 0;
-    let hi = this.pathCum.length - 1;
+    let hi = lane.cum.length - 1;
     while (lo + 1 < hi) {
       const mid = (lo + hi) >> 1;
-      if (this.pathCum[mid] <= distance) lo = mid;
+      if (lane.cum[mid] <= distance) lo = mid;
       else hi = mid;
     }
     const a = pts[lo];
     const b = pts[lo + 1];
-    const seg = this.pathCum[lo + 1] - this.pathCum[lo] || 1;
-    const t = (distance - this.pathCum[lo]) / seg;
+    const seg = lane.cum[lo + 1] - lane.cum[lo] || 1;
+    const t = (distance - lane.cum[lo]) / seg;
     return {
       x: a.x + (b.x - a.x) * t,
       y: a.y + (b.y - a.y) * t,
@@ -184,11 +195,19 @@ export class Simulation {
     this.combatRng = new RNG(`${this.seed}:combat:${waveDef.index}`);
 
     for (const group of waveDef.groups) {
+      const portal = Number.isInteger(group.portal) ? group.portal : 0;
       for (let i = 0; i < group.count; i++) {
-        this.spawnQueue.push({ type: group.type, time: group.delay + i * group.interval });
+        this.spawnQueue.push({
+          type: group.type,
+          time: group.delay + i * group.interval,
+          portal,
+        });
       }
     }
     this.spawnQueue.sort((a, b) => a.time - b.time);
+    this.activePortals = Array.isArray(waveDef.portals) && waveDef.portals.length
+      ? waveDef.portals.slice()
+      : [...new Set(waveDef.groups.map((group) => group.portal || 0))];
     this.playSound(waveDef.boss ? 'boss' : 'wave');
     return true;
   }
@@ -199,16 +218,17 @@ export class Simulation {
       this.spawnQueue[this.spawnIndex].time <= this.waveTime
     ) {
       const item = this.spawnQueue[this.spawnIndex++];
-      this.spawnEnemy(item.type);
+      this.spawnEnemy(item.type, item.portal || 0);
     }
   }
 
-  spawnEnemy(type) {
+  spawnEnemy(type, laneIndex = 0) {
     const base = ENEMIES[type];
     const hpMul = this.waveDef?.hpMul || 1;
     const speedMul = this.waveDef?.speedMul || 1;
     const hp = Math.max(1, Math.round(base.hp * hpMul));
-    const pos = this.posAt(0);
+    const lane = Math.max(0, Math.min(this.lanes.length - 1, laneIndex || 0));
+    const pos = this.posAt(0, lane);
     this.enemies.push({
       id: this.nextId++,
       type,
@@ -224,6 +244,7 @@ export class Simulation {
       heal: base.heal || 0,
       healRange: base.healRange || 0,
       healTimer: 0,
+      lane,
       progress: 0,
       x: pos.x,
       y: pos.y,
@@ -240,7 +261,8 @@ export class Simulation {
 
   completeWave() {
     if (this.phase !== 'wave' || !this.waveDef) return;
-    const reward = this.waveDef.reward;
+    const goldMul = this.modifier?.goldMul || 1;
+    const reward = Math.round(this.waveDef.reward * goldMul);
     const interest = this.mods.interest ? Math.floor(this.gold * this.mods.interest) : 0;
     this.gold += reward + interest;
     const cleared = this.wave;
@@ -273,6 +295,7 @@ export class Simulation {
       goldLeft: Math.max(0, this.gold),
       baseHp: Math.max(0, Math.ceil(this.baseHp)),
       difficulty: this.difficulty,
+      scoreMul: this.mapMeta?.scoreMul || 1,
     });
     const stats = {
       wave: this.wave,
@@ -304,7 +327,7 @@ export class Simulation {
       const speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0));
       enemy.progress += speed * dt;
 
-      const pos = this.posAt(enemy.progress);
+      const pos = this.posAt(enemy.progress, enemy.lane);
       enemy.x = pos.x;
       enemy.y = pos.y;
       enemy.angle = pos.angle;
@@ -333,7 +356,7 @@ export class Simulation {
         }
       }
 
-      if (enemy.progress >= this.pathLen) this.leak(enemy);
+      if (enemy.progress >= (this.lanes[enemy.lane] || this.lanes[0]).len) this.leak(enemy);
     }
   }
 
@@ -597,7 +620,10 @@ export class Simulation {
   killEnemy(enemy) {
     if (enemy.dead) return;
     enemy.dead = true;
-    const multiplier = (1 + (this.mods.goldMul || 0)) * (1 + this.wave * BALANCE.killGoldWaveRate);
+    const multiplier =
+      (1 + (this.mods.goldMul || 0)) *
+      (1 + this.wave * BALANCE.killGoldWaveRate) *
+      (this.modifier?.goldMul || 1);
     const gold = Math.round(enemy.gold * multiplier) + (this.mods.killGold || 0);
     this.gold += gold;
     this.kills++;
@@ -850,7 +876,7 @@ export class Simulation {
     return {
       dmg: level.dmg * (1 + (mods.dmg[tower.type] || 0) + mods.dmgAll),
       rate: level.rate * (1 + mods.fireRate),
-      range: level.range + mods.range,
+      range: (level.range + mods.range) * (this.modifier?.rangeMul || 1),
       splash: (level.splash || 0) * (1 + mods.splash),
       slow: level.slow || 0,
       slowDur: level.slowDur || 0,
@@ -924,6 +950,8 @@ export class Simulation {
       enemies: this.enemies.length,
       relicCount: this.relics.length,
       difficulty: this.difficulty,
+      portalCount: this.map.spawns?.length || 1,
+      activePortals: this.activePortals.slice(),
       waveDef: this.waveDef
         ? {
             index: this.waveDef.index,

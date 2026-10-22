@@ -103,9 +103,11 @@ export class Renderer {
       g.stroke();
     }
 
-    // 路径
-    const pts = map.polyline.map((p) => ({ x: p.x * T, y: p.y * T }));
-    const strokePath = (width, color) => {
+    // 路径：逐条绘制；共享汇流段会重叠，颜色保持一致
+    const lanes = this.game.lanes.length
+      ? this.game.lanes
+      : [{ pts: map.polyline, len: this.game.pathLen, color: '#5ce2d0' }];
+    const strokePath = (pts, width, color) => {
       g.strokeStyle = color;
       g.lineWidth = width;
       g.lineJoin = 'round';
@@ -114,38 +116,50 @@ export class Renderer {
       pts.forEach((p, i) => (i === 0 ? g.moveTo(p.x, p.y) : g.lineTo(p.x, p.y)));
       g.stroke();
     };
-    strokePath(T * 0.9, 'rgba(0,0,0,0.35)');
-    strokePath(T * 0.8, '#2b221a');
-    strokePath(T * 0.64, '#3d2f24');
-    strokePath(T * 0.5, 'rgba(84, 66, 49, 0.55)');
 
-    // 路面碎石
-    for (let i = 0; i < pebbleCount; i++) {
-      const d = rng.float() * this.game.pathLen;
-      const p = this.game.posAt(d);
-      const ox = rng.range(-0.24, 0.24) * T;
-      const oy = rng.range(-0.24, 0.24) * T;
-      g.fillStyle = `rgba(${120 + rng.int(40)}, ${98 + rng.int(30)}, ${76 + rng.int(20)}, ${0.12 + rng.float() * 0.18})`;
-      g.beginPath();
-      g.ellipse(p.x * T + ox, p.y * T + oy, rng.range(1, 3.2), rng.range(0.8, 2.2), rng.float() * 3, 0, Math.PI * 2);
-      g.fill();
-    }
+    lanes.forEach((lane, laneIndex) => {
+      const pts = lane.pts.map((p) => ({ x: p.x * T, y: p.y * T }));
+      strokePath(pts, T * 0.9, 'rgba(0,0,0,0.35)');
+      strokePath(pts, T * 0.8, '#2b221a');
+      strokePath(pts, T * 0.64, '#3d2f24');
+      strokePath(pts, T * 0.5, 'rgba(84, 66, 49, 0.55)');
+      // 多入口时用细线区分路线
+      if (lanes.length > 1) {
+        g.save();
+        g.globalAlpha = 0.28;
+        strokePath(pts, 2.2, lane.color);
+        g.restore();
+      }
 
-    // 行进方向箭头
-    for (let d = 1.6; d < this.game.pathLen - 1; d += chevronStep) {
-      const p = this.game.posAt(d);
-      g.save();
-      g.translate(p.x * T, p.y * T);
-      g.rotate(p.angle);
-      g.strokeStyle = 'rgba(196, 168, 126, 0.16)';
-      g.lineWidth = 2;
-      g.beginPath();
-      g.moveTo(-4, -6);
-      g.lineTo(3, 0);
-      g.lineTo(-4, 6);
-      g.stroke();
-      g.restore();
-    }
+      // 路面碎石
+      const pebbles = Math.ceil(pebbleCount / lanes.length);
+      for (let i = 0; i < pebbles; i++) {
+        const d = rng.float() * lane.len;
+        const p = this.game.posAt(d, laneIndex);
+        const ox = rng.range(-0.24, 0.24) * T;
+        const oy = rng.range(-0.24, 0.24) * T;
+        g.fillStyle = `rgba(${120 + rng.int(40)}, ${98 + rng.int(30)}, ${76 + rng.int(20)}, ${0.12 + rng.float() * 0.18})`;
+        g.beginPath();
+        g.ellipse(p.x * T + ox, p.y * T + oy, rng.range(1, 3.2), rng.range(0.8, 2.2), rng.float() * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+
+      // 行进方向箭头
+      for (let d = 1.6; d < lane.len - 1; d += chevronStep) {
+        const p = this.game.posAt(d, laneIndex);
+        g.save();
+        g.translate(p.x * T, p.y * T);
+        g.rotate(p.angle);
+        g.strokeStyle = 'rgba(196, 168, 126, 0.16)';
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(-4, -6);
+        g.lineTo(3, 0);
+        g.lineTo(-4, 6);
+        g.stroke();
+        g.restore();
+      }
+    });
 
     // 岩石
     for (const rock of map.rocks) {
@@ -234,38 +248,55 @@ export class Renderer {
   drawPortals(g) {
     const map = this.game.map;
     const t = this.time;
-    const sx = map.spawn.x * T;
-    const sy = map.spawn.y * T;
-    const pulse = 0.85 + Math.sin(t * 3) * 0.15;
     const glowOn = this.settings.glow;
+    const spawns = map.spawns?.length
+      ? map.spawns
+      : [{ x: map.spawn.x, y: map.spawn.y, color: '#c9a8ff' }];
+    const active = new Set(
+      this.game.activePortals?.length ? this.game.activePortals : [0]
+    );
+    const pulse = 0.85 + Math.sin(t * 3) * 0.15;
 
-    if (glowOn) {
-      const grad = g.createRadialGradient(sx, sy, 2, sx, sy, 34 * pulse);
-      grad.addColorStop(0, 'rgba(190, 120, 255, 0.65)');
-      grad.addColorStop(0.6, 'rgba(120, 60, 190, 0.18)');
-      grad.addColorStop(1, 'rgba(120, 60, 190, 0)');
-      g.fillStyle = grad;
-      g.beginPath();
-      g.arc(sx, sy, 34 * pulse, 0, Math.PI * 2);
-      g.fill();
-    } else {
-      g.fillStyle = 'rgba(120, 60, 190, 0.22)';
-      g.beginPath();
-      g.arc(sx, sy, 20, 0, Math.PI * 2);
-      g.fill();
-    }
+    spawns.forEach((spawn, index) => {
+      const sx = spawn.x * T;
+      const sy = spawn.y * T;
+      const color = spawn.color || '#c9a8ff';
+      const isActive = active.has(index);
+      g.save();
+      if (!isActive) g.globalAlpha = 0.35;
 
-    g.save();
-    g.translate(sx, sy);
-    g.rotate(t * 1.6);
-    g.strokeStyle = 'rgba(205, 150, 255, 0.75)';
-    g.lineWidth = 2.5;
-    for (let i = 0; i < 3; i++) {
-      g.beginPath();
-      g.arc(0, 0, 15 + i * 4, i * 2.1, i * 2.1 + 1.9);
-      g.stroke();
-    }
-    g.restore();
+      if (glowOn) {
+        const grad = g.createRadialGradient(sx, sy, 2, sx, sy, 30 * pulse);
+        grad.addColorStop(0, hexToRgba(color, 0.5));
+        grad.addColorStop(1, hexToRgba(color, 0));
+        g.fillStyle = grad;
+        g.beginPath();
+        g.arc(sx, sy, 30 * pulse, 0, Math.PI * 2);
+        g.fill();
+      } else {
+        g.fillStyle = hexToRgba(color, 0.18);
+        g.beginPath();
+        g.arc(sx, sy, 18, 0, Math.PI * 2);
+        g.fill();
+      }
+
+      g.translate(sx, sy);
+      g.rotate(t * 1.6 + index);
+      g.strokeStyle = hexToRgba(color, 0.85);
+      g.lineWidth = 2.3;
+      for (let i = 0; i < 3; i++) {
+        g.beginPath();
+        g.arc(0, 0, 13 + i * 4, i * 2.1, i * 2.1 + 1.9);
+        g.stroke();
+      }
+      g.rotate(-(t * 1.6 + index));
+      g.fillStyle = color;
+      g.font = '700 10px "DejaVu Sans Mono", ui-monospace, monospace';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText(String(index + 1), 0, 0);
+      g.restore();
+    });
 
     const bx = map.base.x * T;
     const by = map.base.y * T;

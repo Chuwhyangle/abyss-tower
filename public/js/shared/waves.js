@@ -12,14 +12,20 @@ const POOL = [
   { type: 'healer', weight: 1.2, countMult: 0.38, minWave: 8, interval: 1.5 },
 ];
 
-export function generateWave(seed, wave, difficulty = 'standard') {
+export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) {
   const index = Math.max(1, Math.min(MAX_WAVE, Math.floor(wave)));
   const diff = getDifficulty(difficulty);
   const rng = new RNG(`${seed}:wave:${index}`);
+  const modifier = mapMeta.modifier || null;
+  const portalCount = Math.max(1, Math.min(3, Math.floor(mapMeta.portalCount || 1)));
   const isFinal = index === MAX_WAVE;
   const hpMul =
-    Math.pow(BALANCE.hpGrowth, index - 1) * diff.hpMul * (isFinal ? BALANCE.finalBossMul : 1);
-  const speedMul = (1 + index * BALANCE.speedGrowth) * diff.speedMul;
+    Math.pow(BALANCE.hpGrowth, index - 1) *
+    diff.hpMul *
+    (isFinal ? BALANCE.finalBossMul : 1) *
+    (modifier?.hpMul || 1);
+  const speedMul =
+    (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1);
   const isBoss = index % 5 === 0;
   const groups = [];
 
@@ -72,6 +78,26 @@ export function generateWave(seed, wave, difficulty = 'standard') {
   }
 
   groups.sort((a, b) => a.delay - b.delay);
+
+  const allPortals = Array.from({ length: portalCount }, (_, i) => i);
+  let activePortals;
+  if (portalCount === 1) {
+    activePortals = [0];
+  } else if (isBoss || index >= 25) {
+    activePortals = allPortals;
+  } else if (index >= 12) {
+    activePortals = rng.shuffle(allPortals).slice(0, Math.min(2, portalCount));
+  } else {
+    activePortals = [rng.int(portalCount)];
+  }
+  activePortals = activePortals.slice(
+    0,
+    Math.max(1, Math.min(activePortals.length, groups.length))
+  );
+  groups.forEach((group, i) => {
+    group.portal = activePortals[i % activePortals.length];
+  });
+
   const reward = BALANCE.waveRewardBase + index * BALANCE.waveRewardPerWave;
 
   return {
@@ -85,6 +111,8 @@ export function generateWave(seed, wave, difficulty = 'standard') {
     boss: isBoss,
     finalBoss: isFinal,
     totalCount,
+    portals: activePortals,
+    modifierId: modifier?.id || null,
     label: isFinal ? '最终首领' : isBoss ? '首领波次' : `第 ${index} 波`,
   };
 }

@@ -1303,6 +1303,104 @@ kbd {
   border-color: rgba(255, 211, 107, 0.5);
 }
 
+/* 地图三选一 */
+
+.map-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.map-card {
+  --lane: #5ce2d0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(120, 160, 175, 0.2);
+  border-top: 3px solid var(--lane);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(20, 33, 42, 0.95), rgba(12, 20, 26, 0.95));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+}
+
+.map-card:hover {
+  transform: translateY(-3px);
+  border-color: color-mix(in srgb, var(--lane) 55%, transparent);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+.map-preview svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid rgba(120, 160, 175, 0.14);
+  border-radius: 10px;
+}
+
+.map-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.map-card-head b {
+  font-size: 16px;
+  letter-spacing: 0.03em;
+}
+
+.map-portals {
+  color: var(--muted);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.map-desc {
+  margin: 0;
+  min-height: 32px;
+  color: #a9bcc9;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.map-mod {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid rgba(120, 160, 175, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.map-mod span {
+  color: #8fa3b2;
+}
+
+.map-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.map-foot .pick {
+  color: var(--lane);
+  font-family: var(--font-sans);
+  font-size: 11px;
+}
+
 /* ============ 移动端 / 响应式 ============ */
 
 @media (max-width: 980px) {
@@ -1503,8 +1601,13 @@ kbd {
   }
 
   .draft-cards,
-  .diff-cards {
+  .diff-cards,
+  .map-cards {
     grid-template-columns: 1fr;
+  }
+
+  .map-desc {
+    min-height: 0;
   }
 
   .relic-card p {

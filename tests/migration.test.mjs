@@ -50,16 +50,18 @@ test('旧库自动补列、回填已清波次并归一化遗物', async () => {
     process.env.DB_PATH = dbPath;
     const dbModule = await import('../server/db.mjs');
     const columns = dbModule.db.prepare('PRAGMA table_info(runs)').all().map((c) => c.name);
-    for (const name of ['cleared_waves', 'difficulty', 'victory', 'duration_ms']) {
+    for (const name of ['cleared_waves', 'map_choice', 'difficulty', 'victory', 'duration_ms']) {
       assert.ok(columns.includes(name), `缺少列 ${name}`);
     }
 
     const finished = dbModule.hydrateRun(dbModule.getRun('finished-run'));
     assert.equal(finished.clearedWaves, 12);
+    assert.equal(finished.mapChoice, 0);
     assert.deepEqual(finished.relics, [{ id: 'sharp', level: 1 }]);
 
     const active = dbModule.hydrateRun(dbModule.getRun('active-run'));
     assert.equal(active.clearedWaves, 4, '旧进行中远征保守回退一波');
+    assert.equal(active.status, 'abandoned', '旧进行中远征因缺少地图选择被弃用');
   } finally {
     for (const suffix of ['', '-wal', '-shm']) {
       try { fs.rmSync(`${dbPath}${suffix}`, { force: true }); } catch { /* ignore */ }

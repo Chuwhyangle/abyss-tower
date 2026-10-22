@@ -1,5 +1,5 @@
 // 遗物升级 UI：Ⅰ→Ⅱ 展示、升级生效、补位奖励展示与应用。
-import { startTestServer, launchBrowser } from './harness.mjs';
+import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
 
 async function main() {
   const server = await startTestServer();
@@ -10,7 +10,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
-    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '游戏创建');
+    await chooseFirstMap(browser);
 
     await browser.evaluate(`window.__rtd.state.sim.addRelic('sharp')`);
 

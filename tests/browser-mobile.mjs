@@ -1,5 +1,5 @@
 // 手机端验收：竖屏提示、横屏无遮挡、触控建塔、设置/遗物弹窗。
-import { startTestServer, launchBrowser } from './harness.mjs';
+import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,7 +27,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
-    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '游戏创建');
+    await chooseFirstMap(browser);
     await sleep(300);
 
     const hint = await browser.evaluate(`(() => {

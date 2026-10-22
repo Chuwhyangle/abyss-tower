@@ -5,3 +5,4 @@ server/data/*.db-shm
 *.log
 .DS_Store
 backups/
+.claude/
