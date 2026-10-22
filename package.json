@@ -1,0 +1,21 @@
+{
+  "name": "abyss-tower",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "渊塔守卫 · 肉鸽塔防（零依赖，Node 内置 http + SQLite）",
+  "scripts": {
+    "start": "node --no-warnings server/index.mjs",
+    "dev": "node --watch --no-warnings server/index.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "smoke": "node tests/browser-smoke.mjs",
+    "flow": "node tests/browser-flow.mjs",
+    "balance": "node tests/balance-sim.mjs 20",
+    "balance:write": "node tests/balance-sim.mjs 20 --write",
+    "sweep": "node tests/balance-sweep.mjs 10",
+    "backup": "node --no-warnings scripts/backup.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}

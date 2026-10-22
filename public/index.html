@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#080d10" />
+  <title>渊塔守卫 · 肉鸽塔防</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="title-screen" class="screen title-screen">
+      <div class="title-glow" aria-hidden="true"></div>
+      <div class="title-inner">
+        <p class="logo-kicker">ROGUELIKE TOWER DEFENSE</p>
+        <h1>渊塔守卫</h1>
+        <p class="logo-sub">在深渊吞没基地之前，守住最后三十波。</p>
+
+        <div class="title-card">
+          <div class="profile-line">
+            <span id="player-name" class="player-name">指挥官</span>
+            <button id="btn-rename" class="icon-btn" title="修改昵称">✎</button>
+            <span class="cores-badge">◈ <b id="cores">0</b></span>
+          </div>
+
+          <div class="title-actions">
+            <button id="btn-play" class="btn primary big">开始远征</button>
+            <button id="btn-daily" class="btn ghost">每日挑战 <span id="daily-label"></span></button>
+            <button id="btn-resume" class="btn ghost" hidden>继续上一局</button>
+            <div class="row">
+              <button id="btn-shop" class="btn small">星核商店</button>
+              <button id="btn-board" class="btn small">排行榜</button>
+              <button id="btn-help" class="btn small">玩法</button>
+            </div>
+          </div>
+
+          <div id="title-stats" class="title-stats"></div>
+        </div>
+
+        <p class="footnote">服务端生成地图 / 波次 / 遗物 · 每波自动存档</p>
+      </div>
+    </section>
+
+    <section id="game-screen" class="screen game-screen" hidden>
+      <header class="hud">
+        <div class="hud-left">
+          <div class="stat"><span class="stat-label">波次</span><b id="hud-wave">0</b><span class="stat-max">/30</span></div>
+          <div class="stat gold"><span class="stat-label">金币</span><b id="hud-gold">0</b></div>
+          <div class="stat hp"><span class="stat-label">基地</span><b id="hud-hp">20</b><span class="stat-max" id="hud-hpmax">/20</span></div>
+          <div class="stat"><span class="stat-label">击杀</span><b id="hud-kills">0</b></div>
+        </div>
+        <div class="hud-right">
+          <div id="hud-difficulty" class="diff-badge">远征</div>
+          <div id="wave-state" class="wave-state">准备阶段</div>
+          <button id="btn-next-wave" class="btn primary">开始第 1 波</button>
+          <div class="speed-group" role="group" aria-label="游戏速度">
+            <button class="speed-btn" data-speed="0" title="暂停 / 继续">❚❚</button>
+            <button class="speed-btn active" data-speed="1">1×</button>
+            <button class="speed-btn" data-speed="2">2×</button>
+            <button class="speed-btn" data-speed="3">3×</button>
+          </div>
+          <button id="btn-sound" class="icon-btn" title="音效">🔊</button>
+          <button id="btn-quit" class="icon-btn" title="退出远征">✕</button>
+        </div>
+      </header>
+
+      <div class="stage-wrap">
+        <div class="stage">
+          <canvas id="game-canvas" width="1056" height="576"></canvas>
+
+          <aside class="relic-panel">
+            <div class="relic-title">遗物 <span id="relic-count">0</span></div>
+            <div id="relic-list" class="relic-list"></div>
+          </aside>
+
+          <div id="tower-panel" class="tower-panel" hidden></div>
+          <div id="tooltip" class="tooltip" hidden></div>
+          <div id="toast" class="toast" hidden></div>
+        </div>
+      </div>
+
+      <footer class="shop">
+        <div id="shop-list" class="shop-list"></div>
+        <div class="shop-hint">选择塔卡 → 点击空地建造 · 快捷键 1–5 · U 升级 · S 出售 · 空格暂停 · Esc 取消</div>
+      </footer>
+    </section>
+
+    <div id="modal-root"></div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
