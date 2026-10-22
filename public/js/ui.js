@@ -55,7 +55,7 @@ class UI {
       hudRelics: $('hud-relics'),
       fullscreen: $('btn-fullscreen'),
       rotateHint: $('rotate-hint'),
-      rotateContinue: $('btn-rotate-continue'),
+      rotateRetry: $('btn-rotate-retry'),
       titleStats: $('title-stats'),
       hudWave: $('hud-wave'),
       hudGold: $('hud-gold'),
@@ -85,7 +85,7 @@ class UI {
     this.el.settingsGame.onclick = () => this.handlers.onSettings?.();
     this.el.relicsMobile.onclick = () => this.handlers.onRelics?.();
     this.el.fullscreen.onclick = () => this.handlers.onFullscreen?.();
-    this.el.rotateContinue.onclick = () => this.el.rotateHint?.classList.add('dismissed');
+    this.el.rotateRetry.onclick = () => this.handlers.onForceLandscape?.();
     this.el.shop.onclick = () => this.handlers.onShop?.();
     this.el.board.onclick = () => this.handlers.onBoard?.('normal');
     this.el.help.onclick = () => this.handlers.onHelp?.();

@@ -39,33 +39,43 @@ async function main() {
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-01-portrait-hint.png`);
 
-    await browser.evaluate(`document.querySelector('#btn-rotate-continue').click()`);
-    await sleep(200);
-    const portrait = await browser.evaluate(`(() => {
+    if (await browser.evaluate(`!!document.querySelector('#btn-rotate-continue')`)) {
+      throw new Error('竖屏提示仍允许手动继续');
+    }
+
+    // 模拟设备旋转到横屏；真实设备由系统旋转 + 自动锁定完成
+    await setViewport(844, 390);
+    await sleep(400);
+    const landscape = await browser.evaluate(`(() => {
       const r = (s) => document.querySelector(s).getBoundingClientRect();
       const hud = r('.hud'), shop = r('.shop'), canvas = r('#game-canvas');
       return {
         iw: innerWidth, ih: innerHeight,
         sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight,
         hudBottom: hud.bottom, shopTop: shop.top,
-        canvasTop: canvas.top, canvasBottom: canvas.bottom, canvasWidth: canvas.width,
+        canvasTop: canvas.top, canvasBottom: canvas.bottom,
+        canvasWidth: canvas.width, canvasHeight: canvas.height,
         hint: getComputedStyle(document.querySelector('#rotate-hint')).display,
       };
     })()`);
-    if (portrait.hint !== 'none') throw new Error('关闭后竖屏提示仍在');
-    if (portrait.sw > portrait.iw + 1) throw new Error('竖屏出现横向溢出');
-    if (portrait.canvasTop < portrait.hudBottom - 1) throw new Error('竖屏画布盖住 HUD');
-    if (portrait.canvasBottom > portrait.shopTop + 1) throw new Error('竖屏画布压住商店');
-    await browser.screenshot(`${OUT_DIR}/rtd-mobile-02-portrait.png`);
+    if (landscape.hint !== 'none') throw new Error('横屏后提示未隐藏');
+    if (landscape.sw > landscape.iw + 1) throw new Error('横屏出现横向溢出');
+    if (landscape.sh > landscape.ih + 1) throw new Error('横屏出现纵向溢出');
+    if (landscape.canvasTop < landscape.hudBottom - 1) throw new Error('横屏画布盖住 HUD');
+    if (landscape.canvasBottom > landscape.shopTop + 1) throw new Error('横屏画布压住商店');
+    if (landscape.canvasWidth < 380 || landscape.canvasHeight < 200) {
+      throw new Error(`横屏画布过小：${landscape.canvasWidth}x${landscape.canvasHeight}`);
+    }
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-02-landscape.png`);
 
-    // 设置与遗物弹窗
+    // 设置与遗物弹窗（横屏）
     await browser.evaluate(`document.querySelector('#btn-settings-game').click()`);
     await browser.waitFor(`!!document.querySelector('.settings-modal')`, '设置弹窗');
     const settingsRect = await browser.evaluate(
       `document.querySelector('.settings-modal').getBoundingClientRect().toJSON()`
     );
-    if (settingsRect.left < 0 || settingsRect.right > 391 || settingsRect.bottom > 845) {
-      throw new Error(`设置弹窗超出竖屏：${JSON.stringify(settingsRect)}`);
+    if (settingsRect.left < 0 || settingsRect.right > 845 || settingsRect.bottom > 391) {
+      throw new Error(`设置弹窗超出横屏：${JSON.stringify(settingsRect)}`);
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-03-settings.png`);
     await browser.evaluate(`document.querySelector('#settings-cancel').click()`);
@@ -79,28 +89,6 @@ async function main() {
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-04-relics.png`);
     await browser.evaluate(`document.querySelector('#btn-close-relics').click()`);
-
-    // 横屏：无溢出、无遮挡、触控建塔
-    await setViewport(844, 390);
-    await sleep(400);
-    const landscape = await browser.evaluate(`(() => {
-      const r = (s) => document.querySelector(s).getBoundingClientRect();
-      const hud = r('.hud'), shop = r('.shop'), canvas = r('#game-canvas');
-      return {
-        iw: innerWidth, ih: innerHeight,
-        sw: document.documentElement.scrollWidth, sh: document.documentElement.scrollHeight,
-        hudBottom: hud.bottom, shopTop: shop.top,
-        canvasTop: canvas.top, canvasBottom: canvas.bottom,
-        canvasWidth: canvas.width, canvasHeight: canvas.height,
-      };
-    })()`);
-    if (landscape.sw > landscape.iw + 1) throw new Error('横屏出现横向溢出');
-    if (landscape.sh > landscape.ih + 1) throw new Error('横屏出现纵向溢出');
-    if (landscape.canvasTop < landscape.hudBottom - 1) throw new Error('横屏画布盖住 HUD');
-    if (landscape.canvasBottom > landscape.shopTop + 1) throw new Error('横屏画布压住商店');
-    if (landscape.canvasWidth < 380 || landscape.canvasHeight < 200) {
-      throw new Error(`横屏画布过小：${landscape.canvasWidth}x${landscape.canvasHeight}`);
-    }
 
     const tap = async (x, y) => {
       await browser.send('Input.dispatchTouchEvent', {
@@ -147,7 +135,7 @@ async function main() {
       throw new Error(`控制台错误：${browser.pageErrors.join(' | ')}`);
     }
     console.log('[mobile] 通过');
-    console.log(JSON.stringify({ hint, portrait, settingsRect, landscape, target, towers }, null, 2));
+    console.log(JSON.stringify({ hint, settingsRect, landscape, target, towers }, null, 2));
   } finally {
     if (browser) await browser.close();
     await server.stop();

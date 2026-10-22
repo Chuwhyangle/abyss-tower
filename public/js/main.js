@@ -81,10 +81,14 @@ async function boot() {
       ui.showDifficultySelect('daily', { dailyLeft: state.dailyLeft });
     },
     onChooseDifficulty: (mode, difficulty) => {
+      forceLandscape();
       ui.closeModal();
       startRun(mode, difficulty);
     },
-    onResume: () => resumeRun(),
+    onResume: () => {
+      forceLandscape();
+      resumeRun();
+    },
     onRename: () => renamePlayer(),
     onShop: () => openShop(),
     onBoard: (mode) => openBoard(mode),
@@ -92,6 +96,7 @@ async function boot() {
     onSettings: () => openSettings(),
     onRelics: () => ui.showRelicsModal(),
     onFullscreen: () => toggleFullscreen(),
+    onForceLandscape: () => forceLandscape(),
     onQuit: () => quitRun(),
     onNextWave: () => nextWave(),
     onSpeed: (value) => state.app?.setSpeed(value),
@@ -106,6 +111,7 @@ async function boot() {
     onPickOffer: (index) => pickOffer(index),
     onReroll: () => rerollRelics(),
     onRestart: (mode, difficulty) => {
+      forceLandscape();
       clearSnapshot();
       startRun(mode, difficulty);
     },
@@ -709,24 +715,49 @@ function handleKeydown(event) {
 
 // ---------- 大厅功能 ----------
 
-async function toggleFullscreen() {
+function isTouchDevice() {
+  return document.body.classList.contains('is-touch');
+}
+
+// 手机端进入战斗时自动尝试全屏 + 横屏锁定。
+// 必须在用户点击手势内调用；Safari/iOS 不支持时只能保留强制旋转提示。
+async function forceLandscape() {
+  if (!isTouchDevice()) return;
   try {
-    if (!document.fullscreenElement) {
-      if (!document.documentElement.requestFullscreen) {
-        ui.toast('当前浏览器不支持全屏，请手动横屏');
-        return;
-      }
-      await document.documentElement.requestFullscreen();
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
       try {
-        await screen.orientation?.lock?.('landscape');
+        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
       } catch {
-        /* iOS Safari 等不支持方向锁定 */
+        /* 用户拒绝或浏览器不支持 */
       }
-    } else {
-      await document.exitFullscreen?.();
+    }
+    if (screen.orientation?.lock) {
+      try {
+        await screen.orientation.lock('landscape');
+      } catch {
+        /* iOS Safari / 桌面浏览器不支持方向锁定 */
+      }
     }
   } catch {
-    ui.toast('全屏失败，请手动横屏', 2400);
+    /* 保持竖屏提示 */
+  }
+}
+
+async function toggleFullscreen() {
+  if (!isTouchDevice()) return;
+  if (!document.fullscreenElement) {
+    await forceLandscape();
+    return;
+  }
+  try {
+    await document.exitFullscreen?.();
+    try {
+      screen.orientation?.unlock?.();
+    } catch {
+      /* ignore */
+    }
+  } catch {
+    ui.toast('退出全屏失败', 2000);
   }
 }
 

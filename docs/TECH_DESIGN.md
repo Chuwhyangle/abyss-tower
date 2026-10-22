@@ -273,9 +273,10 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 ### 5.7 移动端
 
 - 视口：`viewport-fit=cover`、禁止缩放；游戏页使用 `100dvh` 与安全区内边距。
-- 布局：横屏优先；HUD 单行紧凑、商店横向滚动、遗物面板改为 HUD 入口弹窗；竖屏显示可关闭的旋转提示。
+- 布局：横屏优先；HUD 单行紧凑、商店横向滚动、遗物面板改为 HUD 入口弹窗。
+- 进入战斗（选择难度/继续/再来一局）时在用户手势内调用 `requestFullscreen` + `screen.orientation.lock('landscape')`；无法锁定时显示不可跳过的旋转提示与“重试自动横屏”。
 - 触控：`pointerdown` 先显示射程预览，`click` 完成建造；触屏点位容错吸附到邻近可建造格/塔。
-- 全屏按钮调用 `requestFullscreen` 并尽力 `screen.orientation.lock('landscape')`，失败降级为提示。
+- iOS Safari 不支持网页强制旋转/全屏，作为平台限制记录，不承诺自动横屏。
 - 画布 `touch-action:none`，商店 `pan-x`；移动端默认低配画质，但画质不参与模拟。
 
 ---
