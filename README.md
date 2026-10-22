@@ -114,6 +114,17 @@ sudo systemctl status rogue-td
 
 升级代码后需要 `sudo systemctl restart rogue-td` 以加载服务端改动（前端静态文件即时生效）；重启前建议先 `npm run backup`。
 
+## 公网访问（Cloudflare Tunnel）
+
+- 地址：**https://game.leyanwc.xyz**
+- Cloudflare DNS 自动生成 CNAME 并代理；根域名 `leyanwc.xyz` 未改动。
+- 服务：`cloudflared-rogue-td.service`（开机自启，作为 `wenjin` 运行）。
+- 配置：`/home/wenjin/.cloudflared/config.yml`
+- 凭据：`/home/wenjin/.cloudflared/cert.pem` 与 `<tunnel-id>.json`，权限 600/400，**不提交仓库**。
+- 服务器不开放 80/443 入站，Cloudflare Tunnel 只使用出站连接。
+- 重建步骤：先恢复 `rogue-td`，再安装 `deploy/cloudflared-rogue-td.service`，确保两个服务均 active。
+- 公网可直接访问且无账号体系；如需限制访问，可在 Cloudflare Zero Trust 中加 Access 策略。
+
 数据备份（在线一致性快照，无需停服）：
 
 ```bash
