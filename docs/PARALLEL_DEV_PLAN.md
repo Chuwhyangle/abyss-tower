@@ -77,7 +77,7 @@ main ──●────────────●─────────
 | `server/index.mjs` | 账号线（S1 后冻结） | S1 拆完路由后基本不再改 |
 | `public/index.html` | 共享，低冲突 | 账号线只在末尾加 `<script type="module" src="/js/auth.js">` 与一个 `#auth-root` 容器；内容线不动这两处 |
 | `package.json` | 共享 | 新增脚本先沟通；账号线只加 `test:auth` 等 |
-| `tests/harness.mjs` | 账号线改一次 | 增加 `guestSession()`/`login()` 辅助；内容线测试继续可用 |
+| `tests/harness.mjs` | 账号线改一次 | 增加 `registerAndLogin()`；注册成为硬门槛，所有浏览器测试必须先登录 |
 | `tests/*.test.mjs`（内容相关） | 内容线 | — |
 | `tests/auth*.test.mjs` / `db-migrations.test.mjs` | 账号线 | — |
 
@@ -125,8 +125,8 @@ export function contentVersion() { return CONTENT_VERSION; }
 ### 4.4 测试夹具
 
 - 服务端测试统一从 `tests/harness.mjs` 获取隔离服务（临时 DB + 随机端口）。
-- 内容线测试可用 `withGuest()` 自动创建游客会话，避免每个测试手写 Cookie。
-- 账号线测试用 `registerAndLogin()`。
+- **不提供游客通道**：所有浏览器测试必须先用 `registerAndLogin()` 创建测试账号（每次随机用户名），再进入大厅。
+- 内容线测试不要手写 Cookie；统一从 harness 拿已登录的上下文。账号线 S4 交付后，内容线 rebase 即可复用。
 
 ---
 
@@ -154,7 +154,7 @@ export function contentVersion() { return CONTENT_VERSION; }
 | D2 | S2：schema + 旧数据迁移 | 地图 UI/测试；适配 `game/content.mjs` |
 | D3 | S3：认证接口/会话/限流 | 合并 `feature/map-v2` 到 main（先跑全量测试） |
 | D4 | 账号线 rebase main，接 `content.mjs` | 修合并后问题，冻结 `CONTENT_VERSION` |
-| D5 | S4：客户端登录 UI + 游客升级 | 新内容开发（新塔/遗物/地图），只加 ID |
+| D5 | S4：登录/注册页 + 老账号绑定 + harness 自动登录 | 新内容开发（新塔/遗物/地图），只加 ID |
 | D6 | S5：榜单 board_key / 设置同步 | 继续内容迭代 |
 | D7 | S6：开 `AUTH_ENABLED=1`，观察 | 观察榜单/对局是否正常 |
 
