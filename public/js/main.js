@@ -4,13 +4,14 @@ import { generateMap } from './shared/mapgen.js';
 import {
   RELIC_BY_ID,
   TOWER_ORDER,
-  MAX_WAVE,
-  rollRelics,
+  rollRelicOffers,
 } from './shared/data.js';
 import { Simulation } from './sim.js';
 import { GameApp } from './game-app.js';
 import { ui } from './ui.js';
 import { audio } from './audio.js';
+import { normalizeSnapshot } from './shared/save.js';
+import { loadSettings, saveSettings } from './settings.js';
 
 const SNAPSHOT_KEY = 'abyss-tower.snapshot.v2';
 
@@ -20,6 +21,8 @@ const state = {
   run: null,
   sim: null,
   app: null,
+  currentOffers: null,
+  settings: loadSettings(),
   starting: false,
   loadingWave: false,
 };
@@ -42,8 +45,7 @@ function loadSnapshot() {
   try {
     const raw = localStorage.getItem(SNAPSHOT_KEY);
     if (!raw) return null;
-    const snap = JSON.parse(raw);
-    return snap && snap.version === 2 ? snap : null;
+    return normalizeSnapshot(JSON.parse(raw));
   } catch {
     return null;
   }
@@ -83,6 +85,7 @@ async function boot() {
     onShop: () => openShop(),
     onBoard: (mode) => openBoard(mode),
     onHelp: () => ui.showHelp(),
+    onSettings: () => openSettings(),
     onQuit: () => quitRun(),
     onNextWave: () => nextWave(),
     onSpeed: (value) => state.app?.setSpeed(value),
@@ -94,7 +97,7 @@ async function boot() {
     onUpgrade: (tower) => upgradeTower(tower),
     onSell: (tower) => sellTower(tower),
     onDeselect: () => selectTower(null),
-    onPickRelic: (id) => pickRelic(id),
+    onPickOffer: (index) => pickOffer(index),
     onReroll: () => rerollRelics(),
     onRestart: (mode, difficulty) => {
       clearSnapshot();
@@ -162,7 +165,9 @@ function beginGame(data, snapshot) {
     maxBaseHp: snapshot ? snapshot.maxBaseHp : data.baseHp,
     relics,
     towers: snapshot?.towers || [],
-    wave: snapshot?.wave || 0,
+    wave: snapshot?.clearedWave ?? snapshot?.wave ?? 0,
+    clearedWave: data.clearedWaves ?? snapshot?.clearedWave ?? snapshot?.wave ?? 0,
+    pendingDraft: snapshot?.pendingDraft ?? false,
     kills: snapshot?.kills || 0,
     startedAt: snapshot?.startedAt,
     restored: !!snapshot,
@@ -182,12 +187,15 @@ function beginGame(data, snapshot) {
     day: data.day,
     maxRerolls: data.maxRerolls ?? 1,
     rerollsUsed: data.rerollsUsed ?? 0,
+    clearedWaves: data.clearedWaves ?? sim.clearedWave,
+    wavesServed: data.wavesServed ?? sim.clearedWave,
   };
   if (data.dailyAttemptsLeft != null) state.dailyLeft = data.dailyAttemptsLeft;
 
   const canvas = document.getElementById('game-canvas');
   state.app = new GameApp(sim, canvas, {
     onHud: (hud) => ui.updateHud(hud),
+    settings: state.settings,
   });
 
   ui.showGame({ game: sim, profile: state.profile });
@@ -216,17 +224,92 @@ async function resumeRun() {
       startingGold: snap.gold,
       baseHp: snap.baseHp,
       maxBaseHp: snap.maxBaseHp,
-      relics: (snap.relics || []).map((id) => RELIC_BY_ID[id]).filter(Boolean),
+      relics: (snap.relics || [])
+        .map((item) => {
+          const id = typeof item === 'string' ? item : item.id;
+          const def = RELIC_BY_ID[id];
+          return def ? { ...def, level: Math.min(3, Math.max(1, item.level || 1)) } : null;
+        })
+        .filter(Boolean),
       towersUnlocked: run.towersUnlocked || ['arrow', 'cannon', 'frost'],
       maxRerolls: run.maxRerolls,
       rerollsUsed: run.rerollsUsed,
+      clearedWaves: run.clearedWaves,
+      wavesServed: run.wavesServed,
       day: run.day,
     };
     beginGame(data, snap);
-    ui.toast('已恢复至上次波次结束', 2200);
+    if (snap.pendingDraft && run.clearedWaves === run.wavesServed) {
+      await restorePendingDraft();
+    } else if (run.clearedWaves < run.wavesServed) {
+      ui.toast(`恢复到第 ${run.wavesServed} 波开始前，可重新挑战本波`, 2800);
+    } else {
+      ui.toast('已恢复至上次波次结束', 2200);
+    }
   } catch (error) {
     ui.toast(error.message, 3000);
   }
+}
+
+async function restorePendingDraft() {
+  const sim = state.sim;
+  if (!sim) return;
+  state.app.setPaused(true);
+  try {
+    const data = await api.getRelics(state.run.id);
+    data.offers = normalizeOffers(data.offers, sim);
+    state.run.maxRerolls = data.maxRerolls ?? state.run.maxRerolls;
+    state.run.rerollsUsed = data.rerollsUsed ?? 0;
+    if (data.picked) {
+      sim.pendingDraft = false;
+      sim.save();
+      state.app.setPaused(false);
+      ui.toast('本次遗物已经选择');
+      return;
+    }
+    sim.pendingDraft = true;
+    state.currentOffers = data.offers;
+    ui.showDraft({
+      wave: data.wave,
+      offers: data.offers,
+      rerolls: { used: state.run.rerollsUsed, max: state.run.maxRerolls },
+      gold: sim.gold,
+    });
+  } catch (error) {
+    console.warn('[draft restore]', error);
+    sim.pendingDraft = false;
+    sim.save();
+    state.app.setPaused(false);
+    ui.toast('未能恢复遗物选择，已跳过本次抽取', 2600);
+  }
+}
+
+// 兼容旧服务端返回的遗物 ID 列表（尚未重启线上进程时）。
+function normalizeOffers(raw, sim) {
+  return (raw || [])
+    .map((item) => {
+      if (typeof item === 'string' && RELIC_BY_ID[item]) {
+        const fromLevel = sim.getRelicLevel(item) || 0;
+        return {
+          kind: 'relic',
+          id: item,
+          fromLevel,
+          toLevel: Math.min(3, fromLevel + 1),
+        };
+      }
+      if (item && item.kind) return item;
+      if (item && item.id && RELIC_BY_ID[item.id]) {
+        const fromLevel = item.fromLevel ?? (sim.getRelicLevel(item.id) || 0);
+        return {
+          kind: 'relic',
+          id: item.id,
+          fromLevel,
+          toLevel: Math.min(3, item.toLevel || fromLevel + 1),
+        };
+      }
+      return null;
+    })
+    .filter(Boolean);
 }
 
 // ---------- 波次流程 ----------
@@ -236,11 +319,29 @@ async function nextWave() {
   if (!sim || sim.phase !== 'prep' || state.loadingWave) return;
   state.loadingWave = true;
   try {
-    const { wave } = await api.startWave(state.run.id);
+    let data = await api.startWave(state.run.id);
+    // 本地已清波但服务端没记录（清波请求失败/刷新）：先补同步，避免重放已清波次重复领奖。
+    if (data.replay && sim.clearedWave >= data.wave.index) {
+      try {
+        await api.clearWave(state.run.id, sim.clearedWave);
+        data = await api.startWave(state.run.id);
+      } catch (error) {
+        console.warn('[wave sync]', error);
+        ui.toast('清波同步失败，请检查网络后重试', 2600);
+        return;
+      }
+    }
+    if (!data.replay) {
+      sim.clearPending = false;
+      sim.save();
+    }
+    state.run.clearedWaves = data.clearedWaves ?? state.run.clearedWaves;
+    state.run.wavesServed = data.wavesServed ?? state.run.wavesServed;
     ui.closeModal();
-    if (sim.beginWave(wave)) {
+    if (sim.beginWave(data.wave)) {
       state.app.setPaused(false);
       state.app.emitHud(true);
+      if (data.replay) ui.toast(`重新挑战第 ${data.wave.index} 波`, 2200);
     }
   } catch (error) {
     ui.toast(error.message, 2800);
@@ -258,25 +359,58 @@ async function handleWaveClear(wave, info) {
     2400
   );
 
+  // 先让服务端记录清波，再落快照；刷新续玩时才能区分"已清"与"进行中"。
+  let clearOk = false;
+  try {
+    const cleared = await api.clearWave(state.run.id, wave);
+    state.run.clearedWaves = cleared.clearedWaves;
+    state.run.wavesServed = cleared.wavesServed;
+    clearOk = true;
+    sim.clearPending = false;
+  } catch (error) {
+    console.warn('[clear]', error);
+    sim.clearPending = true;
+    ui.toast('清波同步失败，续玩时将重放本波', 2800);
+  }
+
+  sim.pendingDraft = true;
+  // 清波未确认时不覆盖波前快照，避免刷新后重复领取奖励。
+  if (clearOk) sim.save();
+
   let data;
   try {
     data = await api.getRelics(state.run.id);
   } catch (error) {
     console.warn('[relics] 回退到本地抽取', error);
-    const offers = rollRelics(`${state.run.seed}:fallback:${wave}`, sim.relics.map((r) => r.id), 3);
-    data = { offers: offers.map((r) => r.id), rerollsUsed: 0, maxRerolls: 0 };
+    data = {
+      offers: rollRelicOffers(`${state.run.seed}:fallback:${wave}`, sim.relics, 3, wave),
+      rerollsUsed: 0,
+      maxRerolls: 0,
+    };
   }
 
   if (!state.sim || state.sim.phase === 'over') return;
+  data.offers = normalizeOffers(data.offers, sim);
   state.run.maxRerolls = data.maxRerolls ?? state.run.maxRerolls;
   state.run.rerollsUsed = data.rerollsUsed ?? 0;
 
+  if (data.picked) {
+    sim.pendingDraft = false;
+    sim.save();
+    state.app.setPaused(false);
+    ui.toast('本次遗物已经选择');
+    return;
+  }
+
   if (!data.offers || data.offers.length === 0) {
+    sim.pendingDraft = false;
+    sim.save();
     state.app.setPaused(false);
     ui.toast('遗物已收集完毕');
     return;
   }
 
+  state.currentOffers = data.offers;
   ui.showDraft({
     wave,
     offers: data.offers,
@@ -285,19 +419,29 @@ async function handleWaveClear(wave, info) {
   });
 }
 
-async function pickRelic(relicId) {
+async function pickOffer(index) {
   const sim = state.sim;
-  const relic = RELIC_BY_ID[relicId];
-  if (!sim || !relic) return;
+  const offer = state.currentOffers?.[index];
+  if (!sim || !offer) return;
 
+  let applyLocally = false;
   try {
-    await api.pickRelic(state.run.id, relicId);
+    await api.pickRelic(state.run.id, { index });
+    applyLocally = true;
   } catch (error) {
-    console.warn('[pick relic]', error);
-    ui.toast('服务端校验失败，本次选择仅在本地生效', 2400);
+    if (error.status === 409) {
+      ui.toast('本次遗物已经选择', 2400);
+    } else {
+      console.warn('[pick offer]', error);
+      applyLocally = true;
+      ui.toast('服务端校验失败，本次选择仅在本地生效', 2400);
+    }
   }
 
-  sim.addRelic(relic);
+  if (applyLocally) sim.applyOffer(offer);
+  sim.pendingDraft = false;
+  state.currentOffers = null;
+  sim.save();
   ui.closeModal();
   state.app.setPaused(false);
   ui.renderRelics();
@@ -314,9 +458,11 @@ async function rerollRelics() {
 
   try {
     const data = await api.getRelics(state.run.id, true);
+    data.offers = normalizeOffers(data.offers, sim);
     sim.gold -= cost;
     state.run.rerollsUsed = data.rerollsUsed;
     state.run.maxRerolls = data.maxRerolls;
+    state.currentOffers = data.offers;
     sim.save();
     state.app.emitHud(true);
     ui.showDraft({
@@ -497,6 +643,30 @@ function handleKeydown(event) {
 }
 
 // ---------- 大厅功能 ----------
+
+function openSettings() {
+  if (ui.hasModal()) {
+    ui.toast('请先完成当前的遗物选择或结算');
+    return;
+  }
+  const inGame = !!state.app;
+  const wasPaused = state.app?.paused || false;
+  if (inGame) state.app.setPaused(true);
+
+  ui.showSettings({
+    settings: state.settings,
+    inGame,
+    onApply: (next) => {
+      state.settings = saveSettings(next);
+      state.app?.applySettings(state.settings);
+      if (inGame) state.app?.setPaused(wasPaused);
+      ui.toast('画质设置已应用', 1800);
+    },
+    onCancel: () => {
+      if (inGame) state.app?.setPaused(wasPaused);
+    },
+  });
+}
 
 async function openBoard(mode = 'normal') {
   try {

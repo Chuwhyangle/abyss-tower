@@ -10,9 +10,12 @@
     "test": "node --test tests/*.test.mjs",
     "smoke": "node tests/browser-smoke.mjs",
     "flow": "node tests/browser-flow.mjs",
-    "balance": "node tests/balance-sim.mjs 20",
-    "balance:write": "node tests/balance-sim.mjs 20 --write",
-    "sweep": "node tests/balance-sweep.mjs 10",
+    "test:settings": "node tests/browser-settings.mjs",
+    "test:relics": "node tests/browser-relics.mjs",
+    "perf": "node tests/dynamic-perf.mjs",
+    "balance": "node tests/balance-sim.mjs 40",
+    "balance:write": "node tests/balance-sim.mjs 40 --write",
+    "sweep": "node tests/balance-sweep.mjs 20",
     "backup": "node --no-warnings scripts/backup.mjs"
   },
   "engines": {

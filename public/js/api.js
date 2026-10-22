@@ -65,16 +65,22 @@ export const api = {
   startWave(id) {
     return request(`/api/runs/${encodeURIComponent(id)}/wave`, { method: 'POST', body: {} });
   },
+  clearWave(id, wave) {
+    return request(`/api/runs/${encodeURIComponent(id)}/clear`, {
+      method: 'POST',
+      body: { wave },
+    });
+  },
   getRelics(id, reroll = false) {
     return request(`/api/runs/${encodeURIComponent(id)}/relics`, {
       method: 'POST',
       body: { reroll },
     });
   },
-  pickRelic(id, relicId) {
+  pickRelic(id, selection) {
     return request(`/api/runs/${encodeURIComponent(id)}/relic`, {
       method: 'POST',
-      body: { relicId },
+      body: typeof selection === 'number' ? { index: selection } : selection,
     });
   },
   finishRun(id, payload) {

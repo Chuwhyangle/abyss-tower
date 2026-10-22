@@ -12,7 +12,8 @@ import {
   DIFFICULTIES,
   DIFFICULTY_ORDER,
   MAX_WAVE,
-  rollRelics,
+  relicModsAtLevel,
+  rollRelicOffers,
 } from '../public/js/shared/data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -27,8 +28,7 @@ const DETAIL = process.argv.includes('--detail');
 
 // ---------- 机器人策略 ----------
 
-function relicValue(relic) {
-  const mods = relic.mods || {};
+function modsValue(mods = {}) {
   let value = 0;
   for (const [key, raw] of Object.entries(mods)) {
     if (key === 'dmg') {
@@ -50,6 +50,17 @@ function relicValue(relic) {
     else if (typeof raw === 'number') value += raw * 2;
   }
   return value;
+}
+
+function offerValue(offer) {
+  if (offer.kind === 'relic') {
+    const after = relicModsAtLevel(offer.id, offer.toLevel);
+    const before = offer.fromLevel ? relicModsAtLevel(offer.id, offer.fromLevel) : {};
+    return modsValue(after) - modsValue(before);
+  }
+  if (offer.kind === 'gold') return offer.amount * 0.06;
+  if (offer.kind === 'repair') return offer.amount * 12;
+  return 0;
 }
 
 function buildCoverage(map, sim) {
@@ -146,11 +157,14 @@ function runOne(seed, difficulty, meta) {
   });
 
   if (meta) {
-    const startRelic = rollRelics(`${seed}:start:bot`, [], 1)[0];
-    if (startRelic) sim.addRelic(startRelic);
+    const startOffer = rollRelicOffers(`${seed}:start:bot`, [], 1, 1)
+      .find((offer) => offer.kind === 'relic');
+    if (startOffer) sim.addRelic(startOffer);
   }
 
   const cells = buildCoverage(map, sim);
+  // 机器人必须先完成开局整备，再进入第 1 波；否则把"空手接第一波"误当成游戏难度。
+  spendGold(sim, 1, cells);
   let stuck = false;
   let lastWave = 0;
 
@@ -178,11 +192,9 @@ function runOne(seed, difficulty, meta) {
     }
 
     if (sim.phase === 'prep') {
-      const offers = rollRelics(`${seed}:bot:${wave}`, sim.relics.map((r) => r.id), 3);
-      if (offers.length) {
-        offers.sort((a, b) => relicValue(b) - relicValue(a));
-        sim.addRelic(offers[0]);
-      }
+      const offers = rollRelicOffers(`${seed}:bot:${wave}`, sim.relics, 3, wave);
+      offers.sort((a, b) => offerValue(b) - offerValue(a));
+      if (offers[0]) sim.applyOffer(offers[0]);
       spendGold(sim, wave, cells);
       waveLog.push({
         wave,
@@ -384,7 +396,8 @@ function main() {
       '',
       '- 机器人不等同真人：它不会针对性换塔，也不会手动卖塔，通关率仅用于相对比较。',
       '- 若某档通关率明显偏离目标，先调 `DIFFICULTIES` 倍率，再调波次/经济。',
-      '- 目标（全解锁、机器人口径）：漫游 80–90%、远征 40–55%、深渊 5–15%。',
+      '- 目标（全解锁、机器人口径）：漫游 80–90%、远征 25–35%、深渊 5–15%。',
+      '- 机器人在第 1 波前完成开局整备，固定 18 塔上限、固定建塔顺序、不会卖塔/针对性换塔；不同 seed 集差异明显，结论以 40 种子为准。',
       '- 机器人策略固定，绝对通关率以真人试玩为准；零解锁状态显著更难，用于体现星核解锁价值。',
       '',
     ].join('\n');

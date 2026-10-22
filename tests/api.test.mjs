@@ -106,11 +106,35 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   const wave = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
   assert.equal(wave.status, 200);
   assert.equal(wave.data.wave.index, 1);
+  assert.equal(wave.data.replay, false);
   assert.ok(wave.data.wave.hpMul > 1);
+
+  // 战斗中刷新后再次请求：重放第 1 波，不推进波次。
+  const replay = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
+  assert.equal(replay.status, 200);
+  assert.equal(replay.data.replay, true);
+  assert.equal(replay.data.wave.index, 1);
+  assert.equal(replay.data.clearedWaves, 0);
+  assert.equal(replay.data.wavesServed, 1);
+
+  const cleared = await api(`/api/runs/${runId}/clear`, {
+    method: 'POST',
+    body: { wave: 1 },
+  });
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.data.clearedWaves, 1);
+
+  const duplicateClear = await api(`/api/runs/${runId}/clear`, {
+    method: 'POST',
+    body: { wave: 1 },
+  });
+  assert.equal(duplicateClear.status, 200);
+  assert.equal(duplicateClear.data.duplicate, true);
 
   const relics = await api(`/api/runs/${runId}/relics`, { method: 'POST', body: {} });
   assert.equal(relics.status, 200);
   assert.equal(relics.data.offers.length, 3);
+  assert.equal(relics.data.wave, 1);
   assert.equal(relics.data.rerollsUsed, 0);
   assert.equal(relics.data.maxRerolls, 1);
 
@@ -122,12 +146,35 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(reroll.data.rerollsUsed, 1);
   assert.equal(reroll.data.offers.length, 3);
 
+  assert.ok(reroll.data.offers.every((offer) => offer.kind));
+  const pickOffer = reroll.data.offers[0];
   const pick = await api(`/api/runs/${runId}/relic`, {
     method: 'POST',
-    body: { relicId: reroll.data.offers[0] },
+    body: { index: 0 },
   });
   assert.equal(pick.status, 200);
   assert.equal(pick.data.relics.length, 1);
+  assert.equal(pick.data.relics[0].level, 1);
+  if (pickOffer.kind === 'relic') assert.equal(pick.data.applied.id, pickOffer.id);
+
+  const duplicatePick = await api(`/api/runs/${runId}/relic`, {
+    method: 'POST',
+    body: { index: 0 },
+  });
+  assert.equal(duplicatePick.status, 409);
+
+  const wave2 = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
+  assert.equal(wave2.status, 200);
+  assert.equal(wave2.data.wave.index, 2);
+  assert.equal(wave2.data.replay, false);
+  assert.equal(wave2.data.clearedWaves, 1);
+  assert.equal(wave2.data.wavesServed, 2);
+
+  const info = await api(`/api/runs/${runId}`);
+  assert.equal(info.status, 200);
+  assert.equal(info.data.run.clearedWaves, 1);
+  assert.equal(info.data.run.wavesServed, 2);
+  assert.equal(info.data.run.inProgress, true);
 
   const body = {
     waveReached: 999,
@@ -168,35 +215,62 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(unlock.status, 400); // 星核不足
 });
 
-test('通关校验：必须清空第 30 波，途中死亡不算通关', async () => {
-  const unfinished = await startRun('normal', 'standard');
-  assert.equal(unfinished.status, 200);
-  for (let wave = 1; wave <= 30; wave++) {
-    const response = await api(`/api/runs/${unfinished.data.runId}/wave`, {
-      method: 'POST',
-      body: {},
-    });
+test('通关校验：必须清空第 30 波，途中死亡/重放不算通关', async () => {
+  async function serve(runId, wave) {
+    const response = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
     assert.equal(response.status, 200);
     assert.equal(response.data.wave.index, wave);
     assert.equal(response.data.wave.finalBoss, wave === 30);
+    return response.data;
   }
-  const diedAtFinal = await api(`/api/runs/${unfinished.data.runId}/finish`, {
+
+  async function clear(runId, wave) {
+    const response = await api(`/api/runs/${runId}/clear`, {
+      method: 'POST',
+      body: { wave },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.data.clearedWaves, wave);
+  }
+
+  const unfinished = await startRun('normal', 'standard');
+  assert.equal(unfinished.status, 200);
+  const unfinishedId = unfinished.data.runId;
+  for (let wave = 1; wave <= 29; wave++) {
+    await serve(unfinishedId, wave);
+    await clear(unfinishedId, wave);
+  }
+  await serve(unfinishedId, 30);
+  // 最终波进行中刷新：重放第 30 波，波次不推进。
+  const finalReplay = await serve(unfinishedId, 30);
+  assert.equal(finalReplay.replay, true);
+  assert.equal(finalReplay.clearedWaves, 29);
+
+  const diedAtFinal = await api(`/api/runs/${unfinishedId}/finish`, {
     method: 'POST',
-    body: { waveReached: 29, kills: 2800, goldLeft: 1000, baseHp: 0 },
+    body: { waveReached: 30, kills: 2800, goldLeft: 1000, baseHp: 0 },
   });
   assert.equal(diedAtFinal.status, 200);
   assert.equal(diedAtFinal.data.victory, false);
+  assert.equal(diedAtFinal.data.waveReached, 29); // 进行中的第 30 波未被服务端算作已清
 
   const started = await startRun('normal', 'standard');
   assert.equal(started.status, 200);
   const runId = started.data.runId;
 
   for (let wave = 1; wave <= 30; wave++) {
-    const response = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
-    assert.equal(response.status, 200);
-    assert.equal(response.data.wave.index, wave);
-    assert.equal(response.data.wave.finalBoss, wave === 30);
+    const served = await serve(runId, wave);
+    assert.equal(served.replay, false);
+    if (wave === 5) {
+      const replay = await serve(runId, 5);
+      assert.equal(replay.replay, true);
+      assert.equal(replay.wave.index, 5);
+    }
+    await clear(runId, wave);
   }
+
+  const afterFinal = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
+  assert.equal(afterFinal.status, 409);
 
   const finished = await api(`/api/runs/${runId}/finish`, {
     method: 'POST',
@@ -221,9 +295,27 @@ test('每日挑战：自选难度、三次结算上限', async () => {
     if (dailySeed == null) dailySeed = started.data.seed;
     else assert.equal(started.data.seed, dailySeed);
 
+    if (attempt === 1) {
+      // 重放同一波不额外消耗每日次数
+      const wave = await api(`/api/runs/${started.data.runId}/wave`, {
+        method: 'POST',
+        body: {},
+      });
+      assert.equal(wave.data.wave.index, 1);
+      const replay = await api(`/api/runs/${started.data.runId}/wave`, {
+        method: 'POST',
+        body: {},
+      });
+      assert.equal(replay.data.replay, true);
+      await api(`/api/runs/${started.data.runId}/clear`, {
+        method: 'POST',
+        body: { wave: 1 },
+      });
+    }
+
     const finished = await api(`/api/runs/${started.data.runId}/finish`, {
       method: 'POST',
-      body: { waveReached: 0, kills: 0, goldLeft: 0, baseHp: 17 },
+      body: { waveReached: attempt === 1 ? 1 : 0, kills: 0, goldLeft: 0, baseHp: 17 },
     });
     assert.equal(finished.status, 200);
     assert.equal(finished.data.dailyAttemptsLeft, 3 - attempt);

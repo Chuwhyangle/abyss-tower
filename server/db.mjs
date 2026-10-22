@@ -2,7 +2,7 @@ import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DIFFICULTY_ORDER } from '../public/js/shared/data.js';
+import { DIFFICULTY_ORDER, normalizeRelicStates } from '../public/js/shared/data.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const dataDir = path.join(__dirname, 'data');
@@ -33,6 +33,7 @@ db.exec(`
     seed TEXT NOT NULL,
     day TEXT NOT NULL,
     waves_served INTEGER NOT NULL DEFAULT 0,
+    cleared_waves INTEGER NOT NULL DEFAULT 0,
     relics TEXT NOT NULL DEFAULT '[]',
     offers TEXT NOT NULL DEFAULT '{}',
     rerolls_used INTEGER NOT NULL DEFAULT 0,
@@ -71,12 +72,26 @@ function ensureColumn(table, name, ddl) {
   const columns = db.prepare(`PRAGMA table_info(${table})`).all();
   if (!columns.some((column) => column.name === name)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${ddl}`);
+    return true;
   }
+  return false;
 }
 
 ensureColumn('runs', 'difficulty', "TEXT NOT NULL DEFAULT 'standard'");
 ensureColumn('runs', 'victory', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('runs', 'duration_ms', 'INTEGER NOT NULL DEFAULT 0');
+const clearedWavesAdded = ensureColumn('runs', 'cleared_waves', 'INTEGER NOT NULL DEFAULT 0');
+if (clearedWavesAdded) {
+  // 旧数据无法区分"进行中"和"已清"：已结束局按结算波次回填，进行中局保守回退一波。
+  db.exec(`
+    UPDATE runs
+       SET cleared_waves = CASE
+         WHEN status = 'finished' THEN wave_reached
+         WHEN waves_served > 0 THEN waves_served - 1
+         ELSE 0
+       END
+  `);
+}
 ensureColumn('leaderboard', 'difficulty', "TEXT NOT NULL DEFAULT 'standard'");
 ensureColumn('leaderboard', 'victory', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('leaderboard', 'duration_ms', 'INTEGER NOT NULL DEFAULT 0');
@@ -170,7 +185,8 @@ export function hydrateRun(row) {
     seed: row.seed,
     day: row.day,
     wavesServed: row.waves_served,
-    relics: safeParse(row.relics, []),
+    clearedWaves: row.cleared_waves ?? 0,
+    relics: normalizeRelicStates(safeParse(row.relics, [])),
     offers: safeParse(row.offers, {}),
     rerollsUsed: row.rerolls_used,
     status: row.status,

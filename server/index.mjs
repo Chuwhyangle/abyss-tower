@@ -16,8 +16,10 @@ import {
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
-  rollRelics,
+  rollRelicOffers,
+  normalizeRelicStates,
   RELIC_BY_ID,
+  RELIC_MAX_LEVEL,
   UNLOCK_BY_ID,
   DIFFICULTIES,
   unlockedTowerIds,
@@ -199,7 +201,16 @@ async function handleApi(req, res, url) {
       return fail(res, 429, '今日挑战次数已用完');
     }
 
-    const seed = mode === 'daily' ? `daily-${day}` : crypto.randomBytes(8).toString('hex');
+    // 仅隔离测试服务允许固定种子，便于性能/平衡复现；生产环境默认关闭。
+    const testSeed =
+      process.env.ALLOW_TEST_SEED === '1'
+        ? String(req.headers['x-test-seed'] || '').slice(0, 64)
+        : '';
+    const seed = testSeed
+      ? `test-${testSeed}`
+      : mode === 'daily'
+        ? `daily-${day}`
+        : crypto.randomBytes(8).toString('hex');
     const unlocks = profile.unlocks;
     const startingGold = Math.max(
       100,
@@ -211,7 +222,9 @@ async function handleApi(req, res, url) {
     );
     const maxRerolls = maxRerollsFor(profile);
     const startRelics = unlocks.includes('start_relic')
-      ? rollRelics(`${seed}:start:${token}`, [], 1)
+      ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1)
+          .filter((offer) => offer.kind === 'relic')
+          .map((offer) => ({ id: offer.id, level: offer.toLevel }))
       : [];
 
     db.prepare(
@@ -221,8 +234,8 @@ async function handleApi(req, res, url) {
     const id = crypto.randomBytes(9).toString('base64url');
     db.prepare(
       `INSERT INTO runs
-         (id, token, mode, difficulty, seed, day, waves_served, relics, offers, rerolls_used, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, ?, '{}', 0, 'active', ?)`
+         (id, token, mode, difficulty, seed, day, waves_served, cleared_waves, relics, offers, rerolls_used, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, '{}', 0, 'active', ?)`
     ).run(id, token, mode, difficulty, seed, day, JSON.stringify(startRelics), Date.now());
 
     return json(res, 200, {
@@ -238,11 +251,13 @@ async function handleApi(req, res, url) {
       relics: startRelics,
       towersUnlocked: unlockedTowerIds(unlocks),
       maxRerolls,
+      clearedWaves: 0,
+      wavesServed: 0,
       dailyAttemptsLeft: mode === 'daily' ? dailyAttemptsLeft(token) : null,
     });
   }
 
-  const runMatch = pathname.match(/^\/api\/runs\/([A-Za-z0-9_-]+)(?:\/(wave|relics|relic|finish|abandon))?$/);
+  const runMatch = pathname.match(/^\/api\/runs\/([A-Za-z0-9_-]+)(?:\/(wave|clear|relics|relic|finish|abandon))?$/);
   if (runMatch) {
     const runId = runMatch[1];
     const action = runMatch[2] || 'info';
@@ -259,7 +274,10 @@ async function handleApi(req, res, url) {
           seed: run.seed,
           day: run.day,
           wavesServed: run.wavesServed,
-          relics: run.relics,
+          clearedWaves: run.clearedWaves,
+          inProgress: run.clearedWaves < run.wavesServed,
+          currentWave: run.clearedWaves < run.wavesServed ? run.wavesServed : run.clearedWaves,
+          relics: normalizeRelicStates(run.relics),
           status: run.status,
           victory: !!run.victory,
           maxRerolls: maxRerollsFor(profile),
@@ -273,30 +291,103 @@ async function handleApi(req, res, url) {
     if (run.status !== 'active') return fail(res, 409, '该远征已结束');
 
     if (action === 'wave' && method === 'POST') {
-      if (run.wavesServed >= MAX_WAVE) return fail(res, 409, '已抵达最终波次');
+      // 有未结算波次时重放当前波，不推进波次、不重复发奖。
+      if (run.clearedWaves < run.wavesServed) {
+        const current = run.wavesServed;
+        return json(res, 200, {
+          wave: generateWave(run.seed, current, run.difficulty),
+          replay: true,
+          clearedWaves: run.clearedWaves,
+          wavesServed: run.wavesServed,
+        });
+      }
+      if (run.clearedWaves >= MAX_WAVE) return fail(res, 409, '已抵达最终波次');
       const next = run.wavesServed + 1;
       db.prepare('UPDATE runs SET waves_served = ? WHERE id = ?').run(next, runId);
-      return json(res, 200, { wave: generateWave(run.seed, next, run.difficulty) });
+      return json(res, 200, {
+        wave: generateWave(run.seed, next, run.difficulty),
+        replay: false,
+        clearedWaves: run.clearedWaves,
+        wavesServed: next,
+      });
+    }
+
+    if (action === 'clear' && method === 'POST') {
+      const body = await readJson(req);
+      const wave = Math.floor(Number(body.wave));
+      if (!Number.isFinite(wave) || wave < 1 || wave > MAX_WAVE) {
+        return fail(res, 400, '波次号不合法');
+      }
+      if (wave > run.wavesServed) return fail(res, 409, '该波次尚未放行');
+      if (wave <= run.clearedWaves) {
+        return json(res, 200, {
+          ok: true,
+          clearedWaves: run.clearedWaves,
+          wavesServed: run.wavesServed,
+          nextWave: run.wavesServed + 1,
+          duplicate: true,
+        });
+      }
+      if (wave !== run.wavesServed) {
+        return fail(res, 409, '只能结算当前进行中的波次');
+      }
+      db.prepare('UPDATE runs SET cleared_waves = ? WHERE id = ?').run(wave, runId);
+      return json(res, 200, {
+        ok: true,
+        clearedWaves: wave,
+        wavesServed: run.wavesServed,
+        nextWave: wave + 1,
+      });
     }
 
     if (action === 'relics' && method === 'POST') {
       const body = await readJson(req);
-      const key = String(run.wavesServed);
+      if (run.clearedWaves !== run.wavesServed) {
+        return fail(res, 409, '当前波次尚未结算完成');
+      }
+      const key = String(run.clearedWaves);
       const maxRerolls = maxRerollsFor(profile);
       let rerollsUsed = run.rerollsUsed;
       const offers = run.offers || {};
 
       if (body.reroll) {
+        if (offers[key]?.picked) return fail(res, 409, '本次遗物已选择，不能刷新');
         if (rerollsUsed >= maxRerolls) return fail(res, 409, '刷新次数已用完');
         rerollsUsed += 1;
         delete offers[key];
       }
 
+      const relicStates = normalizeRelicStates(run.relics);
       let slot = offers[key];
+      // 兼容旧进行中远征的 { ids: [...] } 格式。
+      if (slot && Array.isArray(slot.ids)) {
+        slot = {
+          offers: slot.ids
+            .map((id) => {
+              if (!RELIC_BY_ID[id]) return null;
+              const fromLevel = relicStates.find((state) => state.id === id)?.level || 0;
+              return {
+                kind: 'relic',
+                id,
+                fromLevel,
+                toLevel: Math.min(RELIC_MAX_LEVEL, fromLevel + 1),
+              };
+            })
+            .filter(Boolean),
+          picked: false,
+        };
+        offers[key] = slot;
+      }
       if (!slot) {
-        const owned = (run.relics || []).map((r) => r.id);
-        const relics = rollRelics(`${run.seed}:relic:${run.wavesServed}:${rerollsUsed}`, owned, 3);
-        slot = { ids: relics.map((r) => r.id) };
+        slot = {
+          offers: rollRelicOffers(
+            `${run.seed}:relic:${run.clearedWaves}:${rerollsUsed}`,
+            relicStates,
+            3,
+            run.clearedWaves
+          ),
+          picked: false,
+        };
         offers[key] = slot;
       }
 
@@ -307,8 +398,10 @@ async function handleApi(req, res, url) {
       );
 
       return json(res, 200, {
-        wave: run.wavesServed,
-        offers: slot.ids,
+        wave: run.clearedWaves,
+        offers: slot.offers,
+        picked: !!slot.picked,
+        relics: relicStates,
         rerollsUsed,
         maxRerolls,
       });
@@ -316,23 +409,49 @@ async function handleApi(req, res, url) {
 
     if (action === 'relic' && method === 'POST') {
       const body = await readJson(req);
-      const relicId = String(body.relicId || '');
-      const relic = RELIC_BY_ID[relicId];
-      if (!relic) return fail(res, 404, '未知遗物');
-      const slot = (run.offers || {})[String(run.wavesServed)];
-      if (!slot || !slot.ids.includes(relicId)) return fail(res, 400, '该遗物不在本次选项中');
-      if ((run.relics || []).some((r) => r.id === relicId)) return fail(res, 409, '已经拥有该遗物');
-      const relics = [...(run.relics || []), relic];
-      db.prepare('UPDATE runs SET relics = ? WHERE id = ?').run(JSON.stringify(relics), runId);
-      return json(res, 200, { relic, relics });
+      if (run.clearedWaves !== run.wavesServed) {
+        return fail(res, 409, '当前波次尚未结算完成');
+      }
+      const offers = run.offers || {};
+      const key = String(run.clearedWaves);
+      const slot = offers[key];
+      if (!slot || !Array.isArray(slot.offers)) return fail(res, 400, '本次遗物选项不存在');
+      if (slot.picked) return fail(res, 409, '本次遗物已经选择');
+
+      let offer = null;
+      const index = Number(body.index);
+      if (Number.isInteger(index) && index >= 0 && index < slot.offers.length) {
+        offer = slot.offers[index];
+      } else if (body.relicId) {
+        offer = slot.offers.find(
+          (item) => item.kind === 'relic' && item.id === String(body.relicId)
+        );
+      }
+      if (!offer) return fail(res, 400, '选择不在本次选项中');
+
+      let states = normalizeRelicStates(run.relics);
+      if (offer.kind === 'relic') {
+        const existing = states.find((state) => state.id === offer.id);
+        const targetLevel = Math.min(
+          RELIC_MAX_LEVEL,
+          Math.max(offer.toLevel || 1, (existing?.level || 0) + 1)
+        );
+        if (existing) existing.level = targetLevel;
+        else states.push({ id: offer.id, level: targetLevel });
+        db.prepare('UPDATE runs SET relics = ? WHERE id = ?').run(JSON.stringify(states), runId);
+      }
+
+      slot.picked = true;
+      db.prepare('UPDATE runs SET offers = ? WHERE id = ?').run(JSON.stringify(offers), runId);
+      return json(res, 200, { applied: offer, picked: true, relics: states });
     }
 
     if (action === 'finish' && method === 'POST') {
       const body = await readJson(req);
-      const payload = clampFinishPayload(body, run.wavesServed);
+      const payload = clampFinishPayload(body, run.clearedWaves);
       const outcome = computeOutcome({
         ...payload,
-        wavesServed: run.wavesServed,
+        wavesServed: run.clearedWaves,
         difficulty: run.difficulty,
       });
       const now = Date.now();

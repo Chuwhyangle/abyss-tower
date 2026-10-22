@@ -1,5 +1,14 @@
 // 纯战斗模拟：不依赖 DOM / Canvas / 音频，浏览器与 Node 平衡模拟共用。
-import { TOWERS, ENEMIES, MAX_WAVE } from './shared/data.js';
+import {
+  TOWERS,
+  ENEMIES,
+  MAX_WAVE,
+  RELIC_BY_ID,
+  RELIC_MAX_LEVEL,
+  GLOBAL_MOD_CAPS,
+  normalizeRelicStates,
+  relicModsAtLevel,
+} from './shared/data.js';
 import { RNG } from './shared/rng.js';
 import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
@@ -17,8 +26,13 @@ export class Simulation {
     this.baseHp = opts.baseHp ?? 20;
     this.maxBaseHp = opts.maxBaseHp ?? 20;
     this.wave = opts.wave || 0;
+    // 已清波次独立记录：wave 可能是正在重放的波次，clearedWave 只由清波结算推进。
+    this.clearedWave = opts.clearedWave ?? opts.wave ?? 0;
+    this.pendingDraft = !!opts.pendingDraft;
+    // 清波尚未被服务端确认时，禁止覆盖波前快照，避免刷新后重复领取奖励。
+    this.clearPending = false;
     this.kills = opts.kills || 0;
-    this.relics = (opts.relics || []).slice();
+    this.relics = normalizeRelicStates(opts.relics || []);
     this.unlockedTowers = opts.unlockedTowers || ['arrow', 'cannon', 'frost'];
     this.startedAt = opts.startedAt || Date.now();
 
@@ -44,6 +58,9 @@ export class Simulation {
 
     this._lastSound = new Map();
     this._hudDirty = true;
+    // 视觉降级只影响特效/飘字的生成，不改变战斗逻辑。
+    this.effectsLevel = 'full';
+    this.floatersMode = 'all';
 
     this.buildPath();
     this.recomputeMods();
@@ -51,7 +68,9 @@ export class Simulation {
     // 开局遗物中的基地生命加成（读档时不重复结算）
     if (!opts.restored) {
       let bonus = 0;
-      for (const relic of this.relics) bonus += relic.mods?.baseHp || 0;
+      for (const relic of this.relics) {
+        bonus += relicModsAtLevel(relic.id, relic.level).baseHp || 0;
+      }
       if (bonus) {
         this.maxBaseHp += bonus;
         this.baseHp += bonus;
@@ -151,7 +170,9 @@ export class Simulation {
   // ---------- 波次 ----------
 
   beginWave(waveDef) {
-    if (this.phase === 'over' || !waveDef) return false;
+    if (this.phase !== 'prep' || !waveDef) return false;
+    // 进入战斗前先落一份"该波开始前"的快照：战斗中刷新可重放本波。
+    this.savePreWave();
     this.waveDef = waveDef;
     this.wave = waveDef.index;
     this.phase = 'wave';
@@ -224,6 +245,7 @@ export class Simulation {
     this.gold += reward + interest;
     const cleared = this.wave;
     this.waveDef = null;
+    this.clearedWave = cleared;
 
     if (cleared >= MAX_WAVE) {
       this.gameOver(true);
@@ -231,7 +253,7 @@ export class Simulation {
     }
 
     this.phase = 'prep';
-    this.save();
+    // 快照由调用方在服务端确认清波后写入，避免清波未确认时重复领奖。
     this.opts.onWaveClear?.(cleared, { reward, interest });
   }
 
@@ -241,8 +263,9 @@ export class Simulation {
     this.paused = true;
     this.playSound(victory ? 'victory' : 'gameover');
 
-    // 只按已清波次结算：在第 N 波中途死亡时，已清波次为 N-1。
-    const clearedWave = victory ? MAX_WAVE : Math.max(0, this.wave - 1);
+    // 只按已清波次结算：进行中波次（含重放）不算清波。
+    const clearedWave = victory ? MAX_WAVE : Math.max(0, this.clearedWave);
+    this.clearedWave = clearedWave;
     const outcome = computeOutcome({
       waveReached: clearedWave,
       wavesServed: clearedWave,
@@ -320,7 +343,7 @@ export class Simulation {
     this.baseHp -= enemy.dmg;
     this.shake = Math.min(16, this.shake + 7);
     this.addEffect({ kind: 'leak', x: enemy.x, y: enemy.y, ttl: 0.5 });
-    this.addFloater(enemy.x, enemy.y - 0.4, `-${enemy.dmg}`, '#ff6b6b');
+    this.addFloater(enemy.x, enemy.y - 0.4, `-${enemy.dmg}`, '#ff6b6b', true, { key: true });
     this.playSound('hurt');
   }
 
@@ -330,7 +353,8 @@ export class Simulation {
     for (const tower of this.towers) {
       tower.cd = Math.max(0, tower.cd - dt);
       tower.recoil = Math.max(0, (tower.recoil || 0) - dt * 5);
-      const stats = this.statsFor(tower);
+      // 稳定属性缓存在建造/升级/遗物变化时刷新，不在每个模拟步重建对象。
+      const stats = tower.stats || this.refreshTowerStats(tower);
 
       let target = tower.target;
       if (target && (target.dead || !this.inRange(tower, target, stats.range))) target = null;
@@ -531,8 +555,10 @@ export class Simulation {
     this.damage(enemy, hit.dmg, { ignoreArmor: opts.ignoreArmor, crit: hit.crit });
   }
 
+  // base 必须来自 statsFor()（已包含塔专属与全局增伤），这里只应用条件增伤与暴击。
+  // 面板显示 statsFor().dmg，对零护甲、无暴击、无条件增伤的目标应完全一致。
   computeHit(base, towerType, enemy, opts = {}) {
-    let dmg = base * (1 + (this.mods.dmg[towerType] || 0) + (this.mods.dmgAll || 0));
+    let dmg = base;
     if (this.mods.bossDmg && enemy.boss) dmg *= 1 + this.mods.bossDmg;
     if (this.mods.lowHpDmg && this.baseHp / this.maxBaseHp < 0.4) dmg *= 1 + this.mods.lowHpDmg;
     let crit = false;
@@ -561,7 +587,8 @@ export class Simulation {
         enemy.y - 0.45,
         opts.crit ? `${Math.round(final)}!` : `${Math.round(final)}`,
         opts.crit ? '#ffd36b' : '#eef3f8',
-        opts.crit
+        opts.crit,
+        { key: opts.crit || final >= 60 }
       );
     }
     if (enemy.hp <= 0) this.killEnemy(enemy);
@@ -584,7 +611,7 @@ export class Simulation {
     });
     if (enemy.boss) {
       this.shake = Math.min(14, this.shake + 10);
-      this.addFloater(enemy.x, enemy.y - 0.6, `+${gold}`, '#ffd36b');
+      this.addFloater(enemy.x, enemy.y - 0.6, `+${gold}`, '#ffd36b', true, { key: true });
       this.playSound('bossKill');
     } else {
       this.playSound('kill');
@@ -597,12 +624,24 @@ export class Simulation {
     if (this.floaters.length > 90) this.floaters.splice(0, this.floaters.length - 90);
   }
 
+  setVisualQuality({ effects, floaters } = {}) {
+    if (effects) this.effectsLevel = effects;
+    if (floaters) this.floatersMode = floaters;
+  }
+
   addEffect(effect) {
+    const level = this.effectsLevel;
+    if (level === 'off' && !['bolt', 'ring', 'leak'].includes(effect.kind)) return;
+    if (level === 'light' && ['spawn', 'death', 'heal', 'poison', 'place'].includes(effect.kind)) {
+      return;
+    }
     effect.maxTtl = effect.ttl;
     this.effects.push(effect);
   }
 
-  addFloater(x, y, text, color = '#fff', big = false) {
+  addFloater(x, y, text, color = '#fff', big = false, { key = false } = {}) {
+    if (this.floatersMode === 'off') return;
+    if (this.floatersMode === 'key' && !key && !big) return;
     const ttl = big ? 0.9 : 0.65;
     this.floaters.push({ x, y, text, color, big, ttl, maxTtl: ttl });
   }
@@ -623,6 +662,7 @@ export class Simulation {
       angle: -Math.PI / 2,
       target: null,
       recoil: 0,
+      stats: null,
     };
   }
 
@@ -665,7 +705,9 @@ export class Simulation {
       return false;
     }
     this.gold -= cost;
-    this.towers.push(this.makeTower(type, c, r, 0, cost));
+    const tower = this.makeTower(type, c, r, 0, cost);
+    this.towers.push(tower);
+    this.refreshTowerStats(tower);
     this.addEffect({ kind: 'place', x: c + 0.5, y: r + 0.5, ttl: 0.45, color: TOWERS[type].color });
     this.playSound('place');
     this.save();
@@ -682,6 +724,7 @@ export class Simulation {
     this.gold -= cost;
     tower.level += 1;
     tower.invested += cost;
+    this.refreshTowerStats(tower);
     this.addEffect({ kind: 'place', x: tower.x, y: tower.y, ttl: 0.5, color: '#ffd36b' });
     this.playSound('upgrade');
     this.save();
@@ -699,17 +742,71 @@ export class Simulation {
     return value;
   }
 
-  addRelic(relic) {
-    if (!relic) return;
-    this.relics.push(relic);
-    const bonus = relic.mods?.baseHp || 0;
-    if (bonus) {
-      this.maxBaseHp += bonus;
-      this.baseHp = Math.min(this.maxBaseHp, this.baseHp + bonus);
+  getRelicLevel(id) {
+    const state = this.relics.find((item) => item.id === id);
+    return state ? state.level : 0;
+  }
+
+  // 接受遗物 ID、{id, level} 或服务端 offer（{kind:'relic', id, toLevel}）。
+  addRelic(relicOrOffer) {
+    let id = null;
+    let requestedLevel = null;
+    if (typeof relicOrOffer === 'string') {
+      id = relicOrOffer;
+    } else if (relicOrOffer && relicOrOffer.kind === 'relic') {
+      id = relicOrOffer.id;
+      requestedLevel = relicOrOffer.toLevel;
+    } else if (relicOrOffer) {
+      id = relicOrOffer.id;
+      requestedLevel = relicOrOffer.level ?? relicOrOffer.toLevel;
+    }
+    if (!RELIC_BY_ID[id]) return { applied: false, reason: 'unknown' };
+
+    const existing = this.relics.find((item) => item.id === id);
+    const fromLevel = existing?.level || 0;
+    if (fromLevel >= RELIC_MAX_LEVEL) return { applied: false, reason: 'max' };
+    const toLevel = Math.min(
+      RELIC_MAX_LEVEL,
+      Math.max(fromLevel + 1, Math.floor(Number(requestedLevel) || fromLevel + 1))
+    );
+
+    // 即时生命效果只补发本次升级新增的部分。
+    const oldBonus = fromLevel ? relicModsAtLevel(id, fromLevel).baseHp || 0 : 0;
+    const newBonus = relicModsAtLevel(id, toLevel).baseHp || 0;
+    const delta = Math.max(0, newBonus - oldBonus);
+    if (delta) {
+      this.maxBaseHp += delta;
+      this.baseHp = Math.min(this.maxBaseHp, this.baseHp + delta);
       this.addEffect({ kind: 'heal', x: this.map.base.x, y: this.map.base.y, ttl: 0.8 });
     }
+
+    if (existing) existing.level = toLevel;
+    else this.relics.push({ id, level: toLevel });
+
     this.recomputeMods();
     this.save();
+    return { applied: true, id, fromLevel, toLevel, baseHpDelta: delta };
+  }
+
+  applyOffer(offer) {
+    if (!offer) return { applied: false };
+    if (offer.kind === 'relic') return this.addRelic(offer);
+    if (offer.kind === 'gold') {
+      const amount = Math.max(0, Math.floor(Number(offer.amount) || 0));
+      this.gold += amount;
+      this.addFloater(this.map.base.x, this.map.base.y - 0.6, `+${amount}`, '#ffd36b', true);
+      this.save();
+      return { applied: true, kind: 'gold', amount };
+    }
+    if (offer.kind === 'repair') {
+      const amount = Math.max(0, Math.floor(Number(offer.amount) || 0));
+      const before = this.baseHp;
+      this.baseHp = Math.min(this.maxBaseHp, this.baseHp + amount);
+      this.addEffect({ kind: 'heal', x: this.map.base.x, y: this.map.base.y, ttl: 0.8 });
+      this.save();
+      return { applied: true, kind: 'repair', amount: this.baseHp - before };
+    }
+    return { applied: false };
   }
 
   recomputeMods() {
@@ -721,7 +818,8 @@ export class Simulation {
       lowHpDmg: 0, projSpeed: 0, bossDmg: 0, baseHp: 0,
     };
     for (const relic of this.relics) {
-      for (const [key, value] of Object.entries(relic.mods || {})) {
+      const levelMods = relicModsAtLevel(relic.id, relic.level);
+      for (const [key, value] of Object.entries(levelMods)) {
         if (key === 'dmg') {
           for (const [type, amount] of Object.entries(value)) {
             mods.dmg[type] = (mods.dmg[type] || 0) + amount;
@@ -731,10 +829,21 @@ export class Simulation {
         }
       }
     }
+
+    for (const type of Object.keys(mods.dmg)) {
+      mods.dmg[type] = Math.min(mods.dmg[type], GLOBAL_MOD_CAPS.dmgType);
+    }
+    for (const [key, cap] of Object.entries(GLOBAL_MOD_CAPS)) {
+      if (key === 'dmgType' || typeof mods[key] !== 'number') continue;
+      mods[key] = key === 'costMul' ? Math.max(mods[key], cap) : Math.min(mods[key], cap);
+    }
+
     this.mods = mods;
+    // 遗物变化时统一刷新塔的稳定属性，模拟步内不再重算。
+    for (const tower of this.towers) this.refreshTowerStats(tower);
   }
 
-  statsFor(tower) {
+  computeTowerStats(tower) {
     const def = TOWERS[tower.type];
     const level = def.levels[Math.min(tower.level, def.levels.length - 1)];
     const mods = this.mods;
@@ -752,25 +861,36 @@ export class Simulation {
     };
   }
 
+  refreshTowerStats(tower) {
+    tower.stats = this.computeTowerStats(tower);
+    return tower.stats;
+  }
+
+  statsFor(tower) {
+    return tower.stats || this.refreshTowerStats(tower);
+  }
+
   previewStats(type, level = 0) {
-    return this.statsFor(this.makeTower(type, 0, 0, level, 0));
+    return this.computeTowerStats(this.makeTower(type, 0, 0, level, 0));
   }
 
   // ---------- 存档 / HUD ----------
 
   toSnapshot() {
     return {
-      version: 2,
+      version: 3,
       runId: this.runId,
       seed: this.seed,
       mode: this.mode,
       difficulty: this.difficulty,
-      wave: this.wave,
+      wave: this.clearedWave,
+      clearedWave: this.clearedWave,
+      pendingDraft: this.pendingDraft,
       gold: Math.floor(this.gold),
       baseHp: Math.max(0, this.baseHp),
       maxBaseHp: this.maxBaseHp,
       kills: this.kills,
-      relics: this.relics.map((r) => r.id),
+      relics: this.relics.map((r) => ({ id: r.id, level: r.level || 1 })),
       towers: this.towers.map((t) => ({
         type: t.type, c: t.c, r: t.r, level: t.level, invested: t.invested,
       })),
@@ -780,8 +900,15 @@ export class Simulation {
   }
 
   save() {
-    if (this.phase !== 'prep') return;
+    if (this.phase !== 'prep' || this.clearPending) return;
     this.opts.onSave?.(this.toSnapshot());
+  }
+
+  savePreWave() {
+    if (this.clearPending) return;
+    const snapshot = this.toSnapshot();
+    snapshot.preWave = true;
+    this.opts.onSave?.(snapshot);
   }
 
   getHud() {
@@ -790,6 +917,7 @@ export class Simulation {
       baseHp: Math.max(0, Math.ceil(this.baseHp)),
       maxBaseHp: this.maxBaseHp,
       wave: this.wave,
+      clearedWave: this.clearedWave,
       kills: this.kills,
       phase: this.phase,
       paused: this.paused,

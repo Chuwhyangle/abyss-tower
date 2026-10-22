@@ -18,13 +18,16 @@ const BASELINE_DIFF = {
   abyss: [1.22, 1.1, 1.04],
 };
 
+const BASE = { hpGrowth: 1.16, budgetLateBoost: 0.6, waveRewardBase: 20, waveRewardPerWave: 3, killGoldWaveRate: 0.005 };
+const DIFF = { roam: [0.9, 0.9, 0.97], abyss: [1.18, 1.07, 1.03] };
+const FD_BASE = { hpGrowth: 1.165, budgetLateBoost: 0.6, waveRewardBase: 20, waveRewardPerWave: 3, killGoldWaveRate: 0.005 };
 const SCENARIOS = [
-  { name: 'BS', balance: { hpGrowth: 1.168, budgetLateBoost: 1.2 }, diff: { roam: [0.94, 0.94, 0.99], standard: [1.06, 1.03, 1.01], abyss: [1.22, 1.1, 1.03] } },
-  { name: 'BT', balance: { hpGrowth: 1.168, budgetLateBoost: 1.2 }, diff: { roam: [0.94, 0.94, 0.99], standard: [1.08, 1.04, 1.02], abyss: [1.24, 1.11, 1.04] } },
-  { name: 'BU', balance: { hpGrowth: 1.168, budgetLateBoost: 1.3 }, diff: { roam: [0.94, 0.94, 0.99], standard: [1.06, 1.03, 1.01], abyss: [1.24, 1.11, 1.04] } },
-  { name: 'BV', balance: { hpGrowth: 1.168, budgetLateBoost: 1.2 }, diff: { roam: [0.94, 0.94, 0.99], standard: [1.07, 1.03, 1.01], abyss: [1.23, 1.1, 1.03] } },
-  { name: 'BW', balance: { hpGrowth: 1.168, budgetLateBoost: 1.4 }, diff: { roam: [0.94, 0.94, 0.99], standard: [1.06, 1.03, 1.01], abyss: [1.22, 1.1, 1.03] } },
-  { name: 'BX', balance: { hpGrowth: 1.168, budgetLateBoost: 1.3 }, diff: { roam: [0.94, 0.94, 0.99], standard: [1.08, 1.04, 1.02], abyss: [1.26, 1.12, 1.04] } },
+  { name: 'FG', balance: FD_BASE, diff: { roam: [0.85, 0.87, 0.96], standard: [1.02, 1.01, 1.0], abyss: [1.18, 1.07, 1.03] } },
+  { name: 'FH', balance: FD_BASE, diff: { roam: [0.87, 0.88, 0.97], standard: [1.02, 1.01, 1.0], abyss: [1.18, 1.07, 1.03] } },
+  { name: 'FI', balance: FD_BASE, diff: { roam: [0.85, 0.87, 0.96], standard: [1.04, 1.02, 1.0], abyss: [1.18, 1.07, 1.03] } },
+  { name: 'FJ', balance: FD_BASE, diff: { roam: [0.85, 0.87, 0.96], standard: [1.03, 1.01, 1.0], abyss: [1.18, 1.07, 1.03] } },
+  { name: 'FK', balance: FD_BASE, diff: { roam: [0.85, 0.87, 0.96], standard: [1.02, 1.01, 1.0], abyss: [1.2, 1.08, 1.03] } },
+  { name: 'FL', balance: FD_BASE, diff: { roam: [0.88, 0.89, 0.97], standard: [1.02, 1.01, 1.0], abyss: [1.19, 1.075, 1.03] } },
 ];
 
 function applyScenario(scenario) {
@@ -78,5 +81,6 @@ for (const scenario of SCENARIOS) {
   console.log('-'.repeat(72));
 }
 
-console.log('\n目标（全解锁、机器人口径）：漫游 60–70%、远征 30–40%、深渊 5–15%。');
+console.log('\n目标（全解锁、机器人口径）：漫游 80–90%、远征 25–35%、深渊 5–15%。');
+console.log('扫描请使用 ≥20 个种子；不同 seed 集波动较大，定版以 40 种子为准。');
 console.log(`最高波次：${MAX_WAVE}`);

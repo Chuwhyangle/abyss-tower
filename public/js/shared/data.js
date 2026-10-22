@@ -13,9 +13,9 @@ export const DIFFICULTIES = {
     name: '漫游',
     color: '#6fe0b0',
     desc: '熟悉机制与尝试流派，压力较小。',
-    hpMul: 0.94,
-    countMul: 0.94,
-    speedMul: 0.99,
+    hpMul: 0.85,
+    countMul: 0.87,
+    speedMul: 0.96,
     goldBonus: 60,
     hpBonus: 5,
     scoreMul: 0.8,
@@ -26,9 +26,9 @@ export const DIFFICULTIES = {
     name: '远征',
     color: '#ffd36b',
     desc: '标准远征，设计基准。',
-    hpMul: 1.08,
-    countMul: 1.04,
-    speedMul: 1.02,
+    hpMul: 1.02,
+    countMul: 1.01,
+    speedMul: 1.0,
     goldBonus: 0,
     hpBonus: 0,
     scoreMul: 1.0,
@@ -40,7 +40,7 @@ export const DIFFICULTIES = {
     color: '#ff6b8a',
     desc: '高压挑战，需要成熟构筑与取舍。',
     hpMul: 1.18,
-    countMul: 1.08,
+    countMul: 1.07,
     speedMul: 1.03,
     goldBonus: -20,
     hpBonus: -3,
@@ -205,18 +205,216 @@ export const RELICS = [
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));
 
-// 依据种子抽取遗物：所有权重由 rarity 决定，已拥有的遗物不再出现。
-export function rollRelics(seedKey, ownedIds = [], count = 3) {
+// ---------- 遗物等级 ----------
+
+export const RELIC_MAX_LEVEL = 3;
+export const RELIC_LEVEL_LABELS = ['Ⅰ', 'Ⅱ', 'Ⅲ'];
+const RELIC_LEVEL_FACTORS = [1, 1.6, 2.2];
+
+// 单件遗物等级上限（避免多次叠加后计算量/数值失控）。
+const PER_RELIC_CAPS = {
+  dmgType: 2.0,
+  dmgAll: 1.0,
+  fireRate: 0.6,
+  range: 2.0,
+  splash: 0.8,
+  slow: 0.35,
+  slowDur: 0.8,
+  chain: 2,
+  dot: 1.0,
+  goldMul: 0.6,
+  killGold: 6,
+  interest: 0.12,
+  crit: 0.4,
+  armorPierce: 0.8,
+  costMul: -0.2,
+  frostDmgBonus: 0.4,
+  lowHpDmg: 0.7,
+  projSpeed: 1.0,
+  bossDmg: 1.0,
+  baseHp: 20,
+};
+
+// 多件遗物汇总后的全局上限（在 Simulation.recomputeMods 中应用）。
+export const GLOBAL_MOD_CAPS = {
+  dmgType: 2.5,
+  dmgAll: 1.5,
+  fireRate: 0.6,
+  range: 2.2,
+  splash: 0.9,
+  slow: 0.35,
+  slowDur: 0.9,
+  chain: 2,
+  dot: 1.2,
+  goldMul: 0.7,
+  killGold: 8,
+  interest: 0.15,
+  crit: 0.45,
+  armorPierce: 0.85,
+  costMul: -0.2,
+  frostDmgBonus: 0.45,
+  lowHpDmg: 0.8,
+  projSpeed: 1.2,
+  bossDmg: 1.2,
+  baseHp: 30,
+};
+
+function clampLevel(level) {
+  return Math.max(1, Math.min(RELIC_MAX_LEVEL, Math.floor(Number(level) || 1)));
+}
+
+function roundMod(key, value) {
+  if (key === 'chain' || key === 'killGold' || key === 'baseHp') return Math.round(value);
+  return Math.round(value * 1000) / 1000;
+}
+
+function capMod(key, value) {
+  if (key === 'costMul') return Math.max(value, PER_RELIC_CAPS.costMul);
+  return Math.min(value, PER_RELIC_CAPS[key] ?? Infinity);
+}
+
+// 某件遗物在指定等级的修正值；基础 mods 视为 Ⅰ 级。
+export function relicModsAtLevel(relicOrId, level = 1) {
+  const relic = typeof relicOrId === 'string' ? RELIC_BY_ID[relicOrId] : relicOrId;
+  if (!relic) return {};
+  const lv = clampLevel(level);
+  const factor = RELIC_LEVEL_FACTORS[lv - 1];
+  const out = {};
+  for (const [key, raw] of Object.entries(relic.mods || {})) {
+    if (key === 'dmg') {
+      const dmg = {};
+      for (const [type, amount] of Object.entries(raw)) {
+        dmg[type] = capMod('dmgType', roundMod('dmg', amount * factor));
+      }
+      out.dmg = dmg;
+    } else if (typeof raw === 'number') {
+      out[key] = capMod(key, roundMod(key, raw * factor));
+    }
+  }
+  return out;
+}
+
+export function normalizeRelicState(item) {
+  if (!item) return null;
+  if (typeof item === 'string') {
+    return RELIC_BY_ID[item] ? { id: item, level: 1 } : null;
+  }
+  const id = item.id || item.relicId;
+  if (!RELIC_BY_ID[id]) return null;
+  return { id, level: clampLevel(item.toLevel ?? item.level ?? 1) };
+}
+
+export function normalizeRelicStates(list) {
+  const seen = new Map();
+  for (const item of list || []) {
+    const state = normalizeRelicState(item);
+    if (!state) continue;
+    seen.set(state.id, Math.max(seen.get(state.id) || 1, state.level));
+  }
+  return [...seen.entries()].map(([id, level]) => ({ id, level }));
+}
+
+export function relicLevelOf(states, id) {
+  const found = (states || []).find((item) => item.id === id);
+  return found ? clampLevel(found.level) : 0;
+}
+
+// 生成卡片上的效果文案，用于"当前 → 升级后"的展示。
+export function relicEffectText(relicOrId, level = 1) {
+  const mods = relicModsAtLevel(relicOrId, level);
+  const parts = [];
+  const pct = (value) => `${Math.round(value * 100)}%`;
+  for (const [key, value] of Object.entries(mods)) {
+    if (key === 'dmg') {
+      for (const [type, amount] of Object.entries(value)) {
+        if (amount > 0) parts.push(`${TOWERS[type].name}伤害 +${pct(amount)}`);
+      }
+    } else if (key === 'dmgAll') {
+      parts.push(`全体伤害 +${pct(value)}`);
+    } else if (key === 'fireRate') {
+      parts.push(`攻击速度 +${pct(value)}`);
+    } else if (key === 'range') {
+      parts.push(`射程 +${Number(value.toFixed(1))} 格`);
+    } else if (key === 'splash') {
+      parts.push(`溅射范围 +${pct(value)}`);
+    } else if (key === 'slow') {
+      parts.push(`减速强度 +${pct(value)}`);
+    } else if (key === 'slowDur') {
+      parts.push(`减速持续 +${pct(value)}`);
+    } else if (key === 'chain') {
+      parts.push(`连锁 +${value} 个目标`);
+    } else if (key === 'dot') {
+      parts.push(`毒伤 +${pct(value)}`);
+    } else if (key === 'goldMul') {
+      parts.push(`金币收入 +${pct(value)}`);
+    } else if (key === 'killGold') {
+      parts.push(`击杀金币 +${value}`);
+    } else if (key === 'interest') {
+      parts.push(`波末利息 +${pct(value)}`);
+    } else if (key === 'crit') {
+      parts.push(`暴击率 +${pct(value)}`);
+    } else if (key === 'armorPierce') {
+      parts.push(`无视护甲 +${pct(value)}`);
+    } else if (key === 'costMul') {
+      parts.push(`建造/升级费用 ${value < 0 ? '-' : '+'}${pct(Math.abs(value))}`);
+    } else if (key === 'frostDmgBonus') {
+      parts.push(`减速目标受伤 +${pct(value)}`);
+    } else if (key === 'lowHpDmg') {
+      parts.push(`基地低血时伤害 +${pct(value)}`);
+    } else if (key === 'projSpeed') {
+      parts.push(`投射物速度 +${pct(value)}`);
+    } else if (key === 'bossDmg') {
+      parts.push(`对首领伤害 +${pct(value)}`);
+    } else if (key === 'baseHp') {
+      parts.push(`基地生命 +${value}（立即）`);
+    }
+  }
+  return parts.join('，');
+}
+
+export function fallbackOffers(wave = 1) {
+  const w = Math.max(1, Math.floor(wave));
+  return [
+    { kind: 'gold', amount: 30 + w * 4 },
+    { kind: 'repair', amount: 1 + Math.floor(w / 10) },
+    { kind: 'gold', amount: 60 + w * 8 },
+    { kind: 'repair', amount: 2 + Math.floor(w / 12) },
+  ];
+}
+
+// 抽取遗物选项：可包含未拥有遗物（新获得）或已有遗物（升级），满级退出。
+// 候选不足时用金币/修复补位，保证始终能完成选择。
+export function rollRelicOffers(seedKey, relicStates = [], count = 3, wave = 1) {
   const rng = new RNG(seedKey);
-  const owned = new Set(ownedIds);
-  const pool = RELICS.filter((r) => !owned.has(r.id));
-  const picked = [];
-  while (picked.length < count && pool.length) {
-    const relic = rng.weighted(pool, (r) => RARITY[r.rarity].weight);
-    picked.push(relic);
+  const states = normalizeRelicStates(relicStates);
+  const levels = new Map(states.map((state) => [state.id, state.level]));
+  const pool = RELICS.filter((relic) => (levels.get(relic.id) || 0) < RELIC_MAX_LEVEL);
+  const offers = [];
+
+  while (offers.length < count && pool.length) {
+    const relic = rng.weighted(pool, (item) => RARITY[item.rarity].weight);
+    const fromLevel = levels.get(relic.id) || 0;
+    offers.push({
+      kind: 'relic',
+      id: relic.id,
+      fromLevel,
+      toLevel: fromLevel + 1,
+    });
     pool.splice(pool.indexOf(relic), 1);
   }
-  return picked;
+
+  const fallbacks = rng.shuffle(fallbackOffers(wave));
+  let fallbackIndex = 0;
+  while (offers.length < count) {
+    const fallback = fallbacks[fallbackIndex % fallbacks.length];
+    const round = Math.floor(fallbackIndex / fallbacks.length);
+    offers.push({
+      kind: fallback.kind,
+      amount: fallback.amount + round * (fallback.kind === 'gold' ? 20 : 1),
+    });
+    fallbackIndex++;
+  }
+  return offers;
 }
 
 export const UNLOCKS = [

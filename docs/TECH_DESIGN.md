@@ -117,25 +117,25 @@ rogue-td/
 ### 4.2 难度配置
 
 ```js
-// shared/data.js（M2 平衡模拟定版 v1）
+// shared/data.js（v1.3 平衡模拟定版）
 export const DIFFICULTIES = {
   roam: {
     id: 'roam', name: '漫游', color: '#6fe0b0',
-    hpMul: 0.94, countMul: 0.94, speedMul: 0.99,
+    hpMul: 0.85, countMul: 0.87, speedMul: 0.96,
     goldBonus: 60, hpBonus: 5,
     scoreMul: 0.80, coresMul: 0.80,
     desc: '熟悉机制与尝试流派',
   },
   standard: {
     id: 'standard', name: '远征', color: '#ffd36b',
-    hpMul: 1.08, countMul: 1.04, speedMul: 1.02,
+    hpMul: 1.02, countMul: 1.01, speedMul: 1.00,
     goldBonus: 0, hpBonus: 0,
     scoreMul: 1.00, coresMul: 1.00,
     desc: '标准远征，设计基准',
   },
   abyss: {
     id: 'abyss', name: '深渊', color: '#ff6b8a',
-    hpMul: 1.18, countMul: 1.08, speedMul: 1.03,
+    hpMul: 1.18, countMul: 1.07, speedMul: 1.03,
     goldBonus: -20, hpBonus: -3,
     scoreMul: 1.50, coresMul: 1.30,
     desc: '高压挑战，需要成熟构筑',
@@ -143,7 +143,7 @@ export const DIFFICULTIES = {
 };
 ```
 
-- 数值为 **v0 假设**，集中在配置对象里，便于平衡模拟批量扫描。
+- 数值为 **v1.3 定版**（40 种子），集中在配置对象里，便于平衡模拟批量扫描。
 - 难度只影响参数，不改变 30 波结构。
 - 每日挑战允许自选难度；排行榜合并，最终分数已包含难度倍率。
 
@@ -167,19 +167,23 @@ generateWave(seed, wave, difficulty) -> {
 }
 ```
 
-- 基础公式：`hpMul = 1.168^(wave-1) × 难度 hpMul`；`count = round(baseCount × 类型系数 × 难度 countMul)`。
-- 数量预算：`4.5 + 1.05×wave`，第 10 波后每波额外 `+1.2`；单波上限 80。
+- 基础公式：`hpMul = 1.165^(wave-1) × 难度 hpMul`；`count = round(baseCount × 类型系数 × 难度 countMul)`。
+- 数量预算：`4.5 + 1.05×wave`，第 10 波后每波额外 `+0.6`；单波上限 80。
 - 每 5 波首领；第 30 波为最终首领。首领基础 900 血 / 3 点漏怪伤害 / 5 护甲，避免单点墙。
-- 清波奖励 `15 + 2×wave`；击杀金币随波次小幅增长（0.4%/波）。
+- 清波奖励 `20 + 3×wave`；击杀金币随波次小幅增长（0.5%/波）。
 - 相同 `(seed, wave, difficulty)` 结果完全一致。
 - 以上数值集中在 `shared/config.js`，由 `tests/balance-sim.mjs` 回归验证。
 
-### 4.5 遗物抽取
+### 4.5 遗物等级与抽取
 
-- 池：`RELICS`（约 22 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12）。
-- 已拥有遗物不再出现；抽 3 件不重复。
-- 种子：`${seed}:relic:${wave}:${nonce}`，`nonce = 已刷新次数`。
-- 服务端保存每波已下发选项；`pick` 必须命中已下发列表。
+- 池：`RELICS`（22 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
+- 等级修正：基础 `mods` 为 Ⅰ 级，Ⅱ/Ⅲ 级按 `×1.6 / ×2.2` 缩放，并应用单件上限（`PER_RELIC_CAPS`）。多件汇总后再应用全局上限（`GLOBAL_MOD_CAPS`），攻速、连锁、溅射等有硬上限。
+- 抽取：候选池包含未拥有与新遗物及未满级遗物；三件 ID 不重复；满级退出；候选不足用金币/修复补位。
+- 种子：`${seed}:relic:${combo}:${nonce}`，`combo` 为已清波次，`nonce = 已刷新次数`。
+- 服务端保存每波 `{ offers, picked }`；`pick` 按索引校验，`picked` 后拒绝二次选择与刷新。
+- 兼容旧 `{ids:[...]}` 选项与旧遗物 ID 存档，统一归一化为 Ⅰ 级。
+- 即时生命效果：获得/升级时只补发该等级相对上一等级新增的 `baseHp`。
+- 塔的稳定属性在建造、升级、遗物变化时缓存；模拟步内不重建对象。
 
 ### 4.6 数值与伤害管线
 
@@ -187,23 +191,21 @@ generateWave(seed, wave, difficulty) -> {
 
 - 塔：5 种 × 3 级，字段 `dmg / rate / range / splash / slow / slowDur / dot / dotDur / chain / cost`。
 - 敌人：7 类，字段 `hp / speed / armor / gold / dmg / r / flying / heal / boss`。
-- 遗物效果统一为 `mods` 对象，由 sim 聚合为全局修正。
+- 遗物按等级聚合为全局修正 `mods`，在获得/升级时统一重算。
 
 伤害计算顺序（固定）：
 
 ```
-基础伤害
-→ 塔类型加成 + 全局伤害加成
-→ 对首领加成 / 低血量加成
-→ 暴击（战斗种子 RNG）
-→ 减速易伤
-→ 护甲减免（毒/电弧可无视或部分穿透）
-→ 扣血
+statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
+→ computeHit：对首领加成 / 低血量加成 → 暴击（战斗种子 RNG）
+→ damage：减速易伤 → 护甲减免（毒/电弧可无视或部分穿透）→ 扣血
 ```
 
+- 塔专属/全局增伤**只在 statsFor 中应用一次**；computeHit 不再重复应用。
 - 护甲：`max(1, dmg - armor × (1 - armorPierce))`。
+- 面板显示 `statsFor().dmg`；对零护甲、无暴击、无条件增伤目标应与实际伤害完全一致。
 - 减速取最强值，刷新持续时间；毒伤取最高 DPS，刷新持续时间。
-- 敌人死亡金币：`round(gold × (1 + wave*0.02) × (1 + goldMul)) + killGold`。
+- 敌人死亡金币：`round(gold × (1 + wave*0.005) × (1 + goldMul)) + killGold`。
 
 ---
 
@@ -253,9 +255,20 @@ generateWave(seed, wave, difficulty) -> {
 
 - 地图静态层预渲染到离屏 Canvas（含草地、路径、箭头、岩石、装饰）。
 - 动态层：传送门、水晶、塔、敌人、投射物、特效、飘字、建造预览。
-- DPR 上限 2；Canvas 逻辑尺寸 1056×576，CSS 等比缩放。
+- DPR 上限由画质设置决定（标准 1 / 高清 2）；Canvas 逻辑尺寸 1056×576，CSS 等比缩放。
 - 实体上限：敌人 300、投射物 100、特效 320、飘字 90，超出丢弃最旧。
 - 关闭 `imageSmoothingEnabled` 以外的复杂滤镜，避免低端机掉帧。
+- 低配：减少草簇/碎石/箭头生成、关闭光晕与震动、只保留必要的攻击提示特效。
+
+### 5.6 画质设置与运行时
+
+- `settings.js` 提供低配/高配预设与自定义；存 `localStorage`，损坏或不可写回退默认低配。
+- 帧率：30/60 只限制**绘制**频率；模拟固定步长仍按 60Hz 推进，3× 时每帧多步。
+- 清晰度：DPR 1/2，切换时重设 Canvas 尺寸并重绘静态层。
+- 装饰/飘字/光晕/震动：关闭时减少生成或绘制开销，而不是仅隐藏已有对象。
+- 战斗中打开设置暂停；关闭/取消恢复原暂停状态；必选弹窗期间禁止打开。
+- 页面隐藏时停止推进，返回时重置计时，不补算后台时间，且不改变手动暂停状态。
+- `GameApp` 采集模拟/渲染/HUD 耗时、帧与渲染间隔、慢帧、实体数与堆信息，供动态性能测试读取。
 
 ---
 
@@ -280,7 +293,8 @@ runs(
   difficulty TEXT NOT NULL,        -- roam | standard | abyss
   seed TEXT NOT NULL,
   day TEXT NOT NULL,               -- YYYY-MM-DD（UTC）
-  waves_served INTEGER NOT NULL DEFAULT 0,
+  waves_served INTEGER NOT NULL DEFAULT 0,   -- 最高已放行波次
+  cleared_waves INTEGER NOT NULL DEFAULT 0,  -- 已确认清波数（进行中 < 已放行）
   relics TEXT NOT NULL DEFAULT '[]',
   offers TEXT NOT NULL DEFAULT '{}',
   rerolls_used INTEGER NOT NULL DEFAULT 0,
@@ -330,10 +344,11 @@ leaderboard(
 | POST | `/api/session` | `{name?}` | `{profile, dailyAttemptsLeft}` |
 | GET | `/api/profile` | — | `{profile}` |
 | POST | `/api/runs` | `{mode, difficulty}` | 见下 |
-| GET | `/api/runs/:id` | — | `{run}`（含 status/wavesServed/difficulty/relics/maxRerolls） |
-| POST | `/api/runs/:id/wave` | `{}` | `{wave}` |
-| POST | `/api/runs/:id/relics` | `{reroll?:boolean}` | `{wave, offers, rerollsUsed, maxRerolls}` |
-| POST | `/api/runs/:id/relic` | `{relicId}` | `{relic, relics}` |
+| GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls） |
+| POST | `/api/runs/:id/wave` | `{}` | `{wave, replay, clearedWaves, wavesServed}`；有未清波次时重放当前波 |
+| POST | `/api/runs/:id/clear` | `{wave}` | `{ok, clearedWaves, wavesServed, nextWave, duplicate?}` |
+| POST | `/api/runs/:id/relics` | `{reroll?:boolean}` | `{wave, offers[{kind,id,fromLevel,toLevel}|{kind,amount}], picked, relics, rerollsUsed, maxRerolls}` |
+| POST | `/api/runs/:id/relic` | `{index}`（兼容 `{relicId}`） | `{applied, picked, relics}` |
 | POST | `/api/runs/:id/finish` | `{waveReached, kills, goldLeft, baseHp}` | `{victory, score, coresEarned, totalCores, personalBest, rank, dailyAttemptsLeft}` |
 | POST | `/api/runs/:id/abandon` | `{}` | `{ok:true}` |
 | POST | `/api/unlock` | `{unlockId}` | `{profile}` |
@@ -362,9 +377,10 @@ leaderboard(
 
 **结算校验**：
 
-- `waveReached = clamp(int, 0, run.waves_served)`。
+- `waveReached = clamp(int, 0, run.cleared_waves)`；进行中的波次不计入结算。
 - `kills ≤ waveReached*600 + 50`；`goldLeft ≤ waveReached*1200 + 600`；`baseHp ≤ 120`。
-- `victory = run.waves_served >= 30 && waveReached >= 30`。
+- `victory = cleared_waves >= 30 && waveReached >= 30`；第 30 波中途死亡不算通关。
+- 清波必须显式 `POST /clear`；未确认清波时再次请求波次会重放当前波，不推进、不重复发奖。
 - 服务端按 `run.difficulty` 套用倍率；**不接受客户端传入难度、分数、胜利标记**。
 - 时长由服务端 `finished_at - created_at` 计算，用于展示与同分排序。
 
@@ -437,16 +453,18 @@ cores = Math.round(
 - 每次数值改动后跑 `node tests/balance-sim.mjs`，结果写入 `docs/BALANCE.md`（自动生成表格）。
 - M4 前至少完成 3 轮「调参 → 模拟 → 试玩」循环。
 
-### 7.4 M2 定版结果（20 种子，机器人全解锁）
+### 7.4 v1.3 定版结果（40 种子，机器人全解锁）
 
-| 难度 | 通关率 | 平均已清波次 | 说明 |
-|---|---|---|---|
-| 漫游 | 85% | 29.7 | 新手与试流派 |
-| 远征 | 45% | 28.9 | 基准挑战 |
-| 深渊 | 10% | 25.7 | 需要成熟构筑 |
+| 难度 | 通关率 | 平均已清波次 | 零解锁通关率 | 说明 |
+|---|---|---|---|---|
+| 漫游 | 83% | 29.5 | 68% | 新手与试流派 |
+| 远征 | 28% | 27.2 | 13% | 基准挑战 |
+| 深渊 | 5% | 21.8 | 3% | 需要成熟构筑 |
 
-- 零解锁远征约 5%、深渊 0%：解锁电弧/毒雾塔与初始加成是跨过中后期门槛的关键。
-- 调参过程中发现并修复了两个结构问题：① 不同难度曾使用不同种子，导致比较失真；② 难度过度集中在最终首领，已通过「降低首领墙 + 后期数量加速」摊平。
+- 伤害修复后重跑：机器人现在会在第 1 波前完成开局整备；此前数据存在「空手接第一波」偏差，已修正。
+- 机器人的固定策略（18 塔上限、固定顺序、不卖塔/不针对性换塔）会放大种子与地图差异；同配置 10 种子与 40 种子结果可相差 20 个百分点以上，因此定版以 40 种子为准。
+- 零解锁状态下远征明显更难，解锁电弧/毒雾塔与初始加成是跨过中后期门槛的关键。
+- 调参中发现并修复：① 不同难度曾使用不同种子导致比较失真；② 难度过度集中在最终首领，通过「降低首领墙 + 后期数量加速」摊平；③ 遗物增伤重复计算，修复后整体重新定版。
 
 ---
 
@@ -456,28 +474,39 @@ cores = Math.round(
 
 - 地图生成：路径连续、起终点在左右边缘、无重复格、非路径格不贴身、可建造比例 > 45%、同种子结果一致。
 - 波次生成：同种子一致、波次递增数量/血量单调、30 波存在最终首领、数量上限生效。
-- 遗物抽取：三件不重复、排除已拥有、刷新后选项变化。
-- 结算：分数/星核公式、难度倍率、封顶钳制、通关判定。
-- 伤害管线：护甲、暴击、减速易伤、毒伤刷新。
+- 伤害管线（`tests/combat.test.mjs`）：面板与实际伤害一致、塔专属/全局增伤只应用一次、暴击/护甲/条件增伤/特殊塔。
+- 遗物（`tests/reliquary.test.mjs`）：等级数值 25→40→55、升级/满级/补位、即时生命增量、全局上限、v2 旧档兼容。
+- 设置（`tests/settings.test.mjs`）：默认低配、预设/自定义识别、非法值归一化、损坏/不可写存储回退。
+- 结算：分数/星核公式、难度倍率、封顶钳制、按已清波次判定通关。
 
-### 8.2 接口测试
+### 8.2 接口测试（`tests/api.test.mjs`）
 
-- 启动独立测试服务（临时 DB、随机端口）。
-- 覆盖：新玩家会话 → 开局 → 取波次 → 抽遗物 → 选遗物 → 结算 → 排行榜；
-- 异常：无令牌 401、他人远征 404、重复结算 409、每日次数耗尽 429、非法难度 400、结算超放行波次被钳制。
+- 独立测试服务（临时 DB、随机端口）。
+- 覆盖：会话 → 开局 → 波次 → 重放当前波 → 清波确认 → 抽遗物 → 选遗物 → 结算 → 排行榜；
+- 异常：无令牌 401、他人远征 404、重复结算/重复选择/非法刷新 409、每日次数耗尽 429、非法难度 400、结算超已清波次被钳制、第 30 波途中死亡不算通关。
 
-### 8.3 浏览器冒烟
+### 8.3 浏览器测试（隔离服务端 + 独立浏览器配置）
 
-- 无头 Chrome 加载页面、执行一局的最小交互（开局 → 建塔 → 开始波次），截图；
-- 把 `window.onerror` / `unhandledrejection` 写入页面隐藏节点，用 `--dump-dom` 检查是否为空；
-- 检查关键元素存在：Canvas 尺寸、商店 5 张卡、HUD 数值。
+- `tests/browser-smoke.mjs`：选难度 → 建塔 → 开波，采集页面错误。
+- `tests/browser-flow.mjs`：波中刷新重放、遗物选择中刷新恢复、带遗物续玩、退出、排行榜/商店、失败结算。
+- `tests/browser-settings.mjs`：默认低配、预设应用/持久化、局内暂停恢复、必选弹窗保护、损坏存储回退。
+- `tests/browser-relics.mjs`：Ⅰ→Ⅱ 展示、升级生效、补位奖励展示与应用。
+- 所有浏览器测试均启动自己的临时服务与临时 Chrome profile，不读写线上数据库。
 
-### 8.4 手动验收清单
+### 8.4 动态性能测试（`tests/dynamic-perf.mjs`）
+
+- 固定种子、固定塔布局/遗物、真实战斗运行；覆盖正常战斗、后期 18 塔 3×、超规模敌人注入、低/高/自定义画质。
+- 记录模拟/渲染/HUD 耗时、帧间隔 P95/P99、>50ms 慢帧、实体数与堆趋势；验证 30FPS 只限制绘制。
+- 同种子、同操作、同模拟步数下，不同画质战斗状态哈希必须一致。
+- 结果写入 `docs/PERFORMANCE.md`；无头软件渲染数据仅用于相对回归。
+
+### 8.5 手动验收清单
 
 - 三档难度均能开局、通关/失败结算、上榜；
 - 每日挑战同一天不同浏览器得到相同地图/波次/遗物；
-- 刷新续玩恢复正确；
-- 60fps 基准场景；无控制台报错。
+- 刷新续玩不跳波、不重复领奖；
+- 画质切换不影响战斗结果；后台返回不补算；
+- 无控制台报错。
 
 ---
 
@@ -498,7 +527,7 @@ cores = Math.round(
 
 ## 10. 与现有原型的差异 / 改造清单
 
-现有原型（未验收）保留作为参考，M2 按本设计改造：
+以下改造已在 v1.3 完成；保留对照用于回溯设计取舍：
 
 | 模块 | 原型现状 | 目标 |
 |---|---|---|
@@ -538,6 +567,10 @@ cores = Math.round(
 | 数值平衡靠感觉 | 三档体验糊在一起 | 模拟器矩阵 + 机器人指标 + 真人试玩三轮 |
 | 排行榜作弊 | 小圈子体验 | 服务端钳制 + 波次放行校验；不追求强反作弊 |
 | npm 不可达 | 无法加依赖 | 保持零依赖；确需依赖时先修代理/镜像 |
+| 固定机器人对种子/地图敏感 | 平衡结论偏差 | 40 种子定版、公开口径与固定策略；真人试玩校准 |
+| 遗物升级导致数值失控/计算量上升 | 卡顿或必选 | 等级上限、单件/全局上限；塔属性缓存；模拟回归 |
+| 清波确认失败导致重复领奖 | 存档不一致 | 清波幂等、波前快照保护、重放当前波 |
+| 画质设置改变战斗结果 | 不公平/不可复现 | 设置只进渲染与特效生成；固定步长模拟；画质一致性哈希测试 |
 
 ---
 

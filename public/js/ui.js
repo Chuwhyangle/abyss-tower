@@ -8,7 +8,16 @@ import {
   MAX_WAVE,
   DIFFICULTIES,
   DIFFICULTY_ORDER,
+  RELIC_LEVEL_LABELS,
+  relicEffectText,
 } from './shared/data.js';
+import {
+  normalizeSettings,
+  detectPreset,
+  presetSettings,
+  DECORATION_LABELS,
+  FLOATER_LABELS,
+} from './settings.js';
 import { audio } from './audio.js';
 
 const $ = (id) => document.getElementById(id);
@@ -40,6 +49,8 @@ class UI {
       board: $('btn-board'),
       help: $('btn-help'),
       rename: $('btn-rename'),
+      settingsTitle: $('btn-settings-title'),
+      settingsGame: $('btn-settings-game'),
       titleStats: $('title-stats'),
       hudWave: $('hud-wave'),
       hudGold: $('hud-gold'),
@@ -65,6 +76,8 @@ class UI {
     this.el.daily.onclick = () => this.handlers.onDaily?.();
     this.el.resume.onclick = () => this.handlers.onResume?.();
     this.el.rename.onclick = () => this.handlers.onRename?.();
+    this.el.settingsTitle.onclick = () => this.handlers.onSettings?.();
+    this.el.settingsGame.onclick = () => this.handlers.onSettings?.();
     this.el.shop.onclick = () => this.handlers.onShop?.();
     this.el.board.onclick = () => this.handlers.onBoard?.('normal');
     this.el.help.onclick = () => this.handlers.onHelp?.();
@@ -308,12 +321,15 @@ class UI {
       this.el.relicList.appendChild(empty);
       return;
     }
-    for (const relic of this.game.relics) {
+    for (const state of this.game.relics) {
+      const relic = RELIC_BY_ID[state.id];
+      if (!relic) continue;
+      const level = Math.min(3, Math.max(1, state.level || 1));
       const rarity = RARITY[relic.rarity];
       const chip = document.createElement('div');
       chip.className = 'relic-chip';
-      chip.dataset.tip = `<b style="color:${rarity.color}">${relic.name}</b><span class="rarity-tag" style="color:${rarity.color}">${rarity.name}</span><p>${relic.desc}</p>`;
-      chip.innerHTML = `<i style="background:${rarity.color}"></i><span>${relic.name}</span>`;
+      chip.dataset.tip = `<b style="color:${rarity.color}">${relic.name} ${RELIC_LEVEL_LABELS[level - 1]}</b><span class="rarity-tag" style="color:${rarity.color}">${rarity.name}</span><p>${relicEffectText(state.id, level)}</p>`;
+      chip.innerHTML = `<i style="background:${rarity.color}"></i><span>${relic.name} <em class="relic-level">${RELIC_LEVEL_LABELS[level - 1]}</em></span>`;
       this.el.relicList.appendChild(chip);
     }
   }
@@ -370,8 +386,9 @@ class UI {
 
   // ---------- 弹窗 ----------
 
-  openModal(html, { className = '', closable = true } = {}) {
+  openModal(html, { className = '', closable = true, onClose = null } = {}) {
     this.modalClosable = closable;
+    this._modalOnClose = onClose;
     this.el.modalRoot.innerHTML = `
       <div class="modal-backdrop">
         <div class="modal ${className}">${html}</div>
@@ -385,8 +402,11 @@ class UI {
   }
 
   closeModal() {
+    const onClose = this._modalOnClose;
+    this._modalOnClose = null;
     if (this.el?.modalRoot) this.el.modalRoot.innerHTML = '';
     this.modalClosable = false;
+    if (onClose) onClose();
   }
 
   closeModalIfClosable() {
@@ -401,15 +421,42 @@ class UI {
     const used = rerolls?.used || 0;
     const max = rerolls?.max || 0;
     const cards = offers
-      .map((id) => {
-        const relic = RELIC_BY_ID[id];
-        if (!relic) return '';
-        const rarity = RARITY[relic.rarity];
+      .map((offer, index) => {
+        if (offer.kind === 'relic') {
+          const relic = RELIC_BY_ID[offer.id];
+          if (!relic) return '';
+          const rarity = RARITY[relic.rarity];
+          const fromLevel = Math.max(0, Math.min(3, offer.fromLevel || 0));
+          const toLevel = Math.min(3, offer.toLevel || fromLevel + 1);
+          const isUpgrade = fromLevel > 0;
+          const levelLabel = isUpgrade
+            ? `${RELIC_LEVEL_LABELS[fromLevel - 1]} → ${RELIC_LEVEL_LABELS[toLevel - 1]}`
+            : '新获得 · Ⅰ级';
+          const effect = isUpgrade
+            ? `<div class="relic-effect"><span>当前</span>${relicEffectText(offer.id, fromLevel)}</div>
+               <div class="relic-effect upgrade"><span>升级</span>${relicEffectText(offer.id, toLevel)}</div>`
+            : `<div class="relic-effect"><span>效果</span>${relicEffectText(offer.id, toLevel)}</div>`;
+          return `
+            <button class="relic-card ${isUpgrade ? 'upgrade' : ''}" data-index="${index}" style="--rarity:${rarity.color}">
+              <span class="rarity">${rarity.name} · ${levelLabel}</span>
+              <h3>${relic.name}</h3>
+              ${effect}
+              <p class="relic-flavor">${relic.desc}</p>
+              <span class="pick">选择</span>
+            </button>
+          `;
+        }
+
+        const isGold = offer.kind === 'gold';
+        const amount = Math.max(0, Math.floor(offer.amount || 0));
         return `
-          <button class="relic-card" data-id="${relic.id}" style="--rarity:${rarity.color}">
-            <span class="rarity">${rarity.name}</span>
-            <h3>${relic.name}</h3>
-            <p>${relic.desc}</p>
+          <button class="relic-card fallback" data-index="${index}" style="--rarity:#8fa3b2">
+            <span class="rarity">补给 · 通用奖励</span>
+            <h3>${isGold ? '金币补给' : '基地修复'}</h3>
+            <div class="relic-effect"><span>效果</span>${
+              isGold ? `获得 ${amount} 金币` : `恢复 ${amount} 点基地生命（不超过上限）`
+            }</div>
+            <p class="relic-flavor">遗物池耗尽时的通用补位，保证选择流程继续。</p>
             <span class="pick">选择</span>
           </button>
         `;
@@ -420,7 +467,7 @@ class UI {
       `
         <div class="draft">
           <p class="eyebrow">第 ${wave} 波清除 · 战利品</p>
-          <h2>选择一件遗物</h2>
+          <h2>选择一件遗物或补给</h2>
           <div class="draft-cards">${cards}</div>
           <div class="draft-actions">
             <span class="muted">当前金币 ◆ ${fmt(gold)}</span>
@@ -434,11 +481,108 @@ class UI {
     );
 
     modal.querySelectorAll('.relic-card').forEach((card) => {
-      card.onclick = () => this.handlers.onPickRelic?.(card.dataset.id);
+      card.onclick = () => this.handlers.onPickOffer?.(Number(card.dataset.index));
     });
     const reroll = modal.querySelector('#btn-reroll');
     if (reroll) reroll.onclick = () => this.handlers.onReroll?.();
     audio.play('draft');
+  }
+
+  showSettings({ settings, inGame = false, onApply, onCancel }) {
+    const current = normalizeSettings(settings);
+    const option = (value, label, selected) =>
+      `<option value="${value}" ${String(selected) === String(value) ? 'selected' : ''}>${label}</option>`;
+    const presetName = detectPreset(current);
+    const presetLabel =
+      presetName === 'custom' ? '自定义' : presetName === 'low' ? '低配预设' : '高配预设';
+
+    const modal = this.openModal(
+      `
+        <div class="settings">
+          <p class="eyebrow">DISPLAY & PERFORMANCE</p>
+          <h2>画质设置</h2>
+          <p class="muted">${
+            inGame ? '游戏已暂停。设置只影响表现，不改变战斗结果。' : '设置会保存在当前浏览器。'
+          }</p>
+          <div class="settings-grid">
+            <label class="setting-field"><span>目标帧率</span>
+              <select id="set-fps">${option(30, '30 FPS', current.fps)}${option(60, '60 FPS', current.fps)}</select>
+            </label>
+            <label class="setting-field"><span>画面清晰度</span>
+              <select id="set-dpr">${option(1, '标准（DPR 1）', current.dpr)}${option(2, '高清（DPR 2）', current.dpr)}</select>
+            </label>
+            <label class="setting-field"><span>装饰特效</span>
+              <select id="set-decorations">${['off', 'light', 'full']
+                .map((value) => option(value, DECORATION_LABELS[value], current.decorations))
+                .join('')}</select>
+            </label>
+            <label class="setting-field"><span>伤害飘字</span>
+              <select id="set-floaters">${['off', 'key', 'all']
+                .map((value) => option(value, FLOATER_LABELS[value], current.floaters))
+                .join('')}</select>
+            </label>
+            <label class="setting-check"><input type="checkbox" id="set-glow" ${current.glow ? 'checked' : ''} /> 光晕</label>
+            <label class="setting-check"><input type="checkbox" id="set-shake" ${current.shake ? 'checked' : ''} /> 屏幕震动</label>
+            <label class="setting-check"><input type="checkbox" id="set-showfps" ${current.showFps ? 'checked' : ''} /> 显示 FPS</label>
+          </div>
+          <div class="settings-presets">
+            <button class="btn small" id="preset-low">恢复低配</button>
+            <button class="btn small" id="preset-high">恢复高配</button>
+            <span class="muted" id="preset-label">当前：${presetLabel}</span>
+          </div>
+          <div class="modal-actions">
+            <button class="btn primary" id="settings-apply">应用</button>
+            <button class="btn ghost" id="settings-cancel">取消</button>
+          </div>
+        </div>
+      `,
+      {
+        className: 'settings-modal',
+        closable: true,
+        onClose: () => onCancel?.(),
+      }
+    );
+
+    const read = () => ({
+      fps: Number(modal.querySelector('#set-fps').value),
+      dpr: Number(modal.querySelector('#set-dpr').value),
+      decorations: modal.querySelector('#set-decorations').value,
+      floaters: modal.querySelector('#set-floaters').value,
+      glow: modal.querySelector('#set-glow').checked,
+      shake: modal.querySelector('#set-shake').checked,
+      showFps: modal.querySelector('#set-showfps').checked,
+    });
+
+    const fill = (values) => {
+      const next = normalizeSettings(values);
+      modal.querySelector('#set-fps').value = String(next.fps);
+      modal.querySelector('#set-dpr').value = String(next.dpr);
+      modal.querySelector('#set-decorations').value = next.decorations;
+      modal.querySelector('#set-floaters').value = next.floaters;
+      modal.querySelector('#set-glow').checked = next.glow;
+      modal.querySelector('#set-shake').checked = next.shake;
+      modal.querySelector('#set-showfps').checked = next.showFps;
+      updateLabel();
+    };
+
+    const updateLabel = () => {
+      const detected = detectPreset(read());
+      modal.querySelector('#preset-label').textContent =
+        `当前：${detected === 'custom' ? '自定义' : detected === 'low' ? '低配预设' : '高配预设'}`;
+    };
+
+    modal.querySelectorAll('select, input').forEach((input) => {
+      input.addEventListener('change', updateLabel);
+    });
+    modal.querySelector('#preset-low').onclick = () => fill(presetSettings('low'));
+    modal.querySelector('#preset-high').onclick = () => fill(presetSettings('high'));
+    modal.querySelector('#settings-apply').onclick = () => {
+      const next = read();
+      this._modalOnClose = null;
+      this.closeModal();
+      onApply?.(next);
+    };
+    modal.querySelector('#settings-cancel').onclick = () => this.closeModal();
   }
 
   showResult({ stats, res, mode, dailyLeft }) {

@@ -1,22 +1,42 @@
 // Canvas 渲染：静态地图预渲染 + 动态单位/特效绘制。
 import { TILE, TOWERS, ENEMIES } from './shared/data.js';
 import { RNG } from './shared/rng.js';
+import { normalizeSettings } from './settings.js';
 
 const T = TILE;
 
 export class Renderer {
-  constructor(canvas, game) {
+  constructor(canvas, game, settings = {}) {
     this.canvas = canvas;
     this.game = game;
     this.ctx = canvas.getContext('2d');
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.settings = normalizeSettings(settings);
     this.W = game.map.cols * T;
     this.H = game.map.rows * T;
-    canvas.width = Math.round(this.W * this.dpr);
-    canvas.height = Math.round(this.H * this.dpr);
-    canvas.style.aspectRatio = `${this.W} / ${this.H}`;
+    this.applyDpr();
     this.time = 0;
+    this.fpsFrames = 0;
+    this.fpsSince = 0;
+    this.fps = 60;
     this.bg = this.buildBackground();
+  }
+
+  applyDpr() {
+    this.dpr = Math.min(this.settings.dpr, window.devicePixelRatio || 1);
+    this.canvas.width = Math.round(this.W * this.dpr);
+    this.canvas.height = Math.round(this.H * this.dpr);
+    this.canvas.style.aspectRatio = `${this.W} / ${this.H}`;
+  }
+
+  applySettings(settings) {
+    const next = normalizeSettings(settings);
+    const needsRebuild =
+      next.dpr !== this.settings.dpr || next.decorations !== this.settings.decorations;
+    this.settings = next;
+    if (needsRebuild) {
+      this.applyDpr();
+      this.bg = this.buildBackground();
+    }
   }
 
   buildBackground() {
@@ -28,6 +48,10 @@ export class Renderer {
     const g = bg.getContext('2d');
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const rng = new RNG(this.game.seed + ':bg');
+    const decor = this.settings.decorations;
+    const tuftCount = decor === 'off' ? 0 : decor === 'light' ? 90 : 260;
+    const pebbleCount = decor === 'off' ? 0 : decor === 'light' ? 60 : 170;
+    const chevronStep = decor === 'off' ? Infinity : decor === 'light' ? 4.2 : 2.4;
 
     g.fillStyle = '#0a110d';
     g.fillRect(0, 0, this.W, this.H);
@@ -61,7 +85,7 @@ export class Renderer {
     }
 
     // 草簇
-    for (let i = 0; i < 260; i++) {
+    for (let i = 0; i < tuftCount; i++) {
       const c = rng.int(map.cols);
       const r = rng.int(map.rows);
       if (!map.buildable[r][c]) continue;
@@ -96,7 +120,7 @@ export class Renderer {
     strokePath(T * 0.5, 'rgba(84, 66, 49, 0.55)');
 
     // 路面碎石
-    for (let i = 0; i < 170; i++) {
+    for (let i = 0; i < pebbleCount; i++) {
       const d = rng.float() * this.game.pathLen;
       const p = this.game.posAt(d);
       const ox = rng.range(-0.24, 0.24) * T;
@@ -108,7 +132,7 @@ export class Renderer {
     }
 
     // 行进方向箭头
-    for (let d = 1.6; d < this.game.pathLen - 1; d += 2.4) {
+    for (let d = 1.6; d < this.game.pathLen - 1; d += chevronStep) {
       const p = this.game.posAt(d);
       g.save();
       g.translate(p.x * T, p.y * T);
@@ -164,12 +188,21 @@ export class Renderer {
 
   render(dt) {
     this.time += dt;
+    const now = performance.now();
+    this.fpsFrames++;
+    if (!this.fpsSince) this.fpsSince = now;
+    if (now - this.fpsSince >= 500) {
+      this.fps = (this.fpsFrames * 1000) / (now - this.fpsSince);
+      this.fpsFrames = 0;
+      this.fpsSince = now;
+    }
+
     const g = this.ctx;
     const game = this.game;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
     g.save();
-    if (game.shake > 0.2) {
+    if (this.settings.shake && game.shake > 0.2) {
       g.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
     }
     g.drawImage(this.bg, 0, 0, this.W, this.H);
@@ -184,6 +217,18 @@ export class Renderer {
     this.drawPlacement(g);
 
     g.restore();
+
+    if (this.settings.showFps) {
+      g.save();
+      g.fillStyle = 'rgba(5, 10, 13, 0.62)';
+      g.fillRect(10, 10, 132, 24);
+      g.fillStyle = '#9fe8cf';
+      g.font = '600 12px "DejaVu Sans Mono", ui-monospace, monospace';
+      g.textAlign = 'left';
+      g.textBaseline = 'middle';
+      g.fillText(`${Math.round(this.fps)} FPS · 敌 ${this.game.enemies.length}`, 18, 22);
+      g.restore();
+    }
   }
 
   drawPortals(g) {
@@ -192,15 +237,23 @@ export class Renderer {
     const sx = map.spawn.x * T;
     const sy = map.spawn.y * T;
     const pulse = 0.85 + Math.sin(t * 3) * 0.15;
+    const glowOn = this.settings.glow;
 
-    const grad = g.createRadialGradient(sx, sy, 2, sx, sy, 34 * pulse);
-    grad.addColorStop(0, 'rgba(190, 120, 255, 0.65)');
-    grad.addColorStop(0.6, 'rgba(120, 60, 190, 0.18)');
-    grad.addColorStop(1, 'rgba(120, 60, 190, 0)');
-    g.fillStyle = grad;
-    g.beginPath();
-    g.arc(sx, sy, 34 * pulse, 0, Math.PI * 2);
-    g.fill();
+    if (glowOn) {
+      const grad = g.createRadialGradient(sx, sy, 2, sx, sy, 34 * pulse);
+      grad.addColorStop(0, 'rgba(190, 120, 255, 0.65)');
+      grad.addColorStop(0.6, 'rgba(120, 60, 190, 0.18)');
+      grad.addColorStop(1, 'rgba(120, 60, 190, 0)');
+      g.fillStyle = grad;
+      g.beginPath();
+      g.arc(sx, sy, 34 * pulse, 0, Math.PI * 2);
+      g.fill();
+    } else {
+      g.fillStyle = 'rgba(120, 60, 190, 0.22)';
+      g.beginPath();
+      g.arc(sx, sy, 20, 0, Math.PI * 2);
+      g.fill();
+    }
 
     g.save();
     g.translate(sx, sy);
@@ -218,15 +271,16 @@ export class Renderer {
     const by = map.base.y * T;
     const game = this.game;
     const ratio = Math.max(0, Math.min(1, game.baseHp / game.maxBaseHp));
-    const glow = 0.8 + Math.sin(t * 2.4) * 0.2;
-
-    const bg = g.createRadialGradient(bx, by, 3, bx, by, 40);
-    bg.addColorStop(0, `rgba(90, 235, 220, ${0.32 * glow})`);
-    bg.addColorStop(1, 'rgba(90, 235, 220, 0)');
-    g.fillStyle = bg;
-    g.beginPath();
-    g.arc(bx, by, 40, 0, Math.PI * 2);
-    g.fill();
+    if (glowOn) {
+      const glow = 0.8 + Math.sin(t * 2.4) * 0.2;
+      const bg = g.createRadialGradient(bx, by, 3, bx, by, 40);
+      bg.addColorStop(0, `rgba(90, 235, 220, ${0.32 * glow})`);
+      bg.addColorStop(1, 'rgba(90, 235, 220, 0)');
+      g.fillStyle = bg;
+      g.beginPath();
+      g.arc(bx, by, 40, 0, Math.PI * 2);
+      g.fill();
+    }
 
     // 生命环
     g.strokeStyle = 'rgba(10, 20, 18, 0.8)';
@@ -244,11 +298,15 @@ export class Renderer {
     g.save();
     g.translate(bx, by);
     g.rotate(Math.sin(t * 1.2) * 0.08);
-    const crystal = g.createLinearGradient(0, -18, 0, 18);
-    crystal.addColorStop(0, '#c8fff5');
-    crystal.addColorStop(0.5, '#4fd8c8');
-    crystal.addColorStop(1, '#1c7d86');
-    g.fillStyle = crystal;
+    if (glowOn) {
+      const crystal = g.createLinearGradient(0, -18, 0, 18);
+      crystal.addColorStop(0, '#c8fff5');
+      crystal.addColorStop(0.5, '#4fd8c8');
+      crystal.addColorStop(1, '#1c7d86');
+      g.fillStyle = crystal;
+    } else {
+      g.fillStyle = '#3fc8bb';
+    }
     g.strokeStyle = 'rgba(220, 255, 250, 0.8)';
     g.lineWidth = 1.2;
     g.beginPath();
@@ -479,7 +537,7 @@ export class Renderer {
         g.rotate(enemy.angle);
       }
 
-      if (enemy.boss) {
+      if (enemy.boss && this.settings.glow) {
         const glow = g.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 2);
         glow.addColorStop(0, 'rgba(226, 96, 158, 0.28)');
         glow.addColorStop(1, 'rgba(226, 96, 158, 0)');
@@ -753,11 +811,12 @@ export class Renderer {
         }
         g.globalAlpha = 1;
       } else if (effect.kind === 'bolt') {
-        g.globalAlpha = 1 - p * 0.5;
-        g.strokeStyle = effect.color;
-        g.lineWidth = 6;
-        g.globalAlpha *= 0.3;
-        this.strokeBolt(g, effect.points, x, y);
+        if (this.settings.glow) {
+          g.globalAlpha = (1 - p * 0.5) * 0.3;
+          g.strokeStyle = effect.color;
+          g.lineWidth = 6;
+          this.strokeBolt(g, effect.points, x, y);
+        }
         g.globalAlpha = 1 - p;
         g.strokeStyle = '#f2eaff';
         g.lineWidth = 2;
