@@ -1,6 +1,6 @@
 // 页面编排：API 流程、难度选择、战斗输入、存档与续玩。
 import { api } from './api.js';
-import { generateMap } from './shared/mapgen.js';
+import { generateMap, generateMapCandidates } from './shared/mapgen.js';
 import {
   RELIC_BY_ID,
   TOWER_ORDER,
@@ -14,6 +14,8 @@ import { normalizeSnapshot } from './shared/save.js';
 import { loadSettings, saveSettings } from './settings.js';
 
 const SNAPSHOT_KEY = 'abyss-tower.snapshot.v2';
+// 选图阶段尚无战斗快照：单独记录开局参数，刷新/重进后可恢复同一组候选地图。
+const MAP_PENDING_KEY = 'abyss-tower.mapselect.v1';
 
 const state = {
   profile: null,
@@ -25,6 +27,8 @@ const state = {
   settings: loadSettings(),
   starting: false,
   loadingWave: false,
+  mapChoosing: false,
+  mapCandidates: null,
 };
 
 const errorBox = document.createElement('div');
@@ -65,6 +69,62 @@ function clearSnapshot() {
   } catch {
     /* ignore */
   }
+}
+
+function loadPendingMap() {
+  try {
+    const raw = localStorage.getItem(MAP_PENDING_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function savePendingMap(data) {
+  try {
+    localStorage.setItem(
+      MAP_PENDING_KEY,
+      JSON.stringify({
+        runId: data.runId,
+        seed: data.seed,
+        mode: data.mode,
+        difficulty: data.difficulty,
+        startingGold: data.startingGold,
+        baseHp: data.baseHp,
+        relics: data.relics || [],
+        towersUnlocked: data.towersUnlocked,
+        maxRerolls: data.maxRerolls,
+        day: data.day,
+        dailyAttemptsLeft: data.dailyAttemptsLeft,
+      })
+    );
+  } catch (error) {
+    console.warn('[map pending] 保存失败', error);
+  }
+}
+
+function clearPendingMap() {
+  try {
+    localStorage.removeItem(MAP_PENDING_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function pendingMapData(pending) {
+  return {
+    runId: pending.runId,
+    seed: pending.seed,
+    mode: pending.mode,
+    difficulty: pending.difficulty,
+    startingGold: pending.startingGold,
+    baseHp: pending.baseHp,
+    relics: pending.relics || [],
+    towersUnlocked: pending.towersUnlocked,
+    maxRerolls: pending.maxRerolls,
+    day: pending.day,
+    dailyAttemptsLeft: pending.dailyAttemptsLeft,
+  };
 }
 
 // ---------- 启动 ----------
@@ -129,7 +189,45 @@ async function boot() {
   });
   // 调试/冒烟测试入口（单机游戏，不涉及敏感状态）。
   window.__rtd = { state, ui, api };
+  // 选图阶段刷新：恢复服务端尚未选定地图的远征与同一组候选。
+  await restorePendingMap();
   document.body.dataset.boot = 'ok';
+}
+
+async function restorePendingMap() {
+  const pending = loadPendingMap();
+  if (!pending?.runId) return false;
+  // 已有战斗快照时，“继续上一局”优先，丢弃过期的选图阶段记录。
+  if (loadSnapshot()) {
+    clearPendingMap();
+    return false;
+  }
+  try {
+    const { run } = await api.getRun(pending.runId);
+    if (!run || run.status !== 'active') {
+      clearPendingMap();
+      return false;
+    }
+    if (run.mapChoice >= 0) {
+      // 地图已选定但快照未落盘（极端刷新时机）：沿用服务端选择直接开局。
+      const selection = await api.selectMap(pending.runId, run.mapChoice);
+      beginGame({ ...pendingMapData(pending), ...selection }, null);
+      ui.toast('已恢复本次远征的地图选择', 2400);
+      return true;
+    }
+    const candidates = generateMapCandidates(run.seed, 3);
+    if (!candidates.length) {
+      clearPendingMap();
+      return false;
+    }
+    showMapSelectFlow(pendingMapData(pending), candidates);
+    ui.toast('已恢复地图选择', 2200);
+    return true;
+  } catch (error) {
+    console.warn('[map restore]', error);
+    if (error.status === 404 || error.status === 409) clearPendingMap();
+    return false;
+  }
 }
 
 async function refreshProfile() {
@@ -151,35 +249,10 @@ async function startRun(mode, difficulty) {
   try {
     const data = await api.startRun(mode, difficulty);
     clearSnapshot();
+    state.mapChoosing = false;
     if (data.candidates?.length) {
-      let choosing = false;
-      ui.showMapSelect({
-        candidates: data.candidates,
-        onChoose: async (index) => {
-          if (choosing) return;
-          choosing = true;
-          try {
-            const selection = await api.selectMap(data.runId, index);
-            ui.closeModal();
-            beginGame({ ...data, ...selection }, null);
-          } catch (error) {
-            choosing = false;
-            ui.toast(error.message, 3000);
-          }
-        },
-        onCancel: async () => {
-          try {
-            await api.abandonRun(data.runId);
-          } catch {
-            /* 忽略 */
-          }
-          ui.closeModal();
-          ui.showTitle(state.profile, {
-            hasSnapshot: !!loadSnapshot(),
-            dailyLeft: state.dailyLeft,
-          });
-        },
-      });
+      savePendingMap(data);
+      showMapSelectFlow(data, data.candidates);
     } else {
       // 兼容旧服务端：直接返回 map
       beginGame(data, null);
@@ -189,6 +262,41 @@ async function startRun(mode, difficulty) {
   } finally {
     state.starting = false;
   }
+}
+
+// 新开局与刷新恢复共用同一套选图流程。
+function showMapSelectFlow(data, candidates) {
+  state.mapCandidates = candidates;
+  ui.showMapSelect({
+    candidates,
+    onChoose: async (index) => {
+      if (state.mapChoosing) return;
+      state.mapChoosing = true;
+      try {
+        const selection = await api.selectMap(data.runId, index);
+        ui.closeModal();
+        beginGame({ ...data, ...selection }, null);
+      } catch (error) {
+        state.mapChoosing = false;
+        ui.toast(error.message, 3000);
+      }
+    },
+    onCancel: async () => {
+      try {
+        await api.abandonRun(data.runId);
+      } catch {
+        /* 忽略 */
+      }
+      clearPendingMap();
+      state.mapCandidates = null;
+      state.mapChoosing = false;
+      ui.closeModal();
+      ui.showTitle(state.profile, {
+        hasSnapshot: !!loadSnapshot(),
+        dailyLeft: state.dailyLeft,
+      });
+    },
+  });
 }
 
 function beginGame(data, snapshot) {
@@ -248,6 +356,10 @@ function beginGame(data, snapshot) {
   bindCanvas(canvas);
   state.app.start();
   saveSnapshot(sim.toSnapshot());
+  // 地图已选定且战斗快照已落盘，选图阶段记录不再需要。
+  clearPendingMap();
+  state.mapCandidates = null;
+  state.mapChoosing = false;
 }
 
 async function resumeRun() {

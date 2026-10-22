@@ -1401,6 +1401,130 @@ kbd {
   font-size: 11px;
 }
 
+/* HUD 本波入口提示（多入口地图） */
+
+.portal-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 7px;
+  border: 1px solid rgba(120, 160, 175, 0.2);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+}
+
+.portal-hint[hidden] {
+  display: none;
+}
+
+.portal-label {
+  color: #7d92a0;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.portal-chip {
+  --portal: #9fb0c3;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px 1px 3px;
+  border: 1px solid color-mix(in srgb, var(--portal) 48%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--portal) 12%, transparent);
+  color: var(--portal);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.3;
+  transition: opacity 0.16s ease, border-color 0.16s ease;
+}
+
+.portal-chip i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--portal);
+  box-shadow: 0 0 6px var(--portal);
+}
+
+.portal-chip.idle {
+  border-color: rgba(120, 160, 175, 0.18);
+  background: transparent;
+  color: #6d818f;
+  opacity: 0.45;
+}
+
+.portal-chip.idle i {
+  background: #607585;
+  box-shadow: none;
+}
+
+/* 手机横屏：压缩选图弹窗，三张卡与放弃按钮需在首屏内可读可点 */
+@media (orientation: landscape) and (max-height: 520px) {
+  .map-modal {
+    padding: 10px 14px;
+  }
+
+  .map-modal .eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.26em;
+  }
+
+  .map-modal h2 {
+    margin: 2px 0 4px;
+    font-size: 19px;
+  }
+
+  .map-select > .muted {
+    display: none;
+  }
+
+  .map-modal .map-cards {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .map-modal .map-card {
+    gap: 5px;
+    padding: 8px;
+  }
+
+  .map-modal .map-preview svg {
+    width: 100%;
+    height: 80px;
+  }
+
+  .map-modal .map-card-head b {
+    font-size: 14px;
+  }
+
+  .map-modal .map-portals {
+    font-size: 10px;
+  }
+
+  .map-modal .map-desc {
+    min-height: 0;
+    font-size: 10.5px;
+    line-height: 1.35;
+  }
+
+  .map-modal .map-mod {
+    padding: 5px 7px;
+    font-size: 10px;
+    line-height: 1.35;
+  }
+
+  .map-modal .map-foot {
+    font-size: 10px;
+  }
+
+  .map-modal .modal-actions {
+    margin-top: 8px;
+  }
+}
+
 /* ============ 移动端 / 响应式 ============ */
 
 @media (max-width: 980px) {
@@ -1585,6 +1709,10 @@ kbd {
   .diff-badge {
     display: none;
   }
+
+  .portal-label {
+    display: none;
+  }
 }
 
 @media (max-width: 760px) {
@@ -1608,6 +1736,15 @@ kbd {
 
   .map-desc {
     min-height: 0;
+    font-size: 12px;
+  }
+
+  .map-card-head b {
+    font-size: 17px;
+  }
+
+  .map-mod {
+    font-size: 11px;
   }
 
   .relic-card p {

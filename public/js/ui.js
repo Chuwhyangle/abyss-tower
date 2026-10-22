@@ -67,6 +67,7 @@ class UI {
       nextWave: $('btn-next-wave'),
       sound: $('btn-sound'),
       quit: $('btn-quit'),
+      portalHint: null,
       relicList: $('relic-list'),
       relicCount: $('relic-count'),
       towerPanel: $('tower-panel'),
@@ -97,9 +98,25 @@ class UI {
       button.onclick = () => this.handlers.onSpeed?.(Number(button.dataset.speed));
     });
 
+    this.buildPortalHint();
     this.bindTooltips();
     this.bindClickSound();
     this.updateSoundIcon();
+  }
+
+  // HUD 入口提示：动态插入，避免改动静态页面结构；仅多入口地图显示。
+  buildPortalHint() {
+    if (this.el.portalHint) return;
+    const anchor = this.el.waveState || this.el.nextWave;
+    const parent = anchor?.parentElement;
+    if (!parent) return;
+    const hint = document.createElement('div');
+    hint.id = 'portal-hint';
+    hint.className = 'portal-hint';
+    hint.hidden = true;
+    hint.setAttribute('aria-live', 'polite');
+    parent.insertBefore(hint, anchor);
+    this.el.portalHint = hint;
   }
 
   bindClickSound() {
@@ -220,14 +237,22 @@ class UI {
         const modifier = candidate.modifier;
         const color = modifier?.color || '#9fb0c3';
         const preview = mapPreviewSvg(candidate);
+        const portalCount = candidate.spawns?.length || 1;
+        // 单入口地图即使 meta.merge 指向基地，也不应展示“汇流”文案。
+        const desc =
+          portalCount <= 1
+            ? '单路推进，塔位充足'
+            : candidate.archetype === 'cross'
+              ? '先汇合再分叉，火力需要二次分配'
+              : '路径汇流，关键路口价值高';
         return `
           <button class="map-card" data-index="${index}" style="--lane:${color}">
             <div class="map-preview">${preview}</div>
             <div class="map-card-head">
               <b>${candidate.archetypeName}</b>
-              <span class="map-portals">${candidate.spawns.length} 入口</span>
+              <span class="map-portals">${portalCount} 入口</span>
             </div>
-            <p class="map-desc">${candidate.meta?.merge ? '路径汇流，关键路口价值高' : '单路推进，塔位充足'}</p>
+            <p class="map-desc">${desc}</p>
             <div class="map-mod" style="color:${color}">
               <b>${modifier?.name || '无词缀'}</b>
               <span>${modifier?.desc || '标准地图'}</span>
@@ -292,14 +317,14 @@ class UI {
       this.el.hudDifficulty.style.setProperty('--diff', diff.color);
     }
 
+    this.updatePortalHint(hud);
+
     if (hud.phase === 'wave') {
-      const portals = hud.activePortals?.length || 1;
-      const portalText = portals > 1 ? ` · ${portals} 入口` : '';
-      this.el.waveState.textContent = (hud.waveDef?.finalBoss
+      this.el.waveState.textContent = hud.waveDef?.finalBoss
         ? '⚠ 最终首领'
         : hud.waveDef?.boss
           ? '⚠ 首领波次'
-          : '战斗中') + portalText;
+          : '战斗中';
       this.el.waveState.classList.add('live');
       this.el.nextWave.disabled = true;
       this.el.nextWave.textContent = `战斗中 · ${hud.enemies} 敌`;
@@ -327,6 +352,38 @@ class UI {
 
     this.updateShopState();
     this.updateTowerPanelState(hud.gold);
+  }
+
+  // 本波入口：波中高亮激活入口，其余变暗；整备阶段全部保持常态。
+  updatePortalHint(hud) {
+    const hint = this.el?.portalHint;
+    if (!hint) return;
+    const count = Math.max(1, Math.min(3, Math.floor(hud.portalCount || 1)));
+    if (count < 2) {
+      hint.hidden = true;
+      hint.innerHTML = '';
+      return;
+    }
+    const inWave = hud.phase === 'wave';
+    const active = new Set(
+      inWave
+        ? hud.activePortals?.length
+          ? hud.activePortals
+          : [0]
+        : Array.from({ length: count }, (_, i) => i)
+    );
+    const spawns = this.game?.map?.spawns || [];
+    const chips = Array.from({ length: count }, (_, index) => {
+      const color = spawns[index]?.color || '#9fb0c3';
+      const isActive = active.has(index);
+      const idle = inWave && !isActive;
+      return `<span class="portal-chip${isActive ? ' active' : ''}${idle ? ' idle' : ''}"
+        style="--portal:${color}" title="传送门 ${index + 1}${idle ? '（本波未激活）' : ''}">
+        <i aria-hidden="true"></i>${index + 1}
+      </span>`;
+    }).join('');
+    hint.hidden = false;
+    hint.innerHTML = `<span class="portal-label">${inWave ? '本波入口' : '入口'}</span>${chips}`;
   }
 
   // ---------- 商店 ----------

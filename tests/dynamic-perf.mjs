@@ -110,9 +110,14 @@ async function main() {
           sim.refreshTowerStats(tower);
         });
 
-        sim.beginWave(generateWave(sim.seed, options.wave, sim.difficulty));
+        // 传入地图 meta：多入口地图按本波入口计划出怪，覆盖多 lane 模拟/渲染。
+        sim.beginWave(generateWave(sim.seed, options.wave, sim.difficulty, sim.mapMeta));
         for (let i = 0; i < (options.extraEnemies || 0); i++) {
-          sim.spawnEnemy(i % 7 === 0 ? 'tank' : i % 3 === 0 ? 'runner' : 'grunt');
+          // 压力敌人分散到所有 lane，避免只压单条路径。
+          sim.spawnEnemy(
+            i % 7 === 0 ? 'tank' : i % 3 === 0 ? 'runner' : 'grunt',
+            i % sim.lanes.length
+          );
         }
         app.applySettings(options.quality);
         app.speed = options.speed;
@@ -123,6 +128,9 @@ async function main() {
           enemies: sim.enemies.length,
           towers: sim.towers.length,
           seed: sim.seed,
+          lanes: sim.lanes.length,
+          portals: sim.map.spawns?.length || 1,
+          activePortals: sim.activePortals.length,
           dpr: app.renderer.dpr,
           targetFps: app.settings.fps,
         };
@@ -170,7 +178,7 @@ async function main() {
           sim.clearedWave = wave - 1;
           sim.enemies = [];
           sim.projectiles = [];
-          sim.beginWave(generateWave(sim.seed, wave, sim.difficulty));
+          sim.beginWave(generateWave(sim.seed, wave, sim.difficulty, sim.mapMeta));
           let waveSteps = 0;
           while (sim.phase === 'wave' && waveSteps < 60 * 120) {
             sim.update(1 / 60);
@@ -280,6 +288,12 @@ async function main() {
         document.dispatchEvent(new Event('visibilitychange'));
       })()
     `);
+    // 隐藏生效与上一帧之间可能还有不到一帧的时间；以隐藏后 150ms 为基线再测漂移。
+    await sleep(150);
+    const visHiddenStart = await browser.evaluate(`({
+      time: window.__rtd.state.sim.time,
+      paused: window.__rtd.state.app.paused,
+    })`);
     await sleep(900);
     const visHidden = await browser.evaluate(`({
       time: window.__rtd.state.sim.time,
@@ -296,7 +310,7 @@ async function main() {
       time: window.__rtd.state.sim.time,
       paused: window.__rtd.state.app.paused,
     })`);
-    if (visHidden.time - visBefore.time > 0.01) throw new Error('后台期间仍在推进模拟');
+    if (visHidden.time - visHiddenStart.time > 0.01) throw new Error('后台期间仍在推进模拟');
     if (visHidden.paused !== visBefore.paused) throw new Error('后台暂停改变了手动暂停状态');
     const resumedDelta = visVisible.time - visHidden.time;
     if (resumedDelta > 1.2) throw new Error(`返回前台后集中补算：${resumedDelta}s`);
@@ -354,7 +368,7 @@ async function main() {
         growthMB: +(heapGrowth / 1024 / 1024).toFixed(2),
         fullRun,
       },
-      backgroundPause: { visBefore, visHidden, visVisible, resumedDelta },
+      backgroundPause: { visBefore, visHiddenStart, visHidden, visVisible, resumedDelta },
     };
 
     fs.writeFileSync(path.join(OUT_DIR, 'rtd-perf.json'), JSON.stringify(report, null, 2));

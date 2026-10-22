@@ -1,14 +1,46 @@
-// 手机端验收：竖屏提示、横屏无遮挡、触控建塔、设置/遗物弹窗。
-import { startTestServer, launchBrowser, chooseFirstMap } from './harness.mjs';
+// 手机端验收：竖屏提示、横屏无遮挡、选图弹窗、多入口触控建塔、设置/遗物弹窗。
+import { startTestServer, launchBrowser } from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
+const TEST_SEED = 'ux-1';
+const SEED_SCRIPT = `
+  (() => {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = (input, init = {}) => {
+      const headers = new Headers(init.headers || {});
+      headers.set('x-test-seed', '${TEST_SEED}');
+      return originalFetch(input, { ...init, headers });
+    };
+  })();
+`;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 选择入口数最多的候选地图（固定种子下包含三入口地图）。
+async function chooseMultiEntryMap(browser) {
+  await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗');
+  return browser.evaluate(`(() => {
+    const cards = [...document.querySelectorAll('.map-card')];
+    let best = cards[0];
+    for (const card of cards) {
+      const count = parseInt(card.querySelector('.map-portals').textContent, 10);
+      if (count > parseInt(best.querySelector('.map-portals').textContent, 10)) best = card;
+    }
+    const index = Number(best.dataset.index);
+    const count = parseInt(best.querySelector('.map-portals').textContent, 10);
+    best.click();
+    return { index, count };
+  })()`);
+}
+
 async function main() {
-  const server = await startTestServer();
+  const server = await startTestServer({ seedHeader: true });
   let browser = null;
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-mobile' });
+    browser = await launchBrowser({
+      base: server.base,
+      name: 'rtd-mobile',
+      initScript: SEED_SCRIPT,
+    });
     const setViewport = (width, height) =>
       browser.send('Emulation.setDeviceMetricsOverride', {
         width, height, deviceScaleFactor: 3, mobile: true,
@@ -27,7 +59,45 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
-    await chooseFirstMap(browser);
+    await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗');
+    // 竖屏选图弹窗：卡片可读、在视口内、可滚动到第三张。
+    const portraitMapModal = await browser.evaluate(`(() => {
+      const modal = document.querySelector('.map-modal');
+      const cards = [...document.querySelectorAll('.map-card')].map((card) => {
+        const rect = card.getBoundingClientRect();
+        const style = getComputedStyle(card.querySelector('.map-desc'));
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, fontSize: parseFloat(style.fontSize) };
+      });
+      return {
+        modalRect: modal.getBoundingClientRect().toJSON(),
+        scrollHeight: modal.scrollHeight,
+        clientHeight: modal.clientHeight,
+        cards,
+        iw: innerWidth,
+        ih: innerHeight,
+      };
+    })()`);
+    if (portraitMapModal.cards.length !== 3) throw new Error('竖屏选图卡片数量异常');
+    for (const card of portraitMapModal.cards) {
+      if (card.left < 0 || card.right > portraitMapModal.iw + 1) throw new Error('竖屏选图卡片横向溢出');
+      if (card.bottom <= card.top) throw new Error('竖屏选图卡片无高度');
+      if (card.fontSize < 10) throw new Error(`竖屏选图文字过小：${card.fontSize}`);
+    }
+    if (portraitMapModal.scrollHeight <= portraitMapModal.clientHeight) {
+      throw new Error('竖屏三张地图未启用滚动布局');
+    }
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-00-map-select.png`);
+    const chosenMap = await chooseMultiEntryMap(browser);
+    if (chosenMap.count < 2) throw new Error(`未选中多入口地图：${JSON.stringify(chosenMap)}`);
+    await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '地图加载完成');
+    const mapSetup = await browser.evaluate(`({
+      spawns: window.__rtd.state.sim.map.spawns.length,
+      lanes: window.__rtd.state.sim.lanes.length,
+      index: window.__rtd.state.sim.map.index,
+    })`);
+    if (mapSetup.spawns < 2 || mapSetup.lanes !== mapSetup.spawns) {
+      throw new Error(`移动端多入口地图未正确加载：${JSON.stringify(mapSetup)}`);
+    }
     await sleep(300);
 
     const hint = await browser.evaluate(`(() => {
@@ -129,13 +199,67 @@ async function main() {
     await tap(target.x, target.y);
     const towers = await browser.evaluate(`window.__rtd.state.sim.towers.length`);
     if (towers !== 1) throw new Error(`触摸建造失败：towers=${towers}`);
+    const builtMap = await browser.evaluate(`({
+      spawns: window.__rtd.state.sim.map.spawns.length,
+      towers: window.__rtd.state.sim.towers.map((t) => [t.type, t.c, t.r]),
+      hintHidden: document.querySelector('#portal-hint')?.hidden,
+      portalChips: document.querySelectorAll('#portal-hint .portal-chip').length,
+    })`);
+    if (builtMap.spawns < 2) throw new Error('触控建塔未发生在多入口地图');
+    if (builtMap.hintHidden || builtMap.portalChips !== builtMap.spawns) {
+      throw new Error(`横屏 HUD 入口提示异常：${JSON.stringify(builtMap)}`);
+    }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-05-landscape.png`);
+
+    // 横屏选图弹窗：三张卡与“放弃本局”按钮需在首屏内可读可点。
+    await browser.evaluate(`document.querySelector('#btn-quit').click()`);
+    await browser.waitFor(`!!document.querySelector('.confirm-modal')`, '退出确认');
+    await browser.evaluate(`document.querySelector('#btn-confirm-yes').click()`);
+    await browser.waitFor(`document.getElementById('title-screen').hidden === false`, '返回标题');
+    await browser.evaluate(`document.querySelector('#btn-play').click()`);
+    await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗（横屏）');
+    await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
+    await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗（横屏）');
+    const landscapeMapModal = await browser.evaluate(`(() => {
+      const modal = document.querySelector('.map-modal');
+      const cards = [...document.querySelectorAll('.map-card')].map((card) => {
+        const r = card.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, height: r.height };
+      });
+      const cancel = document.querySelector('#btn-cancel-map').getBoundingClientRect();
+      return { cards, cancel: cancel.toJSON(), iw: innerWidth, ih: innerHeight, scrollTop: modal.scrollTop };
+    })()`);
+    for (const card of landscapeMapModal.cards) {
+      if (card.left < 0 || card.right > landscapeMapModal.iw + 1) {
+        throw new Error(`横屏选图卡片横向溢出：${JSON.stringify(card)}`);
+      }
+      if (card.top < 0 || card.bottom > landscapeMapModal.ih + 1) {
+        throw new Error(`横屏选图卡片超出首屏：${JSON.stringify(card)}`);
+      }
+    }
+    if (landscapeMapModal.cancel.bottom > landscapeMapModal.ih + 1) {
+      throw new Error(`横屏“放弃本局”按钮不可见：${JSON.stringify(landscapeMapModal.cancel)}`);
+    }
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-06-map-select-landscape.png`);
+    await browser.evaluate(`document.querySelector('#btn-cancel-map').click()`);
+    await browser.waitFor(`!document.querySelector('.map-modal')`, '放弃后关闭选图弹窗');
+    await browser.waitFor(`document.getElementById('title-screen').hidden === false`, '放弃后返回标题');
 
     if (browser.pageErrors.length) {
       throw new Error(`控制台错误：${browser.pageErrors.join(' | ')}`);
     }
     console.log('[mobile] 通过');
-    console.log(JSON.stringify({ hint, settingsRect, landscape, target, towers }, null, 2));
+    console.log(JSON.stringify({
+      hint,
+      settingsRect,
+      landscape,
+      chosenMap,
+      mapSetup,
+      target,
+      towers,
+      builtMap,
+      landscapeMapModal,
+    }, null, 2));
   } finally {
     if (browser) await browser.close();
     await server.stop();
