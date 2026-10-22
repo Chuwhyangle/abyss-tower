@@ -51,6 +51,11 @@ class UI {
       rename: $('btn-rename'),
       settingsTitle: $('btn-settings-title'),
       settingsGame: $('btn-settings-game'),
+      relicsMobile: $('btn-relics-mobile'),
+      hudRelics: $('hud-relics'),
+      fullscreen: $('btn-fullscreen'),
+      rotateHint: $('rotate-hint'),
+      rotateContinue: $('btn-rotate-continue'),
       titleStats: $('title-stats'),
       hudWave: $('hud-wave'),
       hudGold: $('hud-gold'),
@@ -78,6 +83,9 @@ class UI {
     this.el.rename.onclick = () => this.handlers.onRename?.();
     this.el.settingsTitle.onclick = () => this.handlers.onSettings?.();
     this.el.settingsGame.onclick = () => this.handlers.onSettings?.();
+    this.el.relicsMobile.onclick = () => this.handlers.onRelics?.();
+    this.el.fullscreen.onclick = () => this.handlers.onFullscreen?.();
+    this.el.rotateContinue.onclick = () => this.el.rotateHint?.classList.add('dismissed');
     this.el.shop.onclick = () => this.handlers.onShop?.();
     this.el.board.onclick = () => this.handlers.onBoard?.('normal');
     this.el.help.onclick = () => this.handlers.onHelp?.();
@@ -227,6 +235,7 @@ class UI {
     this.el.hudHp.textContent = hud.baseHp;
     this.el.hudHpMax.textContent = `/${hud.maxBaseHp}`;
     this.el.hudKills.textContent = fmt(hud.kills);
+    if (this.el.hudRelics) this.el.hudRelics.textContent = hud.relicCount ?? 0;
 
     this.el.hudHp.classList.toggle('low', hud.baseHp / hud.maxBaseHp <= 0.35);
 
@@ -713,6 +722,40 @@ class UI {
       button.onclick = () => this.handlers.onBuyUnlock?.(button.dataset.id);
     });
     modal.querySelector('#btn-close-unlocks').onclick = () => this.closeModal();
+  }
+
+  showRelicsModal() {
+    const relics = this.game?.relics || [];
+    const rows = relics.length
+      ? relics
+          .map((state) => {
+            const relic = RELIC_BY_ID[state.id];
+            if (!relic) return '';
+            const level = Math.min(3, Math.max(1, state.level || 1));
+            const rarity = RARITY[relic.rarity];
+            return `
+              <div class="relic-modal-row">
+                <b style="color:${rarity.color}">${relic.name} ${RELIC_LEVEL_LABELS[level - 1]}</b>
+                <span>${relicEffectText(state.id, level)}</span>
+              </div>`;
+          })
+          .join('')
+      : '<p class="empty">本局还没有遗物。</p>';
+
+    const modal = this.openModal(
+      `
+        <div class="relics-modal">
+          <p class="eyebrow">RELICS</p>
+          <h2>遗物 <span class="cores-inline">${relics.length}</span></h2>
+          <div class="relic-modal-list">${rows}</div>
+          <div class="modal-actions">
+            <button class="btn ghost" id="btn-close-relics">关闭</button>
+          </div>
+        </div>
+      `,
+      { className: 'relics-modal', closable: true }
+    );
+    modal.querySelector('#btn-close-relics').onclick = () => this.closeModal();
   }
 
   showHelp() {

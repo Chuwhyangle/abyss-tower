@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
   <meta name="theme-color" content="#080d10" />
   <title>渊塔守卫 · 肉鸽塔防</title>
   <link rel="stylesheet" href="/styles.css" />
@@ -60,6 +60,8 @@
             <button class="speed-btn" data-speed="2">2×</button>
             <button class="speed-btn" data-speed="3">3×</button>
           </div>
+          <button id="btn-relics-mobile" class="icon-btn mobile-only" title="查看遗物">◈<span id="hud-relics">0</span></button>
+          <button id="btn-fullscreen" class="icon-btn mobile-only" title="全屏 / 横屏">⛶</button>
           <button id="btn-settings-game" class="icon-btn" title="画质设置">⚙</button>
           <button id="btn-sound" class="icon-btn" title="音效">🔊</button>
           <button id="btn-quit" class="icon-btn" title="退出远征">✕</button>
@@ -78,6 +80,15 @@
           <div id="tower-panel" class="tower-panel" hidden></div>
           <div id="tooltip" class="tooltip" hidden></div>
           <div id="toast" class="toast" hidden></div>
+        </div>
+      </div>
+
+      <div id="rotate-hint" class="rotate-hint">
+        <div class="rotate-card">
+          <div class="rotate-icon" aria-hidden="true">▭</div>
+          <h2>请横屏游玩</h2>
+          <p>横屏能获得更大的战场视野和更准的触控。</p>
+          <button id="btn-rotate-continue" class="btn ghost">仍然竖屏游玩</button>
         </div>
       </div>
 

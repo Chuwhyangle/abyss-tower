@@ -270,6 +270,14 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 页面隐藏时停止推进，返回时重置计时，不补算后台时间，且不改变手动暂停状态。
 - `GameApp` 采集模拟/渲染/HUD 耗时、帧与渲染间隔、慢帧、实体数与堆信息，供动态性能测试读取。
 
+### 5.7 移动端
+
+- 视口：`viewport-fit=cover`、禁止缩放；游戏页使用 `100dvh` 与安全区内边距。
+- 布局：横屏优先；HUD 单行紧凑、商店横向滚动、遗物面板改为 HUD 入口弹窗；竖屏显示可关闭的旋转提示。
+- 触控：`pointerdown` 先显示射程预览，`click` 完成建造；触屏点位容错吸附到邻近可建造格/塔。
+- 全屏按钮调用 `requestFullscreen` 并尽力 `screen.orientation.lock('landscape')`，失败降级为提示。
+- 画布 `touch-action:none`，商店 `pan-x`；移动端默认低配画质，但画质不参与模拟。
+
 ---
 
 ## 6. 服务端设计
@@ -491,6 +499,7 @@ cores = Math.round(
 - `tests/browser-flow.mjs`：波中刷新重放、遗物选择中刷新恢复、带遗物续玩、退出、排行榜/商店、失败结算。
 - `tests/browser-settings.mjs`：默认低配、预设应用/持久化、局内暂停恢复、必选弹窗保护、损坏存储回退。
 - `tests/browser-relics.mjs`：Ⅰ→Ⅱ 展示、升级生效、补位奖励展示与应用。
+- `tests/browser-mobile.mjs`：390×844 竖屏、844×390 横屏、旋转提示、无溢出/遮挡、触控建塔、设置与遗物弹窗。
 - 所有浏览器测试均启动自己的临时服务与临时 Chrome profile，不读写线上数据库。
 
 ### 8.4 动态性能测试（`tests/dynamic-perf.mjs`）

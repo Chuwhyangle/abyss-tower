@@ -70,6 +70,10 @@ function clearSnapshot() {
 // ---------- 启动 ----------
 
 async function boot() {
+  document.body.classList.toggle(
+    'is-touch',
+    navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches
+  );
   ui.init({
     onPlay: () => ui.showDifficultySelect('normal', { dailyLeft: state.dailyLeft }),
     onDaily: () => {
@@ -86,6 +90,8 @@ async function boot() {
     onBoard: (mode) => openBoard(mode),
     onHelp: () => ui.showHelp(),
     onSettings: () => openSettings(),
+    onRelics: () => ui.showRelicsModal(),
+    onFullscreen: () => toggleFullscreen(),
     onQuit: () => quitRun(),
     onNextWave: () => nextWave(),
     onSpeed: (value) => state.app?.setSpeed(value),
@@ -514,16 +520,74 @@ async function handleGameOver(stats) {
 
 // ---------- 建造 / 选择 ----------
 
+let lastPointerType = 'mouse';
+
+function nearestBuildable(sim, c, r, radius = 1) {
+  let best = null;
+  let bestDist = Infinity;
+  for (let dr = -radius; dr <= radius; dr++) {
+    for (let dc = -radius; dc <= radius; dc++) {
+      const nc = c + dc;
+      const nr = r + dr;
+      if (!sim.canBuild(nc, nr)) continue;
+      const dist = dc * dc + dr * dr;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { c: nc, r: nr };
+      }
+    }
+  }
+  return best;
+}
+
+function nearestTower(sim, c, r, radius = 1.2) {
+  let best = null;
+  let bestDist = radius * radius;
+  for (const tower of sim.towers) {
+    const dc = tower.c - c;
+    const dr = tower.r - r;
+    const dist = dc * dc + dr * dr;
+    if (dist <= bestDist) {
+      bestDist = dist;
+      best = tower;
+    }
+  }
+  return best;
+}
+
+function resolveTouchTile(sim, tile) {
+  if (sim.towerAt(tile.c, tile.r)) return tile;
+  if (sim.placementType) {
+    return sim.canBuild(tile.c, tile.r)
+      ? tile
+      : nearestBuildable(sim, tile.c, tile.r, 1) || tile;
+  }
+  const tower = nearestTower(sim, tile.c, tile.r, 1.2);
+  return tower ? { c: tower.c, r: tower.r } : tile;
+}
+
 function bindCanvas(canvas) {
-  canvas.onmousemove = (event) => {
+  const updateHover = (event) => {
     const sim = state.sim;
     if (!sim) return;
-    const tile = state.app.renderer.screenToTile(event);
+    let tile = state.app.renderer.screenToTile(event);
+    if (event.pointerType === 'touch') tile = resolveTouchTile(sim, tile);
     sim.hover = tile;
     const overTower = sim.towerAt(tile.c, tile.r);
     canvas.style.cursor = sim.placementType || overTower ? 'pointer' : 'default';
   };
-  canvas.onmouseleave = () => {
+
+  canvas.onpointermove = (event) => {
+    lastPointerType = event.pointerType || 'mouse';
+    if (event.pointerType === 'touch') return;
+    updateHover(event);
+  };
+  // 触屏没有 hover：按下时先给出射程/合法性预览，抬起后的 click 完成建造。
+  canvas.onpointerdown = (event) => {
+    lastPointerType = event.pointerType || 'mouse';
+    if (event.pointerType === 'touch') updateHover(event);
+  };
+  canvas.onpointerleave = () => {
     if (state.sim) state.sim.hover = null;
     canvas.style.cursor = 'default';
   };
@@ -537,7 +601,8 @@ function bindCanvas(canvas) {
 function handleCanvasClick(event) {
   const sim = state.sim;
   if (!sim || sim.phase === 'over' || ui.hasModal()) return;
-  const tile = state.app.renderer.screenToTile(event);
+  let tile = state.app.renderer.screenToTile(event);
+  if (lastPointerType === 'touch') tile = resolveTouchTile(sim, tile);
   const tower = sim.towerAt(tile.c, tile.r);
 
   if (sim.placementType && !tower) {
@@ -643,6 +708,27 @@ function handleKeydown(event) {
 }
 
 // ---------- 大厅功能 ----------
+
+async function toggleFullscreen() {
+  try {
+    if (!document.fullscreenElement) {
+      if (!document.documentElement.requestFullscreen) {
+        ui.toast('当前浏览器不支持全屏，请手动横屏');
+        return;
+      }
+      await document.documentElement.requestFullscreen();
+      try {
+        await screen.orientation?.lock?.('landscape');
+      } catch {
+        /* iOS Safari 等不支持方向锁定 */
+      }
+    } else {
+      await document.exitFullscreen?.();
+    }
+  } catch {
+    ui.toast('全屏失败，请手动横屏', 2400);
+  }
+}
 
 function openSettings() {
   if (ui.hasModal()) {
