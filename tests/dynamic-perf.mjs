@@ -350,7 +350,7 @@ async function main() {
       throw new Error(`重复场景后堆增长过大：${(heapGrowth / 1024 / 1024).toFixed(1)} MB`);
     }
 
-    const chromeVersion = execSync('google-chrome --version').toString().trim();
+    const chromeVersion = execSync(`${process.env.CHROME_BIN || 'google-chrome'} --version`).toString().trim();
     const report = {
       environment: {
         host: os.hostname(),

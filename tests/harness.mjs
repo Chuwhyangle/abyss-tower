@@ -238,7 +238,7 @@ export async function launchBrowser({
   const profileDir = path.join(os.tmpdir(), `${name}-${process.pid}-${Date.now()}-${debugPort}`);
   fs.rmSync(profileDir, { recursive: true, force: true });
   const chrome = spawn(
-    'google-chrome',
+    process.env.CHROME_BIN || 'google-chrome',
     [
       '--headless=new',
       '--no-sandbox',

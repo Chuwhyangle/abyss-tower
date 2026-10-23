@@ -37,3 +37,10 @@ coverage/
 *.orig
 *.rej
 *.swp
+
+# quay workspace (local only — never commit)
+.quay/
+tasks/
+goals/
+adr/
+meta/

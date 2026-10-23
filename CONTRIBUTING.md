@@ -5,6 +5,8 @@
 - Node.js ≥ 22.5（使用内置 `node:sqlite`）
 - 零第三方依赖，无需 `npm install`
 - 本地启动：`npm start`（默认 `http://localhost:8787`）
+- 浏览器验收测试默认调用 `google-chrome`；只有 Chromium 时设 `CHROME_BIN`，例如
+  `CHROME_BIN=/snap/bin/chromium npm run smoke`。
 
 每个开发者使用自己的本地数据库（`server/data/game.db`，已被 gitignore）。需要复现数据时用种子：
 

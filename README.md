@@ -8,11 +8,12 @@
 - 地图设计：[docs/MAP_DESIGN.md](docs/MAP_DESIGN.md)
 - 平衡模拟记录：[docs/BALANCE.md](docs/BALANCE.md)
 - 动态性能记录：[docs/PERFORMANCE.md](docs/PERFORMANCE.md)
+- 更新日志：[CHANGELOG.md](CHANGELOG.md)
 
 ## 快速开始
 
 ```bash
-cd /home/wenjin/rogue-td
+cd abyss-tower   # 仓库根目录
 npm start
 ```
 
