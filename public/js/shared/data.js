@@ -166,6 +166,126 @@ export const ENEMIES = {
   },
 };
 
+// ---------- 主动技能（玩家） ----------
+// 每级数值直接列出，服务端/客户端/渲染层共用同一份真源。
+// 10 级：效果为 1 级的 2 倍、冷却为 0.5 倍；攻击速度/射程这类乘法因子固定。
+export const SKILL_LEVEL_COSTS = [10, 15, 20, 30, 45, 65, 90, 120, 220]; // 1→2 … 9→10
+
+export const SKILLS = {
+  aurora: {
+    id: 'aurora',
+    name: '霜月·极光',
+    role: 'control',
+    color: '#7cd4f5',
+    unlock: 'default',
+    desc: '极光帘幕扫过战场，冻结并减速全场敌人。',
+    bossFactor: 0.4,
+    milestones: {
+      4: { id: 'frostTrace', name: '霜纹', desc: '解冻碎晶有 25% 概率波及 0.8 格内另一名敌人（50% 伤害）。' },
+      7: { id: 'eclipse', name: '月蚀', desc: '释放时场上敌人 ≥12，冻结延长 0.3 秒。' },
+      10: { id: 'auroraFinale', name: '极光终章', desc: '冻结期间被击杀的敌人爆成冰晶（1 格内 4% 最大生命 + 20% 减速 2 秒）。' },
+    },
+    levels: [
+      { freeze: 0.9, vuln: 0.12, slow: 0.35, slowDur: 4, shatter: 0.06, cd: 40 },
+      { freeze: 1.0, vuln: 0.133, slow: 0.389, slowDur: 4, shatter: 0.0667, cd: 37.8 },
+      { freeze: 1.1, vuln: 0.147, slow: 0.428, slowDur: 4, shatter: 0.0733, cd: 35.6 },
+      { freeze: 1.2, vuln: 0.16, slow: 0.467, slowDur: 4, shatter: 0.08, cd: 33.3 },
+      { freeze: 1.3, vuln: 0.173, slow: 0.506, slowDur: 4, shatter: 0.0867, cd: 31.1 },
+      { freeze: 1.4, vuln: 0.187, slow: 0.544, slowDur: 4, shatter: 0.0933, cd: 28.9 },
+      { freeze: 1.5, vuln: 0.2, slow: 0.583, slowDur: 4, shatter: 0.1, cd: 26.7 },
+      { freeze: 1.6, vuln: 0.213, slow: 0.622, slowDur: 4, shatter: 0.1067, cd: 24.4 },
+      { freeze: 1.7, vuln: 0.227, slow: 0.661, slowDur: 4, shatter: 0.1133, cd: 22.2 },
+      { freeze: 1.8, vuln: 0.24, slow: 0.7, slowDur: 4, shatter: 0.12, cd: 20 },
+    ],
+  },
+  meteor: {
+    id: 'meteor',
+    name: '星陨·天火',
+    role: 'burst',
+    color: '#ffb066',
+    unlock: 'win_roam',
+    desc: '锁定最密集的敌群，召唤流星雨。',
+    bossFactor: 0.3,
+    milestones: {
+      4: { id: 'starTrack', name: '星轨', desc: '优先锁定未被灼烧的群落。' },
+      7: { id: 'fireflow', name: '流火', desc: '单次命中 ≥10 名敌人时额外落 1 颗陨星。' },
+      10: { id: 'meteorFinale', name: '天火终章', desc: '命中已灼烧目标触发余烬连锁（35% 伤害，最多 4 个）。' },
+    },
+    levels: [
+      { meteors: 3, dmgPct: 0.3, burnPct: 0.12, radius: 1.8, cd: 45 },
+      { meteors: 3, dmgPct: 0.333, burnPct: 0.133, radius: 1.844, cd: 42.5 },
+      { meteors: 4, dmgPct: 0.367, burnPct: 0.147, radius: 1.889, cd: 40 },
+      { meteors: 4, dmgPct: 0.4, burnPct: 0.16, radius: 1.933, cd: 37.5 },
+      { meteors: 4, dmgPct: 0.433, burnPct: 0.173, radius: 1.978, cd: 35 },
+      { meteors: 5, dmgPct: 0.467, burnPct: 0.187, radius: 2.022, cd: 32.5 },
+      { meteors: 5, dmgPct: 0.5, burnPct: 0.2, radius: 2.067, cd: 30 },
+      { meteors: 5, dmgPct: 0.533, burnPct: 0.213, radius: 2.111, cd: 27.5 },
+      { meteors: 6, dmgPct: 0.567, burnPct: 0.227, radius: 2.156, cd: 25 },
+      { meteors: 6, dmgPct: 0.6, burnPct: 0.24, radius: 2.2, cd: 22.5 },
+    ],
+  },
+  chrono: {
+    id: 'chrono',
+    name: '时之终章·星海回响',
+    role: 'ultimate',
+    color: '#b48cff',
+    unlock: 'win_standard',
+    desc: '时间停滞，星海降临，所有防御塔过载。',
+    bossFactor: 0.5,
+    milestones: {
+      4: { id: 'stasis', name: '迟滞', desc: '时停期间防御塔攻速额外 +20%。' },
+      7: { id: 'echo', name: '回声', desc: '星痕易伤持续时间 +3 秒。' },
+      10: { id: 'finale', name: '终章', desc: '时停期间每击杀 1 名敌人，时停 +0.1 秒（最多 +1 秒）。' },
+    },
+    levels: [
+      { stop: 1.5, overdrive: 4, atkSpeed: 0.6, range: 1, novaPct: 0.12, vuln: 0.15, vulnDur: 6, cd: 75 },
+      { stop: 1.667, overdrive: 4.444, atkSpeed: 0.6, range: 1, novaPct: 0.133, vuln: 0.15, vulnDur: 6, cd: 70.8 },
+      { stop: 1.833, overdrive: 4.889, atkSpeed: 0.6, range: 1, novaPct: 0.147, vuln: 0.15, vulnDur: 6, cd: 66.7 },
+      { stop: 2, overdrive: 5.333, atkSpeed: 0.6, range: 1, novaPct: 0.16, vuln: 0.15, vulnDur: 6, cd: 62.5 },
+      { stop: 2.167, overdrive: 5.778, atkSpeed: 0.6, range: 1, novaPct: 0.173, vuln: 0.15, vulnDur: 6, cd: 58.3 },
+      { stop: 2.333, overdrive: 6.222, atkSpeed: 0.6, range: 1, novaPct: 0.187, vuln: 0.15, vulnDur: 6, cd: 54.2 },
+      { stop: 2.5, overdrive: 6.667, atkSpeed: 0.6, range: 1, novaPct: 0.2, vuln: 0.15, vulnDur: 9, cd: 50 },
+      { stop: 2.667, overdrive: 7.111, atkSpeed: 0.6, range: 1, novaPct: 0.213, vuln: 0.15, vulnDur: 9, cd: 45.8 },
+      { stop: 2.833, overdrive: 7.556, atkSpeed: 0.6, range: 1, novaPct: 0.227, vuln: 0.15, vulnDur: 9, cd: 41.7 },
+      { stop: 3, overdrive: 8, atkSpeed: 0.6, range: 1, novaPct: 0.24, vuln: 0.15, vulnDur: 9, cd: 37.5 },
+    ],
+  },
+};
+
+export const SKILL_ORDER = ['aurora', 'meteor', 'chrono'];
+
+export function skillStats(id, level = 1) {
+  const def = SKILLS[id];
+  if (!def) return null;
+  const lv = Math.max(1, Math.min(def.levels.length, Math.floor(Number(level) || 1)));
+  return def.levels[lv - 1];
+}
+
+export function skillUpgradeCost(level) {
+  const lv = Math.floor(Number(level) || 1);
+  if (lv < 1 || lv >= SKILLS.aurora.levels.length) return null;
+  return SKILL_LEVEL_COSTS[lv - 1];
+}
+
+export function skillUnlockText(id) {
+  const def = SKILLS[id];
+  if (!def) return '';
+  if (def.unlock === 'default') return '初始拥有';
+  if (def.unlock === 'win_roam') return '首次通关「漫游」';
+  if (def.unlock === 'win_standard') return '首次通关「远征」';
+  return '';
+}
+
+export function isSkillUnlocked(id, profile) {
+  const def = SKILLS[id];
+  if (!def) return false;
+  if (def.unlock === 'default') return true;
+  const wins = profile?.stats?.byDifficulty || {};
+  if (def.unlock === 'win_roam') return (wins.roam?.wins || 0) > 0;
+  if (def.unlock === 'win_standard') return (wins.standard?.wins || 0) > 0;
+  return false;
+}
+
 // 首领技能：名称/颜色/预警半径由服务端与渲染层共用。
 export const BOSS_SKILLS = {
   roar: { id: 'roar', name: '深渊咆哮', color: '#ff8a6b', radiusKey: 'bossRoarRadius', unlockWave: 5 },
