@@ -1,7 +1,7 @@
 // 排行榜接口：分页、难度筛选与当前账号排名。
 import { AUTH_ENABLED } from '../config.mjs';
 import { DIFFICULTIES } from '../../public/js/shared/data.js';
-import { dayKey } from '../../public/js/shared/scoring.js';
+import { dayKey, isWeekKey, weekKey } from '../../public/js/shared/scoring.js';
 import {
   MAX_BOARD_PAGE_SIZE,
   accountBoardSummary,
@@ -29,8 +29,19 @@ export class LeaderboardRoutes {
       const params = ctx.url.searchParams;
       const requestedMode = params.get('mode');
       const mode =
-        requestedMode === 'daily' ? 'daily' : requestedMode === 'endless' ? 'endless' : 'normal';
-      const day = params.get('day') || today();
+        requestedMode === 'daily'
+          ? 'daily'
+          : requestedMode === 'weekly'
+            ? 'weekly'
+            : requestedMode === 'endless'
+              ? 'endless'
+              : 'normal';
+      // 周榜的 day 维度是 ISO 周键；非法或缺失时回退本周。
+      const requestedDay = params.get('day');
+      const day =
+        mode === 'weekly'
+          ? (isWeekKey(requestedDay) ? requestedDay : weekKey())
+          : requestedDay || today();
       const page = boundedInt(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
       const size = boundedInt(params.get('size'), DEFAULT_SIZE, MAX_BOARD_PAGE_SIZE);
       const requested = params.get('difficulty');
@@ -66,6 +77,7 @@ export class LeaderboardRoutes {
       return ctx.json(200, {
         mode,
         day,
+        week: mode === 'weekly' ? day : null,
         page,
         size,
         difficulty,

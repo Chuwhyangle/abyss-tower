@@ -20,9 +20,9 @@
         <div class="title-card">
           <div class="profile-line">
             <span id="player-name" class="player-name" data-i18n="title.commander">指挥官</span>
-            <button id="btn-rename" class="icon-btn" type="button" title="修改昵称" data-i18n-title="title.rename" data-i18n-aria="title.rename">✎</button>
-            <button id="btn-settings-title" class="icon-btn" type="button" title="画质设置" data-i18n-title="title.settings" data-i18n-aria="title.settings">⚙</button>
-            <span class="cores-badge" aria-label="星核数量">◈ <b id="cores">0</b></span>
+            <button id="btn-rename" class="icon-btn" type="button" title="修改昵称" data-i18n-title="title.rename" data-i18n-aria="title.rename"><span data-icon="rename" aria-hidden="true"></span></button>
+            <button id="btn-settings-title" class="icon-btn" type="button" title="画质设置" data-i18n-title="title.settings" data-i18n-aria="title.settings"><span data-icon="settings" aria-hidden="true"></span></button>
+            <span class="cores-badge" aria-label="星核数量"><span data-icon="cores" aria-hidden="true"></span> <b id="cores">0</b></span>
           </div>
 
           <nav class="title-actions" aria-label="主菜单">
@@ -37,6 +37,7 @@
               <button id="btn-achievements" class="btn small" type="button" data-i18n="title.achievements">成就</button>
               <button id="btn-stats" class="btn small" type="button" data-i18n="title.stats">生涯</button>
               <button id="btn-season" class="btn small" type="button" data-i18n="title.season">赛季</button>
+              <button id="btn-relic-codex" class="btn small" type="button" data-i18n="title.relicCodex">遗物图鉴</button>
               <button id="btn-help" class="btn small" type="button" data-i18n="title.help">玩法</button>
             </div>
           </nav>
@@ -49,7 +50,7 @@
             <div class="achievements-head">
               <h2 data-i18n="title.achievements">成就</h2>
               <span id="achievements-progress" class="achievements-progress">0 / 0</span>
-              <button id="btn-achievements-close" class="icon-btn" type="button" title="关闭成就面板" data-i18n-title="title.closeAchievements" data-i18n-aria="title.closeAchievements">✕</button>
+              <button id="btn-achievements-close" class="icon-btn" type="button" title="关闭成就面板" data-i18n-title="title.closeAchievements" data-i18n-aria="title.closeAchievements"><span data-icon="close" aria-hidden="true"></span></button>
             </div>
             <div id="achievements-list" class="achievements-list"></div>
           </div>
@@ -57,12 +58,14 @@
           <div id="stats-panel" class="career-panel" hidden>
             <div class="career-head">
               <h2 data-i18n="title.stats">生涯</h2>
-              <button id="btn-stats-close" class="icon-btn" type="button" title="关闭生涯面板" data-i18n-title="title.closeStats" data-i18n-aria="title.closeStats">✕</button>
+              <button id="btn-stats-close" class="icon-btn" type="button" title="关闭生涯面板" data-i18n-title="title.closeStats" data-i18n-aria="title.closeStats"><span data-icon="close" aria-hidden="true"></span></button>
             </div>
             <div id="stats-body" class="career-body"></div>
           </div>
 
           <div id="season-panel" class="season-panel" hidden></div>
+
+          <div id="relic-codex-panel" class="relic-codex-panel" hidden></div>
 
           <div id="leaderboard-panel" hidden></div>
           <div id="daily-history-panel" hidden></div>
@@ -85,16 +88,16 @@
           <div id="wave-state" class="wave-state" data-i18n="hud.prep" role="status" aria-live="polite">准备阶段</div>
           <button id="btn-next-wave" class="btn primary" type="button" data-i18n="hud.startWave1">开始第 1 波</button>
           <div class="speed-group" role="group" aria-label="游戏速度" data-i18n-aria="hud.speedGroup">
-            <button class="speed-btn" type="button" data-speed="0" title="暂停 / 继续" data-i18n-title="hud.pauseResume" data-i18n-aria="hud.pauseResume">❚❚</button>
+            <button class="speed-btn" type="button" data-speed="0" title="暂停 / 继续" data-i18n-title="hud.pauseResume" data-i18n-aria="hud.pauseResume"><span data-icon="pause" aria-hidden="true"></span></button>
             <button class="speed-btn active" type="button" data-speed="1" aria-label="1 倍速">1×</button>
             <button class="speed-btn" type="button" data-speed="2" aria-label="2 倍速">2×</button>
             <button class="speed-btn" type="button" data-speed="3" aria-label="3 倍速">3×</button>
           </div>
-          <button id="btn-relics-mobile" class="icon-btn mobile-only" type="button" title="查看遗物" data-i18n-title="hud.viewRelics" data-i18n-aria="hud.viewRelics">◈<span id="hud-relics">0</span></button>
-          <button id="btn-fullscreen" class="icon-btn mobile-only" type="button" title="全屏 / 横屏" data-i18n-title="hud.fullscreen" data-i18n-aria="hud.fullscreen">⛶</button>
-          <button id="btn-settings-game" class="icon-btn" type="button" title="画质设置" data-i18n-title="hud.settings" data-i18n-aria="hud.settings">⚙</button>
-          <button id="btn-sound" class="icon-btn" type="button" title="音效" data-i18n-title="hud.sound" data-i18n-aria="hud.sound">🔊</button>
-          <button id="btn-quit" class="icon-btn" type="button" title="退出远征" data-i18n-title="hud.quit" data-i18n-aria="hud.quit">✕</button>
+          <button id="btn-relics-mobile" class="icon-btn mobile-only" type="button" title="查看遗物" data-i18n-title="hud.viewRelics" data-i18n-aria="hud.viewRelics"><span data-icon="cores" aria-hidden="true"></span><span id="hud-relics">0</span></button>
+          <button id="btn-fullscreen" class="icon-btn mobile-only" type="button" title="全屏 / 横屏" data-i18n-title="hud.fullscreen" data-i18n-aria="hud.fullscreen"><span data-icon="fullscreen" aria-hidden="true"></span></button>
+          <button id="btn-settings-game" class="icon-btn" type="button" title="画质设置" data-i18n-title="hud.settings" data-i18n-aria="hud.settings"><span data-icon="settings" aria-hidden="true"></span></button>
+          <button id="btn-sound" class="icon-btn" type="button" title="音效" data-i18n-title="hud.sound" data-i18n-aria="hud.sound"><span data-icon="sound" aria-hidden="true"></span></button>
+          <button id="btn-quit" class="icon-btn" type="button" title="退出远征" data-i18n-title="hud.quit" data-i18n-aria="hud.quit"><span data-icon="close" aria-hidden="true"></span></button>
         </div>
       </header>
 
@@ -116,7 +119,7 @@
           <!-- 主动技能：右下角圆形按钮，冷却径向 + Q 提示；无技能旧局隐藏。 -->
           <button id="btn-skill" class="btn-skill" type="button" hidden aria-label="释放主动技能" title="主动技能（Q）">
             <span id="skill-cd" class="skill-cd" aria-hidden="true"></span>
-            <span class="skill-glyph" aria-hidden="true">✦</span>
+            <span class="skill-glyph" data-icon="skill" aria-hidden="true"></span>
             <span id="skill-count" class="skill-count" aria-hidden="true"></span>
             <span class="skill-key" aria-hidden="true">Q</span>
           </button>
@@ -127,7 +130,7 @@
 
       <div id="rotate-hint" class="rotate-hint">
         <div class="rotate-card">
-          <div class="rotate-icon" aria-hidden="true">▭</div>
+          <div class="rotate-icon" data-icon="rotate" aria-hidden="true"></div>
           <h2 data-i18n="rotate.title">正在切换横屏</h2>
           <p data-i18n="rotate.body">游戏需要横屏进行。若浏览器未自动旋转，请关闭系统竖屏锁定后重试。</p>
           <button id="btn-rotate-retry" class="btn primary" type="button" data-i18n="rotate.retry">重试自动横屏</button>
@@ -150,6 +153,7 @@
   <script type="module" src="/js/stats-ui.js"></script>
   <script type="module" src="/js/leaderboard-ui.js"></script>
   <script type="module" src="/js/season-ui.js"></script>
+  <script type="module" src="/js/relic-codex-ui.js"></script>
   <script type="module" src="/js/daily-history-ui.js"></script>
 </body>
 </html>

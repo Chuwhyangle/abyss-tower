@@ -1,6 +1,7 @@
 // 大厅生涯面板：只展示服务端聚合结果，客户端不做任何统计计算。
 // 视觉样式统一放在 public/styles.css，使用 V21-007 的设计令牌。
 import { t, tData } from './i18n.js';
+import { iconSvg } from './render/canvas-shapes.js';
 
 const RECENT_LIMIT = 10;
 
@@ -31,7 +32,7 @@ function formatDate(timestamp) {
 function emptyState(message) {
   return `
     <div class="panel-empty" role="status">
-      <span class="panel-empty-glyph" aria-hidden="true">◇</span>
+      <span class="panel-empty-glyph" aria-hidden="true">${iconSvg('empty')}</span>
       <p class="panel-empty-title">${escapeHtml(message)}</p>
     </div>`;
 }

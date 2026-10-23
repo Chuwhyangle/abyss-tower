@@ -4,7 +4,7 @@ import { resolveGameAccount } from '../auth/identity.mjs';
 import { GameContext } from '../http/context.mjs';
 import { ApiRouter } from './router.mjs';
 import { AuthRoutes } from './auth.mjs';
-import { ConfigRoutes, HealthRoutes } from './system.mjs';
+import { ConfigRoutes, DiagnosticsRoutes, HealthRoutes } from './system.mjs';
 import { ProfileRoutes } from './profile.mjs';
 import { LeaderboardRoutes } from './leaderboard.mjs';
 import { RunRoutes } from './runs.mjs';
@@ -31,6 +31,7 @@ export function createApiRouter() {
   return new ApiRouter(createGameGate())
     .addPublic(new HealthRoutes())
     .addPublic(new ConfigRoutes())
+    .addPublic(new DiagnosticsRoutes())
     .addPublic(new AuthRoutes())
     .addProtected(new ProfileRoutes())
     .addProtected(new LeaderboardRoutes())

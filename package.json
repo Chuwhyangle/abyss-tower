@@ -15,6 +15,7 @@
     "check:imports": "node --no-warnings scripts/import-graph.mjs",
     "check:dead-exports": "node --no-warnings scripts/dead-exports.mjs",
     "check:version": "node --no-warnings scripts/check-version.mjs",
+    "check:memory": "node --no-warnings scripts/memory-check.mjs",
     "smoke": "node tests/browser-smoke.mjs",
     "flow": "node tests/browser-flow.mjs",
     "test:settings": "node tests/browser-settings.mjs",

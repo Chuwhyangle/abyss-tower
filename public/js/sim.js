@@ -18,6 +18,7 @@ import {
   createMods,
   effectValue,
   hitBonuses,
+  relicSetTierBonuses,
 } from './shared/effects.js';
 import { RNG } from './shared/rng.js';
 import {
@@ -1304,6 +1305,22 @@ export class Simulation {
       const levelMods = relicModsAtLevel(relic.id, relic.level);
       for (const [key, value] of Object.entries(levelMods)) {
         applyEffect(mods, key, value);
+      }
+    }
+    // 套装按不同遗物计件：等级提升不重复计入，2/4 件档位依次叠加。
+    const setPieces = new Map();
+    const counted = new Set();
+    for (const relic of this.relics) {
+      const def = RELIC_BY_ID[relic.id];
+      if (!def?.set || counted.has(relic.id)) continue;
+      counted.add(relic.id);
+      setPieces.set(def.set, (setPieces.get(def.set) || 0) + 1);
+    }
+    for (const [setId, pieces] of setPieces) {
+      for (const tier of relicSetTierBonuses(setId, pieces)) {
+        for (const [key, value] of Object.entries(tier.mods)) {
+          applyEffect(mods, key, value);
+        }
       }
     }
     clampMods(mods);

@@ -1,6 +1,7 @@
 // 大厅成就面板：只读取服务端判定的结果，不在客户端做任何解锁判断。
 // 视觉样式统一放在 public/styles.css，使用 V21-007 的设计令牌。
 import { t, tOr } from './i18n.js';
+import { iconSvg } from './render/canvas-shapes.js';
 
 function progressBar(item) {
   const progress = item.progress;
@@ -82,7 +83,7 @@ function groupSections(data, items) {
 function emptyState(message) {
   return `
     <div class="panel-empty" role="status">
-      <span class="panel-empty-glyph" aria-hidden="true">◇</span>
+      <span class="panel-empty-glyph" aria-hidden="true">${iconSvg('empty')}</span>
       <p class="panel-empty-title">${escapeHtml(message)}</p>
     </div>`;
 }

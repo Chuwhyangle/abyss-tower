@@ -105,3 +105,12 @@ export function countFinishedDailyRuns(accountId, day) {
     )
     .get(accountId, day).c;
 }
+
+// 本周已完成的挑战次数；day 列对 weekly 存的是 ISO 周键。
+export function countFinishedWeeklyRuns(accountId, week) {
+  return db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM runs WHERE account_id = ? AND mode = 'weekly' AND day = ? AND status = 'finished'`
+    )
+    .get(accountId, week).c;
+}

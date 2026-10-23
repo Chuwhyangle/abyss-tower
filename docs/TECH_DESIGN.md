@@ -203,6 +203,7 @@ generateWave(seed, wave, difficulty, mapMeta) -> {
 - 服务端保存每波 `{ offers, picked }`；`pick` 按索引校验，`picked` 后拒绝二次选择与刷新。
 - 兼容旧 `{ids:[...]}` 选项与旧遗物 ID 存档，统一归一化为 Ⅰ 级。
 - 即时生命效果：获得/升级时只补发该等级相对上一等级新增的 `baseHp`。
+- 套装：遗物可选 `set` 标签（`hunter` / `frost` / `guild`），档位在 `effects.js` 的 `RELIC_SET_BONUSES` 声明 2/4 件效果；`recomputeMods` 按不同遗物 ID 计件（升级不重复计入），追加档位后统一应用单件与全局上限。文案由效果注册表的 `effectText` 生成。
 - 塔的稳定属性在建造、升级、遗物变化时缓存；模拟步内不重建对象。
 
 ### 4.6 数值与伤害管线

@@ -64,6 +64,25 @@ gh pr create --fill
   quay 的本地工作线；`main` 保持干净、只走正常发布 PR。不要从 `main` 分叉任务 worktree，
   也不要把任务板状态提交到 `main`。
 
+## 本地推送门禁（pre-push 钩子）
+
+CI 工作流需要带 `workflow` scope 的 token 才能推送；本地可以在推送前补上同等门禁：
+
+```bash
+node scripts/install-hooks.mjs            # 安装（幂等，可重复执行）
+node scripts/install-hooks.mjs --dry-run  # 只看将写入的路径与内容
+```
+
+- 默认只跑 `npm run check:syntax`，不拖慢日常推送。
+- 需要完整测试时，在推送命令前加 `HOOK_FULL=1`：
+
+  ```bash
+  HOOK_FULL=1 git push
+  ```
+
+- 不会覆盖已有的非本工具钩子；如确认要覆盖，加 `--force`。
+- 紧急绕过：`git push --no-verify`（不推荐，会跳过全部本地门禁）。
+
 ## 合并前检查
 
 - `npm test` 全绿（50+ 项，含接口与迁移）。
