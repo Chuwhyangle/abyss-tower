@@ -1,8 +1,8 @@
 // 玩家档案/对局的兼容读写层：对上层保持旧接口形状，底层使用新的可扩展表。
-import { db } from './db/index.mjs';
+import { db, transaction } from './db/index.mjs';
 import { DIFFICULTY_ORDER, normalizeRelicStates } from '../public/js/shared/data.js';
 
-export { db };
+export { db, transaction };
 export { DB_PATH } from './db/index.mjs';
 
 export function defaultStats() {
@@ -197,6 +197,62 @@ export function updateProfile(accountId, { name, cores, unlocks, stats } = {}) {
   return getProfile(accountId);
 }
 
+// ---------- 星核与解锁（原子写） ----------
+
+export function getCores(accountId) {
+  const row = db
+    .prepare("SELECT balance FROM player_wallets WHERE account_id = ? AND currency_id = 'cores'")
+    .get(accountId);
+  return Math.max(0, Math.floor(Number(row?.balance) || 0));
+}
+
+// 必须已处于 transaction() 内：条件 UPDATE 保证余额不足时一行都不会改。
+export function spendCoresInTx(accountId, amount, now = Date.now()) {
+  const cost = Math.floor(Number(amount));
+  if (!Number.isFinite(cost) || cost < 0) return false;
+  if (cost === 0) return true;
+  const result = db
+    .prepare(
+      `UPDATE player_wallets
+          SET balance = balance - ?, updated_at = ?
+        WHERE account_id = ? AND currency_id = 'cores' AND balance >= ?`
+    )
+    .run(cost, now, accountId, cost);
+  return result.changes === 1;
+}
+
+export function spendCores(accountId, amount) {
+  const cost = Math.floor(Number(amount));
+  if (!Number.isFinite(cost) || cost < 0) return false;
+  if (cost === 0) return true;
+  return transaction(() => spendCoresInTx(accountId, cost));
+}
+
+export function grantCores(accountId, amount) {
+  const gain = Math.floor(Number(amount));
+  if (!Number.isFinite(gain) || gain <= 0) return getCores(accountId);
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO player_wallets (account_id, currency_id, balance, updated_at)
+     VALUES (?, 'cores', ?, ?)
+     ON CONFLICT(account_id, currency_id) DO UPDATE SET
+       balance = balance + excluded.balance,
+       updated_at = excluded.updated_at`
+  ).run(accountId, gain, now);
+  return getCores(accountId);
+}
+
+// 幂等授予：重复调用返回 false，调用方据此决定是否提示“新解锁”。
+export function grantUnlock(accountId, unlockId) {
+  const result = db
+    .prepare(
+      `INSERT OR IGNORE INTO player_unlocks (account_id, unlock_id, unlocked_at, meta)
+       VALUES (?, ?, ?, '{}')`
+    )
+    .run(accountId, String(unlockId), Date.now());
+  return result.changes === 1;
+}
+
 export function getRun(id) {
   return db.prepare('SELECT * FROM runs WHERE id = ?').get(id) || null;
 }
@@ -227,6 +283,8 @@ export function hydrateRun(row) {
     mapChoice: row.map_choice ?? -1,
     relics: normalizeRelicStates(safeParse(row.relics, [])),
     offers: safeParse(row.offers, {}),
+    // 开局冻结的规则集（技能等级/每日固定资源）；旧局为 {}。
+    ruleset: safeParse(row.ruleset_json, {}),
     rerollsUsed: row.rerolls_used,
     status: row.status,
     victory: row.victory || 0,

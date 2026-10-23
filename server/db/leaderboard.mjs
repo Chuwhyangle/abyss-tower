@@ -1,7 +1,8 @@
 import { db } from './index.mjs';
 
+// v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
 export function boardKeyFor(mode, day) {
-  return mode === 'daily' ? `daily:${day}` : 'normal';
+  return mode === 'daily' ? `daily:${day}:v2` : 'normal';
 }
 
 export function recordLeaderboardEntry({

@@ -15,8 +15,8 @@ export class RouteContext {
     return true;
   }
 
-  fail(status, message) {
-    fail(this.res, status, message);
+  fail(status, message, code = null) {
+    fail(this.res, status, message, code);
     return true;
   }
 

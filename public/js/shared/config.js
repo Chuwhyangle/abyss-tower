@@ -1,7 +1,7 @@
 // 集中可调数值：平衡模拟器会临时修改这里的字段，再跑完整对局。
 export const BALANCE = {
   // 波次难度曲线（v1：平衡模拟定版，目标见 docs/BALANCE.md）
-  hpGrowth: 1.165,         // 每波基础血量倍率
+  hpGrowth: 1.17,         // 每波基础血量倍率
   speedGrowth: 0.006,      // 每波移速加成
   budgetBase: 4.5,         // 第一波敌人数量预算
   budgetPerWave: 1.05,     // 每波预算增量

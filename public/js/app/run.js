@@ -4,6 +4,7 @@ import { RELIC_BY_ID } from '../shared/data.js';
 import { Simulation } from '../sim.js';
 import { GameApp } from '../game-app.js';
 import { RelicOffers } from './offers.js';
+import { skillApi } from './skills.js';
 
 export class RunController {
   constructor(game) {
@@ -41,10 +42,16 @@ export class RunController {
         store.clearPendingMap();
         return false;
       }
+      // 规则集以服务端为准（技能等级在开局冻结），旧服务端无 ruleset 时沿用本地记录。
+      const data = {
+        ...store.pendingMapData(pending),
+        ruleset: run.ruleset || pending.ruleset || null,
+        skill: run.ruleset?.skill || pending.skill || null,
+      };
       if (run.mapChoice >= 0) {
         // 地图已选定但快照未落盘（极端刷新时机）：沿用服务端选择直接开局。
         const selection = await this.api.selectMap(pending.runId, run.mapChoice);
-        this.beginGame({ ...store.pendingMapData(pending), ...selection }, null);
+        this.beginGame({ ...data, ...selection }, null);
         this.ui.toast('已恢复本次远征的地图选择', 2400);
         return true;
       }
@@ -53,7 +60,7 @@ export class RunController {
         store.clearPendingMap();
         return false;
       }
-      this.showMapSelectFlow(store.pendingMapData(pending), candidates);
+      this.showMapSelectFlow(data, candidates);
       this.ui.toast('已恢复地图选择', 2200);
       return true;
     } catch (error) {
@@ -67,7 +74,12 @@ export class RunController {
     if (this.state.starting) return;
     this.state.starting = true;
     try {
-      const data = await this.api.startRun(mode, difficulty);
+      // 建局时携带本局技能；服务端按账号数据冻结等级并写入 ruleset_json。
+      // 旧服务端若忽略该字段，后续会自动降级为“无技能局”。
+      const skillId = this.state.selectedSkill || null;
+      const data = skillId
+        ? await skillApi.startRun(mode, difficulty, skillId)
+        : await this.api.startRun(mode, difficulty);
       this.store.clearSnapshot();
       this.state.mapChoosing = false;
       if (data.candidates?.length) {
@@ -124,6 +136,16 @@ export class RunController {
     const map = data.map || generateMap(seed);
     const relics = (data.relics || []).slice();
 
+    // 技能：等级以服务端 ruleset（开局冻结）为准；续玩时用快照的剩余冷却恢复。
+    const ruleset = data.ruleset || snapshot?.ruleset || null;
+    const skillBase = ruleset?.skill || data.skill || snapshot?.skill || null;
+    let skill = null;
+    if (skillBase?.id) {
+      skill = { ...skillBase };
+      if (snapshot?.skill?.cooldown != null) skill.cooldown = snapshot.skill.cooldown;
+      if (snapshot?.skill?.readyAt != null) skill.readyAt = snapshot.skill.readyAt;
+    }
+
     const sim = new Simulation({
       map,
       seed,
@@ -142,9 +164,25 @@ export class RunController {
       startedAt: snapshot?.startedAt,
       restored: !!snapshot,
       unlockedTowers: data.towersUnlocked || ['arrow', 'cannon', 'frost'],
+      // sim 契约：skill = { id, level }（可选 cooldown/readyAt），无技能为 null。
+      skill,
+      skillReadyAt: skill?.readyAt ?? null,
+      skillSpeed: skill?.speed ?? 1,
+      ruleset,
       onWaveClear: (wave, info) => this.game.combat.handleWaveClear(wave, info),
       onGameOver: (stats) => this.game.combat.handleGameOver(stats),
-      onSave: (snap) => this.store.saveSnapshot(snap),
+      onSave: (snap) => this.store.saveSnapshot(this.stampSkillCooldown(snap)),
+      // 只补写波前快照里的技能冷却，保留金币/波次等波前状态。
+      onSkillCast: (snap) => {
+        const cast = snap?.skill;
+        if (!cast) return;
+        const speed = Math.max(1, state.app?.speed || 1);
+        this.store.patchSnapshotSkill(state.run?.id, {
+          ...cast,
+          speed,
+          readyAt: Date.now() + ((Number(cast.cooldown) || 0) / speed) * 1000,
+        });
+      },
       onToast: (message) => this.ui.toast(message),
     });
 
@@ -161,6 +199,7 @@ export class RunController {
       wavesServed: data.wavesServed ?? sim.clearedWave,
       mapChoice: data.mapChoice ?? sim.map.index ?? 0,
       mapMeta: data.mapMeta || sim.map.meta || null,
+      skill: skill ? { id: skill.id, level: skill.level || 1 } : null,
     };
     if (data.dailyAttemptsLeft != null) state.dailyLeft = data.dailyAttemptsLeft;
 
@@ -173,11 +212,23 @@ export class RunController {
     this.ui.showGame({ game: sim, profile: state.profile });
     this.game.input.bindCanvas(canvas);
     state.app.start();
-    this.store.saveSnapshot(sim.toSnapshot());
+    this.store.saveSnapshot(this.stampSkillCooldown(sim.toSnapshot()));
     // 地图已选定且战斗快照已落盘，选图阶段记录不再需要。
     this.store.clearPendingMap();
     state.mapCandidates = null;
     state.mapChoosing = false;
+  }
+
+  // 快照里的 skill.cooldown 是“模拟秒”；同时记录 epoch readyAt，
+  // 续玩时按真实时间扣减（并按当前倍速换算），避免刷新白赚冷却。
+  stampSkillCooldown(snapshot) {
+    if (!snapshot?.skill || !(snapshot.skill.cooldown > 0) || snapshot.skill.readyAt != null) {
+      return snapshot;
+    }
+    const speed = Math.max(1, this.state.app?.speed || 1);
+    snapshot.skill.speed = speed;
+    snapshot.skill.readyAt = Date.now() + (snapshot.skill.cooldown / speed) * 1000;
+    return snapshot;
   }
 
   async resumeRun() {
@@ -214,6 +265,9 @@ export class RunController {
         clearedWaves: run.clearedWaves,
         wavesServed: run.wavesServed,
         day: run.day,
+        // 开局冻结的技能等级；旧局 ruleset 为 {} → 无技能、不显示按钮。
+        ruleset: run.ruleset || null,
+        skill: run.ruleset?.skill || null,
       };
       this.beginGame(data, snap);
       if (snap.pendingDraft && run.clearedWaves === run.wavesServed) {

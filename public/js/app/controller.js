@@ -21,6 +21,9 @@ export class GameController {
     this.state = {
       profile: null,
       dailyLeft: null,
+      // 技能养成：服务端快照 + 本次携带技能（localStorage 记住上次选择）。
+      skills: null,
+      selectedSkill: null,
       run: null,
       sim: null,
       app: null,
@@ -49,10 +52,19 @@ export class GameController {
     if (!authenticated) return;
 
     this.ui.init({
-      onPlay: () => this.ui.showDifficultySelect('normal', { dailyLeft: this.state.dailyLeft }),
+      onPlay: () =>
+        this.ui.showDifficultySelect('normal', {
+          dailyLeft: this.state.dailyLeft,
+          skillState: this.state.skills,
+          selectedSkill: this.state.selectedSkill,
+        }),
       onDaily: () => {
         if (this.state.dailyLeft === 0) return this.ui.toast('今日挑战次数已用完');
-        this.ui.showDifficultySelect('daily', { dailyLeft: this.state.dailyLeft });
+        this.ui.showDifficultySelect('daily', {
+          dailyLeft: this.state.dailyLeft,
+          skillState: this.state.skills,
+          selectedSkill: this.state.selectedSkill,
+        });
       },
       onChooseDifficulty: (mode, difficulty) => {
         this.forceLandscape();
@@ -91,12 +103,16 @@ export class GameController {
       },
       onHome: () => this.goHome(),
       onBuyUnlock: (id) => this.session.buyUnlock(id),
+      onSelectSkill: (id) => this.session.selectSkill(id),
+      onSkillUpgrade: (id) => this.session.upgradeSkill(id),
+      onSkill: () => this.input.castSkill(),
     });
 
     document.addEventListener('pointerdown', () => this.audio.ensure(), { once: true });
     window.addEventListener('keydown', (event) => this.input.handleKeydown(event));
 
     await this.session.refreshProfile();
+    await this.session.refreshSkills();
     this.session.showTitle();
     this.session.mountWidget();
     // 调试/冒烟测试入口（单机游戏，不涉及敏感状态）。
@@ -207,6 +223,7 @@ export class GameController {
     state.sim = null;
     state.run = null;
     await this.session.refreshProfile();
+    await this.session.refreshSkills();
     this.session.showTitle();
   }
 }

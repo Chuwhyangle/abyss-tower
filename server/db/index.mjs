@@ -22,6 +22,8 @@ db.exec(`
   PRAGMA journal_mode = WAL;
   PRAGMA synchronous = NORMAL;
   PRAGMA foreign_keys = ON;
+  -- 写事务（BEGIN IMMEDIATE）遇到其它进程持锁时等待而不是立刻报错。
+  PRAGMA busy_timeout = 5000;
 
   CREATE TABLE IF NOT EXISTS schema_migrations (
     version    INTEGER PRIMARY KEY,
@@ -115,6 +117,24 @@ if (pending.length) {
       }
       throw new Error(`迁移 ${migration.file} 失败：${error.message}`, { cause: error });
     }
+  }
+}
+
+// 写事务封装：BEGIN IMMEDIATE 立刻拿写锁，跨进程也能避免“读余额→覆盖写”的竞态。
+// 不可嵌套；回调返回即提交，抛错则回滚。
+export function transaction(fn) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = fn();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch {
+      /* ignore rollback failure */
+    }
+    throw error;
   }
 }
 

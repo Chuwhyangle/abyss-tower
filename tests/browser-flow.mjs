@@ -25,6 +25,9 @@ async function main() {
     // 开局与预建三塔
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
+    // 难度弹窗顶部技能条：选择极光作为本局携带技能。
+    await browser.waitFor(`document.querySelectorAll('.skill-chip').length === 3`, '技能条');
+    await browser.evaluate(`document.querySelector('.skill-chip[data-skill="aurora"]').click()`);
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
     await chooseFirstMap(browser);
     await browser.waitFor(`document.getElementById('game-screen').hidden === false`, '战斗界面');
@@ -76,10 +79,33 @@ async function main() {
     const duringWave = await browser.evaluate(`
       (() => {
         const sim = window.__rtd.state.sim;
-        return { wave: sim.wave, clearedWave: sim.clearedWave, enemies: sim.enemies.length };
+        return {
+          wave: sim.wave,
+          clearedWave: sim.clearedWave,
+          enemies: sim.enemies.length,
+          skill: sim.skill ? { id: sim.skill.id, cooldown: sim.skill.cooldown } : null,
+        };
       })()
     `);
+    if (!duringWave.skill || duringWave.skill.id !== 'aurora') {
+      throw new Error(`建局未携带技能：${JSON.stringify(duringWave.skill)}`);
+    }
     await browser.screenshot(path.join(OUT_DIR, 'rtd-flow-01-midwave.png'));
+
+    // 波中释放技能：立即落快照，随后刷新必须保留剩余冷却。
+    await browser.send('Input.dispatchKeyEvent', {
+      type: 'keyDown', key: 'q', code: 'KeyQ', windowsVirtualKeyCode: 81, nativeVirtualKeyCode: 81,
+    });
+    await browser.send('Input.dispatchKeyEvent', {
+      type: 'keyUp', key: 'q', code: 'KeyQ', windowsVirtualKeyCode: 81, nativeVirtualKeyCode: 81,
+    });
+    await browser.waitFor(
+      `(() => { const s = window.__rtd.state.sim; return s.skillCastCount > 0 && s.skill.cooldown > 0; })()`,
+      '技能释放',
+      5000
+    );
+    const castCooldown = await browser.evaluate(`window.__rtd.state.sim.skill.cooldown`);
+    if (!(castCooldown > 0)) throw new Error('技能冷却未开始');
 
     await browser.send('Page.reload', { ignoreCache: true });
     await browser.waitBoot();
@@ -99,10 +125,19 @@ async function main() {
           hp: Math.ceil(sim.baseHp),
           towers: sim.towers.length,
           relics: sim.relics.length,
+          skill: sim.skill ? { id: sim.skill.id, cooldown: sim.skill.cooldown } : null,
+          skillButtonHidden: document.getElementById('btn-skill').hidden,
         };
       })()
     `);
     if (resumed.clearedWave !== 0) throw new Error(`续玩已清波次错误：${JSON.stringify(resumed)}`);
+    if (!resumed.skill || resumed.skill.id !== 'aurora') {
+      throw new Error(`续玩技能丢失：${JSON.stringify(resumed.skill)}`);
+    }
+    if (!(resumed.skill.cooldown > 0)) {
+      throw new Error(`刷新后技能冷却清零：${resumed.skill.cooldown}`);
+    }
+    if (resumed.skillButtonHidden) throw new Error('续玩后技能按钮未显示');
     if (resumed.wave !== 0 || resumed.phase !== 'prep') {
       throw new Error(`续玩未回到波前整备：${JSON.stringify(resumed)}`);
     }

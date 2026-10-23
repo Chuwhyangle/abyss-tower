@@ -145,6 +145,11 @@ export class InputController {
       this.selectShop(TOWER_ORDER[index - 1]);
       return;
     }
+    if (event.key === 'q' || event.key === 'Q') {
+      event.preventDefault();
+      this.castSkill();
+      return;
+    }
     if (event.key === 'u' || event.key === 'U') {
       if (sim.selectedTower) this.upgradeTower(sim.selectedTower);
       return;
@@ -152,6 +157,35 @@ export class InputController {
     if (event.key === 's' || event.key === 'S') {
       if (sim.selectedTower) this.sellTower(sim.selectedTower);
     }
+  }
+
+  // 主动技能：只在战斗中、无弹窗、未暂停且冷却就绪时释放。
+  // sim.castSkill 的冷却递减由模拟负责；这里只做入口校验与反馈。
+  castSkill() {
+    const sim = this.state.sim;
+    if (!sim) return false;
+    if (this.ui.hasModal()) return false;
+    if (!sim.skill || typeof sim.castSkill !== 'function') {
+      this.ui.toast('本局未携带主动技能');
+      return false;
+    }
+    if (sim.phase !== 'wave') {
+      this.ui.toast('战斗中可用');
+      return false;
+    }
+    if (sim.paused || this.state.app?.paused) {
+      this.ui.toast('暂停中无法释放技能');
+      return false;
+    }
+    const cooldown = Number(sim.skill.cooldown ?? sim.skill.cd ?? 0);
+    if (cooldown > 0) {
+      this.ui.toast(`技能冷却中 · ${Math.ceil(cooldown)} 秒`, 1400);
+      return false;
+    }
+    const ok = !!sim.castSkill();
+    if (ok) this.state.app?.emitHud(true);
+    else this.ui.toast('技能当前不可用');
+    return ok;
   }
 
   nearestBuildable(sim, c, r, radius = 1) {

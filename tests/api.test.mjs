@@ -9,7 +9,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { clampFinishPayload, computeOutcome } from '../public/js/shared/scoring.js';
-import { DIFFICULTIES } from '../public/js/shared/data.js';
+import { DIFFICULTIES, SKILLS, TOWER_ORDER } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 18600 + Math.floor(Math.random() * 300);
@@ -34,8 +34,8 @@ async function api(pathname, { method = 'GET', token = TOKEN, body } = {}) {
   return { status: response.status, data };
 }
 
-async function startRun(mode, difficulty, token = TOKEN) {
-  return api('/api/runs', { method: 'POST', body: { mode, difficulty }, token });
+async function startRun(mode, difficulty, token = TOKEN, extra = {}) {
+  return api('/api/runs', { method: 'POST', body: { mode, difficulty, ...extra }, token });
 }
 
 before(async () => {
@@ -109,6 +109,14 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(started.data.baseHp, 17); // 20 - 3
   assert.equal(started.data.difficultyConfig.hpMul, DIFFICULTIES.abyss.hpMul);
   assert.equal(started.data.candidates.length, 3);
+  assert.deepEqual(started.data.skill, { id: 'aurora', level: 1 });
+  assert.deepEqual(started.data.ruleset.skill, { id: 'aurora', level: 1 });
+  assert.deepEqual(started.data.ruleset.meta, {
+    startGold: started.data.startingGold,
+    baseHp: started.data.baseHp,
+    maxRerolls: started.data.maxRerolls,
+  });
+  assert.equal(started.data.ruleset.daily, undefined);
   const runId = started.data.runId;
 
   const noMapWave = await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
@@ -194,6 +202,8 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(info.data.run.clearedWaves, 1);
   assert.equal(info.data.run.wavesServed, 2);
   assert.equal(info.data.run.inProgress, true);
+  assert.deepEqual(info.data.run.ruleset, started.data.ruleset);
+  assert.deepEqual(info.data.run.skill, { id: 'aurora', level: 1 });
 
   const body = {
     waveReached: 999,
@@ -206,6 +216,8 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
   assert.equal(finished.data.victory, false);
   assert.equal(finished.data.waveReached, 1);
   assert.equal(finished.data.difficulty, 'abyss');
+  assert.equal(finished.data.coresEarned, 0); // 清波 < 5 不给星核
+  assert.deepEqual(finished.data.unlockedSkills, []);
 
   const clamped = clampFinishPayload(body, 1);
   const expected = computeOutcome({
@@ -220,6 +232,7 @@ test('会话、开局、波次、遗物、结算与排行榜', async () => {
 
   const repeat = await api(`/api/runs/${runId}/finish`, { method: 'POST', body });
   assert.equal(repeat.status, 409);
+  assert.equal(repeat.data.code, 'RUN_FINISHED');
 
   const foreign = await api(`/api/runs/${runId}`, { token: OTHER });
   assert.equal(foreign.status, 404);
@@ -306,18 +319,37 @@ test('通关校验：必须清空第 30 波，途中死亡/重放不算通关', 
   assert.equal(finished.data.victory, true);
   assert.ok(finished.data.score >= 10000);
   assert.ok(finished.data.coresEarned > 0);
+  // 首次通关「远征」授予时之终章。
+  assert.deepEqual(finished.data.unlockedSkills, [{ id: 'chrono', name: SKILLS.chrono.name }]);
 
   const profile = await api('/api/profile');
   assert.ok(profile.data.profile.stats.byDifficulty.standard.wins >= 1);
+
+  const skills = await api('/api/skills');
+  assert.equal(skills.status, 200);
+  const chrono = skills.data.skills.find((skill) => skill.id === 'chrono');
+  assert.equal(chrono.unlocked, true);
+  const meteor = skills.data.skills.find((skill) => skill.id === 'meteor');
+  assert.equal(meteor.unlocked, false); // 未通关「漫游」
 });
 
-test('每日挑战：自选难度、三次结算上限', async () => {
+test('每日挑战：固定规则集、自选难度、三次结算上限', async () => {
   let dailySeed = null;
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const started = await startRun('daily', 'roam');
+    // 每日允许任意技能（含未解锁的终章），且固定 5 级。
+    const started = await startRun('daily', 'roam', TOKEN, { skillId: 'chrono' });
     assert.equal(started.status, 200);
     assert.equal(started.data.mode, 'daily');
     assert.equal(started.data.difficulty, 'roam');
+    assert.equal(started.data.startingGold, 260);
+    assert.equal(started.data.baseHp, 20);
+    assert.equal(started.data.maxRerolls, 1);
+    assert.equal(started.data.relics.length, 0);
+    assert.deepEqual(started.data.towersUnlocked, TOWER_ORDER);
+    assert.deepEqual(started.data.skill, { id: 'chrono', level: 5 });
+    assert.deepEqual(started.data.ruleset.meta, { startGold: 260, baseHp: 20, maxRerolls: 1 });
+    assert.equal(started.data.ruleset.daily.ruleset, 'daily-v2');
+    assert.equal(started.data.ruleset.daily.date, new Date().toISOString().slice(0, 10));
     if (dailySeed == null) dailySeed = started.data.seed;
     else assert.equal(started.data.seed, dailySeed);
 

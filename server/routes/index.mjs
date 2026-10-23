@@ -8,6 +8,7 @@ import { ConfigRoutes, HealthRoutes } from './system.mjs';
 import { ProfileRoutes } from './profile.mjs';
 import { LeaderboardRoutes } from './leaderboard.mjs';
 import { RunRoutes } from './runs.mjs';
+import { SkillRoutes } from './skills.mjs';
 import { UnlockRoutes } from './unlock.mjs';
 
 // 门禁：解析会话/旧令牌，确保玩家档案存在；失败时直接回 401。
@@ -32,5 +33,6 @@ export function createApiRouter() {
     .addProtected(new ProfileRoutes())
     .addProtected(new LeaderboardRoutes())
     .addProtected(new RunRoutes())
+    .addProtected(new SkillRoutes())
     .addProtected(new UnlockRoutes());
 }

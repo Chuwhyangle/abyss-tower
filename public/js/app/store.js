@@ -10,7 +10,15 @@ export class RunStore {
     try {
       const raw = localStorage.getItem(SNAPSHOT_KEY);
       if (!raw) return null;
-      return normalizeSnapshot(JSON.parse(raw));
+      const parsed = JSON.parse(raw);
+      const snap = normalizeSnapshot(parsed);
+      // normalizeSnapshot 会规范化 skill 字段；readyAt（epoch）只用于续玩冷却，
+      // 单独从原始存档补回，避免被归一化丢弃。
+      const readyAt = Number(parsed?.skill?.readyAt);
+      if (snap?.skill && Number.isFinite(readyAt) && readyAt > 0) {
+        snap.skill.readyAt = readyAt;
+      }
+      return snap;
     } catch {
       return null;
     }
@@ -21,6 +29,21 @@ export class RunStore {
       localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(snap));
     } catch (error) {
       console.warn('[snapshot] 保存失败', error);
+    }
+  }
+
+  // 只更新已有快照里的技能冷却，不覆盖波前的金币/波次等状态。
+  // 放大招后立即调用，防止“放技能 → 刷新 → 重打本波”白赚一次冷却。
+  patchSnapshotSkill(runId, skill) {
+    try {
+      const raw = localStorage.getItem(SNAPSHOT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (runId && parsed.runId && parsed.runId !== runId) return;
+      parsed.skill = { ...(parsed.skill || {}), ...skill };
+      localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(parsed));
+    } catch (error) {
+      console.warn('[snapshot] 技能冷却保存失败', error);
     }
   }
 
@@ -70,6 +93,8 @@ export class RunStore {
       maxRerolls: pending.maxRerolls,
       day: pending.day,
       dailyAttemptsLeft: pending.dailyAttemptsLeft,
+      // 开局冻结的技能/规则集；选图阶段刷新后仍要恢复同一技能。
+      ruleset: pending.ruleset || null,
     };
   }
 }

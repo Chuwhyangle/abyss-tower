@@ -12,6 +12,7 @@ import { ProjectileRenderer } from './render/projectile-renderer.js';
 import { EffectRenderer } from './render/effect-renderer.js';
 import { FloaterRenderer } from './render/floater-renderer.js';
 import { OverlayRenderer } from './render/overlay-renderer.js';
+import { SkillRenderer } from './render/skill-renderer.js';
 
 const T = TILE;
 
@@ -42,6 +43,15 @@ export class Renderer {
     this.effects = new EffectRenderer(game, { glow: this.glow });
     this.floaters = new FloaterRenderer(game);
     this.overlay = new OverlayRenderer();
+    // 技能表现独立成层：L0/L1/L2/L3 由 Renderer 编排，粒子自池化。
+    this.skillRenderer = new SkillRenderer(game, {
+      width: this.W,
+      height: this.H,
+      dpr: this.dpr,
+      palette: this.palette,
+      settings: this.settings,
+      glow: this.glow,
+    });
 
     this.bg = this.buildBackground();
     this.hurtOverlay = this.buildHurtOverlay();
@@ -64,6 +74,14 @@ export class Renderer {
       this.applyDpr();
       this.bg = this.buildBackground();
     }
+    this.skillRenderer?.configure({
+      width: this.W,
+      height: this.H,
+      dpr: this.dpr,
+      palette: this.palette,
+      settings: this.settings,
+      glow: this.glow,
+    });
   }
 
   buildBackground() {
@@ -108,16 +126,26 @@ export class Renderer {
     }
     g.drawImage(this.bg, 0, 0, this.W, this.H);
 
+    // L0：背景之后（极光帘幕 / 星海 / 冷暖底色）
+    this.skillRenderer.renderL0(g, this.time, this.settings);
+
     this.portals.render(g, this.time, this.settings.glow);
     this.towers.renderRanges(g);
+    // L1：塔之前的地面层（落点预警 / 焦痕 / 霜裂 / 时间刻度）
+    this.skillRenderer.renderL1(g, this.time, this.settings);
     this.towers.render(g, this.time, this.settings);
     this.enemies.render(g, this.time, this.settings);
     this.projectiles.render(g, this.settings);
     this.effects.render(g, this.time, this.settings);
+    // L2：敌人与弹道之后（冰壳 / 时间泡 / 光柱 / 流星 / 碎晶）
+    this.skillRenderer.renderL2(g, this.time, this.settings);
     this.floaters.render(g);
     this.towers.renderPlacement(g, this.time, this.settings.glow);
 
     g.restore();
+
+    // L3：屏幕空间（色调 / 暗角 / 时间环 / 技能名横幅），在受击警示之前。
+    this.skillRenderer.renderL3(g, this.time, this.settings);
 
     // 基地受击 / 低血警示（屏幕空间，不参与震屏）
     const hpRatio = game.maxBaseHp > 0 ? game.baseHp / game.maxBaseHp : 1;

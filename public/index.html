@@ -36,6 +36,8 @@
             </div>
           </div>
 
+          <div id="title-skills" class="skill-cards"></div>
+
           <div id="title-stats" class="title-stats"></div>
         </div>
 
@@ -83,6 +85,14 @@
           </aside>
 
           <div id="tower-panel" class="tower-panel" hidden></div>
+
+          <!-- 主动技能：右下角圆形按钮，冷却径向 + Q 提示；无技能旧局隐藏。 -->
+          <button id="btn-skill" class="btn-skill" hidden aria-label="释放主动技能" title="主动技能（Q）">
+            <span id="skill-cd" class="skill-cd" aria-hidden="true"></span>
+            <span class="skill-glyph" aria-hidden="true">✦</span>
+            <span id="skill-count" class="skill-count" aria-hidden="true"></span>
+            <span class="skill-key" aria-hidden="true">Q</span>
+          </button>
           <div id="tooltip" class="tooltip" hidden></div>
           <div id="toast" class="toast" hidden></div>
         </div>
@@ -100,7 +110,7 @@
 
       <footer class="shop">
         <div id="shop-list" class="shop-list"></div>
-        <div class="shop-hint">选择塔卡 → 点击空地建造 · 快捷键 1–5 · U 升级 · S 出售 · 空格暂停 · Esc 取消</div>
+        <div class="shop-hint">选择塔卡 → 点击空地建造 · 快捷键 1–5 · Q 技能 · U 升级 · S 出售 · 空格暂停 · Esc 取消</div>
       </footer>
     </section>
 

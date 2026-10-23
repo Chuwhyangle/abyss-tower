@@ -11,6 +11,12 @@ import {
   DIFFICULTY_ORDER,
   RELIC_LEVEL_LABELS,
   relicEffectText,
+  SKILLS,
+  SKILL_ORDER,
+  skillStats,
+  skillUpgradeCost,
+  skillUnlockText,
+  isSkillUnlocked,
 } from './shared/data.js';
 import {
   normalizeSettings,
@@ -25,6 +31,22 @@ const $ = (id) => document.getElementById(id);
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
+const ROMAN = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
+const ROLE_LABELS = { control: '控场', burst: '爆发', ultimate: '终极' };
+
+// 技能卡摘要：只展示一个最能代表当前等级的数值。
+function skillSummary(id, level) {
+  const stats = skillStats(id, level);
+  if (!stats) return '';
+  if (id === 'aurora') {
+    return `冻结 ${stats.freeze.toFixed(1)}s · 减速 ${Math.round(stats.slow * 100)}% · 冷却 ${Math.round(stats.cd)}s`;
+  }
+  if (id === 'meteor') {
+    return `${stats.meteors} 颗 · 单颗 ${Math.round(stats.dmgPct * 100)}% 最大生命 · 冷却 ${Math.round(stats.cd)}s`;
+  }
+  return `时停 ${stats.stop.toFixed(1)}s · 过载 ${stats.overdrive.toFixed(1)}s · 冷却 ${Math.round(stats.cd)}s`;
+}
+
 class UI {
   constructor() {
     this.handlers = {};
@@ -33,6 +55,8 @@ class UI {
     this.modalClosable = false;
     this._toastTimer = null;
     this._panelTower = null;
+    this._skillState = null;
+    this.selectedSkill = null;
   }
 
   init(handlers) {
@@ -58,6 +82,9 @@ class UI {
       rotateHint: $('rotate-hint'),
       rotateRetry: $('btn-rotate-retry'),
       titleStats: $('title-stats'),
+      titleSkills: $('title-skills'),
+      btnSkill: $('btn-skill'),
+      skillCount: $('skill-count'),
       hudWave: $('hud-wave'),
       hudGold: $('hud-gold'),
       hudHp: $('hud-hp'),
@@ -97,6 +124,7 @@ class UI {
     this.el.quit.onclick = () => this.handlers.onQuit?.();
     this.el.nextWave.onclick = () => this.handlers.onNextWave?.();
     this.el.sound.onclick = () => this.handlers.onSound?.();
+    if (this.el.btnSkill) this.el.btnSkill.onclick = () => this.handlers.onSkill?.();
 
     document.querySelectorAll('.speed-btn').forEach((button) => {
       button.onclick = () => this.handlers.onSpeed?.(Number(button.dataset.speed));
@@ -190,9 +218,188 @@ class UI {
     const label = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     this.el.dailyLabel.textContent = left == null ? label : `${label} · 剩 ${left} 次`;
     this.setResumeAvailable(!!extras.hasSnapshot);
+    this.renderTitleSkills(profile, extras);
   }
 
-  showDifficultySelect(mode = 'normal', { dailyLeft = null } = {}) {
+  // ---------- 技能（标题页 / 难度弹窗） ----------
+
+  // 服务端快照优先；接口不可用时用共享数据 + 资料推导，保证标题页始终有内容。
+  skillEntries(profile = this.profile, state = this._skillState) {
+    if (state?.skills?.length) {
+      return state.skills.map((entry) => ({ ...SKILLS[entry.id], ...entry }));
+    }
+    return SKILL_ORDER.map((id) => {
+      const def = SKILLS[id];
+      const level = 1;
+      return {
+        ...def,
+        unlocked: isSkillUnlocked(id, profile),
+        level,
+        nextCost: skillUpgradeCost(level),
+        canUpgrade: false,
+        unlockHint: skillUnlockText(id),
+        stats: skillStats(id, level),
+      };
+    });
+  }
+
+  resolveSelectedSkill(entries, preferred = this.selectedSkill) {
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    if (preferred && byId.get(preferred)?.unlocked) return preferred;
+    return entries.find((entry) => entry.unlocked)?.id || null;
+  }
+
+  renderTitleSkills(profile, extras = {}) {
+    const host = this.el?.titleSkills;
+    if (!host) return;
+    if (extras.skillState) this._skillState = extras.skillState;
+    const state = this._skillState;
+    const entries = this.skillEntries(profile, state);
+    const selected = this.resolveSelectedSkill(
+      entries,
+      extras.selectedSkill || state?.selected || this.selectedSkill
+    );
+    this.selectedSkill = selected;
+    const cores = state?.wallet?.cores ?? profile?.cores ?? 0;
+
+    host.innerHTML = `
+      <div class="skill-cards-head">
+        <span class="eyebrow">ACTIVE SKILL</span>
+        <span class="muted">本局携带 1 个 · 升级消耗星核</span>
+      </div>
+      <div class="skill-cards-grid">
+        ${entries
+          .map((entry) => {
+            const level = Math.max(1, Math.min(ROMAN.length, Number(entry.level) || 1));
+            const isSelected = selected === entry.id;
+            const locked = !entry.unlocked;
+            const full = entry.nextCost == null;
+            const affordable = entry.nextCost != null && cores >= entry.nextCost;
+            const hint = locked
+              ? entry.unlockHint || skillUnlockText(entry.id)
+              : null;
+            const action = locked
+              ? `<span class="skill-lock">🔒 ${escapeHtml(hint || '未解锁')}</span>`
+              : full
+                ? '<span class="skill-max">已满级</span>'
+                : `<button class="btn small skill-upgrade ${affordable ? 'primary' : ''}" data-upgrade="${entry.id}"
+                     ${affordable && entry.canUpgrade !== false ? '' : 'disabled'}>升级 ◈ ${entry.nextCost}</button>`;
+            return `
+              <div class="skill-card ${locked ? 'locked' : ''} ${isSelected ? 'selected' : ''}"
+                data-skill="${entry.id}" role="button" tabindex="${locked ? '-1' : '0'}"
+                aria-pressed="${isSelected}" style="--skill:${entry.color}">
+                <div class="skill-glyph" aria-hidden="true">${locked ? '?' : '✦'}</div>
+                <div class="skill-body">
+                  <div class="skill-head">
+                    <b class="skill-name">${escapeHtml(entry.name)}</b>
+                    <span class="skill-role">${ROLE_LABELS[entry.role] || ''}</span>
+                    <span class="skill-level">${ROMAN[level - 1]}</span>
+                  </div>
+                  <div class="skill-pips" aria-hidden="true">${Array.from({ length: 10 }, (_, i) =>
+                    `<i class="${i < level ? 'on' : ''}"></i>`).join('')}</div>
+                  <p class="skill-desc">${locked ? escapeHtml(hint || '') : escapeHtml(entry.desc || '')}</p>
+                  ${locked ? '' : `<span class="skill-summary">${escapeHtml(skillSummary(entry.id, level))}</span>`}
+                </div>
+                <div class="skill-actions">${action}</div>
+              </div>`;
+          })
+          .join('')}
+      </div>
+    `;
+
+    host.querySelectorAll('.skill-card').forEach((card) => {
+      const id = card.dataset.skill;
+      const activate = () => {
+        if (card.classList.contains('locked')) {
+          const entry = entries.find((item) => item.id === id);
+          this.toast(`解锁条件：${entry?.unlockHint || skillUnlockText(id)}`, 2400);
+          return;
+        }
+        this.handlers.onSelectSkill?.(id);
+        if (!this.hasModal()) {
+          this.selectedSkill = id;
+          host.querySelectorAll('.skill-card').forEach((el) => {
+            const on = el.dataset.skill === id;
+            el.classList.toggle('selected', on);
+            el.setAttribute('aria-pressed', String(on));
+          });
+        }
+      };
+      card.onclick = (event) => {
+        if (event.target.closest('[data-upgrade]')) return;
+        activate();
+      };
+      card.onkeydown = (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          activate();
+        }
+      };
+      const upgrade = card.querySelector('[data-upgrade]');
+      if (upgrade) {
+        upgrade.onclick = (event) => {
+          event.stopPropagation();
+          this.handlers.onSkillUpgrade?.(upgrade.dataset.upgrade);
+        };
+      }
+    });
+  }
+
+  // 弹窗打开时选择技能：只更新选中样式，不关闭弹窗。
+  updateSkillSelection(skillId) {
+    this.selectedSkill = skillId;
+    document.querySelectorAll('.skill-chip').forEach((chip) => {
+      const on = chip.dataset.skill === skillId;
+      chip.classList.toggle('selected', on);
+      chip.setAttribute('aria-pressed', String(on));
+    });
+  }
+
+  skillBarHtml(state, selected) {
+    this._skillState = state || this._skillState;
+    let entries = this.skillEntries(this.profile, this._skillState);
+    // 每日挑战使用固定规则集：全技能可选、固定 Ⅴ 级。
+    if (this._dailyMode) {
+      entries = entries.map((entry) => ({ ...entry, unlocked: true, level: 5 }));
+    }
+    const current = this.resolveSelectedSkill(entries, selected);
+    this.selectedSkill = current;
+    return `
+      <div class="diff-skill-bar">
+        <span class="diff-skill-label">${this._dailyMode ? '携带技能（固定 Ⅴ 级）' : '携带技能'}</span>
+        <div class="skill-chips">
+          ${entries
+            .map((entry) => {
+              const level = Math.max(1, Math.min(ROMAN.length, Number(entry.level) || 1));
+              const locked = !entry.unlocked;
+              const on = current === entry.id;
+              return `<button class="skill-chip ${on ? 'selected' : ''} ${locked ? 'locked' : ''}"
+                data-skill="${entry.id}" aria-pressed="${on}" ${locked ? 'disabled' : ''}
+                title="${escapeHtml(locked ? entry.unlockHint || '未解锁' : `${entry.name} ${ROMAN[level - 1]}`)}"
+                style="--skill:${entry.color}">
+                <span class="chip-glyph">${locked ? '🔒' : '✦'}</span>
+                <span class="chip-name">${escapeHtml(entry.name)}</span>
+                <span class="chip-level">${locked ? '未解锁' : ROMAN[level - 1]}</span>
+              </button>`;
+            })
+            .join('')}
+        </div>
+      </div>`;
+  }
+
+  bindSkillChips(modal) {
+    modal.querySelectorAll('.skill-chip').forEach((chip) => {
+      chip.onclick = () => {
+        if (chip.classList.contains('locked')) return;
+        this.selectedSkill = chip.dataset.skill;
+        this.handlers.onSelectSkill?.(chip.dataset.skill);
+        this.updateSkillSelection(chip.dataset.skill);
+      };
+    });
+  }
+
+  showDifficultySelect(mode = 'normal', { dailyLeft = null, skillState = null, selectedSkill = null } = {}) {
+    this._dailyMode = mode === 'daily';
     const stats = this.profile?.stats?.byDifficulty || {};
     const cards = DIFFICULTY_ORDER.map((id) => {
       const diff = DIFFICULTIES[id];
@@ -213,7 +420,7 @@ class UI {
     const title = mode === 'daily' ? '每日挑战' : '开始远征';
     const note =
       mode === 'daily'
-        ? `<p class="muted">今日同一套地图与波次种子 · 剩余 ${dailyLeft ?? 0} 次结算机会</p>`
+        ? `<p class="muted">今日同一套地图与波次种子 · 固定开局资源 · 全塔开放 · 技能固定 Ⅴ 级 · 剩余 ${dailyLeft ?? 0} 次结算机会</p>`
         : '<p class="muted">三档难度共享 30 波结构，选择你的挑战。</p>';
 
     const modal = this.openModal(
@@ -221,6 +428,7 @@ class UI {
         <p class="eyebrow">${mode === 'daily' ? 'DAILY CHALLENGE' : 'EXPEDITION'}</p>
         <h2>${title} · 选择难度</h2>
         ${note}
+        ${this.skillBarHtml(skillState, selectedSkill)}
         <div class="diff-cards">${cards}</div>
         <div class="modal-actions">
           <button class="btn ghost" id="btn-cancel-diff">取消</button>
@@ -232,6 +440,7 @@ class UI {
     modal.querySelectorAll('.diff-card').forEach((card) => {
       card.onclick = () => this.handlers.onChooseDifficulty?.(mode, card.dataset.id);
     });
+    this.bindSkillChips(modal);
     modal.querySelector('#btn-cancel-diff').onclick = () => this.closeModal();
   }
 
@@ -300,6 +509,7 @@ class UI {
     this.renderShop();
     this.renderRelics();
     this.updateHud(game.getHud());
+    this.updateSkillButton(game.getHud());
   }
 
   // ---------- HUD ----------
@@ -362,6 +572,54 @@ class UI {
 
     this.updateShopState();
     this.updateTowerPanelState(hud.gold);
+    this.updateSkillButton(hud);
+  }
+
+  // 局内技能按钮：圆形、径向冷却、可用呼吸光、Q 提示；整备阶段置灰。
+  updateSkillButton(hud = {}) {
+    const btn = this.el?.btnSkill;
+    const sim = this.game;
+    if (!btn) return;
+    const skill = sim?.skill;
+    if (!skill || !skill.id) {
+      btn.hidden = true;
+      btn.dataset.state = 'none';
+      return;
+    }
+    const def = SKILLS[skill.id] || { name: '技能', color: '#7cd4f5' };
+    const stats = skill.stats || skillStats(skill.id, skill.level || 1);
+    const maxCd = Math.max(1, Number(stats?.cd) || 1);
+    const cooldown = Math.max(0, Number(skill.cooldown ?? skill.cd ?? 0));
+    const ratio = Math.min(1, cooldown / maxCd);
+    const phase = sim.phase;
+    const paused = !!hud.paused;
+    const ready = phase === 'wave' && cooldown <= 0 && !paused;
+
+    btn.hidden = false;
+    btn.style.setProperty('--skill', def.color);
+    btn.style.setProperty('--cd', `${(ratio * 360).toFixed(1)}deg`);
+    btn.classList.toggle('ready', ready);
+    btn.classList.toggle('cooling', cooldown > 0);
+    btn.classList.toggle('idle', phase !== 'wave');
+    btn.dataset.skill = skill.id;
+    btn.dataset.state = ready
+      ? 'ready'
+      : phase !== 'wave'
+        ? 'prep'
+        : cooldown > 0
+          ? 'cooling'
+          : 'paused';
+    const status =
+      phase !== 'wave'
+        ? '战斗中可用'
+        : cooldown > 0
+          ? `冷却 ${Math.ceil(cooldown)} 秒`
+          : '就绪';
+    btn.title = `${def.name} · ${status} · 快捷键 Q`;
+    btn.setAttribute('aria-label', `${def.name}，${status}，快捷键 Q`);
+    if (this.el.skillCount) {
+      this.el.skillCount.textContent = cooldown > 0 && phase === 'wave' ? String(Math.ceil(cooldown)) : '';
+    }
   }
 
   // 本波入口：波中高亮激活入口，其余变暗；整备阶段全部保持常态。
@@ -941,7 +1199,7 @@ class UI {
           </div>
           <div class="help-section">
             <h3>快捷键</h3>
-            <p><kbd>1</kbd>–<kbd>5</kbd> 选择塔 · <kbd>U</kbd> 升级 · <kbd>S</kbd> 出售 · <kbd>空格</kbd> 暂停 · <kbd>Esc</kbd> 取消</p>
+            <p><kbd>1</kbd>–<kbd>5</kbd> 选择塔 · <kbd>Q</kbd> 主动技能 · <kbd>U</kbd> 升级 · <kbd>S</kbd> 出售 · <kbd>空格</kbd> 暂停 · <kbd>Esc</kbd> 取消</p>
           </div>
           <div class="help-section">
             <h3>每日挑战</h3>

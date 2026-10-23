@@ -5,11 +5,19 @@ import {
   db,
   updateProfile,
   getActiveRun,
+  getCores,
+  grantCores,
   normalizeStats,
 } from '../db.mjs';
 import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
 import { personalBest, rankFor, recordLeaderboardEntry } from '../db/leaderboard.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
+import {
+  grantVictorySkillUnlock,
+  readSelectedSkill,
+  readSkillLevel,
+  skillUnlocked,
+} from '../db/skills.mjs';
 import { generateMapCandidates } from '../../public/js/shared/mapgen.js';
 import { generateWave } from '../../public/js/shared/waves.js';
 import {
@@ -18,18 +26,29 @@ import {
   RELIC_BY_ID,
   RELIC_MAX_LEVEL,
   DIFFICULTIES,
+  SKILLS,
+  TOWER_ORDER,
   unlockedTowerIds,
   MAX_WAVE,
 } from '../../public/js/shared/data.js';
 import { clampFinishPayload, computeOutcome } from '../../public/js/shared/scoring.js';
 import {
   DAILY_ATTEMPTS,
+  DAILY_MAX_REROLLS,
+  DAILY_RULESET,
+  DAILY_SKILL_LEVEL,
+  DAILY_START_GOLD,
+  DAILY_START_HP,
+  boardKeyFor,
   dailyAttemptsLeft,
   difficultyPayload,
   finishedDailyToday,
   maxRerollsFor,
+  maxRerollsForRun,
   runForToken,
+  skillForRun,
   today,
+  towersUnlockedForRun,
 } from './support.mjs';
 
 const START_GOLD = 260;
@@ -52,13 +71,29 @@ export class RunRoutes {
     const profile = ctx.profile;
     const body = await ctx.readJson();
     const mode = body.mode === 'daily' ? 'daily' : 'normal';
+    const daily = mode === 'daily';
     const difficulty = DIFFICULTIES[body.difficulty] ? body.difficulty : 'standard';
     const diff = DIFFICULTIES[difficulty];
     const day = today();
 
-    if (mode === 'daily' && finishedDailyToday(token) >= DAILY_ATTEMPTS) {
+    if (daily && finishedDailyToday(token) >= DAILY_ATTEMPTS) {
       return ctx.fail(429, '今日挑战次数已用完');
     }
+
+    // 技能选择：每日允许任意技能且固定 5 级；普通局必须已解锁，等级只从 DB 读。
+    let skillId = null;
+    if (body.skillId != null && body.skillId !== '') {
+      skillId = String(body.skillId);
+      if (!SKILLS[skillId]) return ctx.fail(400, '未知技能', 'INVALID_SKILL');
+      if (!daily && !skillUnlocked(token, skillId)) {
+        return ctx.fail(403, '技能尚未解锁', 'SKILL_LOCKED');
+      }
+    }
+    if (!skillId) {
+      const selected = readSelectedSkill(token);
+      skillId = selected && (daily || skillUnlocked(token, selected)) ? selected : 'aurora';
+    }
+    const skillLevel = daily ? DAILY_SKILL_LEVEL : readSkillLevel(token, skillId);
 
     // 仅隔离测试服务允许固定种子，便于性能/平衡复现；生产环境默认关闭。
     const testSeed =
@@ -71,20 +106,27 @@ export class RunRoutes {
         ? `daily-${day}`
         : crypto.randomBytes(8).toString('hex');
     const unlocks = profile.unlocks;
-    const startingGold = Math.max(
-      100,
-      START_GOLD + (unlocks.includes('start_gold') ? META_GOLD : 0) + diff.goldBonus
-    );
-    const baseHp = Math.max(
-      8,
-      START_HP + (unlocks.includes('start_hp') ? META_HP : 0) + diff.hpBonus
-    );
-    const maxRerolls = maxRerollsFor(profile);
-    const startRelics = unlocks.includes('start_relic')
-      ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1)
-          .filter((offer) => offer.kind === 'relic')
-          .map((offer) => ({ id: offer.id, level: offer.toLevel }))
-      : [];
+    // 每日使用固定开局资源，忽略难度加成与账号 meta 加成，保证榜单公平。
+    const startingGold = daily
+      ? DAILY_START_GOLD
+      : Math.max(100, START_GOLD + (unlocks.includes('start_gold') ? META_GOLD : 0) + diff.goldBonus);
+    const baseHp = daily
+      ? DAILY_START_HP
+      : Math.max(8, START_HP + (unlocks.includes('start_hp') ? META_HP : 0) + diff.hpBonus);
+    const maxRerolls = daily ? DAILY_MAX_REROLLS : maxRerollsFor(profile);
+    const startRelics =
+      !daily && unlocks.includes('start_relic')
+        ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1)
+            .filter((offer) => offer.kind === 'relic')
+            .map((offer) => ({ id: offer.id, level: offer.toLevel }))
+        : [];
+
+    const ruleset = {
+      v: 1,
+      skill: { id: skillId, level: skillLevel },
+      meta: { startGold: startingGold, baseHp, maxRerolls },
+    };
+    if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
 
     db.prepare(
       `UPDATE runs SET status = 'abandoned', finished_at = ? WHERE account_id = ? AND status = 'active'`
@@ -92,13 +134,13 @@ export class RunRoutes {
 
     const id = crypto.randomBytes(9).toString('base64url');
     const candidates = generateMapCandidates(seed, 3);
-    const boardKey = mode === 'daily' ? `daily:${day}` : 'normal';
+    const boardKey = boardKeyFor(mode, day);
     db.prepare(
       `INSERT INTO runs
          (id, account_id, mode, board_key, difficulty, seed, day, content_version,
           ruleset_json, waves_served, cleared_waves, map_choice, relics, offers,
           rerolls_used, status, result_json, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, '{}', 0, 0, -1, ?, '{}', 0, 'active', '{}', ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, -1, ?, '{}', 0, 'active', '{}', ?)`
     ).run(
       id,
       token,
@@ -108,6 +150,7 @@ export class RunRoutes {
       seed,
       day,
       CONTENT_VERSION,
+      JSON.stringify(ruleset),
       JSON.stringify(startRelics),
       Date.now()
     );
@@ -123,11 +166,13 @@ export class RunRoutes {
       startingGold,
       baseHp,
       relics: startRelics,
-      towersUnlocked: unlockedTowerIds(unlocks),
+      towersUnlocked: daily ? [...TOWER_ORDER] : unlockedTowerIds(unlocks),
       maxRerolls,
+      skill: ruleset.skill,
+      ruleset,
       clearedWaves: 0,
       wavesServed: 0,
-      dailyAttemptsLeft: mode === 'daily' ? dailyAttemptsLeft(token) : null,
+      dailyAttemptsLeft: daily ? dailyAttemptsLeft(token) : null,
     });
   }
 
@@ -155,9 +200,11 @@ export class RunRoutes {
         mapMeta: chosen?.meta || null,
         relics: normalizeRelicStates(active.relics),
         status: active.status,
-        maxRerolls: maxRerollsFor(profile),
+        maxRerolls: maxRerollsForRun(active, profile),
         rerollsUsed: active.rerollsUsed,
-        towersUnlocked: unlockedTowerIds(profile.unlocks),
+        towersUnlocked: towersUnlockedForRun(active, profile),
+        skill: skillForRun(active),
+        ruleset: active.ruleset,
         createdAt: active.createdAt,
       },
     });
@@ -191,15 +238,17 @@ export class RunRoutes {
           relics: normalizeRelicStates(run.relics),
           status: run.status,
           victory: !!run.victory,
-          maxRerolls: maxRerollsFor(profile),
+          maxRerolls: maxRerollsForRun(run, profile),
           rerollsUsed: run.rerollsUsed,
-          towersUnlocked: unlockedTowerIds(profile.unlocks),
+          towersUnlocked: towersUnlockedForRun(run, profile),
+          skill: skillForRun(run),
+          ruleset: run.ruleset,
           createdAt: run.createdAt,
         },
       });
     }
 
-    if (run.status !== 'active') return ctx.fail(409, '该远征已结束');
+    if (run.status !== 'active') return ctx.fail(409, '该远征已结束', 'RUN_FINISHED');
 
     if (action === 'map') {
       return ctx.method === 'POST' ? this.map(ctx, runId, run) : false;
@@ -309,7 +358,7 @@ export class RunRoutes {
       return ctx.fail(409, '当前波次尚未结算完成');
     }
     const key = String(run.clearedWaves);
-    const maxRerolls = maxRerollsFor(profile);
+    const maxRerolls = maxRerollsForRun(run, profile);
     let rerollsUsed = run.rerollsUsed;
     const offers = run.offers || {};
 
@@ -429,25 +478,37 @@ export class RunRoutes {
 
     const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day);
 
-    db.prepare(
-      `UPDATE runs SET status = 'finished', victory = ?, score = ?, wave_reached = ?,
-         kills = ?, duration_ms = ?, result_json = ?, finished_at = ? WHERE id = ?`
-    ).run(
-      outcome.victory ? 1 : 0,
-      outcome.score,
-      payload.waveReached,
-      payload.kills,
-      durationMs,
-      JSON.stringify({
-        rawScore: outcome.rawScore,
-        coresEarned: outcome.cores,
-        goldLeft: payload.goldLeft,
-        baseHp: payload.baseHp,
-        contentVersion: run.contentVersion,
-      }),
-      now,
-      runId
-    );
+    // 幂等结算：只有把 active 改成 finished 的那一次请求（changes=1）才发放奖励。
+    const settled = db
+      .prepare(
+        `UPDATE runs SET status = 'finished', victory = ?, score = ?, wave_reached = ?,
+           kills = ?, duration_ms = ?, result_json = ?, finished_at = ?
+         WHERE id = ? AND status = 'active'`
+      )
+      .run(
+        outcome.victory ? 1 : 0,
+        outcome.score,
+        payload.waveReached,
+        payload.kills,
+        durationMs,
+        JSON.stringify({
+          rawScore: outcome.rawScore,
+          coresEarned: outcome.cores,
+          goldLeft: payload.goldLeft,
+          baseHp: payload.baseHp,
+          contentVersion: run.contentVersion,
+          skill: run.ruleset?.skill || null,
+        }),
+        now,
+        runId
+      );
+    if (settled.changes === 0) return ctx.fail(409, '该远征已结束', 'RUN_FINISHED');
+
+    // 首通授予（漫游→星陨、远征→终章）；失败不授予，重复结算已被上面的条件拦下。
+    const unlockedSkillId = outcome.victory ? grantVictorySkillUnlock(token, run.difficulty) : null;
+    const unlockedSkills = unlockedSkillId
+      ? [{ id: unlockedSkillId, name: SKILLS[unlockedSkillId].name }]
+      : [];
 
     recordLeaderboardEntry({
       accountId: token,
@@ -475,10 +536,10 @@ export class RunRoutes {
     byDiff.bestScore = Math.max(byDiff.bestScore, outcome.score);
     if (outcome.victory) byDiff.wins += 1;
 
-    const updated = updateProfile(token, {
-      cores: profile.cores + outcome.cores,
-      stats,
-    });
+    // 星核用原子增量写入，避免并发结算互相覆盖余额。
+    grantCores(token, outcome.cores);
+    updateProfile(token, { stats });
+    const totalCores = getCores(token);
 
     recordPlayerEvent(token, 'run_finished', {
       runId,
@@ -487,6 +548,8 @@ export class RunRoutes {
       score: outcome.score,
       victory: outcome.victory,
       waveReached: payload.waveReached,
+      coresEarned: outcome.cores,
+      unlockedSkill: unlockedSkillId || null,
     });
 
     const rank = rankFor(run.mode, run.day, outcome.score, {
@@ -500,7 +563,8 @@ export class RunRoutes {
       rawScore: outcome.rawScore,
       score: outcome.score,
       coresEarned: outcome.cores,
-      totalCores: updated.cores,
+      totalCores,
+      unlockedSkills,
       personalBest: isPersonalBest,
       rank,
       durationMs,

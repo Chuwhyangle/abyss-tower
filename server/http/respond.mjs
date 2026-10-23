@@ -16,8 +16,8 @@ export function json(res, status, data) {
   res.end(JSON.stringify(data));
 }
 
-export function fail(res, status, message) {
-  json(res, status, { error: message });
+export function fail(res, status, message, code = null) {
+  json(res, status, code ? { error: message, code } : { error: message });
 }
 
 export function readJson(req) {

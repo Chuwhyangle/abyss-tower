@@ -58,8 +58,10 @@ export class EnemyRenderer {
         g.globalAlpha = 1;
       }
 
-      // 减速：冰晶与光环
-      if (t < enemy.slowUntil) {
+      // 减速：冰晶与光环。
+      // 状态判定必须用模拟时间 game.time；渲染真实时间 t 只用于动画相位，
+      // 否则 2×/3× 下状态会被多显示 2–3 倍。
+      if (game.time < (enemy.slowUntil || 0)) {
         g.strokeStyle = 'rgba(140, 225, 255, 0.8)';
         g.lineWidth = 1.6;
         g.beginPath();
@@ -80,8 +82,8 @@ export class EnemyRenderer {
         }
       }
 
-      // 中毒：绿色气泡
-      if (t < enemy.poisonUntil) {
+      // 中毒：绿色气泡（状态同样按模拟时间判定）
+      if (game.time < (enemy.poisonUntil || 0)) {
         g.strokeStyle = 'rgba(154, 223, 106, 0.5)';
         g.lineWidth = 1.6;
         g.beginPath();

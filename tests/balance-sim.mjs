@@ -1,6 +1,8 @@
 // 无头平衡模拟：用真实 Simulation 跑完整 30 波，机器人自动建塔/选遗物。
 // 结果用于三档难度的相对比较与回归，不代替真人试玩。
 // 用法：node tests/balance-sim.mjs [seeds] [--write] [--detail] [--candidates=N]
+//       [--skill=none|aurora|meteor|chrono] [--skill-level=1|10]
+// 机器人技能策略固定为“冷却好就用”，默认 --skill=none 保持旧基线。
 //
 // 每个种子默认跑 3 张候选地图（与真人开局三选一一致），并按地图原型/词缀/候选序号
 // 分别统计，避免只看 candidate 0 造成的抽样偏差。
@@ -19,6 +21,7 @@ import {
   DIFFICULTIES,
   DIFFICULTY_ORDER,
   MAX_WAVE,
+  SKILLS,
   relicModsAtLevel,
   rollRelicOffers,
 } from '../public/js/shared/data.js';
@@ -35,10 +38,22 @@ function numericArg(flag, fallback) {
   return Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback;
 }
 
+function stringArg(flag, fallback) {
+  const raw = process.argv.find((arg) => arg.startsWith(`--${flag}=`));
+  return raw ? raw.slice(flag.length + 3) : fallback;
+}
+
 const SEEDS = Math.max(1, Number(process.argv[2]) || 6);
 const CANDIDATES = Math.min(3, numericArg('candidates', 3));
 const WRITE_DOC = process.argv.includes('--write');
 const DETAIL = process.argv.includes('--detail');
+const SKILL_ID = stringArg('skill', 'none');
+const SKILL_LEVEL = Math.max(1, Math.min(10, numericArg('skill-level', 1)));
+if (SKILL_ID !== 'none' && !SKILLS[SKILL_ID]) {
+  console.error(`未知技能：${SKILL_ID}（可选 none / ${Object.keys(SKILLS).join(' / ')}）`);
+  process.exit(1);
+}
+const SKILL = SKILL_ID === 'none' ? null : { id: SKILL_ID, level: SKILL_LEVEL };
 
 // ---------- 机器人策略 ----------
 
@@ -180,6 +195,7 @@ function runOne(seed, difficulty, meta, candidateIndex = 0) {
     relics: [],
     towers: [],
     unlockedTowers,
+    skill: SKILL,
     onGameOver: (stats) => {
       result = stats;
     },
@@ -205,6 +221,8 @@ function runOne(seed, difficulty, meta, candidateIndex = 0) {
     let steps = 0;
     while (sim.phase === 'wave' && steps < MAX_SIM_STEPS_PER_WAVE) {
       sim.update(STEP);
+      // 固定策略：冷却好且场上有敌人就释放（先 update 保证首帧已刷怪）。
+      if (sim.skill && sim.skill.cooldown <= 0 && sim.enemies.length > 0) sim.castSkill();
       steps++;
     }
 
@@ -513,7 +531,9 @@ function main() {
   const modifierBaseTable = formatModifierTable(modifierBase);
 
   console.log(
-    `\n平衡模拟结果（${rows.length} 局，每种子 ${candidateCount} 张候选地图，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
+    `\n平衡模拟结果（${rows.length} 局，每种子 ${candidateCount} 张候选地图，技能 ${
+      SKILL ? `${SKILL.id} Lv.${SKILL.level}` : '无'
+    }，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
   );
   console.log(table);
   console.log('\n全解锁 · 地图原型\n');

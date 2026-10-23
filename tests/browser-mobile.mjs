@@ -217,6 +217,64 @@ async function main() {
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-05-landscape.png`);
 
+    // 右下角技能按钮：触控尺寸达标、不被面板遮挡、可点释放并显示冷却。
+    await browser.evaluate(`document.querySelector('#btn-next-wave').click()`);
+    await browser.waitFor(`window.__rtd.state.sim.phase === 'wave'`, '移动端开波');
+    const skillTarget = await browser.evaluate(`(() => {
+      const btn = document.getElementById('btn-skill');
+      const sim = window.__rtd.state.sim;
+      const rect = btn.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const hit = document.elementFromPoint(cx, cy);
+      return {
+        hidden: btn.hidden,
+        skill: sim.skill ? sim.skill.id : null,
+        width: rect.width,
+        height: rect.height,
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        iw: innerWidth,
+        ih: innerHeight,
+        x: cx,
+        y: cy,
+        hitOk: !!hit?.closest('#btn-skill'),
+        pointerEvents: getComputedStyle(btn).pointerEvents,
+      };
+    })()`);
+    if (!skillTarget.skill) throw new Error('移动端本局未携带技能');
+    if (skillTarget.hidden) throw new Error('移动端技能按钮未显示');
+    if (skillTarget.width < 48 || skillTarget.height < 48) {
+      throw new Error(`移动端技能按钮过小：${skillTarget.width}x${skillTarget.height}`);
+    }
+    if (skillTarget.left < 0 || skillTarget.right > skillTarget.iw + 1 || skillTarget.bottom > skillTarget.ih + 1) {
+      throw new Error(`移动端技能按钮超出视口：${JSON.stringify(skillTarget)}`);
+    }
+    if (!skillTarget.hitOk) throw new Error('移动端技能按钮被其他面板遮挡');
+    if (skillTarget.pointerEvents === 'none') throw new Error('移动端技能按钮不可点击');
+
+    await tap(skillTarget.x, skillTarget.y);
+    await browser.waitFor(
+      `(() => { const s = window.__rtd.state.sim; return s.skillCastCount === 1 && s.skill.cooldown > 0; })()`,
+      '移动端触摸释放技能',
+      5000
+    );
+    const mobileSkill = await browser.evaluate(`(() => {
+      const sim = window.__rtd.state.sim;
+      const btn = document.getElementById('btn-skill');
+      return {
+        casts: sim.skillCastCount,
+        cooldown: sim.skill.cooldown,
+        state: btn.dataset.state,
+        count: document.getElementById('skill-count').textContent,
+      };
+    })()`);
+    if (!(mobileSkill.cooldown > 0)) throw new Error('移动端技能冷却未开始');
+    if (!mobileSkill.count) throw new Error('移动端冷却秒数未显示');
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-07-skill.png`);
+
     // 横屏选图弹窗：三张卡与“放弃本局”按钮需在首屏内可读可点。
     await browser.evaluate(`document.querySelector('#btn-quit').click()`);
     await browser.waitFor(`!!document.querySelector('.confirm-modal')`, '退出确认');
@@ -264,6 +322,8 @@ async function main() {
       target,
       towers,
       builtMap,
+      skillTarget,
+      mobileSkill,
       landscapeMapModal,
     }, null, 2));
   } finally {

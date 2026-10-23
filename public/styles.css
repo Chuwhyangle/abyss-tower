@@ -1917,3 +1917,406 @@ body.is-touch .rotate-hint {
   font-size: 11.5px;
   line-height: 1.55;
 }
+
+/* ============ 主动技能（标题页 / 难度弹窗 / 局内按钮） ============ */
+
+.skill-cards {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(120, 160, 175, 0.12);
+}
+
+.skill-cards-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.skill-cards-head .eyebrow {
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.24em;
+}
+
+.skill-cards-head .muted {
+  font-size: 10px;
+}
+
+.skill-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.skill-card {
+  --skill: #7cd4f5;
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(120, 160, 175, 0.18);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(19, 31, 40, 0.92), rgba(10, 17, 22, 0.94));
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+}
+
+.skill-card:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--skill) 42%, transparent);
+}
+
+.skill-card.selected {
+  border-color: var(--skill);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--skill) 70%, transparent),
+    0 0 22px color-mix(in srgb, var(--skill) 18%, transparent);
+}
+
+.skill-card.locked {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.skill-card.locked:hover {
+  transform: none;
+}
+
+.skill-card .skill-glyph {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--skill) 45%, transparent);
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--skill) 22%, transparent), transparent 70%);
+  color: var(--skill);
+  font-size: 15px;
+}
+
+.skill-card.locked .skill-glyph {
+  color: #8294a1;
+  border-color: rgba(130, 148, 161, 0.3);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.skill-body {
+  min-width: 0;
+}
+
+.skill-head {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.skill-name {
+  font-size: 12.5px;
+  color: #e6eef3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.skill-role {
+  padding: 1px 5px;
+  border: 1px solid rgba(120, 160, 175, 0.2);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 8.5px;
+  letter-spacing: 0.06em;
+}
+
+.skill-level {
+  margin-left: auto;
+  color: var(--skill);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.skill-pips {
+  display: flex;
+  gap: 2px;
+  margin: 6px 0 4px;
+}
+
+.skill-pips i {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.skill-pips i.on {
+  background: var(--skill);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--skill) 45%, transparent);
+}
+
+.skill-desc {
+  margin: 4px 0 0;
+  color: #9fb3c1;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.skill-summary {
+  display: block;
+  margin-top: 4px;
+  color: #7d93a3;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  line-height: 1.4;
+}
+
+.skill-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  min-height: 26px;
+}
+
+.skill-actions .btn {
+  min-height: 26px;
+  padding: 3px 9px;
+  font-size: 10.5px;
+}
+
+.skill-lock {
+  color: #d8b77a;
+  font-size: 10px;
+}
+
+.skill-max {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+/* 难度弹窗顶部技能条 */
+
+.diff-skill-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding: 8px 10px;
+  border: 1px dashed rgba(120, 160, 175, 0.22);
+  border-radius: 12px;
+  background: rgba(9, 16, 21, 0.6);
+}
+
+.diff-skill-label {
+  color: var(--muted);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  white-space: nowrap;
+}
+
+.skill-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.skill-chip {
+  --skill: #7cd4f5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border: 1px solid rgba(120, 160, 175, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.025);
+  color: #b9c8d3;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.skill-chip:hover {
+  border-color: color-mix(in srgb, var(--skill) 50%, transparent);
+}
+
+.skill-chip.selected {
+  border-color: var(--skill);
+  background: color-mix(in srgb, var(--skill) 16%, transparent);
+  color: #f3f9fc;
+}
+
+.skill-chip.locked {
+  opacity: 0.42;
+  cursor: not-allowed;
+}
+
+.skill-chip .chip-glyph {
+  color: var(--skill);
+  font-size: 11px;
+}
+
+.skill-chip .chip-level {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+}
+
+/* 局内：右下角圆形技能按钮（避开右上遗物栏与左下塔面板） */
+
+.btn-skill {
+  --skill: #7cd4f5;
+  --cd: 0deg;
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 6;
+  width: 60px;
+  height: 60px;
+  min-width: 48px;
+  min-height: 48px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 2px solid color-mix(in srgb, var(--skill) 60%, transparent);
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 34%, rgba(22, 35, 44, 0.96), rgba(5, 10, 14, 0.97));
+  color: var(--skill);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.18s ease, filter 0.18s ease;
+}
+
+.btn-skill[hidden] {
+  display: none;
+}
+
+.btn-skill .skill-glyph {
+  position: relative;
+  z-index: 1;
+  color: var(--skill);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.btn-skill .skill-cd {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(rgba(4, 8, 12, 0.8) var(--cd, 0deg), transparent 0);
+  pointer-events: none;
+}
+
+.btn-skill .skill-count {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: #eaf6ff;
+  font-family: var(--font-mono);
+  font-size: 17px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.btn-skill .skill-key {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  z-index: 3;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  padding: 0 4px;
+  border: 1px solid rgba(120, 160, 175, 0.32);
+  border-radius: 6px;
+  background: #0b141a;
+  color: #c6d5df;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.btn-skill.cooling {
+  color: #c8d6df;
+  border-color: color-mix(in srgb, var(--skill) 30%, transparent);
+}
+
+.btn-skill.ready {
+  animation: skill-breathe 1.9s ease-in-out infinite;
+}
+
+.btn-skill.idle {
+  filter: saturate(0.35);
+  border-color: rgba(120, 160, 175, 0.24);
+  color: #6d7f8b;
+}
+
+.btn-skill.idle .skill-key {
+  opacity: 0.4;
+}
+
+@keyframes skill-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--skill) 0%, transparent),
+      0 10px 26px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px color-mix(in srgb, var(--skill) 42%, transparent),
+      0 10px 26px rgba(0, 0, 0, 0.5);
+  }
+}
+
+@media (max-width: 900px), (max-height: 520px) {
+  .skill-cards-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-skill {
+    right: 10px;
+    bottom: 10px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .btn-skill .skill-glyph {
+    font-size: 19px;
+  }
+
+  .btn-skill .skill-count {
+    font-size: 15px;
+  }
+
+  .diff-skill-bar {
+    margin-top: 10px;
+    padding: 6px 8px;
+    gap: 6px;
+  }
+
+  .skill-chip {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .skill-cards-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 技能卡加入后标题页更高：矮屏/手机允许纵向滚动，避免被 overflow 裁切 */
+@media (max-height: 760px), (max-width: 900px) {
+  .title-screen {
+    align-items: start;
+    overflow-y: auto;
+    padding: 24px 16px;
+  }
+}

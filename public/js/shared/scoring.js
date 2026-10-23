@@ -2,7 +2,9 @@
 import { MAX_WAVE, getDifficulty } from './data.js';
 
 export const VICTORY_BONUS = 10000;
-export const VICTORY_CORES = 15;
+export const VICTORY_CORES = 25;
+// 速死刷核保护：清波不足 5 波不给任何星核。
+export const MIN_CORES_WAVES = 5;
 
 export const CAPS = {
   killsPerWave: 600,
@@ -39,10 +41,14 @@ export function computeOutcome({
   const victory = isVictory(waveReached, wavesServed);
   const rawScore = computeRawScore({ waveReached, kills, goldLeft, baseHp, victory });
   const score = Math.round(rawScore * diff.scoreMul * scoreMul);
-  const cores = Math.round(
-    (Math.floor(waveReached) * 2 + Math.floor(rawScore / 2500) + (victory ? VICTORY_CORES : 0)) *
-      diff.coresMul
-  );
+  const waves = Math.floor(waveReached);
+  const cores =
+    waves < MIN_CORES_WAVES
+      ? 0
+      : Math.round(
+          (waves * 2 + Math.floor(rawScore / 2500) + (victory ? VICTORY_CORES : 0)) *
+            diff.coresMul
+        );
   return { victory, rawScore, score, cores };
 }
 

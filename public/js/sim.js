@@ -7,6 +7,8 @@ import {
   RELIC_BY_ID,
   RELIC_MAX_LEVEL,
   GLOBAL_MOD_CAPS,
+  SKILLS,
+  skillStats,
   normalizeRelicStates,
   relicModsAtLevel,
 } from './shared/data.js';
@@ -14,6 +16,16 @@ import { RNG } from './shared/rng.js';
 import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
 import { generateWave } from './shared/waves.js';
+import { SNAPSHOT_VERSION, BASE_SNAPSHOT_VERSION } from './shared/save.js';
+
+// 主动技能常量：落点间距、预警时长、余烬连锁范围。
+const SKILL_METEOR_WARNING = 0.55;
+const SKILL_METEOR_SPACING = 2.5;
+const SKILL_METEOR_CHAIN_RANGE = 2.5;
+const SKILL_METEOR_CHAIN_MAX = 4;
+const SKILL_METEOR_CHAIN_RATIO = 0.35;
+const SKILL_STASIS_MAX_EXTEND = 1;
+const SKILL_STASIS_KILL_EXTEND = 0.1;
 
 export class Simulation {
   constructor(opts) {
@@ -67,8 +79,21 @@ export class Simulation {
     this.modifier = this.mapMeta.modifier || null;
     this.activePortals = [];
 
+    // 主动技能：每局只带一个；等级由外层（服务端开局规则集）冻结。
+    this.skill = null;
+    this.skillCastCount = 0;
+    this.skillRng = null;
+    this.skillCastState = null;
+    // 技能表现事件独立于 sim.effects，避免被画质过滤与 320 上限吞掉。
+    this.skillFx = [];
+    // 按模拟时间结算的技能事件（陨星落点等）。
+    this.skillPending = [];
+    this.stasis = null;
+    this.towerOverdrive = null;
+
     this.buildPath();
     this.recomputeMods();
+    this.initSkill(opts);
 
     // 开局遗物中的基地生命加成（读档时不重复结算）
     if (!opts.restored) {
@@ -146,10 +171,12 @@ export class Simulation {
   // ---------- 主更新 ----------
 
   update(dt) {
-    if (this.phase !== 'wave') return;
+    // 暂停时模拟时间与技能冷却都不走表（外层 GameApp 也会停发 update）。
+    if (this.phase !== 'wave' || this.paused) return;
     this.time += dt;
     this.waveTime += dt;
 
+    this.updateSkill(dt);
     this.spawnDue();
     this.updateEnemies(dt);
     this.updateTowers(dt);
@@ -173,6 +200,9 @@ export class Simulation {
     this.shake = Math.max(0, this.shake - dt * 31);
     for (const effect of this.effects) effect.ttl -= dt;
     if (this.effects.length) this.effects = this.effects.filter((e) => e.ttl > 0);
+    // 技能表现走独立通道：只按真实时间淡出，不受画质档位/特效上限影响。
+    for (const fx of this.skillFx) fx.ttl -= dt;
+    if (this.skillFx.length) this.skillFx = this.skillFx.filter((fx) => fx.ttl > 0);
     for (const floater of this.floaters) {
       floater.ttl -= dt;
       floater.y -= dt * 0.7;
@@ -195,6 +225,15 @@ export class Simulation {
     this.spawnIndex = 0;
     this.spawnQueue = [];
     this.combatRng = new RNG(`${this.seed}:combat:${waveDef.index}`);
+
+    // 技能状态跨波保留（冷却继续走），但时停/待落陨星/过载属于当前波。
+    this.skillPending = [];
+    this.skillCastState = null;
+    this.stasis = null;
+    if (this.towerOverdrive) {
+      this.towerOverdrive = null;
+      for (const tower of this.towers) this.clearTowerOverdrive(tower);
+    }
 
     for (const group of waveDef.groups) {
       const portal = Number.isInteger(group.portal) ? group.portal : 0;
@@ -257,6 +296,17 @@ export class Simulation {
       slowAmt: 0,
       poisonUntil: 0,
       poisonDps: 0,
+      // 主动技能状态（霜月冻结 / 星陨灼烧 / 时之星痕）
+      freezeUntil: 0,
+      freezeVulnUntil: 0,
+      freezeVuln: 0,
+      freezeSlow: 0,
+      freezeSlowDur: 0,
+      freezeShatter: 0,
+      burnUntil: 0,
+      burnDps: 0,
+      skillVulnUntil: 0,
+      skillVuln: 0,
       hitFlash: 0,
       dead: false,
       // 首领状态机：走走停停 + 技能蓄力 + 破绽窗口 + 阶段/狂怒
@@ -297,6 +347,11 @@ export class Simulation {
     }
 
     this.phase = 'prep';
+    // 时停/待落陨星/过载都属于进行中的这一波，清波即收起。
+    this.stasis = null;
+    this.skillPending = [];
+    this.towerOverdrive = null;
+    for (const tower of this.towers) this.clearTowerOverdrive(tower);
     // 快照由调用方在服务端确认清波后写入，避免清波未确认时重复领奖。
     this.opts.onWaveClear?.(cleared, { reward, interest });
   }
@@ -340,30 +395,39 @@ export class Simulation {
 
   updateEnemies(dt) {
     const now = this.time;
+    // 时之终章：敌人移动、治疗、中毒/灼烧计时与首领计时全部暂停。
+    const stasisActive = this.isStasisActive();
     for (const enemy of this.enemies) {
       if (enemy.dead) continue;
       enemy.hitFlash = Math.max(0, enemy.hitFlash - dt * 4);
+      this.updateEnemySkillStatus(enemy, dt, now, stasisActive);
+      if (enemy.dead) continue;
 
       const slowed = now < enemy.slowUntil;
       if (!slowed && enemy.slowAmt) enemy.slowAmt = 0;
       const buff = now < (enemy.speedBuffUntil || 0) ? enemy.speedBuff || 0 : 0;
+      const frozen = now < (enemy.freezeUntil || 0);
       let speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0)) * (1 + buff);
-      if (enemy.boss) speed = this.updateBoss(enemy, dt, speed, now);
-      enemy.progress += speed * dt;
+      // 冻结只停移动，不打断首领蓄力；时停则连首领计时一起暂停。
+      if (frozen || stasisActive) speed = 0;
+      if (!stasisActive) {
+        if (enemy.boss) speed = this.updateBoss(enemy, dt, speed, now);
+        enemy.progress += speed * dt;
+      }
 
       const pos = this.posAt(enemy.progress, enemy.lane);
       enemy.x = pos.x;
       enemy.y = pos.y;
       enemy.angle = pos.angle;
 
-      if (now < enemy.poisonUntil && enemy.poisonDps > 0) {
+      if (!stasisActive && now < enemy.poisonUntil && enemy.poisonDps > 0) {
         this.damage(enemy, enemy.poisonDps * dt, { ignoreArmor: true, silent: true, dot: true });
         if (Math.random() < dt * 2.2) {
           this.addEffect({ kind: 'poison', x: enemy.x, y: enemy.y - 0.15, ttl: 0.5 });
         }
       }
 
-      if (enemy.heal > 0 && !enemy.dead) {
+      if (!stasisActive && enemy.heal > 0 && !enemy.dead) {
         enemy.healTimer += dt;
         if (enemy.healTimer >= 0.5) {
           enemy.healTimer = 0;
@@ -754,6 +818,13 @@ export class Simulation {
     if (enemy.boss && this.time < (enemy.vulnUntil || 0)) {
       final *= BALANCE.bossVulnMul;
     }
+    // 技能易伤：冻结易伤（霜月）与星痕易伤（时之终章），统一用模拟时间判断。
+    if (this.time < (enemy.freezeVulnUntil || 0) && enemy.freezeVuln > 0) {
+      final *= 1 + enemy.freezeVuln;
+    }
+    if (this.time < (enemy.skillVulnUntil || 0) && enemy.skillVuln > 0) {
+      final *= 1 + enemy.skillVuln;
+    }
     enemy.hp -= final;
     if (!opts.dot) enemy.hitFlash = 1;
 
@@ -795,6 +866,8 @@ export class Simulation {
     } else {
       this.playSound('kill');
     }
+    // 里程碑击杀钩子（极光终章 / 终章延时）
+    this.onSkillKill(enemy);
   }
 
   cleanup() {
@@ -842,6 +915,10 @@ export class Simulation {
       target: null,
       recoil: 0,
       disabledUntil: 0,
+      // 时之终章过载（由 applyTowerOverdrive 写入）
+      skillOverdriveUntil: 0,
+      skillOverdriveAtk: 0,
+      skillOverdriveRange: 0,
       stats: null,
     };
   }
@@ -886,6 +963,7 @@ export class Simulation {
     }
     this.gold -= cost;
     const tower = this.makeTower(type, c, r, 0, cost);
+    this.inheritTowerOverdrive(tower);
     this.towers.push(tower);
     this.refreshTowerStats(tower);
     this.addEffect({ kind: 'place', x: c + 0.5, y: r + 0.5, ttl: 0.45, color: TOWERS[type].color });
@@ -1027,10 +1105,17 @@ export class Simulation {
     const def = TOWERS[tower.type];
     const level = def.levels[Math.min(tower.level, def.levels.length - 1)];
     const mods = this.mods;
+    // 时之终章的过载窗口：攻速/射程只在窗口内生效，结束即刷新缓存。
+    let rate = level.rate * (1 + mods.fireRate);
+    let range = level.range + mods.range;
+    if (this.time < (tower.skillOverdriveUntil || 0)) {
+      rate *= 1 + (tower.skillOverdriveAtk || 0);
+      range += tower.skillOverdriveRange || 0;
+    }
     return {
       dmg: level.dmg * (1 + (mods.dmg[tower.type] || 0) + mods.dmgAll),
-      rate: level.rate * (1 + mods.fireRate),
-      range: (level.range + mods.range) * (this.modifier?.rangeMul || 1),
+      rate,
+      range: range * (this.modifier?.rangeMul || 1),
       splash: (level.splash || 0) * (1 + mods.splash),
       slow: level.slow || 0,
       slowDur: level.slowDur || 0,
@@ -1054,11 +1139,490 @@ export class Simulation {
     return this.computeTowerStats(this.makeTower(type, 0, 0, level, 0));
   }
 
+  // ---------- 主动技能 ----------
+
+  // 技能等级由外层冻结；冷却只在这里恢复，后续仅随 update 递减。
+  initSkill(opts = {}) {
+    const config = opts.skill;
+    if (!config || typeof config.id !== 'string') return;
+    const def = SKILLS[config.id];
+    if (!def) return;
+    const level = Math.max(1, Math.min(def.levels.length, Math.floor(Number(config.level) || 1)));
+    const stats = skillStats(def.id, level);
+    let cooldown = Number(config.cooldown);
+    if (!Number.isFinite(cooldown)) cooldown = 0;
+    const readyAt = Number(opts.skillReadyAt ?? config.readyAt);
+    if (Number.isFinite(readyAt) && readyAt > 0) {
+      // 按真实时间扣减，并钳到 [0, 冷却]：防止“放大招 → 刷新 → 重打本波”。
+      // skillSpeed：外层若记录的是按倍速换算过的真实时间，用当前倍速换回模拟秒。
+      const speed = Math.max(0.25, Number(opts.skillSpeed) || 1);
+      cooldown = ((readyAt - Date.now()) / 1000) * speed;
+    }
+    this.skill = {
+      id: def.id,
+      level,
+      stats,
+      cooldown: Math.max(0, Math.min(stats.cd, cooldown)),
+    };
+  }
+
+  isSkillReady() {
+    return !!this.skill && this.skill.cooldown <= 0 && this.phase === 'wave' && !this.paused;
+  }
+
+  castSkill() {
+    const skill = this.skill;
+    if (!skill) return false;
+    if (this.phase !== 'wave' || this.paused) return false;
+    if (skill.cooldown > 0) return false;
+
+    const stats = skill.stats;
+    skill.cooldown = stats.cd;
+    this.skillCastCount += 1;
+    // 独立种子流：技能不碰 combatRng，战斗随机序列保持不变。
+    this.skillRng = new RNG(`${this.seed}:skill:${this.wave}:${this.skillCastCount}`);
+    this.skillCastState = { meteorExtraUsed: false, meteorCenters: [] };
+    const now = this.time;
+
+    if (skill.id === 'aurora') this.castAurora(stats, now);
+    else if (skill.id === 'meteor') this.castMeteor(stats, now);
+    else if (skill.id === 'chrono') this.castChrono(stats, now);
+
+    // 外层立即落一份含 skill.cooldown 的快照并补 skillReadyAt（epoch）。
+    const snapshot = this.toSnapshot();
+    snapshot.skillReadyAt = Date.now() + skill.cooldown * 1000;
+    this.opts.onSkillCast?.(snapshot);
+    return true;
+  }
+
+  // 霜月·极光：全场冻结 + 冻结易伤，解冻时碎晶并附加减速。
+  castAurora(stats, now) {
+    const level = this.skill.level;
+    const targets = this.skillTargets();
+    // L7 月蚀：场上 ≥12 敌时冻结延长 0.3s
+    const freezeDur = stats.freeze + (level >= 7 && targets.length >= 12 ? 0.3 : 0);
+    for (const enemy of targets) {
+      if (enemy.dead) continue;
+      enemy.freezeUntil = now + freezeDur;
+      enemy.freezeVuln = stats.vuln;
+      enemy.freezeVulnUntil = now + freezeDur;
+      // 解冻参数先挂在敌人身上，由 resolveThaw 在解冻当帧结算。
+      enemy.freezeSlow = stats.slow;
+      enemy.freezeSlowDur = stats.slowDur;
+      enemy.freezeShatter = stats.shatter;
+    }
+    const field = this.skillField();
+    this.addSkillFx({ kind: 'aurora', x: field.x, y: field.y, r: field.r, ttl: 2.4, color: SKILLS.aurora.color });
+  }
+
+  // 每帧状态推进：解冻结算、灼烧跳伤；时停期间暂停中毒/灼烧计时。
+  updateEnemySkillStatus(enemy, dt, now, stasisActive) {
+    if (enemy.freezeUntil > 0 && now >= enemy.freezeUntil) this.resolveThaw(enemy, now);
+    if (enemy.dead) return;
+
+    if (stasisActive) {
+      if (enemy.burnUntil > now) enemy.burnUntil += dt;
+      if (enemy.poisonUntil > now) enemy.poisonUntil += dt;
+      return;
+    }
+
+    if (enemy.burnUntil > now && enemy.burnDps > 0) {
+      this.skillDamage(enemy, enemy.burnDps * dt, { dot: true });
+    }
+  }
+
+  resolveThaw(enemy, now) {
+    const shatter = enemy.freezeShatter || 0;
+    const slow = enemy.freezeSlow || 0;
+    const slowDur = enemy.freezeSlowDur || 0;
+    const level = this.skill?.id === 'aurora' ? this.skill.level : 0;
+    const bossFactor = SKILLS.aurora.bossFactor;
+
+    enemy.freezeUntil = 0;
+    enemy.freezeVuln = 0;
+    enemy.freezeVulnUntil = 0;
+    enemy.freezeSlow = 0;
+    enemy.freezeSlowDur = 0;
+    enemy.freezeShatter = 0;
+
+    const amount = this.skillPctDamage(enemy, shatter, bossFactor);
+    if (amount > 0) {
+      const x = enemy.x;
+      const y = enemy.y;
+      const id = enemy.id;
+      this.skillDamage(enemy, amount);
+      this.addSkillFx({ kind: 'shatter', x, y, r: 0.5, ttl: 0.4, color: SKILLS.aurora.color });
+      // L4 霜纹：25% 概率波及 0.8 格内另一名敌人（50% 碎晶伤害）。
+      if (level >= 4) {
+        const roll = this.skillRng ? this.skillRng.float() : 1;
+        if (roll < 0.25) {
+          const other = this.nearestSkillTarget(x, y, 0.8, id);
+          if (other) {
+            this.skillDamage(other, this.skillPctDamage(other, shatter * 0.5, bossFactor));
+            this.addSkillFx({ kind: 'frostTrace', x: other.x, y: other.y, r: 0.8, ttl: 0.4, color: SKILLS.aurora.color });
+          }
+        }
+      }
+    }
+    if (slow > 0) {
+      enemy.slowAmt = Math.max(enemy.slowAmt, slow);
+      enemy.slowUntil = Math.max(enemy.slowUntil, now + slowDur);
+    }
+  }
+
+  // 星陨·天火：按密度确定性选点，0.55s 预警后落点 AoE + 灼烧。
+  castMeteor(stats, now) {
+    const level = this.skill.level;
+    this.skillCastState = { meteorExtraUsed: false, meteorCenters: [] };
+    const points = this.pickMeteorPoints(stats, stats.meteors, level);
+    for (const point of points) this.queueMeteor(point, stats, now);
+    const field = this.skillField();
+    this.addSkillFx({ kind: 'meteorCast', x: field.x, y: field.y, r: field.r, ttl: 0.8, color: SKILLS.meteor.color });
+  }
+
+  // 选点：按敌人位置做密度评分，陨星之间强制 2.5 格分簇。
+  // 候选顺序固定为 progress 降序、id 升序，保证同种子结果一致。
+  pickMeteorPoints(stats, count, level, avoid = []) {
+    const candidates = this.skillTargets();
+    if (!candidates.length || count <= 0) return [];
+    const radius2 = stats.radius * stats.radius;
+    const scored = candidates.map((enemy) => {
+      let total = 0;
+      let unburned = 0;
+      for (const other of candidates) {
+        const dx = other.x - enemy.x;
+        const dy = other.y - enemy.y;
+        if (dx * dx + dy * dy > radius2) continue;
+        total++;
+        if (!(this.time < (other.burnUntil || 0) && other.burnDps > 0)) unburned++;
+      }
+      return { enemy, total, unburned };
+    });
+    const points = [];
+    // avoid：本次释放已排队的落点（L7 额外陨星也要参与 2.5 格分簇）。
+    const occupied = Array.isArray(avoid) ? avoid.slice() : [];
+    for (let i = 0; i < count; i++) {
+      let best = null;
+      let bestScore = -Infinity;
+      for (const cand of scored) {
+        if (occupied.some((p) => Math.hypot(p.x - cand.enemy.x, p.y - cand.enemy.y) < SKILL_METEOR_SPACING)) continue;
+        // L4 星轨：优先未被灼烧的群落（同密集度下取未灼烧更多的点）。
+        const score = level >= 4 ? cand.unburned * 1000 + cand.total : cand.total;
+        if (score > bestScore) {
+          bestScore = score;
+          best = cand;
+        }
+      }
+      if (!best) {
+        // 敌人不足以满足分簇：退化为“离已选点最远”，保证颗数全部落地。
+        let farDist = -Infinity;
+        for (const cand of scored) {
+          let nearest = Infinity;
+          for (const p of occupied) {
+            nearest = Math.min(nearest, Math.hypot(p.x - cand.enemy.x, p.y - cand.enemy.y));
+          }
+          if (nearest > farDist) {
+            farDist = nearest;
+            best = cand;
+          }
+        }
+        if (!best) break;
+      }
+      const point = { x: best.enemy.x, y: best.enemy.y };
+      points.push(point);
+      occupied.push(point);
+    }
+    return points;
+  }
+
+  queueMeteor(point, stats, now) {
+    if (this.skillCastState) this.skillCastState.meteorCenters.push({ x: point.x, y: point.y });
+    this.skillPending.push({
+      type: 'meteor',
+      at: now + SKILL_METEOR_WARNING,
+      x: point.x,
+      y: point.y,
+      r: stats.radius,
+      dmgPct: stats.dmgPct,
+      burnPct: stats.burnPct,
+      level: this.skill?.level || 1,
+    });
+    this.addSkillFx({
+      kind: 'meteorWarn',
+      x: point.x,
+      y: point.y,
+      r: stats.radius,
+      ttl: SKILL_METEOR_WARNING,
+      color: SKILLS.meteor.color,
+    });
+  }
+
+  resolveMeteor(ev) {
+    const now = this.time;
+    const bossFactor = SKILLS.meteor.bossFactor;
+    const hit = [];
+    for (const enemy of this.skillTargets()) {
+      if (enemy.dead) continue;
+      if (Math.hypot(enemy.x - ev.x, enemy.y - ev.y) > ev.r + (enemy.r || 0) * 0.4) continue;
+      const wasBurning = enemy.burnUntil > now && enemy.burnDps > 0;
+      this.skillDamage(enemy, this.skillPctDamage(enemy, ev.dmgPct, bossFactor));
+      if (!enemy.dead) {
+        const previous = enemy.burnUntil > now ? enemy.burnDps || 0 : 0;
+        enemy.burnDps = Math.max(previous, (enemy.maxHp * ev.burnPct) / 3);
+        enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + 3);
+      }
+      hit.push({ enemy, wasBurning });
+    }
+    this.addSkillFx({ kind: 'meteor', x: ev.x, y: ev.y, r: ev.r, ttl: 0.55, color: SKILLS.meteor.color });
+
+    // L10 天火终章：命中已灼烧目标触发余烬连锁（35% 伤害，最多 4 个）。
+    if (ev.level >= 10 && hit.some((entry) => entry.wasBurning)) this.emberChain(ev, hit);
+
+    // L7 流火：单次落点命中 ≥10 敌，额外落 1 颗（每次释放最多 1 颗）。
+    if (
+      ev.level >= 7 &&
+      hit.length >= 10 &&
+      this.skill &&
+      this.skillCastState &&
+      !this.skillCastState.meteorExtraUsed
+    ) {
+      this.skillCastState.meteorExtraUsed = true;
+      const centers = this.skillCastState.meteorCenters || [];
+      const extra = this.pickMeteorPoints(this.skill.stats, 1, this.skill.level, centers);
+      if (extra[0]) this.queueMeteor(extra[0], this.skill.stats, now);
+    }
+  }
+
+  emberChain(ev, hit) {
+    const hitIds = new Set(hit.map((entry) => entry.enemy.id));
+    const candidates = [];
+    for (const enemy of this.skillTargets()) {
+      if (hitIds.has(enemy.id)) continue;
+      const distance = Math.hypot(enemy.x - ev.x, enemy.y - ev.y);
+      if (distance <= SKILL_METEOR_CHAIN_RANGE + (enemy.r || 0)) candidates.push({ enemy, distance });
+    }
+    candidates.sort(
+      (a, b) =>
+        a.distance - b.distance ||
+        b.enemy.progress - a.enemy.progress ||
+        a.enemy.id - b.enemy.id
+    );
+    for (const { enemy } of candidates.slice(0, SKILL_METEOR_CHAIN_MAX)) {
+      const pct = ev.dmgPct * SKILL_METEOR_CHAIN_RATIO;
+      this.skillDamage(enemy, this.skillPctDamage(enemy, pct, SKILLS.meteor.bossFactor));
+      this.addSkillFx({
+        kind: 'ember',
+        x: enemy.x,
+        y: enemy.y,
+        r: 0.6,
+        ttl: 0.4,
+        color: SKILLS.meteor.color,
+      });
+    }
+  }
+
+  // 时之终章：瞬发星辉 + 星痕易伤 + 时停 + 全塔过载。
+  castChrono(stats, now) {
+    const level = this.skill.level;
+    const bossFactor = SKILLS.chrono.bossFactor;
+
+    for (const enemy of this.skillTargets()) {
+      if (enemy.dead) continue;
+      this.skillDamage(enemy, this.skillPctDamage(enemy, stats.novaPct, bossFactor));
+    }
+
+    // 星痕易伤：L7 的 +3s 已包含在 stats.vulnDur 中，不再重复叠加。
+    const vulnUntil = now + stats.vulnDur;
+    for (const enemy of this.skillTargets()) {
+      if (enemy.dead) continue;
+      enemy.skillVuln = Math.max(enemy.skillVuln || 0, stats.vuln);
+      enemy.skillVulnUntil = Math.max(enemy.skillVulnUntil || 0, vulnUntil);
+    }
+
+    // 时停从此刻开始；L10 击杀可延长（见 onSkillKill）。
+    this.stasis = {
+      until: now + stats.stop,
+      baseUntil: now + stats.stop,
+      bonus: 0,
+    };
+    // L4 迟滞：时停期间攻速额外 +20%；射程固定 +1 格（会与塔数量相乘的因子不翻倍）。
+    const atk = stats.atkSpeed + (level >= 4 ? 0.2 : 0);
+    this.applyTowerOverdrive(now + stats.stop, atk, stats.range);
+
+    const field = this.skillField();
+    this.addSkillFx({ kind: 'chronoNova', x: field.x, y: field.y, r: field.r, ttl: 1.2, color: SKILLS.chrono.color });
+    this.addSkillFx({ kind: 'stasis', x: field.x, y: field.y, r: field.r, ttl: stats.stop, color: SKILLS.chrono.color });
+  }
+
+  isStasisActive() {
+    return !!this.stasis && this.time < this.stasis.until;
+  }
+
+  // 冷却只在 update（战斗阶段）递减；陨星落点与时停结束也在这里按模拟时间结算。
+  updateSkill(dt) {
+    if (this.skill && this.skill.cooldown > 0) {
+      this.skill.cooldown = Math.max(0, this.skill.cooldown - dt);
+    }
+    const now = this.time;
+    if (this.stasis && now >= this.stasis.until) this.endStasis();
+    // 过载窗口结束：清掉塔字段并刷新属性缓存，避免攻速/射程一直停留在加成值。
+    if (this.towerOverdrive && now >= this.towerOverdrive.until) {
+      this.towerOverdrive = null;
+      for (const tower of this.towers) {
+        if ((tower.skillOverdriveUntil || 0) > 0) this.clearTowerOverdrive(tower);
+      }
+    }
+    if (!this.skillPending.length) return;
+
+    const due = [];
+    const pending = [];
+    for (const ev of this.skillPending) {
+      if (ev.at <= now) due.push(ev);
+      else pending.push(ev);
+    }
+    this.skillPending = pending;
+    for (const ev of due) {
+      if (ev.type === 'meteor') this.resolveMeteor(ev);
+    }
+  }
+
+  endStasis() {
+    const stats = this.skill?.stats;
+    this.stasis = null;
+    if (stats) this.applyTowerOverdrive(this.time + stats.overdrive, stats.atkSpeed, stats.range);
+    const field = this.skillField();
+    this.addSkillFx({
+      kind: 'overdrive',
+      x: field.x,
+      y: field.y,
+      r: field.r,
+      ttl: stats ? stats.overdrive : 0.1,
+      color: SKILLS.chrono.color,
+    });
+  }
+
+  applyTowerOverdrive(until, atk, range) {
+    this.towerOverdrive = { until, atk, range };
+    for (const tower of this.towers) {
+      tower.skillOverdriveUntil = until;
+      tower.skillOverdriveAtk = atk;
+      tower.skillOverdriveRange = range;
+      this.refreshTowerStats(tower);
+    }
+  }
+
+  inheritTowerOverdrive(tower) {
+    const overdrive = this.towerOverdrive;
+    if (!overdrive || this.time >= overdrive.until) return;
+    tower.skillOverdriveUntil = overdrive.until;
+    tower.skillOverdriveAtk = overdrive.atk;
+    tower.skillOverdriveRange = overdrive.range;
+  }
+
+  clearTowerOverdrive(tower) {
+    tower.skillOverdriveUntil = 0;
+    tower.skillOverdriveAtk = 0;
+    tower.skillOverdriveRange = 0;
+    this.refreshTowerStats(tower);
+  }
+
+  // 里程碑击杀钩子：极光终章冰晶、终章延时。
+  onSkillKill(enemy) {
+    const skill = this.skill;
+    if (!skill) return;
+    const now = this.time;
+
+    if (skill.id === 'aurora' && skill.level >= 10 && now < (enemy.freezeUntil || 0)) {
+      const radius = 1;
+      const x = enemy.x;
+      const y = enemy.y;
+      const bossFactor = SKILLS.aurora.bossFactor;
+      for (const other of this.skillTargets()) {
+        if (other.dead) continue;
+        if (Math.hypot(other.x - x, other.y - y) > radius + (other.r || 0)) continue;
+        this.skillDamage(other, this.skillPctDamage(other, 0.04, bossFactor));
+        other.slowAmt = Math.max(other.slowAmt, 0.2);
+        other.slowUntil = Math.max(other.slowUntil, now + 2);
+      }
+      this.addSkillFx({ kind: 'iceCrystal', x, y, r: radius, ttl: 0.5, color: SKILLS.aurora.color });
+    }
+
+    if (skill.id === 'chrono' && skill.level >= 10 && this.stasis && now < this.stasis.until) {
+      const bonus = this.stasis.bonus || 0;
+      if (bonus < SKILL_STASIS_MAX_EXTEND) {
+        const extend = Math.min(SKILL_STASIS_KILL_EXTEND, SKILL_STASIS_MAX_EXTEND - bonus);
+        this.stasis.bonus = bonus + extend;
+        this.stasis.until += extend;
+        // 时停延长时，过载窗口同步延长到新的时停结束。
+        const overdrive = this.towerOverdrive;
+        if (overdrive && now < overdrive.until) {
+          overdrive.until += extend;
+          for (const tower of this.towers) {
+            tower.skillOverdriveUntil = overdrive.until;
+            this.refreshTowerStats(tower);
+          }
+        }
+      }
+    }
+  }
+
+  // 全场技能（极光帘幕、时停穹顶）的表现中心与覆盖半径：地图中心 + 半对角线。
+  skillField() {
+    const cols = this.map.cols || 22;
+    const rows = this.map.rows || 12;
+    return {
+      x: cols / 2,
+      y: rows / 2,
+      r: Math.hypot(cols, rows) / 2,
+    };
+  }
+
+  // 确定性目标顺序：progress 降序、id 升序（与服务端/渲染层同一套顺序）。
+  skillTargets() {
+    return this.enemies
+      .filter((enemy) => !enemy.dead)
+      .sort((a, b) => b.progress - a.progress || a.id - b.id);
+  }
+
+  nearestSkillTarget(x, y, radius, excludeId = null) {
+    let best = null;
+    let bestDistance = Infinity;
+    for (const enemy of this.skillTargets()) {
+      if (enemy.id === excludeId) continue;
+      const distance = Math.hypot(enemy.x - x, enemy.y - y);
+      if (distance <= radius + (enemy.r || 0) && distance < bestDistance) {
+        best = enemy;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  // 技能伤害：最大生命百分比 × 首领效率，不吃暴击、不走护甲/战斗 RNG。
+  skillPctDamage(enemy, pct, bossFactor = 1) {
+    if (!enemy || !(pct > 0)) return 0;
+    return enemy.maxHp * pct * (enemy.boss ? bossFactor : 1);
+  }
+
+  skillDamage(enemy, amount, { dot = false } = {}) {
+    if (!enemy || enemy.dead || !(amount > 0)) return 0;
+    enemy.hp -= amount;
+    if (!dot) enemy.hitFlash = 1;
+    if (enemy.hp <= 0) this.killEnemy(enemy);
+    return amount;
+  }
+
+  addSkillFx(event) {
+    event.maxTtl = event.ttl;
+    this.skillFx.push(event);
+    if (this.skillFx.length > 96) this.skillFx.splice(0, this.skillFx.length - 96);
+  }
+
   // ---------- 存档 / HUD ----------
 
   toSnapshot() {
     return {
-      version: 3,
+      version: this.skill ? SNAPSHOT_VERSION : BASE_SNAPSHOT_VERSION,
       runId: this.runId,
       seed: this.seed,
       mode: this.mode,
@@ -1074,6 +1638,10 @@ export class Simulation {
       towers: this.towers.map((t) => ({
         type: t.type, c: t.c, r: t.r, level: t.level, invested: t.invested,
       })),
+      // 含技能时写 v4；无技能局保持 v3，旧测试/旧客户端仍按原格式读取。
+      skill: this.skill
+        ? { id: this.skill.id, level: this.skill.level, cooldown: this.skill.cooldown }
+        : null,
       startedAt: this.startedAt,
       savedAt: Date.now(),
     };
@@ -1132,6 +1700,9 @@ export class Simulation {
       paused: this.paused,
       enemies: this.enemies.length,
       relicCount: this.relics.length,
+      skill: this.skill
+        ? { id: this.skill.id, level: this.skill.level, cooldown: this.skill.cooldown }
+        : null,
       difficulty: this.difficulty,
       portalCount: this.map.spawns?.length || 1,
       activePortals: this.activePortals.slice(),
