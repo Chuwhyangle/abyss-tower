@@ -1,6 +1,10 @@
 // 画质设置：只影响表现，不参与战斗模拟。损坏或不可写时回退默认低配。
 export const SETTINGS_KEY = 'abyss-tower.settings.v1';
 
+// 音量用 0–100 的百分比表示，由音频层换算成总线增益。
+export const DEFAULT_SFX_VOLUME = 80;
+export const DEFAULT_MUSIC_VOLUME = 50;
+
 export const QUALITY_PRESETS = {
   low: {
     fps: 30,
@@ -11,6 +15,8 @@ export const QUALITY_PRESETS = {
     shake: false,
     showFps: false,
     music: true,
+    sfxVolume: DEFAULT_SFX_VOLUME,
+    musicVolume: DEFAULT_MUSIC_VOLUME,
   },
   high: {
     fps: 60,
@@ -21,6 +27,8 @@ export const QUALITY_PRESETS = {
     shake: true,
     showFps: false,
     music: true,
+    sfxVolume: DEFAULT_SFX_VOLUME,
+    musicVolume: DEFAULT_MUSIC_VOLUME,
   },
 };
 
@@ -37,6 +45,19 @@ function pick(value, allowed, fallback) {
   return allowed.includes(value) ? value : fallback;
 }
 
+// 数值音量：合法数字夹到 0–100；缺失或非数字回退默认值。
+export function normalizeVolume(value, fallback) {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return fallback;
+    return Math.min(100, Math.max(0, Math.round(value)));
+  }
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return Math.min(100, Math.max(0, Math.round(parsed)));
+  }
+  return fallback;
+}
+
 export function normalizeSettings(raw) {
   const source = raw && typeof raw === 'object' ? raw : {};
   return {
@@ -48,6 +69,8 @@ export function normalizeSettings(raw) {
     shake: typeof source.shake === 'boolean' ? source.shake : DEFAULT_SETTINGS.shake,
     showFps: typeof source.showFps === 'boolean' ? source.showFps : DEFAULT_SETTINGS.showFps,
     music: typeof source.music === 'boolean' ? source.music : DEFAULT_SETTINGS.music,
+    sfxVolume: normalizeVolume(source.sfxVolume, DEFAULT_SFX_VOLUME),
+    musicVolume: normalizeVolume(source.musicVolume, DEFAULT_MUSIC_VOLUME),
   };
 }
 
@@ -81,7 +104,13 @@ export function loadSettings(storage = globalThis.localStorage) {
 }
 
 export function saveSettings(settings, storage = globalThis.localStorage) {
-  const normalized = normalizeSettings(settings);
+  const source = settings && typeof settings === 'object' ? settings : {};
+  const normalized = normalizeSettings(source);
+  // 画质面板只提交画质字段：没带的音量键沿用已存值，避免应用预设把音量重置。
+  const previous = loadSettings(storage);
+  for (const key of ['sfxVolume', 'musicVolume']) {
+    if (!Object.prototype.hasOwnProperty.call(source, key)) normalized[key] = previous[key];
+  }
   try {
     storage?.setItem?.(SETTINGS_KEY, JSON.stringify(normalized));
   } catch {

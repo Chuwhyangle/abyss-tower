@@ -223,6 +223,20 @@ export class InputController {
     if (sim.upgradeTower(tower)) {
       this.ui.showTowerPanel(tower);
       this.state.app.emitHud(true);
+      // 刚升到满级：立刻弹出二选一，避免玩家漏掉进化窗口。
+      if (sim.canEvolve(tower)) this.ui.showEvolutionModal(tower);
+    } else if (sim.canEvolve(tower)) {
+      // 已是满级但还没选分支：再次点升级/按 U 时重新打开进化面板。
+      this.ui.showEvolutionModal(tower);
+    }
+  }
+
+  evolveTower(tower, evolutionId) {
+    const sim = this.state.sim;
+    if (!sim) return;
+    if (sim.evolveTower(tower, evolutionId)) {
+      this.ui.showTowerPanel(tower);
+      this.state.app.emitHud(true);
     }
   }
 

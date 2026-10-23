@@ -5,7 +5,9 @@
 //   dailyRuns —— 已完成的每日挑战局数
 //   dailyWins —— 已通关的每日挑战局数
 //   unlocked  —— 当前已解锁成就 id 集合（用于成就猎人等组合成就）
-import { DIFFICULTY_ORDER, RELIC_MAX_LEVEL } from './data.js';
+//   skills    —— 技能养成状态（levels/unlocked/selected，服务端从 player_progress 读取）
+//   skillAbyssWins —— 携带主动技能通关深渊的次数
+import { DIFFICULTY_ORDER, RELIC_MAX_LEVEL, SKILLS, SKILL_ORDER } from './data.js';
 
 export const ACHIEVEMENT_GROUPS = [
   { id: 'clear', name: '通关' },
@@ -57,6 +59,12 @@ const maxRelicLevel = (ctx) => Math.max(0, ...relicLevels(ctx));
 const maxRelicCount = (ctx) =>
   relicLevels(ctx).filter((level) => level >= RELIC_MAX_LEVEL).length;
 const relicCount = (ctx) => (ctx.run?.relics || []).length;
+
+const MAX_SKILL_LEVEL = SKILLS.aurora.levels.length;
+const maxSkillLevel = (ctx) =>
+  Math.max(0, ...SKILL_ORDER.map((id) => Number(ctx.skills?.levels?.[id]) || 0));
+const unlockedSkillCount = (ctx) =>
+  SKILL_ORDER.filter((id) => !!ctx.skills?.unlocked?.[id]).length;
 
 // 带 target/progress 的成就自动由进度判定；其余成就自行提供 check。
 function define({ id, title, desc, condition, group, rarity, hidden = false, target, progress, check }) {
@@ -497,6 +505,75 @@ export const ACHIEVEMENTS = [
     rarity: 'epic',
     target: 30,
     progress: unlockedCount,
+  }),
+
+  // ── 技能（归入「构筑」分组：遗物与主动技能同属养成构筑） ──────────
+  define({
+    id: 'skill_select',
+    title: '技能初装',
+    desc: '首次装备一个主动技能。',
+    condition: '选择任意主动技能',
+    group: 'build',
+    rarity: 'common',
+    check: (ctx) => !!ctx.skills?.selected,
+  }),
+  define({
+    id: 'skill_unlock_meteor',
+    title: '星陨归来',
+    desc: '解锁主动技能「星陨·天火」。',
+    condition: '解锁星陨',
+    group: 'build',
+    rarity: 'rare',
+    check: (ctx) => !!ctx.skills?.unlocked?.meteor,
+  }),
+  define({
+    id: 'skill_unlock_chrono',
+    title: '时间的主人',
+    desc: '解锁主动技能「时之终章·星海回响」。',
+    condition: '解锁终章',
+    group: 'build',
+    rarity: 'rare',
+    check: (ctx) => !!ctx.skills?.unlocked?.chrono,
+  }),
+  define({
+    id: 'skill_all_unlocked',
+    title: '三式齐备',
+    desc: '解锁全部主动技能。',
+    condition: `解锁全部 ${SKILL_ORDER.length} 个主动技能`,
+    group: 'build',
+    rarity: 'epic',
+    target: SKILL_ORDER.length,
+    progress: unlockedSkillCount,
+  }),
+  define({
+    id: 'skill_level_5',
+    title: '渐入佳境',
+    desc: '把任意主动技能提升到 5 级。',
+    condition: '任意技能达到 5 级',
+    group: 'build',
+    rarity: 'common',
+    target: 5,
+    progress: maxSkillLevel,
+  }),
+  define({
+    id: 'skill_max',
+    title: '极尽升华',
+    desc: '把任意主动技能提升到满级。',
+    condition: `任意技能达到 ${MAX_SKILL_LEVEL} 级`,
+    group: 'build',
+    rarity: 'epic',
+    target: MAX_SKILL_LEVEL,
+    progress: maxSkillLevel,
+  }),
+  define({
+    id: 'skill_abyss_win',
+    title: '深渊演武',
+    desc: '携带主动技能通关深渊。',
+    condition: '带技能通关深渊 1 次',
+    group: 'build',
+    rarity: 'epic',
+    target: 1,
+    progress: (ctx) => Number(ctx.skillAbyssWins) || 0,
   }),
 ];
 

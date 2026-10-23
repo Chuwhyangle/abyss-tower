@@ -1,8 +1,25 @@
 // 纯 WebAudio 合成音效与程序化背景音乐，不依赖任何音频文件。
-import { loadSettings } from './settings.js';
+import {
+  DEFAULT_MUSIC_VOLUME,
+  DEFAULT_SFX_VOLUME,
+  loadSettings,
+  normalizeVolume,
+  saveSettings,
+} from './settings.js';
 
-// 音乐走独立增益节点，默认音量明显低于音效主增益（0.45）。
+// 混音总线：master ← sfx / music。各总线增益由 0–100 的音量设置换算。
+const MASTER_VOLUME = 0.45;
+// 音乐走独立增益节点，100% 时仍明显低于音效主增益（0.45）。
 const MUSIC_VOLUME = 0.1;
+// 环境音是低频氛围底噪，电平低于常规音效。
+const AMBIENT_VOLUME = 0.035;
+
+// 环境音跟着场景切换：大厅更空旷，战斗更低沉，Boss 最低。
+const AMBIENT_TRACKS = {
+  menu: { type: 'sine', freqs: [55, 82.5] },
+  battle: { type: 'triangle', freqs: [49, 73.42] },
+  boss: { type: 'sine', freqs: [41.2, 61.74] },
+};
 
 // 三套程序化氛围：menu / battle / boss。每套是一段和弦进行，由振荡器循环合成。
 const MUSIC_TRACKS = {
@@ -40,13 +57,21 @@ const MUSIC_TRACKS = {
 
 class AudioFX {
   constructor() {
+    const settings = loadSettings();
     this.enabled = localStorage.getItem('abyss-tower.sound') !== 'off';
-    this.musicEnabled = loadSettings().music !== false;
+    this.musicEnabled = settings.music !== false;
+    this.sfxVolume = normalizeVolume(settings.sfxVolume, DEFAULT_SFX_VOLUME);
+    this.musicVolume = normalizeVolume(settings.musicVolume, DEFAULT_MUSIC_VOLUME);
     this.ctx = null;
-    this.master = null;
+    this.masterGain = null;
+    this.sfxGain = null;
     this.musicGain = null;
+    this.ambientGain = null;
     this.mood = null;
     this.musicWanted = false;
+    this.ambientMood = null;
+    this.ambientWanted = false;
+    this._ambientNodes = null;
     this._musicTimer = null;
     this._musicStep = 0;
     this._onVisibility = () => this.handleVisibility();
@@ -55,19 +80,38 @@ class AudioFX {
 
   ensure() {
     if (!this.ctx) {
-      // 音效和音乐都关闭时不必创建上下文。
-      if (!this.enabled && !this.musicEnabled && !this.musicWanted) return null;
+      // 音效、音乐、环境音都关闭时不必创建上下文。
+      if (!this.enabled && !this.musicEnabled && !this.musicWanted && !this.ambientWanted) return null;
       const AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       this.ctx = new AC();
-      this.master = this.ctx.createGain();
-      this.master.gain.value = 0.45;
-      this.master.connect(this.ctx.destination);
+      this.masterGain = this.ctx.createGain();
+      this.masterGain.gain.value = MASTER_VOLUME;
+      this.masterGain.connect(this.ctx.destination);
+
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = this.sfxLevel();
+      this.sfxGain.connect(this.masterGain);
+
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = 0.0001;
+      this.musicGain.connect(this.masterGain);
+
+      // 环境音属于音效层，挂在 sfx 总线之后，音效静音时一并静音。
+      this.ambientGain = this.ctx.createGain();
+      this.ambientGain.gain.value = 0.0001;
+      this.ambientGain.connect(this.sfxGain);
     }
     if (this.ctx.state === 'suspended') {
-      this.ctx.resume().then(() => this.maybeBeginMusic()).catch(() => {});
+      this.ctx.resume()
+        .then(() => {
+          this.maybeBeginMusic();
+          this.maybeBeginAmbient();
+        })
+        .catch(() => {});
     } else {
       this.maybeBeginMusic();
+      this.maybeBeginAmbient();
     }
     return this.ctx;
   }
@@ -75,7 +119,49 @@ class AudioFX {
   setEnabled(value) {
     this.enabled = value;
     localStorage.setItem('abyss-tower.sound', value ? 'on' : 'off');
-    if (value) this.ensure();
+    if (value) {
+      this.ensure();
+      this.maybeBeginAmbient();
+    } else {
+      this.pauseAmbient();
+    }
+  }
+
+  // ---------- 音量总线 ----------
+
+  sfxLevel() {
+    return this.sfxVolume / 100;
+  }
+
+  musicLevel() {
+    return MUSIC_VOLUME * (this.musicVolume / 100);
+  }
+
+  // 音量设置写回 settings.js 的存储；画质设置与其他字段保持不变。
+  persistVolumes() {
+    saveSettings({ ...loadSettings(), sfxVolume: this.sfxVolume, musicVolume: this.musicVolume });
+  }
+
+  setSfxVolume(value) {
+    this.sfxVolume = normalizeVolume(value, this.sfxVolume);
+    if (this.sfxGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.sfxGain.gain.cancelScheduledValues(now);
+      this.sfxGain.gain.setTargetAtTime(this.sfxLevel(), now, 0.03);
+    }
+    this.persistVolumes();
+    return this.sfxVolume;
+  }
+
+  setMusicVolume(value) {
+    this.musicVolume = normalizeVolume(value, this.musicVolume);
+    if (this.musicGain && this.ctx && this.musicWanted && this.musicEnabled) {
+      const now = this.ctx.currentTime;
+      this.musicGain.gain.cancelScheduledValues(now);
+      this.musicGain.gain.setTargetAtTime(this.musicLevel(), now, 0.12);
+    }
+    this.persistVolumes();
+    return this.musicVolume;
   }
 
   // ---------- 背景音乐 ----------
@@ -93,6 +179,8 @@ class AudioFX {
   startMusic(mood = 'menu') {
     const next = MUSIC_TRACKS[mood] ? mood : 'menu';
     this.musicWanted = true;
+    // 环境音跟随场景，与音乐共用同一套 menu/battle/boss 氛围切换点。
+    this.startAmbient(next);
     if (this.mood === next) {
       // 同一氛围重复请求（HUD 每帧刷新）不重排，等首次用户手势再启动。
       if (this.ctx && !this._musicTimer) this.maybeBeginMusic();
@@ -109,20 +197,16 @@ class AudioFX {
     this.musicWanted = false;
     this.mood = null;
     this.pauseMusicLoop();
+    this.stopAmbient();
   }
 
   // 浏览器要求首次用户手势后才能出声：上下文未 running 时只排队，不调度音符。
   maybeBeginMusic() {
-    if (!this.musicEnabled || !this.musicWanted || !this.ctx || !this.master) return;
+    if (!this.musicEnabled || !this.musicWanted || !this.ctx || !this.masterGain || !this.musicGain) return;
     if (this.ctx.state !== 'running') return;
-    if (!this.musicGain) {
-      this.musicGain = this.ctx.createGain();
-      this.musicGain.gain.value = 0.0001;
-      this.musicGain.connect(this.master);
-    }
     const now = this.ctx.currentTime;
     this.musicGain.gain.cancelScheduledValues(now);
-    this.musicGain.gain.setTargetAtTime(MUSIC_VOLUME, now, 0.25);
+    this.musicGain.gain.setTargetAtTime(this.musicLevel(), now, 0.25);
     if (!this._musicTimer) this.scheduleMusicStep();
   }
 
@@ -170,14 +254,96 @@ class AudioFX {
     osc.stop(when + duration);
   }
 
-  // 页面切到后台时暂停音乐与音频上下文，回到前台再续播。
+  // ---------- 环境音 ----------
+
+  startAmbient(mood = 'menu') {
+    const next = AMBIENT_TRACKS[mood] ? mood : 'menu';
+    this.ambientWanted = true;
+    if (this.ambientMood === next) {
+      if (this.ctx && !this._ambientNodes) this.maybeBeginAmbient();
+      return;
+    }
+    this.pauseAmbient();
+    this.ambientMood = next;
+    const ctx = this.ensure();
+    if (ctx) this.maybeBeginAmbient();
+  }
+
+  stopAmbient() {
+    this.ambientWanted = false;
+    this.ambientMood = null;
+    this.pauseAmbient();
+  }
+
+  maybeBeginAmbient() {
+    if (!this.enabled || !this.ambientWanted || !this.ctx || !this.ambientGain) return;
+    if (this.ctx.state !== 'running') return;
+    if (!this._ambientNodes) this.buildAmbientNodes();
+    const now = this.ctx.currentTime;
+    this.ambientGain.gain.cancelScheduledValues(now);
+    this.ambientGain.gain.setTargetAtTime(AMBIENT_VOLUME, now, 0.6);
+  }
+
+  // 两个低频振荡器 + 极慢的颤音，形成没有旋律的氛围底噪。
+  buildAmbientNodes() {
+    const track = AMBIENT_TRACKS[this.ambientMood] || AMBIENT_TRACKS.menu;
+    const nodes = [];
+    track.freqs.forEach((freq, index) => {
+      const osc = this.ctx.createOscillator();
+      osc.type = track.type;
+      osc.frequency.value = freq;
+      const trem = this.ctx.createGain();
+      trem.gain.value = 0.5 / track.freqs.length;
+      const lfo = this.ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.08 + index * 0.03;
+      const lfoDepth = this.ctx.createGain();
+      lfoDepth.gain.value = 0.25 / track.freqs.length;
+      lfo.connect(lfoDepth).connect(trem.gain);
+      osc.connect(trem).connect(this.ambientGain);
+      osc.start();
+      lfo.start();
+      nodes.push(osc, lfo);
+    });
+    this._ambientNodes = nodes;
+  }
+
+  pauseAmbient() {
+    this.stopAmbientNodes();
+    if (this.ambientGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.ambientGain.gain.cancelScheduledValues(now);
+      this.ambientGain.gain.setTargetAtTime(0.0001, now, 0.2);
+    }
+  }
+
+  stopAmbientNodes() {
+    if (!this._ambientNodes) return;
+    for (const node of this._ambientNodes) {
+      try {
+        node.stop();
+        node.disconnect();
+      } catch {
+        /* 节点可能已停止 */
+      }
+    }
+    this._ambientNodes = null;
+  }
+
+  // 页面切到后台时暂停音乐与环境音并挂起上下文，回到前台再续播。
   handleVisibility() {
     if (!this.ctx) return;
     if (document.hidden) {
       this.pauseMusicLoop();
+      this.pauseAmbient();
       this.ctx.suspend().catch(() => {});
-    } else if (this.musicWanted && this.musicEnabled) {
-      this.ctx.resume().then(() => this.maybeBeginMusic()).catch(() => {});
+    } else {
+      this.ctx.resume()
+        .then(() => {
+          this.maybeBeginMusic();
+          this.maybeBeginAmbient();
+        })
+        .catch(() => {});
     }
   }
 
@@ -288,6 +454,25 @@ class AudioFX {
         this.tone(660, 0.12, 'triangle', 0.035, 120, t);
         this.tone(990, 0.16, 'triangle', 0.03, 140, t + 0.1);
         break;
+      case 'skill_aurora':
+        // 极光：高音冰晶上行 + 细碎高频噪声，清冷通透。
+        this.tone(1320, 0.18, 'triangle', 0.03, 480, t);
+        this.tone(1760, 0.26, 'sine', 0.024, 320, t + 0.06);
+        this.noise(0.3, 0.02, 3200, t);
+        break;
+      case 'skill_meteor':
+        // 陨石：低频下坠 + 两段冲击噪声，沉重。
+        this.tone(190, 0.3, 'sawtooth', 0.06, -140, t);
+        this.tone(92, 0.42, 'sine', 0.05, -40, t + 0.04);
+        this.noise(0.34, 0.06, 800, t);
+        this.noise(0.22, 0.04, 240, t + 0.12);
+        break;
+      case 'skill_chrono':
+        // 时停：三连上行琶音后拉长泛音，制造时间凝滞感。
+        this.tone(330, 0.12, 'triangle', 0.03, 0, t);
+        this.tone(440, 0.12, 'triangle', 0.028, 0, t + 0.09);
+        this.tone(660, 0.5, 'sine', 0.03, 60, t + 0.18);
+        break;
       case 'click':
         this.tone(720, 0.04, 'square', 0.02, 0, t);
         break;
@@ -309,7 +494,7 @@ class AudioFX {
     env.gain.setValueAtTime(0.0001, when);
     env.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), when + 0.008);
     env.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    osc.connect(env).connect(this.master);
+    osc.connect(env).connect(this.sfxGain);
     osc.start(when);
     osc.stop(when + duration + 0.02);
   }
@@ -329,7 +514,7 @@ class AudioFX {
     const env = ctx.createGain();
     env.gain.setValueAtTime(gain, when);
     env.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    source.connect(filter).connect(env).connect(this.master);
+    source.connect(filter).connect(env).connect(this.sfxGain);
     source.start(when);
     source.stop(when + duration + 0.02);
   }

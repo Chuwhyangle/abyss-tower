@@ -1,10 +1,12 @@
-// 投射物渲染预算：分桶批量绘制、贴图缓存、低配拖尾降级与每帧零临时对象。
+// 渲染预算：投射物分桶批量绘制/贴图缓存/低配降级/零临时对象，以及技能特效的粒子预算。
 // 断言的是渲染层自身的预算函数与绘制次数，不改变模拟、伤害或随机数。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
+import { skillStats } from '../public/js/shared/data.js';
 import { GlowRenderer } from '../public/js/render/glow-renderer.js';
+import { SkillRenderer } from '../public/js/render/skill-renderer.js';
 import {
   PROJECTILE_ART,
   PROJECTILE_KINDS,
@@ -21,6 +23,46 @@ const SRC = fs.readFileSync(
   new URL('../public/js/render/projectile-renderer.js', import.meta.url),
   'utf8'
 );
+const SKILL_SRC = fs.readFileSync(
+  new URL('../public/js/render/skill-renderer.js', import.meta.url),
+  'utf8'
+);
+
+// 技能渲染在 Node 下不碰 document（纹理预烘焙在无 DOM 时跳过），可直接实例化。
+function makeSkillGame(overrides = {}) {
+  return {
+    seed: 'budget:1',
+    time: 0,
+    skill: null,
+    skillFx: [],
+    stasis: null,
+    map: { cols: 20, rows: 12, base: { x: 10, y: 6 } },
+    enemies: [],
+    towers: [],
+    ...overrides,
+  };
+}
+
+function makeSkill(settings) {
+  return new SkillRenderer(makeSkillGame(), { settings });
+}
+
+// 宽松 Canvas 2D 替身：任何未显式定义的方法都是空操作，属性可读写。
+function makeAnyCtx() {
+  const calls = { drawImage: 0, fill: 0, stroke: 0, fillRect: 0, arc: 0 };
+  const overrides = {};
+  for (const key of Object.keys(calls)) overrides[key] = () => { calls[key]++; };
+  return new Proxy(calls, {
+    get(target, prop) {
+      if (prop in overrides) return overrides[prop];
+      return () => {};
+    },
+    set(target, prop, value) {
+      target[prop] = value;
+      return true;
+    },
+  });
+}
 
 function makeCtx() {
   const calls = { save: 0, restore: 0, translate: 0, rotate: 0, drawImage: 0 };
@@ -246,4 +288,116 @@ test('源码级：渲染层只读模拟状态，不碰 DOM 与随机数', () => 
   assert.match(SRC, /PROJECTILE_PROFILES/);
   assert.match(SRC, /this\._buckets/);
   assert.match(SRC, /drawImage/);
+});
+
+test('技能渲染：画质档位对应粒子上限，低配不超过高配', () => {
+  const minimal = makeSkill({ decorations: 'off' });
+  const standard = makeSkill({ decorations: 'light' });
+  const full = makeSkill({ decorations: 'full' });
+
+  assert.equal(minimal.quality, 'minimal');
+  assert.equal(standard.quality, 'standard');
+  assert.equal(full.quality, 'full');
+  assert.equal(minimal.cap, 48, 'minimal 粒子上限');
+  assert.equal(standard.cap, 120, 'standard 粒子上限');
+  assert.equal(full.cap, 180, 'full 粒子上限');
+  assert.ok(minimal.cap < standard.cap && standard.cap < full.cap);
+
+  // 降档立即裁剪已存在的粒子，不允许保留高配规模。
+  const downgraded = makeSkill({ decorations: 'full' });
+  for (let i = 0; i < downgraded.cap; i++) downgraded._spawn('ember', 1, 1, { ttl: 5 });
+  assert.equal(downgraded.particles.length, 180);
+  downgraded.configure({ settings: { decorations: 'light' } });
+  assert.equal(downgraded.quality, 'standard');
+  assert.equal(downgraded.particles.length, downgraded.cap, '降档后裁剪到新上限');
+
+  // 升档不补造粒子。
+  downgraded.configure({ settings: { decorations: 'full' } });
+  assert.equal(downgraded.particles.length, 120);
+});
+
+test('技能特效：事件粒子数按画质分档，minimal 不生成装饰粒子', () => {
+  const expected = {
+    full: { aurora: 9, meteor: 10, chrono: 7 },
+    light: { aurora: 5, meteor: 6, chrono: 4 },
+    off: { aurora: 0, meteor: 0, chrono: 0 },
+  };
+  const events = {
+    aurora: { kind: 'shatter', x: 2, y: 2 },
+    meteor: { kind: 'meteor', x: 3, y: 3 },
+    chrono: { kind: 'chronoNova', x: 4, y: 4 },
+  };
+  for (const [decorations, counts] of Object.entries(expected)) {
+    for (const [id, count] of Object.entries(counts)) {
+      const renderer = makeSkill({ decorations });
+      renderer._spawnFromEvent(id, events[id]);
+      assert.equal(renderer.particles.length, count, `${decorations}/${id} 事件粒子数`);
+      assert.ok(renderer.particles.length <= renderer.cap);
+    }
+  }
+});
+
+test('技能粒子：达到上限后不再生成，连续事件不会突破预算', () => {
+  const renderer = makeSkill({ decorations: 'full' });
+  for (let i = 0; i < renderer.cap - 2; i++) renderer._spawn('shard', 1, 1, { ttl: 5 });
+  assert.equal(renderer.particles.length, renderer.cap - 2);
+
+  renderer._spawnFromEvent('meteor', { kind: 'meteor', x: 3, y: 3 });
+  assert.equal(renderer.particles.length, renderer.cap, '只补到上限');
+  for (let i = 0; i < 5; i++) renderer._spawnFromEvent('meteor', { kind: 'meteor', x: 3, y: 3 });
+  assert.equal(renderer.particles.length, renderer.cap, '满额后不再生成');
+  assert.equal(renderer._spawn('ember', 1, 1, { ttl: 1 }), null, '超预算时 _spawn 返回 null');
+});
+
+test('技能粒子：对象池跨帧复用，粒子数不无限增长', () => {
+  const renderer = makeSkill({ decorations: 'full' });
+  for (let i = 0; i < 20; i++) renderer._spawn('ember', 1, 1, { ttl: 0.1 });
+  const spawned = renderer.particles.slice();
+  assert.equal(spawned.length, 20);
+
+  renderer._updateParticles(0.2);
+  assert.equal(renderer.particles.length, 0, '过期粒子全部移除');
+  assert.ok(renderer._pool.length >= 20, '过期粒子回收进池');
+
+  const reused = renderer._spawn('ember', 2, 2, { ttl: 1 });
+  assert.ok(spawned.includes(reused), '复用已回收的粒子对象');
+  assert.ok(renderer._pool.length < 20);
+  assert.ok(renderer.particles.length <= renderer.cap);
+});
+
+test('技能渲染：只读模拟状态，不修改敌人与塔列表', () => {
+  const enemy = { id: 1, x: 2, y: 3, r: 0.3, dead: false, hp: 10, freezeUntil: 0 };
+  const tower = { id: 1, x: 3, y: 3, skillOverdriveUntil: 10 };
+  const game = makeSkillGame({
+    time: 1,
+    skill: { id: 'chrono', level: 7, stats: skillStats('chrono', 7), cooldown: 0 },
+    stasis: { until: 10, baseUntil: 10, bonus: 0 },
+    enemies: [enemy],
+    towers: [tower],
+  });
+  const renderer = new SkillRenderer(game, { settings: { decorations: 'full' } });
+  const ctx = makeAnyCtx();
+
+  renderer.renderL2(ctx, 1, { decorations: 'full' });
+
+  assert.equal(game.enemies.length, 1, '敌人列表长度不变');
+  assert.equal(game.enemies[0], enemy, '敌人对象引用不变');
+  assert.equal(game.towers.length, 1, '塔列表长度不变');
+  assert.equal(game.towers[0], tower, '塔对象引用不变');
+  assert.equal(game.skill.id, 'chrono');
+  assert.ok(renderer.particles.length <= renderer.cap, '氛围粒子不突破上限');
+});
+
+test('技能渲染源码：不依赖模拟模块，不使用滤镜/像素回读', () => {
+  assert.doesNotMatch(SKILL_SRC, /from\s+'\.\.\/sim\.js'/, '不得依赖模拟模块');
+  assert.doesNotMatch(
+    SKILL_SRC,
+    /(?:g|ctx)\.shadowBlur\s*=|(?:g|ctx)\.filter\s*=|getImageData\s*\(/,
+    '不使用高成本滤镜与像素回读'
+  );
+  assert.doesNotMatch(SKILL_SRC, /enemies\.(push|splice|pop|shift|sort)\s*\(/, '不得修改敌人列表');
+  assert.doesNotMatch(SKILL_SRC, /towers\.(push|splice|pop|shift|sort)\s*\(/, '不得修改塔列表');
+  assert.match(SKILL_SRC, /QUALITY_CAPS/, '粒子上限必须显式声明');
+  assert.match(SKILL_SRC, /this\._pool/, '粒子对象池');
+  assert.match(SKILL_SRC, /drawImage/, '预烘焙纹理走 drawImage');
 });

@@ -1,11 +1,16 @@
 // 排行榜接口：分页、难度筛选与当前账号排名。
 import { AUTH_ENABLED } from '../config.mjs';
 import { DIFFICULTIES } from '../../public/js/shared/data.js';
+import { dayKey } from '../../public/js/shared/scoring.js';
 import {
   MAX_BOARD_PAGE_SIZE,
   accountBoardSummary,
   countBoard,
+  isSeasonKey,
   listBoard,
+  listSeasons,
+  seasonBounds,
+  seasonOf,
 } from '../db/leaderboard.mjs';
 import { today } from './support.mjs';
 
@@ -31,17 +36,28 @@ export class LeaderboardRoutes {
       const includeUnclaimed = !AUTH_ENABLED;
       const offset = (page - 1) * size;
 
+      // 赛季默认当前自然月；非法参数回退当前赛季，不报错。
+      const currentSeason = seasonOf();
+      const requestedSeason = params.get('season');
+      const season = isSeasonKey(requestedSeason) ? requestedSeason : currentSeason;
+      const bounds = seasonBounds(season);
+      const seasonList = new Set(listSeasons());
+      seasonList.add(currentSeason);
+      seasonList.add(season);
+
       const entries = listBoard(mode, day, {
         includeUnclaimed,
         limit: size,
         offset,
         difficulty,
         accountId: ctx.token,
+        season,
       });
-      const total = countBoard(mode, day, { includeUnclaimed, difficulty });
+      const total = countBoard(mode, day, { includeUnclaimed, difficulty, season });
       const me = accountBoardSummary(ctx.token, mode, day, {
         includeUnclaimed,
         difficulty,
+        season,
       });
 
       return ctx.json(200, {
@@ -54,6 +70,10 @@ export class LeaderboardRoutes {
         totalPages: Math.max(1, Math.ceil(total / size)),
         entries,
         me,
+        season,
+        seasons: [...seasonList].sort().reverse(),
+        seasonStart: dayKey(new Date(bounds.start)),
+        seasonEnd: dayKey(new Date(bounds.end - 1)),
       });
     });
   }

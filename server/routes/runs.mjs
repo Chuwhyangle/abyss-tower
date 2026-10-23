@@ -1,4 +1,5 @@
 // 远征接口：只做身份读取、参数解析、调用领域服务与响应序列化。
+import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-limit.mjs';
 import { RunError, RunService } from '../services/run-service.mjs';
 
 const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|relics|relic|finish|abandon))?$/;
@@ -15,17 +16,29 @@ export class RunRoutes {
   }
 
   async create(ctx) {
+    const limit = actionRateLimited('run-create', {
+      accountId: ctx.token,
+      ipHash: hashIp(ctx.req),
+    });
+    if (limit.limited) {
+      ctx.res.setHeader('Retry-After', String(limit.retryAfterSeconds));
+      return ctx.fail(429, '操作过于频繁，请稍后再试', 'RATE_LIMITED');
+    }
+
     const body = await ctx.readJson();
     // 仅隔离测试服务允许固定种子，便于性能/平衡复现；生产环境默认关闭。
     const testSeed =
       process.env.ALLOW_TEST_SEED === '1'
         ? String(ctx.req.headers['x-test-seed'] || '').slice(0, 64)
         : '';
-    return this.respond(ctx, () =>
-      ctx.json(
-        200,
-        this.service.create({ token: ctx.token, profile: ctx.profile, body, testSeed })
-      )
+    return this.respond(
+      ctx,
+      () =>
+        ctx.json(
+          200,
+          this.service.create({ token: ctx.token, profile: ctx.profile, body, testSeed })
+        ),
+      'run-create'
     );
   }
 
@@ -100,11 +113,20 @@ export class RunRoutes {
     return this.respond(ctx, () => ctx.json(200, this.service.abandon(run)));
   }
 
-  respond(ctx, action) {
+  respond(ctx, action, failureAction = null) {
     try {
       return action();
     } catch (error) {
-      if (error instanceof RunError) return ctx.fail(error.status, error.message, error.code);
+      if (error instanceof RunError) {
+        if (failureAction) {
+          recordRateLimitFailure(failureAction, {
+            accountId: ctx.token,
+            ipHash: hashIp(ctx.req),
+            userAgent: ctx.req.headers['user-agent'] || null,
+          });
+        }
+        return ctx.fail(error.status, error.message, error.code);
+      }
       throw error;
     }
   }

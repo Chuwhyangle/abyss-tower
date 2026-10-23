@@ -58,6 +58,8 @@ export class Simulation {
     this.startedAt = opts.startedAt || Date.now();
 
     this.enemies = [];
+    // 分裂敌人的子怪延后到本帧战斗结算完再生成，避免死亡瞬间被同一发溅射重复命中。
+    this.pendingSplits = [];
     this.towers = [];
     this.projectiles = [];
     this.effects = [];
@@ -115,7 +117,9 @@ export class Simulation {
     }
 
     for (const tower of opts.towers || []) {
-      this.towers.push(this.makeTower(tower.type, tower.c, tower.r, tower.level, tower.invested));
+      this.towers.push(
+        this.makeTower(tower.type, tower.c, tower.r, tower.level, tower.invested, tower.evolution)
+      );
     }
     this.recomputeTowerStats();
 
@@ -295,6 +299,13 @@ export class Simulation {
       heal: base.heal || 0,
       healRange: base.healRange || 0,
       healTimer: 0,
+      // 机制型敌人：护盾优先吸收伤害，分裂死亡生成子怪，光环加速友军，远程攻击塔/基地。
+      shield: base.shield || 0,
+      maxShield: base.shield || 0,
+      splits: base.splits || null,
+      aura: base.aura || null,
+      ranged: base.ranged || null,
+      rangedTimer: 0,
       lane,
       progress,
       x: pos.x,
@@ -403,6 +414,8 @@ export class Simulation {
 
   updateEnemies(dt) {
     const now = this.time;
+    // 光环与加速都只读上一帧位置，先取快照，避免遍历顺序影响结果。
+    const auraSources = this.enemies.filter((enemy) => !enemy.dead && enemy.aura);
     // 时之终章：敌人移动、治疗、中毒/灼烧计时与首领计时全部暂停。
     const stasisActive = this.isStasisActive();
     for (const enemy of this.enemies) {
@@ -414,8 +427,9 @@ export class Simulation {
       const slowed = now < enemy.slowUntil;
       if (!slowed && enemy.slowAmt) enemy.slowAmt = 0;
       const buff = now < (enemy.speedBuffUntil || 0) ? enemy.speedBuff || 0 : 0;
+      const auraBuff = this.auraBuffFor(enemy, auraSources);
       const frozen = now < (enemy.freezeUntil || 0);
-      let speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0)) * (1 + buff);
+      let speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0)) * (1 + buff) * (1 + auraBuff);
       // 冻结只停移动，不打断首领蓄力；时停则连首领计时一起暂停。
       if (frozen || stasisActive) speed = 0;
       if (!stasisActive) {
@@ -452,7 +466,63 @@ export class Simulation {
         }
       }
 
+      // 远程敌人：冻结/时停期间无法开火。
+      if (!stasisActive && !frozen && !enemy.dead) this.updateRanged(enemy, dt, now);
+
       if (enemy.progress >= (this.lanes[enemy.lane] || this.lanes[0]).len) this.leak(enemy);
+    }
+  }
+
+  // 同一敌人在多个光环内取最高加成，不叠加，避免后期数值失控。
+  auraBuffFor(enemy, sources) {
+    let buff = 0;
+    for (const source of sources) {
+      if (source === enemy || source.dead) continue;
+      const dx = source.x - enemy.x;
+      const dy = source.y - enemy.y;
+      if (dx * dx + dy * dy > source.aura.range * source.aura.range) continue;
+      buff = Math.max(buff, source.aura.speed);
+    }
+    return buff;
+  }
+
+  // 远程敌人优先轰击射程内最近的塔；没有塔时，逼近路径终点的远程敌人直接轰击基地。
+  updateRanged(enemy, dt, now) {
+    const spec = enemy.ranged;
+    if (!spec) return;
+    enemy.rangedTimer = Math.max(0, enemy.rangedTimer - dt);
+    if (enemy.rangedTimer > 0) return;
+
+    let target = null;
+    let best = Infinity;
+    for (const tower of this.towers) {
+      if (now < (tower.disabledUntil || 0)) continue;
+      const d = Math.hypot(tower.x - enemy.x, tower.y - enemy.y);
+      if (d <= spec.range && d < best) {
+        best = d;
+        target = tower;
+      }
+    }
+    if (target) {
+      target.disabledUntil = now + spec.disable;
+      this.addEffect({
+        kind: 'bolt',
+        points: [{ x: enemy.x, y: enemy.y }, { x: target.x, y: target.y }],
+        ttl: 0.18,
+        color: '#b5c94a',
+      });
+      this.addEffect({ kind: 'towerDisable', x: target.x, y: target.y, ttl: spec.disable, color: '#b5c94a' });
+      enemy.rangedTimer = spec.interval;
+      return;
+    }
+
+    const lane = this.lanes[enemy.lane] || this.lanes[0];
+    if (spec.dmg > 0 && enemy.progress >= lane.len - (spec.baseRange || 1.5)) {
+      this.baseHp -= spec.dmg;
+      this.addEffect({ kind: 'leak', x: this.map.base.x, y: this.map.base.y, ttl: 0.4 });
+      this.addFloater(this.map.base.x, this.map.base.y - 0.4, `-${spec.dmg}`, '#ff6b6b', true, { key: true });
+      this.playSound('hurt');
+      enemy.rangedTimer = spec.interval;
     }
   }
 
@@ -843,6 +913,12 @@ export class Simulation {
     if (this.time < (enemy.skillVulnUntil || 0) && enemy.skillVuln > 0) {
       final *= 1 + enemy.skillVuln;
     }
+    // 护盾先于本体吸收伤害；本体在盾破前不掉血。
+    if (enemy.shield > 0) {
+      const absorbed = Math.min(enemy.shield, final);
+      enemy.shield -= absorbed;
+      final -= absorbed;
+    }
     enemy.hp -= final;
     if (!opts.dot) enemy.hitFlash = 1;
 
@@ -862,6 +938,16 @@ export class Simulation {
   killEnemy(enemy) {
     if (enemy.dead) return;
     enemy.dead = true;
+    if (enemy.splits) {
+      const count = Math.max(1, Math.floor(enemy.splits.count || 1));
+      for (let i = 0; i < count; i++) {
+        this.pendingSplits.push({
+          type: enemy.splits.type,
+          lane: enemy.lane,
+          progress: Math.max(0, enemy.progress - i * 0.12),
+        });
+      }
+    }
     const multiplier =
       (1 + (this.mods.goldMul || 0)) *
       (1 + this.wave * BALANCE.killGoldWaveRate) *
@@ -888,7 +974,16 @@ export class Simulation {
     this.onSkillKill(enemy);
   }
 
+  // 本帧所有伤害结算完成后再生成分裂子怪：顺序固定，同种子结果一致。
+  flushSplits() {
+    if (!this.pendingSplits.length) return;
+    const pending = this.pendingSplits;
+    this.pendingSplits = [];
+    for (const item of pending) this.spawnEnemy(item.type, item.lane, null, item.progress);
+  }
+
   cleanup() {
+    this.flushSplits();
     if (this.enemies.some((e) => e.dead)) this.enemies = this.enemies.filter((e) => !e.dead);
     if (this.effects.length > 320) this.effects.splice(0, this.effects.length - 320);
     if (this.floaters.length > 90) this.floaters.splice(0, this.floaters.length - 90);
@@ -918,7 +1013,7 @@ export class Simulation {
 
   // ---------- 建造 ----------
 
-  makeTower(type, c, r, level = 0, invested = 0) {
+  makeTower(type, c, r, level = 0, invested = 0, evolution = null) {
     return {
       id: this.nextId++,
       type,
@@ -928,6 +1023,8 @@ export class Simulation {
       y: r + 0.5,
       level,
       invested,
+      // 满级二选一的分支 id；旧存档没有该字段时按未进化处理。
+      evolution: evolution || null,
       cd: 0,
       angle: TOWERS[type]?.support ? 0 : -Math.PI / 2,
       target: null,
@@ -1002,6 +1099,44 @@ export class Simulation {
     tower.invested += cost;
     this.recomputeTowerStats();
     this.addEffect({ kind: 'place', x: tower.x, y: tower.y, ttl: 0.5, color: '#ffd36b' });
+    this.playSound('upgrade');
+    this.save();
+    return true;
+  }
+
+  // ---------- 分支进化 ----------
+
+  towerEvolution(tower) {
+    const def = TOWERS[tower.type];
+    if (!tower.evolution || !def?.evolutions) return null;
+    return def.evolutions.find((entry) => entry.id === tower.evolution) || null;
+  }
+
+  // 满级且尚未选择分支时才可进化；进化不消耗 RNG，也不改变基础塔数值。
+  canEvolve(tower) {
+    const def = TOWERS[tower.type];
+    if (!def?.evolutions?.length || tower.evolution) return false;
+    return tower.level >= def.levels.length - 1;
+  }
+
+  evolutionOptions(tower) {
+    return this.canEvolve(tower) ? TOWERS[tower.type].evolutions : [];
+  }
+
+  evolveTower(tower, evolutionId) {
+    if (!tower || !this.towers.includes(tower) || !this.canEvolve(tower)) return false;
+    const def = TOWERS[tower.type];
+    const evolution = def.evolutions.find((entry) => entry.id === evolutionId);
+    if (!evolution) return false;
+    tower.evolution = evolution.id;
+    this.recomputeTowerStats();
+    this.addEffect({
+      kind: 'evolve',
+      x: tower.x,
+      y: tower.y,
+      ttl: 0.9,
+      color: evolution.color || def.color,
+    });
     this.playSound('upgrade');
     this.save();
     return true;
@@ -1107,26 +1242,29 @@ export class Simulation {
     const level = def.levels[Math.min(tower.level, def.levels.length - 1)];
     const mods = this.mods;
     const dmg = effectValue(mods, 'dmg');
-    let rate = level.rate * (1 + effectValue(mods, 'fireRate'));
-    let range = level.range + effectValue(mods, 'range');
+    // 进化分支只是纯数据系数，这里统一应用；未进化时全部为 1。
+    const evolution = this.towerEvolution(tower);
+    const evoMul = (key) => evolution?.mods?.[key] ?? 1;
+    let rate = level.rate * evoMul('rate') * (1 + effectValue(mods, 'fireRate'));
+    let range = level.range * evoMul('range') + effectValue(mods, 'range');
     // 时之终章的过载窗口：攻速/射程只在窗口内生效，结束即刷新缓存。
     if (this.time < (tower.skillOverdriveUntil || 0)) {
       rate *= 1 + (tower.skillOverdriveAtk || 0);
       range += tower.skillOverdriveRange || 0;
     }
     return {
-      dmg: level.dmg * (1 + (dmg[tower.type] || 0) + effectValue(mods, 'dmgAll')),
+      dmg: level.dmg * evoMul('dmg') * (1 + (dmg[tower.type] || 0) + effectValue(mods, 'dmgAll')),
       rate,
       range: range * (this.modifier?.rangeMul || 1),
-      splash: (level.splash || 0) * (1 + effectValue(mods, 'splash')),
-      slow: level.slow || 0,
-      slowDur: level.slowDur || 0,
-      chain: (level.chain || 0) + effectValue(mods, 'chain'),
-      dot: level.dot || 0,
-      dotDur: level.dotDur || 0,
-      knockback: level.knockback || 0,
-      buffDmg: level.buffDmg || 0,
-      buffRate: level.buffRate || 0,
+      splash: (level.splash || 0) * evoMul('splash') * (1 + effectValue(mods, 'splash')),
+      slow: (level.slow || 0) * evoMul('slow'),
+      slowDur: (level.slowDur || 0) * evoMul('slowDur'),
+      chain: Math.round((level.chain || 0) * evoMul('chain')) + effectValue(mods, 'chain'),
+      dot: (level.dot || 0) * evoMul('dot'),
+      dotDur: (level.dotDur || 0) * evoMul('dotDur'),
+      knockback: (level.knockback || 0) * evoMul('knockback'),
+      buffDmg: (level.buffDmg || 0) * evoMul('buffDmg'),
+      buffRate: (level.buffRate || 0) * evoMul('buffRate'),
       support: !!def.support,
       maxLevel: def.levels.length,
     };

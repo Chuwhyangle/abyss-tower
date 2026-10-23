@@ -56,6 +56,12 @@ export function t(key, params = {}) {
   return template == null ? key : interpolate(template, params);
 }
 
+// 按 key 取译文并插值；缺译文时回退调用方提供的原值，避免界面出现裸 key。
+export function tOr(key, fallback, params = {}) {
+  const template = dictionaryFor(currentLocale)[key] ?? DICTIONARIES[DEFAULT_LOCALE][key];
+  return template == null ? fallback : interpolate(template, params);
+}
+
 // 数据表里的专有名词（难度/塔/敌人等）按 id 取译名，缺译名回退数据自带名称。
 export function tData(group, id, field, fallback) {
   const key = `data.${group}.${id}.${field}`;

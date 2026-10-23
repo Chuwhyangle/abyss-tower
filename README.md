@@ -3,6 +3,7 @@
 单人肉鸽塔防网页游戏。固定 30 波通关，三档难度，每波结束三选一遗物，星核永久解锁。
 前后端同仓库：浏览器负责实时战斗渲染，Node 服务端负责地图/波次/遗物生成、存档与排行榜。
 
+- 玩家手册：[docs/GUIDE.md](docs/GUIDE.md)
 - 需求文档：[docs/PRD.md](docs/PRD.md)
 - 技术设计：[docs/TECH_DESIGN.md](docs/TECH_DESIGN.md)
 - 地图设计：[docs/MAP_DESIGN.md](docs/MAP_DESIGN.md)

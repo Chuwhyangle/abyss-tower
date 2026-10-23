@@ -1,8 +1,43 @@
 import { db } from './index.mjs';
+import { dayKey } from '../../public/js/shared/scoring.js';
 
 // v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
 export function boardKeyFor(mode, day) {
   return mode === 'daily' ? `daily:${day}:v2` : 'normal';
+}
+
+export const SEASON_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export function isSeasonKey(value) {
+  return typeof value === 'string' && SEASON_KEY_RE.test(value);
+}
+
+// 赛季按服务器本地时区的自然月划分；旧数据按 created_at 自动归入所在赛季。
+export function seasonOf(ts = Date.now()) {
+  const date = new Date(Number(ts));
+  if (Number.isNaN(date.getTime())) return null;
+  return dayKey(date).slice(0, 7);
+}
+
+// 返回赛季的毫秒区间 [start, end)，边界同样按服务器本地时区。
+export function seasonBounds(season) {
+  if (!isSeasonKey(season)) return null;
+  const [year, month] = season.split('-').map(Number);
+  return {
+    start: new Date(year, month - 1, 1).getTime(),
+    end: new Date(year, month, 1).getTime(),
+  };
+}
+
+export function listSeasons() {
+  const rows = db
+    .prepare(
+      `SELECT DISTINCT strftime('%Y-%m', created_at / 1000, 'unixepoch', 'localtime') AS season
+         FROM leaderboard_entries
+        ORDER BY season DESC`
+    )
+    .all();
+  return rows.map((row) => row.season).filter(isSeasonKey);
 }
 
 export function recordLeaderboardEntry({
@@ -71,14 +106,19 @@ export function rankFor(mode, day, score, { includeUnclaimed = false } = {}) {
 
 export const MAX_BOARD_PAGE_SIZE = 50;
 
-function boardScope(mode, day, { includeUnclaimed = false, difficulty = null } = {}) {
-  const filtered = difficulty ? ' AND e.difficulty = ?' : '';
+function boardScope(mode, day, { includeUnclaimed = false, difficulty = null, season = null } = {}) {
+  const clauses = ['e.board_key = ?', "(? = 1 OR a.kind = 'registered')"];
   const params = [boardKeyFor(mode, day), includeUnclaimed ? 1 : 0];
-  if (difficulty) params.push(difficulty);
-  return {
-    where: `e.board_key = ? AND (? = 1 OR a.kind = 'registered')${filtered}`,
-    params,
-  };
+  if (difficulty) {
+    clauses.push('e.difficulty = ?');
+    params.push(difficulty);
+  }
+  const bounds = season ? seasonBounds(season) : null;
+  if (bounds) {
+    clauses.push('e.created_at >= ?', 'e.created_at < ?');
+    params.push(bounds.start, bounds.end);
+  }
+  return { where: clauses.join(' AND '), params };
 }
 
 function publicEntry(row) {
@@ -117,11 +157,18 @@ function personalEntry(row) {
 export function listBoard(
   mode,
   day,
-  { includeUnclaimed = false, limit = 20, offset = 0, difficulty = null, accountId = null } = {}
+  {
+    includeUnclaimed = false,
+    limit = 20,
+    offset = 0,
+    difficulty = null,
+    accountId = null,
+    season = null,
+  } = {}
 ) {
   const size = Math.max(1, Math.min(MAX_BOARD_PAGE_SIZE, Math.floor(Number(limit) || 20)));
   const start = Math.max(0, Math.floor(Number(offset) || 0));
-  const scope = boardScope(mode, day, { includeUnclaimed, difficulty });
+  const scope = boardScope(mode, day, { includeUnclaimed, difficulty, season });
   const rows = db
     .prepare(
       `SELECT * FROM (
@@ -147,8 +194,12 @@ export function listBoard(
   }));
 }
 
-export function countBoard(mode, day, { includeUnclaimed = false, difficulty = null } = {}) {
-  const scope = boardScope(mode, day, { includeUnclaimed, difficulty });
+export function countBoard(
+  mode,
+  day,
+  { includeUnclaimed = false, difficulty = null, season = null } = {}
+) {
+  const scope = boardScope(mode, day, { includeUnclaimed, difficulty, season });
   const row = db
     .prepare(
       `SELECT COUNT(DISTINCT e.account_id) AS c
@@ -164,12 +215,12 @@ export function accountBoardSummary(
   accountId,
   mode,
   day,
-  { includeUnclaimed = false, difficulty = null } = {}
+  { includeUnclaimed = false, difficulty = null, season = null } = {}
 ) {
   const empty = { rank: null, best: null, latest: null };
   if (!accountId) return empty;
 
-  const scope = boardScope(mode, day, { includeUnclaimed, difficulty });
+  const scope = boardScope(mode, day, { includeUnclaimed, difficulty, season });
   const mine = `e.account_id = ? AND ${scope.where}`;
   const mineParams = [accountId, ...scope.params];
 

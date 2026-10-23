@@ -1,4 +1,6 @@
 // 防御塔定义与等级数值。
+// evolutions：满级后的二选一分支，纯数据。mods 的键必须来自现有属性，
+// 值为乘法系数（1 = 不变），由模拟层统一应用，不引入新机制。
 export const TOWERS = {
   arrow: {
     id: 'arrow',
@@ -13,6 +15,22 @@ export const TOWERS = {
       { dmg: 38, rate: 1.5, range: 3.7, cost: 150 },
     ],
     proj: { kind: 'bolt', speed: 17 },
+    evolutions: [
+      {
+        id: 'arrow-longbow',
+        name: '远弓',
+        desc: '换装长弓，射程与单发伤害大幅提升，射速略慢。',
+        color: '#b6ffcf',
+        mods: { dmg: 1.45, range: 1.25, rate: 0.9 },
+      },
+      {
+        id: 'arrow-rapid',
+        name: '连弩',
+        desc: '连锁供弹，射速大幅提升，单发伤害略降。',
+        color: '#7fe0c0',
+        mods: { rate: 1.5, dmg: 0.85 },
+      },
+    ],
   },
   cannon: {
     id: 'cannon',
@@ -28,6 +46,22 @@ export const TOWERS = {
       { dmg: 86, rate: 0.66, range: 3.3, splash: 1.3, cost: 210 },
     ],
     proj: { kind: 'shell', speed: 9.5 },
+    evolutions: [
+      {
+        id: 'cannon-siege',
+        name: '攻城炮',
+        desc: '重装攻城弹，伤害与溅射范围提升，射速略慢。',
+        color: '#ffb066',
+        mods: { dmg: 1.5, splash: 1.3, rate: 0.85 },
+      },
+      {
+        id: 'cannon-barrage',
+        name: '连轰',
+        desc: '自动装填，射速提升，溅射范围略有扩大。',
+        color: '#ffcf8a',
+        mods: { rate: 1.45, splash: 1.15, dmg: 0.8 },
+      },
+    ],
   },
   frost: {
     id: 'frost',
@@ -42,6 +76,22 @@ export const TOWERS = {
       { dmg: 20, rate: 1.65, range: 3.15, slow: 0.5, slowDur: 1.85, cost: 175 },
     ],
     proj: { kind: 'frost', speed: 13 },
+    evolutions: [
+      {
+        id: 'frost-deepfreeze',
+        name: '深寒',
+        desc: '极寒领域，减速更强、持续更久。',
+        color: '#a8e6ff',
+        mods: { slow: 1.4, slowDur: 1.35, dmg: 1.1 },
+      },
+      {
+        id: 'frost-icelance',
+        name: '冰矛',
+        desc: '凝冰为矛，伤害翻倍、射程提升，减速略减。',
+        color: '#6fb7d8',
+        mods: { dmg: 2.1, range: 1.15, slow: 0.85 },
+      },
+    ],
   },
   arc: {
     id: 'arc',
@@ -59,6 +109,22 @@ export const TOWERS = {
     proj: { kind: 'arc' },
     ignoreArmor: true,
     chainRange: 2.3,
+    evolutions: [
+      {
+        id: 'arc-storm',
+        name: '雷暴',
+        desc: '电弧分裂，连锁目标更多，伤害小幅提升。',
+        color: '#d0b0ff',
+        mods: { chain: 1.6, dmg: 1.15 },
+      },
+      {
+        id: 'arc-overload',
+        name: '超载',
+        desc: '单次放电能量集中，伤害大幅提升，射程与连锁略减。',
+        color: '#8f7bff',
+        mods: { dmg: 1.7, range: 0.9, chain: 0.8 },
+      },
+    ],
   },
   poison: {
     id: 'poison',
@@ -74,6 +140,22 @@ export const TOWERS = {
       { dmg: 16, rate: 1.4, range: 3.2, dot: 27, dotDur: 3.6, cost: 220 },
     ],
     proj: { kind: 'poison', speed: 11 },
+    evolutions: [
+      {
+        id: 'poison-virulent',
+        name: '剧毒',
+        desc: '毒素浓缩，持续伤害与持续时间大幅提升。',
+        color: '#b8f07a',
+        mods: { dot: 1.8, dotDur: 1.2 },
+      },
+      {
+        id: 'poison-blight',
+        name: '疫雾',
+        desc: '毒雾扩散，射程与直击伤害提升，毒性略减。',
+        color: '#6fbf5a',
+        mods: { range: 1.3, dmg: 1.3, dot: 0.9 },
+      },
+    ],
   },
   banner: {
     id: 'banner',
@@ -88,6 +170,22 @@ export const TOWERS = {
       { dmg: 0, rate: 0, range: 2.6, buffDmg: 0.12, buffRate: 0.08, cost: 0 },
       { dmg: 0, rate: 0, range: 2.8, buffDmg: 0.18, buffRate: 0.12, cost: 110 },
       { dmg: 0, rate: 0, range: 3.0, buffDmg: 0.25, buffRate: 0.16, cost: 190 },
+    ],
+    evolutions: [
+      {
+        id: 'banner-horn',
+        name: '号角',
+        desc: '号角长鸣，光环的增伤与攻速加成大幅提升。',
+        color: '#ffd36b',
+        mods: { buffDmg: 1.5, buffRate: 1.2 },
+      },
+      {
+        id: 'banner-standard',
+        name: '军旗',
+        desc: '大旗招展，光环覆盖范围扩大，增伤提升、攻速略减。',
+        color: '#ffb347',
+        mods: { range: 1.35, buffDmg: 1.2, buffRate: 0.9 },
+      },
     ],
   },
   shock: {
@@ -104,6 +202,22 @@ export const TOWERS = {
       { dmg: 24, rate: 1.3, range: 2.5, splash: 1.2, slow: 0.42, slowDur: 1.3, knockback: 0.4, cost: 200 },
     ],
     proj: { kind: 'shock', speed: 12 },
+    evolutions: [
+      {
+        id: 'shock-quake',
+        name: '裂地',
+        desc: '震荡波转为地面冲击，击退与溅射范围提升。',
+        color: '#8ff5df',
+        mods: { knockback: 1.8, splash: 1.3, dmg: 1.2 },
+      },
+      {
+        id: 'shock-glacier',
+        name: '冰震',
+        desc: '冲击波带起寒霜，减速更强、持续更久、范围更大。',
+        color: '#4fd0c0',
+        mods: { slow: 1.45, slowDur: 1.4, range: 1.1 },
+      },
+    ],
   },
   sniper: {
     id: 'sniper',
@@ -119,6 +233,22 @@ export const TOWERS = {
       { dmg: 150, rate: 0.46, range: 6.2, cost: 250 },
     ],
     proj: { kind: 'bolt', speed: 26 },
+    evolutions: [
+      {
+        id: 'sniper-piercer',
+        name: '破甲',
+        desc: '重弹穿甲，单发伤害大幅提升，射速略慢。',
+        color: '#b8d0ff',
+        mods: { dmg: 1.6, rate: 0.85 },
+      },
+      {
+        id: 'sniper-marksman',
+        name: '速射',
+        desc: '快速上膛，射速大幅提升，射程更远、单发伤害略降。',
+        color: '#7fa0ff',
+        mods: { rate: 1.5, dmg: 0.78, range: 1.05 },
+      },
+    ],
   },
 };
 

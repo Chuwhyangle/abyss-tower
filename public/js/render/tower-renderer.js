@@ -43,6 +43,11 @@ export class TowerRenderer {
       const def = TOWERS[tower.type];
       const level = tower.level;
       const color = def.color;
+      // 进化分支的专属配色；未进化时退回塔的默认色。
+      const evolution = tower.evolution
+        ? def.evolutions?.find((entry) => entry.id === tower.evolution) || null
+        : null;
+      const accent = evolution?.color || color;
       const disableLeft = (tower.disabledUntil || 0) - game.time;
       const disabled = disableLeft > 0;
 
@@ -51,7 +56,9 @@ export class TowerRenderer {
       g.ellipse(x, y + 12, 21, 9, 0, 0, Math.PI * 2);
       g.fill();
 
-      if (glow && !disabled) this.glow.draw(g, color, x, y, 30, level >= 2 ? 0.2 : 0.12);
+      if (glow && !disabled) {
+        this.glow.draw(g, accent, x, y, evolution ? 34 : 30, evolution ? 0.26 : level >= 2 ? 0.2 : 0.12);
+      }
 
       g.save();
       g.translate(x, y);
@@ -116,6 +123,33 @@ export class TowerRenderer {
           g.lineWidth = 0.8;
           g.stroke();
         }
+      }
+
+      // 进化标识：专属色外环 + 三枚绕塔旋转的符文。
+      if (evolution) {
+        const spin = time * 0.9;
+        g.save();
+        g.strokeStyle = Palette.hexToRgba(accent, 0.8);
+        g.lineWidth = 1.8;
+        g.setLineDash([5, 4]);
+        g.beginPath();
+        g.arc(0, 0, 26, spin, spin + Math.PI * 1.5);
+        g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = accent;
+        for (let i = 0; i < 3; i++) {
+          const a = -spin * 0.6 + (i / 3) * Math.PI * 2;
+          const rx = Math.cos(a) * 24;
+          const ry = Math.sin(a) * 24;
+          g.beginPath();
+          g.moveTo(rx, ry - 2.6);
+          g.lineTo(rx + 2.6, ry);
+          g.lineTo(rx, ry + 2.6);
+          g.lineTo(rx - 2.6, ry);
+          g.closePath();
+          g.fill();
+        }
+        g.restore();
       }
 
       // 炮塔

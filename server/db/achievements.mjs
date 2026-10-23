@@ -1,6 +1,7 @@
 // 成就持久化：读取已解锁状态，按结算上下文幂等写入新解锁。
 import { db } from './index.mjs';
 import { careerStats } from './stats.mjs';
+import { readSelectedSkill, readSkillLevels, skillUnlocked } from './skills.mjs';
 import {
   ACHIEVEMENTS,
   ACHIEVEMENT_GROUPS,
@@ -8,6 +9,7 @@ import {
   achievementProgress,
   evaluateAchievements,
 } from '../../public/js/shared/achievements.js';
+import { SKILL_ORDER } from '../../public/js/shared/data.js';
 
 function unlockedRows(accountId) {
   return db
@@ -26,6 +28,33 @@ function dailySummary(accountId) {
     )
     .get(accountId);
   return { runs: Number(row?.runs) || 0, wins: Number(row?.wins) || 0 };
+}
+
+// 技能养成状态：等级/选择来自 player_progress，解锁同时兼容显式授予与历史首通派生。
+function skillContext(accountId) {
+  const levels = readSkillLevels(accountId);
+  const unlocked = {};
+  for (const id of SKILL_ORDER) unlocked[id] = skillUnlocked(accountId, id);
+  return { levels, unlocked, selected: readSelectedSkill(accountId) };
+}
+
+// 带技能通关深渊的局数：旧局缺少 ruleset.skill 时不计入。
+function skillAbyssWins(accountId) {
+  const rows = db
+    .prepare(
+      `SELECT ruleset_json FROM runs
+        WHERE account_id = ? AND status = 'finished' AND victory = 1 AND difficulty = 'abyss'`
+    )
+    .all(accountId);
+  let wins = 0;
+  for (const row of rows) {
+    try {
+      if (JSON.parse(row.ruleset_json || '{}')?.skill?.id) wins += 1;
+    } catch {
+      /* 旧数据不是合法 JSON，忽略 */
+    }
+  }
+  return wins;
 }
 
 // 进度所需的上下文与结算时保持一致，但 run 为空：本局专属的进度只能从结算响应看到。
@@ -51,6 +80,8 @@ function progressContext(accountId, unlocked) {
     },
     dailyRuns: daily.runs,
     dailyWins: daily.wins,
+    skills: skillContext(accountId),
+    skillAbyssWins: skillAbyssWins(accountId),
     unlocked,
   };
 }
@@ -68,6 +99,8 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
     stats,
     dailyRuns: daily.runs,
     dailyWins: daily.wins,
+    skills: skillContext(accountId),
+    skillAbyssWins: skillAbyssWins(accountId),
     unlocked,
   });
   if (!added.length) return [];
