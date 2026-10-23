@@ -926,7 +926,7 @@ function main() {
   const modifierBaseTable = formatModifierTable(modifierBase);
 
   console.log(
-    `\n平衡模拟结果（${rows.length} 局，每种子 ${candidateCount} 张候选地图，技能 ${
+    `\n平衡模拟结果（${rows.length} 局，每种子 ${report.meta.candidates} 张候选地图，技能 ${
       SKILL ? `${SKILL.id} Lv.${SKILL.level}` : '无'
     }，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
   );
