@@ -15,6 +15,7 @@ import {
 import {
   applyEffect,
   clampMods,
+  conditionSnapshot,
   createMods,
   effectValue,
   hitBonuses,
@@ -23,11 +24,11 @@ import {
 import { RNG } from './shared/rng.js';
 import { BOSS_VARIANTS } from './shared/data/enemies.js';
 import {
-  hasResolvedEvent,
-  isEventWave,
+  chainsFromHistory,
+  normalizeChains,
   normalizeEventHistory,
+  resolveEventForWave,
   resolveEventOption,
-  rollEvent,
 } from './shared/events.js';
 import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
@@ -65,6 +66,8 @@ export class Simulation {
     this.relics = normalizeRelicStates(opts.relics || []);
     // 事件历史：旧存档没有该字段时按“无事件”处理。
     this.events = normalizeEventHistory(opts.events || []);
+    // 连锁排期：快照里的记录只是冗余，历史才是事实来源，二者合并去重。
+    this.chains = normalizeChains([...(opts.chains || []), ...chainsFromHistory(this.events)]);
     this.unlockedTowers = opts.unlockedTowers || ['arrow', 'cannon', 'frost'];
     this.startedAt = opts.startedAt || Date.now();
 
@@ -915,7 +918,9 @@ export class Simulation {
   computeHit(base, towerType, enemy, opts = {}) {
     let dmg = base;
     // 条件增伤由注册表按声明顺序给出，乘法顺序与重构前一致。
-    for (const bonus of hitBonuses(this, enemy)) dmg *= 1 + bonus;
+    // 条件上下文只读本局状态快照，不调用随机数，也不改变暴击的 RNG 顺序。
+    const context = opts.conditionContext || conditionSnapshot(this);
+    for (const bonus of hitBonuses(this, enemy, context)) dmg *= 1 + bonus;
     let crit = false;
     if (!opts.noCrit && this.mods.crit > 0 && this.combatRng.float() < this.mods.crit) {
       dmg *= 2;
@@ -1188,9 +1193,10 @@ export class Simulation {
   // ---------- 局内事件 ----------
 
   computePendingEvent() {
-    if (!isEventWave(this.clearedWave)) return null;
-    if (hasResolvedEvent(this.events, this.clearedWave)) return null;
-    return rollEvent(this.seed, this.clearedWave);
+    return resolveEventForWave(this.seed, this.clearedWave, {
+      history: this.events,
+      chains: this.chains,
+    });
   }
 
   // 事件结算：效果由 shared/events.js 的纯函数给出，这里只做边界收敛与落盘。
@@ -1239,6 +1245,8 @@ export class Simulation {
 
     this.events.push({ wave: this.clearedWave, eventId: event.id, optionId: option.id });
     this.events = normalizeEventHistory(this.events);
+    // 连锁选项在此刻排期；后续波次由事件历史推导，不消耗战斗 RNG。
+    this.chains = normalizeChains(chainsFromHistory(this.events));
     this.pendingEvent = null;
     this.phase = 'prep';
     this.playSound('draft');

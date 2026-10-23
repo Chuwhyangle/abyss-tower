@@ -23,6 +23,7 @@
             <button id="btn-rename" class="icon-btn" type="button" title="修改昵称" data-i18n-title="title.rename" data-i18n-aria="title.rename"><span data-icon="rename" aria-hidden="true"></span></button>
             <button id="btn-settings-title" class="icon-btn" type="button" title="画质设置" data-i18n-title="title.settings" data-i18n-aria="title.settings"><span data-icon="settings" aria-hidden="true"></span></button>
             <span class="cores-badge" aria-label="星核数量"><span data-icon="cores" aria-hidden="true"></span> <b id="cores">0</b></span>
+            <button id="btn-notifications" class="icon-btn notification-bell" type="button" title="通知中心" aria-label="通知中心" aria-haspopup="true" aria-expanded="false"><span data-icon="bell" aria-hidden="true"></span><span id="notifications-badge" class="notifications-badge" hidden>0</span></button>
           </div>
 
           <nav class="title-actions" aria-label="主菜单">
@@ -64,6 +65,16 @@
               <button id="btn-bounties-close" class="icon-btn" type="button" title="关闭悬赏面板" aria-label="关闭悬赏面板"><span data-icon="close" aria-hidden="true"></span></button>
             </div>
             <div id="bounties-list" class="achievements-list"></div>
+          </div>
+
+          <div id="notifications-panel" class="achievements-panel notifications-panel" hidden>
+            <div class="achievements-head">
+              <h2>通知中心</h2>
+              <span id="notifications-count" class="achievements-progress">全部已读</span>
+              <button id="btn-notifications-read" class="btn small" type="button" disabled>全部已读</button>
+              <button id="btn-notifications-close" class="icon-btn" type="button" title="关闭通知中心" aria-label="关闭通知中心"><span data-icon="close" aria-hidden="true"></span></button>
+            </div>
+            <div id="notifications-list" class="achievements-list"></div>
           </div>
 
           <div id="cosmetics-panel" class="achievements-panel cosmetics-panel" hidden>
@@ -172,6 +183,7 @@
   <script type="module" src="/js/main.js"></script>
   <script type="module" src="/js/achievements-ui.js"></script>
   <script type="module" src="/js/bounties-ui.js"></script>
+  <script type="module" src="/js/ui/notifications.js"></script>
   <script type="module" src="/js/cosmetics-ui.js"></script>
   <script type="module" src="/js/stats-ui.js"></script>
   <script type="module" src="/js/leaderboard-ui.js"></script>

@@ -10,6 +10,7 @@ import {
   bountyProgress,
   deriveBounties,
 } from '../../public/js/shared/bounties.js';
+import { notify } from './notifications.mjs';
 
 function parseJson(text) {
   try {
@@ -266,6 +267,18 @@ export function claimBounty(accountId, bountyId, now = Date.now()) {
       }
 
       const balance = grantCores(accountId, definition.reward);
+      // 通知失败不改变领取结果：星核已经写入钱包。
+      notify(accountId, {
+        kind: 'bounty',
+        dedupeKey: `bounty:${period}:${key}:${bountyId}`,
+        payload: {
+          bountyId,
+          title: definition.title,
+          reward: definition.reward,
+          period,
+          periodKey: key,
+        },
+      }, now);
       return {
         ok: true,
         claimed: true,

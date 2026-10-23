@@ -5,7 +5,8 @@ import { RNG } from './rng.js';
 // 触发波次：第 5/10/15/20/25 波清除后进入事件阶段。
 export const EVENT_WAVES = Object.freeze([5, 10, 15, 20, 25]);
 
-// 事件池：5 类常规事件 + 3 类稀有事件。weight 越大越常见，rare 仅用于展示。
+// 事件池：8 类常规事件 + 4 类稀有事件。weight 越大越常见，rare 仅用于展示。
+// 其中 blood-echo / smuggler-camp / void-rift 既是随机事件，也是事件连锁的后续节点。
 export const EVENT_ORDER = Object.freeze([
   'altar',
   'caravan',
@@ -15,7 +16,14 @@ export const EVENT_ORDER = Object.freeze([
   'abyss-contract',
   'relic-forge',
   'fate-wheel',
+  'blood-echo',
+  'smuggler-camp',
+  'wandering-monk',
+  'void-rift',
 ]);
+
+// 连锁触发后固定延迟 2 波结算；后续事件本身不含连锁，避免链式套娃。
+export const CHAIN_DELAY_WAVES = 2;
 
 // requires：执行该选项的最低资源（gold 为金币，hp 为当前生命，maxHp 为生命上限）。
 // deltas：固定增减；gamble：确定性赌局，按 ${seed}:event:${wave}:${eventId}:${optionId} 掷骰。
@@ -253,10 +261,231 @@ export const EVENTS = Object.freeze({
       },
     ],
   },
+  'blood-echo': {
+    id: 'blood-echo',
+    name: '血之回响',
+    desc: '塔基的砖缝里传来潮湿的回声，像有人重复着你先前说过的话。',
+    weight: 8,
+    rare: false,
+    options: [
+      {
+        id: 'listen',
+        name: '倾听',
+        desc: '花费 20 金币备下灯油，听清回声里的字句：回复 3 点基地生命。',
+        requires: { gold: 20 },
+        deltas: { gold: -20, hp: 3 },
+      },
+      {
+        id: 'answer',
+        name: '回应',
+        desc: '把血抹回砖缝：失去 2 点基地生命，换取 90 金币。',
+        requires: { hp: 3 },
+        deltas: { gold: 90, hp: -2 },
+      },
+      {
+        id: 'leave',
+        name: '堵住砖缝',
+        desc: '用灰泥封死缝隙，回声戛然而止。',
+        deltas: {},
+      },
+    ],
+  },
+  'smuggler-camp': {
+    id: 'smuggler-camp',
+    name: '走私营地',
+    desc: '商队消失的方向升起一缕炊烟，几个影子正围着货箱低声争执。',
+    weight: 8,
+    rare: false,
+    options: [
+      {
+        id: 'buy',
+        name: '低价采购',
+        desc: '花费 70 金币买下整箱石料：基地生命上限 +4。',
+        requires: { gold: 70 },
+        deltas: { gold: -70, maxHp: 4 },
+      },
+      {
+        id: 'raid',
+        name: '端掉营地',
+        desc: '趁他们不备动手：基地生命上限 -2，缴获 100 金币。',
+        requires: { maxHp: 3 },
+        deltas: { gold: 100, maxHp: -2 },
+      },
+      {
+        id: 'leave',
+        name: '绕行',
+        desc: '不惊动任何人，悄悄走开。',
+        deltas: {},
+      },
+    ],
+  },
+  'wandering-monk': {
+    id: 'wandering-monk',
+    name: '云游僧',
+    desc: '一位赤脚的僧人坐在塔影里，膝上摊着一卷看不清字的经书。',
+    weight: 7,
+    rare: false,
+    options: [
+      {
+        id: 'donate',
+        name: '布施',
+        desc: '花费 60 金币供奉灯油：回复 6 点基地生命。',
+        requires: { gold: 60 },
+        deltas: { gold: -60, hp: 6 },
+      },
+      {
+        id: 'listen',
+        name: '听禅',
+        desc: '以一点血气换一句偈语：失去 1 点基地生命，获得 70 金币。',
+        requires: { hp: 2 },
+        deltas: { gold: 70, hp: -1 },
+      },
+      {
+        id: 'leave',
+        name: '合十离开',
+        desc: '施一礼，继续巡塔。',
+        deltas: {},
+      },
+    ],
+  },
+  'void-rift': {
+    id: 'void-rift',
+    name: '虚空裂隙',
+    desc: '石轮停下的位置裂开一道细缝，缝里没有光，也没有影子。',
+    weight: 2,
+    rare: true,
+    options: [
+      {
+        id: 'enter',
+        name: '探入',
+        desc: '把手臂探进裂隙：失去 3 点基地生命，抓回 160 金币。',
+        requires: { hp: 4 },
+        deltas: { gold: 160, hp: -3 },
+      },
+      {
+        id: 'seal',
+        name: '封堵',
+        desc: '花费 90 金币浇铸铁水：基地生命上限 +3。',
+        requires: { gold: 90 },
+        deltas: { gold: -90, maxHp: 3 },
+      },
+      {
+        id: 'leave',
+        name: '退开',
+        desc: '裂隙自己合拢了，像什么都没发生。',
+        deltas: {},
+      },
+    ],
+  },
 });
+
+// 事件连锁：纯数据声明“某个选项 → 延迟 N 波后的后续事件”。
+// 后续事件由 chain.eventId 固定，不含随机性；服务器与客户端用同一张表推导，可交叉校验。
+export const EVENT_CHAINS = Object.freeze([
+  Object.freeze({
+    id: 'altar-blood-echo',
+    fromEvent: 'altar',
+    fromOption: 'blood',
+    eventId: 'blood-echo',
+    delayWaves: CHAIN_DELAY_WAVES,
+    hint: '血渗入砖缝，2 波之后似乎还会回响。',
+  }),
+  Object.freeze({
+    id: 'caravan-smuggler-camp',
+    fromEvent: 'caravan',
+    fromOption: 'barter',
+    eventId: 'smuggler-camp',
+    delayWaves: CHAIN_DELAY_WAVES,
+    hint: '商队的去向，2 波之后会有人替你查明。',
+  }),
+  Object.freeze({
+    id: 'fate-wheel-void-rift',
+    fromEvent: 'fate-wheel',
+    fromOption: 'spin-big',
+    eventId: 'void-rift',
+    delayWaves: CHAIN_DELAY_WAVES,
+    hint: '石轮停下的位置，2 波之后会裂开。',
+  }),
+]);
+
+const CHAIN_BY_ID = new Map(EVENT_CHAINS.map((chain) => [chain.id, chain]));
+const CHAIN_BY_OPTION = new Map(
+  EVENT_CHAINS.map((chain) => [`${chain.fromEvent}:${chain.fromOption}`, chain])
+);
+
+// 连锁可能落地的波次：事件波 + 各自延迟。历史归一化据此接受“非事件波”的连锁记录。
+const CHAIN_WAVES = new Set();
+for (const wave of EVENT_WAVES) {
+  for (const chain of EVENT_CHAINS) CHAIN_WAVES.add(Number(wave) + chain.delayWaves);
+}
 
 export function isEventWave(wave) {
   return EVENT_WAVES.includes(Number(wave));
+}
+
+// 连锁的后续事件落在非事件波（事件波 + 延迟），同样可以进入事件阶段。
+export function isChainWave(wave) {
+  return CHAIN_WAVES.has(Number(wave));
+}
+
+function isEventResolvableWave(wave) {
+  return isEventWave(wave) || isChainWave(wave);
+}
+
+export function findEventChain(eventId, optionId) {
+  return CHAIN_BY_OPTION.get(`${eventId}:${optionId}`) || null;
+}
+
+// 选项 → 连锁排期（纯函数）：不是连锁选项时返回 null。
+function chainEntryForOption(eventId, optionId, triggerWave) {
+  const chain = findEventChain(eventId, optionId);
+  const wave = Number(triggerWave);
+  if (!chain || !Number.isInteger(wave)) return null;
+  return { chainId: chain.id, wave: wave + chain.delayWaves };
+}
+
+// 连锁排期归一化：只保留已定义的连锁与合法的连锁波次；同一波次只留一条，按波次排序。
+export function normalizeChains(raw) {
+  if (!Array.isArray(raw)) return [];
+  const chains = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const chain = CHAIN_BY_ID.get(item.chainId);
+    const wave = Number(item.wave);
+    if (!chain || !isChainWave(wave)) continue;
+    if (chains.some((entry) => entry.wave === wave)) continue;
+    chains.push({ chainId: chain.id, wave });
+  }
+  return chains.sort((a, b) => a.wave - b.wave);
+}
+
+// 由事件历史推导连锁排期：历史是连锁的唯一事实来源（服务端据此校验，客户端据此续玩）。
+export function chainsFromHistory(history) {
+  const scheduled = [];
+  for (const entry of Array.isArray(history) ? history : []) {
+    if (!entry || typeof entry !== 'object') continue;
+    const next = chainEntryForOption(entry.eventId, entry.optionId, entry.wave);
+    if (!next) continue;
+    if (scheduled.some((item) => item.wave === next.wave)) continue;
+    scheduled.push(next);
+  }
+  return normalizeChains(scheduled);
+}
+
+/**
+ * 某个波次应当出现的事件：事件波走随机池，连锁波走固定后续事件；已结算过的波次返回 null。
+ * 连锁以 history 为准（chains 只是快照里的冗余记录，合并后仍由 normalizeChains 去重）。
+ */
+export function resolveEventForWave(seed, wave, { history = [], chains = [] } = {}) {
+  const target = Number(wave);
+  if (isEventWave(target)) {
+    if (hasResolvedEvent(history, target)) return null;
+    return rollEvent(seed, target);
+  }
+  const scheduled = normalizeChains([...(Array.isArray(chains) ? chains : []), ...chainsFromHistory(history)]);
+  const entry = scheduled.find((item) => item.wave === target);
+  if (!entry || hasResolvedEvent(history, target)) return null;
+  return EVENTS[CHAIN_BY_ID.get(entry.chainId).eventId] || null;
 }
 
 // 同一 seed + 波次永远得到同一个事件节点；用独立 RNG，不触碰战斗 RNG。
@@ -325,7 +554,7 @@ export function normalizeEventHistory(raw) {
     if (!item || typeof item !== 'object') continue;
     const wave = Number(item.wave);
     const event = EVENTS[item.eventId];
-    if (!Number.isInteger(wave) || !isEventWave(wave) || !event) continue;
+    if (!Number.isInteger(wave) || !isEventResolvableWave(wave) || !event) continue;
     const option = findEventOption(event, item.optionId);
     if (!option) continue;
     if (history.some((entry) => entry.wave === wave)) continue;

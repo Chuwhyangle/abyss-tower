@@ -38,7 +38,11 @@ import {
 import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
 import { generateMapCandidates } from '../../public/js/shared/mapgen.js';
 import { ENDLESS, generateWave } from '../../public/js/shared/waves.js';
-import { findEventOption, rollEvent } from '../../public/js/shared/events.js';
+import {
+  findEventOption,
+  normalizeEventHistory,
+  resolveEventForWave,
+} from '../../public/js/shared/events.js';
 import {
   rollRelicOffers,
   normalizeRelicStates,
@@ -119,6 +123,18 @@ export function weeklyAttemptsLeft(token, week = weekKey()) {
 // 每日与本周挑战共用固定规则：全塔、全技能可选、固定技能等级与固定资源。
 function isFixedRulesMode(mode) {
   return mode === 'daily' || mode === 'weekly';
+}
+
+// 把已落库的选择还原成事件历史；连锁排期由 shared/events.js 从历史推导，服务端不信任客户端。
+function eventHistory(run) {
+  const entries = Object.entries(run.offers || {})
+    .filter(([key, slot]) => key.startsWith('event:') && slot?.picked)
+    .map(([key, slot]) => ({
+      wave: Number(key.slice('event:'.length)),
+      eventId: slot.eventId,
+      optionId: slot.optionId,
+    }));
+  return normalizeEventHistory(entries);
 }
 
 // 事件选择与遗物选择共用 offers JSON；事件槽位加前缀避免与遗物波次键冲突。
@@ -558,7 +574,9 @@ export class RunService {
       throw new RunError(409, '当前波次尚未结算完成');
     }
     const wave = run.clearedWaves;
-    const event = rollEvent(run.seed, wave);
+    // 已选择的波次仍要回显节点：剔除本波历史后重新推导，未选择时才按“未结算”判断。
+    const history = eventHistory(run).filter((entry) => entry.wave !== wave);
+    const event = resolveEventForWave(run.seed, wave, { history });
     if (!event) throw new RunError(409, '当前波次没有事件节点');
     const slot = (run.offers || {})[eventKey(wave)];
     return {
@@ -576,12 +594,13 @@ export class RunService {
       throw new RunError(409, '当前波次尚未结算完成');
     }
     const wave = run.clearedWaves;
-    const event = rollEvent(run.seed, wave);
-    if (!event) throw new RunError(400, '当前波次没有事件节点');
-
     const offers = run.offers || {};
     const key = eventKey(wave);
+    // 先判幂等：已选择的事件不能再解析（否则历史会让该波次看起来“没有事件节点”）。
     if (offers[key]?.picked) throw new RunError(409, '本次事件已经选择');
+
+    const event = resolveEventForWave(run.seed, wave, { history: eventHistory(run) });
+    if (!event) throw new RunError(400, '当前波次没有事件节点');
 
     let option = null;
     let optionIndex = -1;

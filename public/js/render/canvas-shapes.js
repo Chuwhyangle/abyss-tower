@@ -39,6 +39,7 @@ export const ICON_PATHS = Object.freeze({
   warning: 'M12 3.5L22 20H2zM12 9v5M13 17a1 1 0 1 1-2 0a1 1 0 1 1 2 0',
   empty: 'M12 3l8 9-8 9-8-9z',
   rotate: 'M20 4v5h-5M20 9a8 8 0 1 1-2.3-5.6',
+  bell: 'M12 4a5 5 0 0 0-5 5v3.5L5 16h14l-2-3.5V9a5 5 0 0 0-5-5M10 19a2 2 0 0 0 4 0M12 3v1',
 });
 
 export const ICON_NAMES = Object.freeze(Object.keys(ICON_PATHS));

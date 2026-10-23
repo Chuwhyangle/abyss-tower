@@ -3,6 +3,7 @@
 - 状态：**已评审**（2026-10-22）
 - 对应需求：`docs/PRD.md` v1.2
 - 目标：确定架构、模块边界、接口契约、数据模型、难度探索方法与测试策略，作为 M2–M5 的实现依据。
+- v1.22 事件连锁（2026-10-24）：`shared/events.js` 扩到 12 类事件并新增 `EVENT_CHAINS`（3 条纯数据连锁，选项 → 2 波后的固定后续事件，延迟节点为 7/12/17/22/27 波）。连锁排期由事件历史唯一推导，服务端据此校验；快照升到 v5（`chains:[{chainId,wave}]`，无连锁时仍写 v3/v4）。
 - v1.8 文档同步（2026-10-23）：按实际交付校准内容量（塔 8 / 遗物 30 / 地图原型 6 / 词缀 8）；数据表已拆到 `shared/data/`，runs 路由拆为仓储 + 领域服务，快照统一为 v4。
 - v2.0 方向（2026-10-23）：新增第 14 节（成就 / 生涯统计 / 音乐 / 可访问性）；只新增系统设计，不改变第 1–13 节已有决策。
 - 评审结论：
@@ -196,14 +197,15 @@ generateWave(seed, wave, difficulty, mapMeta) -> {
 
 ### 4.5 遗物等级与抽取
 
-- 池：`RELICS`（50 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
+- 池：`RELICS`（60 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
 - 等级修正：基础 `mods` 为 Ⅰ 级，Ⅱ/Ⅲ 级按 `×1.6 / ×2.2` 缩放，并应用单件上限（`PER_RELIC_CAPS`）。多件汇总后再应用全局上限（`GLOBAL_MOD_CAPS`），攻速、连锁、溅射等有硬上限。
 - 抽取：候选池包含未拥有与新遗物及未满级遗物；三件 ID 不重复；满级退出；候选不足用金币/修复补位。
 - 种子：`${seed}:relic:${combo}:${nonce}`，`combo` 为已清波次，`nonce = 已刷新次数`。
 - 服务端保存每波 `{ offers, picked }`；`pick` 按索引校验，`picked` 后拒绝二次选择与刷新。
 - 兼容旧 `{ids:[...]}` 选项与旧遗物 ID 存档，统一归一化为 Ⅰ 级。
 - 即时生命效果：获得/升级时只补发该等级相对上一等级新增的 `baseHp`。
-- 套装：遗物可选 `set` 标签（`hunter` / `frost` / `guild` / `gambit` / `synergy`），档位在 `effects.js` 的 `RELIC_SET_BONUSES` 声明 2/4 件效果；`recomputeMods` 按不同遗物 ID 计件（升级不重复计入），追加档位后统一应用单件与全局上限。文案由效果注册表的 `effectText` 生成。
+- 套装：遗物可选 `set` 标签（`hunter` / `frost` / `guild` / `gambit` / `synergy` / `reserve`），档位在 `effects.js` 的 `RELIC_SET_BONUSES` 声明 2/4 件效果；`recomputeMods` 按不同遗物 ID 计件（升级不重复计入），追加档位后统一应用单件与全局上限。文案由效果注册表的 `effectText` 生成。
+- 条件型效果：`effects.js` 的 `conditionSnapshot(sim)` 从本局状态提取只读快照（`hpRatio` / `gold` / `emptySlots`），`isLowHpState` / `isRichState` / `hasEmptySlots` 与各 `hitCondition` 都是纯函数；`sim.computeHit` 每次命中生成一次快照传给 `hitBonuses`，判定不读写随机数，固定种子的 RNG 顺序不变。阈值集中在 `CONDITION_THRESHOLDS`（低血 40% / 满金币 400 / 空位 8）。
 - 塔的稳定属性在建造、升级、遗物变化时缓存；模拟步内不重建对象。
 
 ### 4.6 数值与伤害管线

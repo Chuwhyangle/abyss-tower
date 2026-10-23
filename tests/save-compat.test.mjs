@@ -22,10 +22,10 @@ test('validateSave：缺少/非法/未来/过旧版本一律拒绝', () => {
   assert.deepEqual(validateSave({}), { ok: false, reason: 'missing-version' });
   assert.deepEqual(validateSave({ version: '3' }), { ok: false, reason: 'invalid-version' });
   assert.deepEqual(validateSave({ version: 3.5 }), { ok: false, reason: 'invalid-version' });
-  assert.deepEqual(validateSave({ version: 5 }), { ok: false, reason: 'future-version' });
+  assert.deepEqual(validateSave({ version: 6 }), { ok: false, reason: 'future-version' });
   assert.deepEqual(validateSave({ version: 99 }), { ok: false, reason: 'future-version' });
   assert.deepEqual(validateSave({ version: 1 }), { ok: false, reason: 'unsupported-version' });
-  assert.equal(normalizeSnapshot({ version: 5 }), null);
+  assert.equal(normalizeSnapshot({ version: 6 }), null);
 });
 
 test('缺字段的存档按安全默认值恢复', () => {

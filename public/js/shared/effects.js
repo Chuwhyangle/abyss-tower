@@ -5,6 +5,49 @@
 
 const pct = (value) => `${Math.round(value * 100)}%`;
 
+// ---------- 条件型效果的上下文 ----------
+// 条件增伤只读取本局状态快照：快照与判定都是纯函数，不修改 sim、不消耗随机数，
+// 因此可以在单测里直接构造快照，也不会影响固定种子结算的 RNG 顺序。
+export const CONDITION_THRESHOLDS = Object.freeze({
+  lowHpRatio: 0.4, // 基地生命低于上限的 40%
+  richGold: 400, // 金币储备达到 400
+  emptySlots: 8, // 可建造格中至少剩 8 个空位
+});
+
+export function countEmptyBuildableSlots(sim) {
+  const buildable = sim?.map?.buildable;
+  if (!Array.isArray(buildable)) return 0;
+  let total = 0;
+  for (const row of buildable) {
+    if (!Array.isArray(row)) continue;
+    for (const cell of row) if (cell) total++;
+  }
+  return Math.max(0, total - (sim.towers?.length || 0));
+}
+
+export function conditionSnapshot(sim) {
+  const maxHp = Number(sim?.maxBaseHp) || 0;
+  const hp = Number(sim?.baseHp) || 0;
+  return Object.freeze({
+    // 上限缺失时视为满血，条件不触发。
+    hpRatio: maxHp > 0 ? Math.max(0, hp) / maxHp : 1,
+    gold: Number(sim?.gold) || 0,
+    emptySlots: countEmptyBuildableSlots(sim),
+  });
+}
+
+export function isLowHpState(context) {
+  return context.hpRatio < CONDITION_THRESHOLDS.lowHpRatio;
+}
+
+export function isRichState(context) {
+  return context.gold >= CONDITION_THRESHOLDS.richGold;
+}
+
+export function hasEmptySlots(context) {
+  return context.emptySlots >= CONDITION_THRESHOLDS.emptySlots;
+}
+
 export const EFFECT_REGISTRY = {
   dmg: {
     cap: 2.0,
@@ -116,7 +159,21 @@ export const EFFECT_REGISTRY = {
     globalCap: 0.8,
     text: (value) => `基地低血时伤害 +${pct(value)}`,
     balanceWeight: 2,
-    hitCondition: (sim) => sim.baseHp / sim.maxBaseHp < 0.4,
+    hitCondition: (sim, enemy, context) => isLowHpState(context || conditionSnapshot(sim)),
+  },
+  richDmg: {
+    cap: 0.6,
+    globalCap: 0.7,
+    text: (value) => `金币 ≥ ${CONDITION_THRESHOLDS.richGold} 时伤害 +${pct(value)}`,
+    balanceWeight: 3,
+    hitCondition: (sim, enemy, context) => isRichState(context || conditionSnapshot(sim)),
+  },
+  emptySlotDmg: {
+    cap: 0.6,
+    globalCap: 0.7,
+    text: (value) => `空置塔位 ≥ ${CONDITION_THRESHOLDS.emptySlots} 时伤害 +${pct(value)}`,
+    balanceWeight: 3,
+    hitCondition: (sim, enemy, context) => hasEmptySlots(context || conditionSnapshot(sim)),
   },
   projSpeed: {
     cap: 1.0,
@@ -177,6 +234,13 @@ export const RELIC_SET_BONUSES = {
     tiers: [
       { pieces: 2, mods: { fireRate: 0.05 } },
       { pieces: 4, mods: { dot: 0.12 } },
+    ],
+  },
+  reserve: {
+    name: '蓄势同盟',
+    tiers: [
+      { pieces: 2, mods: { richDmg: 0.03 } },
+      { pieces: 4, mods: { emptySlotDmg: 0.05 } },
     ],
   },
 };
@@ -272,13 +336,15 @@ export function effectValue(mods, key) {
 }
 
 // 命中时按注册表顺序返回依次生效的条件增伤倍率（不含暴击，暴击消耗 RNG）。
-export function hitBonuses(sim, enemy) {
+// context 由调用方按需传入；缺省时现场生成一份快照，判定本身仍然是纯函数。
+export function hitBonuses(sim, enemy, context) {
+  const state = context || conditionSnapshot(sim);
   const bonuses = [];
   for (const [key, entry] of Object.entries(EFFECT_REGISTRY)) {
     if (!entry.hitCondition) continue;
     const value = sim.mods[key];
     if (!value) continue;
-    if (entry.hitCondition(sim, enemy)) bonuses.push(value);
+    if (entry.hitCondition(sim, enemy, state)) bonuses.push(value);
   }
   return bonuses;
 }

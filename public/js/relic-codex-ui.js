@@ -40,6 +40,8 @@ const EFFECT_FORMATS = {
   costMul: 'signedPct',
   frostDmgBonus: 'pct',
   lowHpDmg: 'pct',
+  richDmg: 'pct',
+  emptySlotDmg: 'pct',
   projSpeed: 'pct',
   bossDmg: 'pct',
   baseHp: 'int',
