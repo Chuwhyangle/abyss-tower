@@ -1,4 +1,4 @@
-// 塔的分支进化：16 条路线、纯数据修正、满级二选一、确定性与旧档兼容。
+// 塔的分支进化：24 条路线、纯数据修正、满级三选一、确定性与旧档兼容。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TOWERS, TOWER_ORDER } from '../public/js/shared/data/towers.js';
@@ -70,15 +70,15 @@ const EVOLUTION_CASES = TOWER_ORDER.flatMap((type) =>
   (TOWERS[type].evolutions || []).map((evolution) => ({ type, evolution }))
 );
 
-test('8 座塔各 2 条进化路线，共 16 条且 id 唯一', () => {
+test('8 座塔各 3 条进化路线，共 24 条且 id 唯一', () => {
   assert.equal(TOWER_ORDER.length, 8);
-  assert.equal(EVOLUTION_CASES.length, 16);
+  assert.equal(EVOLUTION_CASES.length, 24);
 
   const allIds = new Set();
   for (const type of TOWER_ORDER) {
     const def = TOWERS[type];
     assert.ok(Array.isArray(def.evolutions), `${type} 缺少 evolutions`);
-    assert.equal(def.evolutions.length, 2, `${type} 应有 2 条路线`);
+    assert.equal(def.evolutions.length, 3, `${type} 应有 3 条路线`);
     const localIds = new Set();
     for (const evolution of def.evolutions) {
       assert.ok(typeof evolution.id === 'string' && evolution.id.trim(), `${type} 进化缺少 id`);
@@ -87,9 +87,9 @@ test('8 座塔各 2 条进化路线，共 16 条且 id 唯一', () => {
       localIds.add(evolution.id);
       allIds.add(evolution.id);
     }
-    assert.equal(localIds.size, 2, `${type} 的进化 id 重复`);
+    assert.equal(localIds.size, 3, `${type} 的进化 id 重复`);
   }
-  assert.equal(allIds.size, 16, '16 条路线的 id 必须全局唯一');
+  assert.equal(allIds.size, 24, '24 条路线的 id 必须全局唯一');
 });
 
 test('进化修正只使用现有属性键，且系数合法', () => {
@@ -123,14 +123,14 @@ test('满级才进入待进化，未选择时没有继续升级的路径', () =>
 
   tower.level = MAX_LEVEL('arrow');
   assert.equal(sim.canEvolve(tower), true);
-  assert.equal(sim.evolutionOptions(tower).length, 2);
-  // 满级即没有普通升级入口：想继续变强只能二选一。
+  assert.equal(sim.evolutionOptions(tower).length, 3);
+  // 满级即没有普通升级入口：想继续变强只能三选一。
   assert.equal(sim.upgradeCost(tower), null);
   assert.equal(sim.upgradeTower(tower), false);
   assert.equal(tower.level, MAX_LEVEL('arrow'));
 });
 
-test('16 条路线在模拟中都能生效，且属性按系数修正', () => {
+test('24 条路线在模拟中都能生效，且属性按系数修正', () => {
   for (const { type, evolution } of EVOLUTION_CASES) {
     const sim = makeSim({ towers: [{ type, c: 2, r: 3, level: MAX_LEVEL(type) }] });
     const tower = sim.towers[0];

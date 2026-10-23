@@ -1,5 +1,5 @@
 // 防御塔定义与等级数值。
-// evolutions：满级后的二选一分支，纯数据。mods 的键必须来自现有属性，
+// evolutions：满级后的三选一分支，纯数据。mods 的键必须来自现有属性，
 // 值为乘法系数（1 = 不变），由模拟层统一应用，不引入新机制。
 export const TOWERS = {
   arrow: {
@@ -29,6 +29,13 @@ export const TOWERS = {
         desc: '连锁供弹，射速大幅提升，单发伤害略降。',
         color: '#7fe0c0',
         mods: { rate: 1.5, dmg: 0.85 },
+      },
+      {
+        id: 'arrow-ranger',
+        name: '游猎',
+        desc: '轻装游猎，射程与射速兼顾，适合覆盖多段走廊，单发略降。',
+        color: '#9fe8c4',
+        mods: { range: 1.2, rate: 1.15, dmg: 0.92 },
       },
     ],
   },
@@ -61,6 +68,13 @@ export const TOWERS = {
         color: '#ffcf8a',
         mods: { rate: 1.45, splash: 1.15, dmg: 0.8 },
       },
+      {
+        id: 'cannon-mortar',
+        name: '臼炮',
+        desc: '曲射臼炮，射程大幅提升，可在远端压制，射速略慢。',
+        color: '#f7b47a',
+        mods: { range: 1.4, dmg: 1.15, rate: 0.95 },
+      },
     ],
   },
   frost: {
@@ -90,6 +104,13 @@ export const TOWERS = {
         desc: '凝冰为矛，伤害翻倍、射程提升，减速略减。',
         color: '#6fb7d8',
         mods: { dmg: 2.1, range: 1.15, slow: 0.85 },
+      },
+      {
+        id: 'frost-blizzard',
+        name: '暴雪',
+        desc: '暴雪倾泻，攻速与范围提升，靠频率持续压制，减速略减。',
+        color: '#8fd8f0',
+        mods: { rate: 1.4, range: 1.15, slow: 0.9 },
       },
     ],
   },
@@ -124,6 +145,13 @@ export const TOWERS = {
         color: '#8f7bff',
         mods: { dmg: 1.7, range: 0.9, chain: 0.8 },
       },
+      {
+        id: 'arc-conductor',
+        name: '感电',
+        desc: '高频放电，攻速大幅提升、连锁略增，单体伤害略降。',
+        color: '#a98cff',
+        mods: { rate: 1.5, chain: 1.2, dmg: 0.85 },
+      },
     ],
   },
   poison: {
@@ -154,6 +182,13 @@ export const TOWERS = {
         desc: '毒雾扩散，射程与直击伤害提升，毒性略减。',
         color: '#6fbf5a',
         mods: { range: 1.3, dmg: 1.3, dot: 0.9 },
+      },
+      {
+        id: 'poison-miasma',
+        name: '瘴气',
+        desc: '瘴气弥漫，攻速与毒伤持续提升，靠层数拖垮高血量单位。',
+        color: '#86cf62',
+        mods: { rate: 1.35, dotDur: 1.25, dmg: 0.9 },
       },
     ],
   },
@@ -186,6 +221,13 @@ export const TOWERS = {
         color: '#ffb347',
         mods: { range: 1.35, buffDmg: 1.2, buffRate: 0.9 },
       },
+      {
+        id: 'banner-drum',
+        name: '战鼓',
+        desc: '战鼓催阵，光环攻速大幅提升，增伤略减，适合高射速阵容。',
+        color: '#e8b544',
+        mods: { buffRate: 1.6, buffDmg: 0.85 },
+      },
     ],
   },
   shock: {
@@ -217,6 +259,13 @@ export const TOWERS = {
         color: '#4fd0c0',
         mods: { slow: 1.45, slowDur: 1.4, range: 1.1 },
       },
+      {
+        id: 'shock-resonance',
+        name: '共振',
+        desc: '共振叠波，攻速与射程提升，以更高频率打断敌群，击退略减。',
+        color: '#5fd8bc',
+        mods: { rate: 1.45, range: 1.15, knockback: 0.85 },
+      },
     ],
   },
   sniper: {
@@ -247,6 +296,13 @@ export const TOWERS = {
         desc: '快速上膛，射速大幅提升，射程更远、单发伤害略降。',
         color: '#7fa0ff',
         mods: { rate: 1.5, dmg: 0.78, range: 1.05 },
+      },
+      {
+        id: 'sniper-overwatch',
+        name: '超视距',
+        desc: '超视距压制，射程与单发伤害提升，可覆盖整段长直道，射速降低。',
+        color: '#a8c4ff',
+        mods: { range: 1.3, dmg: 1.2, rate: 0.8 },
       },
     ],
   },

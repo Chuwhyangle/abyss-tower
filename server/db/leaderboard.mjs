@@ -6,6 +6,7 @@ import {
   dayKey,
 } from '../../public/js/shared/scoring.js';
 import { DIFFICULTIES } from '../../public/js/shared/data.js';
+import { COSMETIC_TITLES } from '../../public/js/shared/achievements.js';
 
 // v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
 // 无尽与本周挑战各自使用独立榜单，不与普通/每日榜合并；day 为周键时按周隔离。
@@ -225,6 +226,19 @@ function boardScope(mode, day, { includeUnclaimed = false, difficulty = null, se
   return { where: clauses.join(' AND '), params };
 }
 
+// 称号只读展示：与资料页共用“已选择 + 已知称号”语义，未知 id 或坏 JSON 一律按无称号处理。
+function displayTitle(valueJson) {
+  if (!valueJson) return null;
+  let state;
+  try {
+    state = JSON.parse(valueJson);
+  } catch {
+    return null;
+  }
+  const title = state?.title;
+  return typeof title === 'string' ? COSMETIC_TITLES[title]?.name || null : null;
+}
+
 function publicEntry(row) {
   let metrics = {};
   try {
@@ -234,6 +248,7 @@ function publicEntry(row) {
   }
   return {
     name: row.display_name,
+    title: displayTitle(row.selected_cosmetics),
     difficulty: row.difficulty || 'standard',
     wave: Number(metrics.wave) || 0,
     score: row.score,
@@ -278,12 +293,17 @@ export function listBoard(
       `SELECT * FROM (
          SELECT e.id, e.account_id, e.display_name, e.difficulty, e.score,
                 e.duration_ms, e.metrics_json, e.content_version, e.created_at,
+                s.value_json AS selected_cosmetics,
                 ROW_NUMBER() OVER (
                   PARTITION BY e.account_id
                   ORDER BY e.score DESC, e.duration_ms ASC, e.id ASC
                 ) AS rn
            FROM leaderboard_entries e
            JOIN accounts a ON a.id = e.account_id
+           LEFT JOIN player_kv s
+             ON s.account_id = e.account_id
+            AND s.namespace = 'cosmetics'
+            AND s.key = 'selected'
           WHERE ${scope.where}
        ) WHERE rn = 1
        ORDER BY score DESC, duration_ms ASC, created_at ASC

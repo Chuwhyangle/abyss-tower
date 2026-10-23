@@ -256,6 +256,7 @@ function renderRows(panel, data) {
             <span class="lb-rank ${rank > 0 && rank <= 3 ? 'top' : ''}">${rank || '—'}</span>
             <span class="lb-name">
               ${escapeHtml(entry.name)}
+              ${entry.title ? `<span class="player-title-badge">${escapeHtml(entry.title)}</span>` : ''}
               ${entry.victory ? `<em class="win-mark" title="已通关">${iconSvg('victory')}</em>` : ''}
               ${entry.isMe ? '<em class="me-mark">我</em>' : ''}
               <span class="lb-diff" style="color:${difficultyColor(entry.difficulty)}">${escapeHtml(
