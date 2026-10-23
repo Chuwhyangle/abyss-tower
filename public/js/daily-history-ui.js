@@ -1,6 +1,7 @@
 // 每日挑战历史面板：回看最近 14 天的日期、种子摘要、词缀与本人最佳成绩。
 import { MODIFIER_BY_ID } from './shared/mapgen.js';
 import { iconSvg } from './render/canvas-shapes.js';
+import { tData } from './i18n.js';
 
 const PANEL_ID = 'daily-history-panel';
 const TRIGGER_ID = 'btn-daily-history';
@@ -108,7 +109,7 @@ function modifierChips(ids) {
   return list
     .map((id) => {
       const modifier = MODIFIER_BY_ID[id];
-      const name = modifier?.name || id;
+      const name = modifier ? tData('modifier', id, 'name', modifier.name) : id;
       const color = modifier?.color || 'var(--muted, #8fa3b2)';
       return `<span class="dh-mod" style="color:${escapeHtml(color)}">${escapeHtml(name)}</span>`;
     })

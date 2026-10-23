@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "updatedAt": "2026-10-24",
+  "environment": "Intel Xeon W-2102 · 4 vCPU · Chromium 155 · headless --disable-gpu（软件渲染）",
+  "source": "--quick --budget 首次基线采集（2026-10-24，同宿主同条件；共享 VM，已按负载给足余量）",
+  "tolerance": {
+    "maxAvgRenderMsFactor": 1.6,
+    "maxAvgRenderMsSlack": 0.75,
+    "minRenderFpsFactor": 0.7
+  },
+  "scenarios": {
+    "normal-1x-low": {
+      "baseline": {
+        "renderFps": 29.92,
+        "avgRenderMs": 1.197,
+        "p95FrameMs": 16.8
+      },
+      "budget": {
+        "minRenderFps": 20,
+        "maxAvgRenderMs": 3,
+        "maxP95FrameMs": 25
+      }
+    },
+    "late-3x-high": {
+      "baseline": {
+        "renderFps": 57.7,
+        "avgRenderMs": 2.089,
+        "p95FrameMs": 16.8
+      },
+      "budget": {
+        "minRenderFps": 35,
+        "maxAvgRenderMs": 5,
+        "maxP95FrameMs": 25
+      }
+    },
+    "skills-1x-high": {
+      "baseline": {
+        "renderFps": 25.68,
+        "avgRenderMs": 4.71,
+        "p95FrameMs": 66.7
+      },
+      "budget": {
+        "minRenderFps": 18,
+        "maxAvgRenderMs": 8,
+        "maxP95FrameMs": 80
+      }
+    }
+  }
+}

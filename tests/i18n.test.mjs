@@ -20,6 +20,12 @@ import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
 import { SKILL_ORDER } from '../public/js/shared/data/skills.js';
 import { ACHIEVEMENTS } from '../public/js/shared/achievements.js';
+import { RELICS } from '../public/js/shared/data.js';
+import { MAP_MODIFIERS } from '../public/js/shared/mapgen.js';
+import { SET_ORDER, renderCodex } from '../public/js/relic-codex-ui.js';
+import { renderSeasonPanel } from '../public/js/season-ui.js';
+
+const CJK_RE = /[一-鿿]/;
 
 const GLOSSARY_PATH = new URL('../docs/GLOSSARY.md', import.meta.url);
 const REQUIRED_GLOSSARY_TERMS = ['塔', '遗物', '技能', '难度', '星核', '波次'];
@@ -229,4 +235,198 @@ test('语言选择持久化并优先于浏览器默认', () => {
   };
   assert.equal(setLocale('en-US', { storage: broken, silent: true }), 'en-US');
   setLocale('zh-CN', { silent: true });
+});
+
+test('本周挑战/图鉴/赛季/诊断关键键中英齐全', () => {
+  const missing = [];
+  const requireKey = (key) => {
+    for (const locale of LOCALES) {
+      if (!DICTIONARIES[locale][key]) missing.push(`${locale}:${key}`);
+    }
+  };
+
+  for (const key of [
+    'title.weekly',
+    'difficulty.weeklyTitle',
+    'difficulty.weeklyNote',
+    'difficulty.weeklyAffixes',
+    'difficulty.eyebrowWeekly',
+  ]) {
+    requireKey(key);
+  }
+
+  for (const key of [
+    'codex.title',
+    'codex.subtitle',
+    'codex.progress',
+    'codex.empty',
+    'codex.loading',
+    'codex.login',
+    'codex.error',
+    'codex.unknownEffects',
+    'codex.effectJoiner',
+    'codex.filterRarity',
+    'codex.filterSet',
+    'codex.all',
+    'codex.noSet',
+    'codex.search',
+    'codex.searchPlaceholder',
+    'codex.close',
+  ]) {
+    requireKey(key);
+  }
+  for (const rarity of ['common', 'rare', 'epic']) requireKey(`codex.rarity.${rarity}`);
+  for (const set of SET_ORDER) requireKey(`codex.set.${set}`);
+
+  for (const key of [
+    'season.title',
+    'season.current',
+    'season.lastResult',
+    'season.rankLabel',
+    'season.bestLabel',
+    'season.remainingLabel',
+    'season.coresLabel',
+    'season.settledAtLabel',
+    'season.rankValue',
+    'season.unranked',
+    'season.scoreValue',
+    'season.noResult',
+    'season.noResultHint',
+    'season.progressEmpty',
+    'season.loading',
+    'season.login',
+    'season.error',
+    'season.close',
+  ]) {
+    requireKey(key);
+  }
+  for (const unit of ['days', 'hours', 'minutes']) requireKey(`season.remaining.${unit}`);
+
+  for (const key of [
+    'diagnostics.retry',
+    'diagnostics.close',
+    'diagnostics.closeAria',
+    'diagnostics.uncaught',
+    'diagnostics.fallback',
+    'diagnostics.offline',
+  ]) {
+    requireKey(key);
+  }
+
+  assert.deepEqual(missing, [], `缺少键: ${missing.join(', ')}`);
+});
+
+test('新模块引用的 t()/tOr() 键在中英字典中都存在', () => {
+  const files = [
+    'public/js/relic-codex-ui.js',
+    'public/js/season-ui.js',
+    'public/js/app/boot-errors.js',
+  ];
+  const missing = [];
+  for (const file of files) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8');
+    for (const match of source.matchAll(/(?<![\w.])t(?:Or)?\(\s*'([^']+)'/g)) {
+      for (const locale of LOCALES) {
+        if (!DICTIONARIES[locale][match[1]]) missing.push(`${file} ${locale}:${match[1]}`);
+      }
+    }
+  }
+  assert.deepEqual(missing, [], `缺少键: ${missing.join(', ')}`);
+});
+
+test('词缀与图鉴数据在中英两种语言下都有译名', () => {
+  const missing = [];
+
+  for (const modifier of MAP_MODIFIERS) {
+    for (const field of ['name', 'desc']) {
+      const key = `data.modifier.${modifier.id}.${field}`;
+      for (const locale of LOCALES) {
+        if (!DICTIONARIES[locale][key]) missing.push(`${locale}:${key}`);
+      }
+    }
+    assert.ok(
+      !CJK_RE.test(enUS[`data.modifier.${modifier.id}.name`] || ''),
+      `词缀 ${modifier.id} 的英文名仍是中文`
+    );
+    assert.ok(
+      !CJK_RE.test(enUS[`data.modifier.${modifier.id}.desc`] || ''),
+      `词缀 ${modifier.id} 的英文描述仍是中文`
+    );
+    assert.notEqual(
+      enUS[`data.modifier.${modifier.id}.desc`],
+      zhCN[`data.modifier.${modifier.id}.desc`],
+      `词缀 ${modifier.id} 的英文描述未翻译`
+    );
+  }
+
+  for (const relic of RELICS) {
+    for (const field of ['name', 'desc']) {
+      const key = `codex.relic.${relic.id}.${field}`;
+      for (const locale of LOCALES) {
+        if (!DICTIONARIES[locale][key]) missing.push(`${locale}:${key}`);
+      }
+      assert.ok(
+        !CJK_RE.test(enUS[key] || ''),
+        `遗物 ${relic.id}.${field} 的英文文案仍是中文`
+      );
+    }
+  }
+
+  assert.deepEqual(missing, [], `缺少键: ${missing.join(', ')}`);
+});
+
+test('本周挑战/图鉴/赛季文案随语言切换', () => {
+  const relic = RELICS[0];
+  const modifier = MAP_MODIFIERS[0];
+
+  setLocale('zh-CN', { silent: true });
+  const zhWeekly = `${t('difficulty.weeklyTitle')}|${tData('modifier', modifier.id, 'name', modifier.name)}`;
+  const zhCodex = renderCodex({ relics: [relic], discovered: [relic.id] }).body;
+  const zhSeason = renderSeasonPanel({
+    season: '2026-09',
+    result: null,
+    me: { rank: 3, best: { score: 1000 } },
+    remainingMs: 3 * 86400000,
+  });
+
+  setLocale('en-US', { silent: true });
+  const enWeekly = `${t('difficulty.weeklyTitle')}|${tData('modifier', modifier.id, 'name', modifier.name)}`;
+  const enCodex = renderCodex({ relics: [relic], discovered: [relic.id] }).body;
+  const enSeason = renderSeasonPanel({
+    season: '2026-09',
+    result: null,
+    me: { rank: 3, best: { score: 1000 } },
+    remainingMs: 3 * 86400000,
+  });
+
+  assert.notEqual(zhWeekly, enWeekly, '本周挑战标题/词缀未随语言切换');
+  assert.ok(
+    zhCodex.includes(zhCN[`codex.relic.${relic.id}.name`]),
+    '图鉴中文名未渲染'
+  );
+  assert.ok(enCodex.includes(enUS[`codex.relic.${relic.id}.name`]), '图鉴英文名未渲染');
+  assert.notEqual(zhCodex, enCodex, '图鉴文案未随语言切换');
+  assert.ok(zhSeason.includes('第 3 名'), '赛季中文名次未渲染');
+  assert.ok(enSeason.includes('Rank #3'), '赛季英文名次未渲染');
+
+  setLocale('zh-CN', { silent: true });
+});
+
+test('新增模块源码无硬编码中文文案', () => {
+  const files = [
+    'public/js/relic-codex-ui.js',
+    'public/js/season-ui.js',
+    'public/js/app/boot-errors.js',
+  ];
+  for (const file of files) {
+    const source = readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .filter((line) => !/^\s*\/\//.test(line))
+      // 开发者控制台日志不是玩家可见文案，沿用仓库既有中文日志习惯。
+      .filter((line) => !/console\.(log|warn|error|info|debug)\(/.test(line))
+      .join('\n');
+    const hit = source.split('\n').find((line) => CJK_RE.test(line));
+    assert.equal(hit, undefined, `${file} 仍有硬编码中文: ${hit}`);
+  }
 });

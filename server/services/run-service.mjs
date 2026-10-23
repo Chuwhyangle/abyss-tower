@@ -24,6 +24,7 @@ import {
   personalBest,
   rankFor,
   recordLeaderboardEntry,
+  validateLeaderboardEntry,
 } from '../db/leaderboard.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import { unlockAchievements } from '../db/achievements.mjs';
@@ -603,21 +604,51 @@ export class RunService {
       ? [{ id: unlockedSkillId, name: SKILLS[unlockedSkillId].name }]
       : [];
 
-    recordLeaderboardEntry({
-      accountId: token,
-      displayName: profile.name,
-      runId: run.id,
-      mode: run.mode,
-      day: run.day,
-      difficulty: run.difficulty,
+    // 入榜前过基线反作弊：异常成绩直接拒绝入榜但照常结算，可疑成绩钳制后标记。
+    const guard = validateLeaderboardEntry({
       score: outcome.score,
       durationMs,
       wave: payload.waveReached,
       kills: payload.kills,
-      victory: outcome.victory,
-      contentVersion: run.contentVersion || CONTENT_VERSION,
-      createdAt: now,
     });
+    const guardEvent = {
+      runId: run.id,
+      reason: guard.reason,
+      flags: guard.flags,
+      mode: run.mode,
+      difficulty: run.difficulty,
+      wave: payload.waveReached,
+      kills: guard.kills,
+      durationMs,
+      score: outcome.score,
+    };
+    let leaderboardNotice = null;
+
+    if (guard.accepted) {
+      recordLeaderboardEntry({
+        accountId: token,
+        displayName: profile.name,
+        runId: run.id,
+        mode: run.mode,
+        day: run.day,
+        difficulty: run.difficulty,
+        score: outcome.score,
+        durationMs,
+        wave: payload.waveReached,
+        kills: guard.kills,
+        victory: outcome.victory,
+        suspect: guard.suspect,
+        contentVersion: run.contentVersion || CONTENT_VERSION,
+        createdAt: now,
+      });
+      if (guard.suspect) {
+        recordPlayerEvent(token, 'leaderboard_suspect', guardEvent);
+        leaderboardNotice = '本局成绩已记录，正在复核。';
+      }
+    } else {
+      recordPlayerEvent(token, 'leaderboard_rejected', guardEvent);
+      leaderboardNotice = '本局成绩未能进入排行榜，已提交复核。';
+    }
 
     const stats = normalizeStats(profile.stats);
     stats.runs += 1;
@@ -669,7 +700,7 @@ export class RunService {
       score: outcome.score,
       coresEarned: outcome.cores,
       totalCores: updated.cores,
-      personalBest: isPersonalBest,
+      personalBest: guard.accepted && isPersonalBest,
       rank,
       durationMs,
       skill: run.ruleset?.skill || null,
@@ -679,6 +710,8 @@ export class RunService {
       weeklyAttemptsLeft:
         run.mode === 'weekly' ? weeklyAttemptsLeft(token, run.day) : null,
       unlockedAchievements,
+      // 仅在成绩被拒绝或标记可疑时附加面向玩家的非技术化提示；正常对局不增加字段。
+      ...(leaderboardNotice ? { leaderboardNotice } : {}),
     };
   }
 

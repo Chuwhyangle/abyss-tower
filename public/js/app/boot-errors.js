@@ -1,5 +1,7 @@
 // 全局错误提示：未捕获异常、Promise 拒绝与离线状态显示为顶部可关闭错误条。
 // 错误条固定在页面顶部，不遮挡也不拦截游戏操作；完整错误仍写入控制台，供排查。
+import { t } from '../i18n.js';
+
 let activeReporter = null;
 
 export function reportRetryableError(message, onRetry) {
@@ -27,15 +29,16 @@ export class BootErrorReporter {
 
     this.win.addEventListener('error', (event) => {
       console.error('[boot] 未捕获异常', event.error || event.message);
-      this.record(event.message || '脚本错误');
+      this.record(event.message || 'Script error');
     });
     this.win.addEventListener('unhandledrejection', (event) => {
       console.error('[boot] 未处理的 Promise 拒绝', event.reason);
       const reason = event.reason;
-      this.record(reason?.message || reason || 'Promise 拒绝');
+      this.record(reason?.message || reason || 'Unhandled promise rejection');
     });
     this.win.addEventListener('rtd:offline', () => this.showOffline());
     this.win.addEventListener('rtd:online', () => this.hideOffline());
+    this.doc.addEventListener?.('i18n:change', () => this.syncStaticCopy());
 
     activeReporter = this;
   }
@@ -71,7 +74,7 @@ export class BootErrorReporter {
 
     const retry = this.doc.createElement('button');
     retry.type = 'button';
-    retry.textContent = '重试';
+    retry.textContent = t('diagnostics.retry');
     Object.assign(retry.style, {
       padding: '3px 12px',
       border: '1px solid rgba(255, 211, 107, 0.5)',
@@ -85,8 +88,8 @@ export class BootErrorReporter {
 
     const close = this.doc.createElement('button');
     close.type = 'button';
-    close.textContent = '关闭';
-    close.setAttribute('aria-label', '关闭错误提示');
+    close.textContent = t('diagnostics.close');
+    close.setAttribute('aria-label', t('diagnostics.closeAria'));
     Object.assign(close.style, {
       padding: '3px 8px',
       border: 'none',
@@ -113,15 +116,24 @@ export class BootErrorReporter {
     };
   }
 
+  // 语言切换后同步错误条自身的按钮文案；正在显示的消息保持当次原文。
+  syncStaticCopy() {
+    if (this.retryButton) this.retryButton.textContent = t('diagnostics.retry');
+    if (this.closeButton) {
+      this.closeButton.textContent = t('diagnostics.close');
+      this.closeButton.setAttribute('aria-label', t('diagnostics.closeAria'));
+    }
+  }
+
   // 未捕获异常：记录给冒烟测试读取，并提示玩家可刷新；不展示堆栈。
   record(message) {
     this.win.__bootErrors.push(String(message));
-    this.show('页面出现异常，如果影响操作请刷新页面', { mode: 'uncaught' });
+    this.show(t('diagnostics.uncaught'), { mode: 'uncaught' });
   }
 
   showRetryable(message, onRetry) {
     this.pendingRetry = typeof onRetry === 'function' ? onRetry : null;
-    this.show(message || '操作失败，请稍后重试', {
+    this.show(message || t('diagnostics.fallback'), {
       mode: 'retryable',
       retry: !!this.pendingRetry,
     });
@@ -134,7 +146,7 @@ export class BootErrorReporter {
   showOffline() {
     // 离线提示优先级最高：即使已有其他错误条，也替换为离线状态。
     this.pendingRetry = null;
-    this.show('网络连接已断开，请检查网络，恢复后会自动继续', {
+    this.show(t('diagnostics.offline'), {
       mode: 'offline',
       retry: false,
     });
