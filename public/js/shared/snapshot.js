@@ -14,6 +14,7 @@ import {
   skillStats,
 } from './data.js';
 import { ARCHETYPES, MODIFIER_BY_ID } from './mapgen.js';
+import { normalizeEventHistory } from './events.js';
 
 export const SAVE_VERSION = 4;
 export const MIN_SAVE_VERSION = 2;
@@ -104,6 +105,7 @@ function collectWarnings(snap) {
   if ('skill' in snap && snap.skill != null && normalizeSkill(snap.skill) === null) {
     warnings.push('invalid-skill');
   }
+  if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
   const rawWave = finiteNumber(snap.clearedWave ?? snap.wave);
   if (rawWave !== null && (rawWave < 0 || rawWave > MAX_WAVE)) warnings.push('wave-clamped');
   return warnings;
@@ -116,7 +118,7 @@ function collectWarnings(snap) {
  */
 export function toSnapshot(state) {
   const skill = normalizeSkill(state.skill);
-  return {
+  const snapshot = {
     version: skill ? SAVE_VERSION : BASE_SAVE_VERSION,
     runId: state.runId,
     seed: state.seed,
@@ -137,6 +139,10 @@ export function toSnapshot(state) {
     startedAt: state.startedAt,
     savedAt: Date.now(),
   };
+  // 事件历史是可选字段：没有事件时保持旧存档字节不变。
+  const events = normalizeEventHistory(state.events);
+  if (events.length) snapshot.events = events;
+  return snapshot;
 }
 
 // 版本迁移与字段收敛。只有 validateSnapshot 判定合法后才会调用。
@@ -164,6 +170,8 @@ export function migrateSnapshot(snap) {
     if ('baseHp' in out) out.maxBaseHp = Math.max(out.maxBaseHp, out.baseHp);
   }
   if ('towers' in snap) out.towers = normalizeTowers(snap.towers);
+  // 旧存档没有 events：保持缺省（读取方按“无事件”处理）。
+  if ('events' in snap) out.events = normalizeEventHistory(snap.events);
   if ('preWave' in snap) out.preWave = snap.preWave === true;
 
   if ('mapId' in snap) {

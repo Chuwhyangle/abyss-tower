@@ -51,10 +51,58 @@ export const BIOME_SCENES = Object.freeze({
     decor: Object.freeze({ prop: 'pillar', density: 0.55 }),
     particles: Object.freeze({ max: 60, drift: 0.55, size: 2.1 }),
   }),
+  // 第六套：风蚀石林（折返长廊）。冷蓝灰基调，与既有五套的绿/青/红/紫/金明确区分。
+  switchback: Object.freeze({
+    motif: 'highland',
+    far: Object.freeze({ bands: 4, alpha: 0.05, tilt: 0.14 }),
+    mist: Object.freeze({ patches: 3, alpha: 0.028, size: 0.2 }),
+    ground: Object.freeze({ moss: 0.14 }),
+    decor: Object.freeze({ prop: 'slab', density: 0.58 }),
+    particles: Object.freeze({ max: 66, drift: 0.5, size: 2.3 }),
+    transition: Object.freeze({ bands: 2, alpha: 0.045, spread: 1.7 }),
+  }),
 });
 
 export function biomeScene(map) {
   return BIOME_SCENES[map?.archetype] || BIOME_SCENES.canyon;
+}
+
+export const SIXTH_BIOME = 'switchback';
+
+// 区域过渡默认规格：区域边界处一条低透明度渐变带；场景可覆盖或关闭（bands: 0）。
+export const REGION_TRANSITION = Object.freeze({ bands: 1, alpha: 0.05, spread: 1.8 });
+
+export function sceneTransition(scene) {
+  return scene?.transition || REGION_TRANSITION;
+}
+
+// 过渡带：只在 full 画质生成，位置按地图列数均分；透明度上限保证路径与塔位对比度。
+export function regionTransitionBands(map, scene, decorations = 'full') {
+  if (decorations !== 'full') return [];
+  const spec = sceneTransition(scene);
+  const cols = Math.floor(Number(map?.cols) || 0);
+  const bands = Math.floor(Number(spec.bands) || 0);
+  if (cols < 6 || bands <= 0) return [];
+  const out = [];
+  for (let i = 1; i <= bands; i++) {
+    out.push({ x: (cols * i) / (bands + 1), spread: spec.spread, alpha: spec.alpha });
+  }
+  return out;
+}
+
+// 第六套群系的调色板作为覆盖层内联在渲染层，避免改动 palette.js 的既有五套定义。
+export const BIOME_PALETTE_OVERRIDES = Object.freeze({
+  switchback: Object.freeze({
+    grass1: '#1b2231', grass2: '#161d29', grid: 'rgba(140, 170, 230, 0.05)',
+    pathEdge: '#141926', path: '#283041', pathInner: '#39445a',
+    pathLine: 'rgba(180, 205, 255, 0.22)', tuft: '130, 155, 200',
+    rock: '#47536b', rockEdge: '#71819e', accent: '#93b8ff', ambient: 'rgba(140, 175, 255, ',
+  }),
+});
+
+export function biomeVisualPalette(map, base) {
+  const override = BIOME_PALETTE_OVERRIDES[map?.archetype];
+  return override ? Object.freeze({ ...base, ...override }) : base;
 }
 
 // 环境粒子预算：低配约为高配的 35%，off 为 0，未知档位回退低配；数量永不超过场景上限。
@@ -102,7 +150,7 @@ export class BackgroundRenderer {
     const chevronStep = decor === 'off' ? Infinity : decor === 'light' ? 4.2 : 2.4;
     const excluded = decorExclusion(map);
 
-    const P = palette;
+    const P = biomeVisualPalette(map, palette);
     g.fillStyle = P.grass2;
     g.fillRect(0, 0, width, height);
 
@@ -132,6 +180,9 @@ export class BackgroundRenderer {
 
     // 远景/雾霭层：低对比度叠在地面之上，路径与装饰随后绘制，保证路线始终最清晰。
     this.drawDepthLayers(g, width, height, P, scene, rng);
+
+    // 区域过渡带：可选的低对比度渐变，随后被网格与路径覆盖，不遮挡路线与塔位。
+    this.drawRegionTransitions(g, width, height, P, scene, decor);
 
     // 细网格
     g.strokeStyle = P.grid;
@@ -354,6 +405,23 @@ export class BackgroundRenderer {
     }
   }
 
+  // 区域过渡带：在区域边界处用低透明度渐变衔接地表氛围，仅高画质绘制。
+  drawRegionTransitions(g, width, height, P, scene, decorations) {
+    const bands = regionTransitionBands(this.game.map, scene, decorations);
+    if (!bands.length) return;
+    const cell = width / this.game.map.cols;
+    for (const band of bands) {
+      const cx = band.x * cell;
+      const half = band.spread * cell;
+      const grad = g.createLinearGradient(cx - half, 0, cx + half, 0);
+      grad.addColorStop(0, Palette.hexToRgba(P.accent, 0));
+      grad.addColorStop(0.5, Palette.hexToRgba(P.accent, band.alpha));
+      grad.addColorStop(1, Palette.hexToRgba(P.accent, 0));
+      g.fillStyle = grad;
+      g.fillRect(cx - half, 0, half * 2, height);
+    }
+  }
+
   // 生物群系地表道具：只画低对比度地贴，塔与单位仍是最清晰的层次。
   drawBiomeProps(g, map, P, rng, decor, excluded) {
     const arch = map.archetype || 'canyon';
@@ -460,6 +528,33 @@ export class BackgroundRenderer {
         g.beginPath();
         g.moveTo(x + w * 0.15, y + 3);
         g.lineTo(x + w * 0.15, y - h + 4);
+        g.stroke();
+      } else if (arch === 'switchback') {
+        // 风蚀石柱：斜切层叠薄片 + 风痕
+        const h = rng.range(7, 15);
+        const w = rng.range(4, 7);
+        g.fillStyle = 'rgba(8, 12, 20, 0.35)';
+        g.beginPath();
+        g.ellipse(x + w * 0.3, y + 4, w * 1.2, w * 0.38, 0, 0, Math.PI * 2);
+        g.fill();
+        for (let j = 0; j < 3; j++) {
+          const yy = y + 3 - (h * j) / 3;
+          g.fillStyle = Palette.hexToRgba(P.rock, 0.55 - j * 0.12);
+          g.strokeStyle = Palette.hexToRgba(P.rockEdge, 0.45);
+          g.lineWidth = 1;
+          g.beginPath();
+          g.moveTo(x - w / 2 + j * 1.2, yy);
+          g.lineTo(x + w / 2 + j * 1.2, yy - 2.2);
+          g.lineTo(x + w * 0.3 + j * 1.2, yy - h * 0.34);
+          g.closePath();
+          g.fill();
+          g.stroke();
+        }
+        g.strokeStyle = Palette.hexToRgba(P.accent, 0.3);
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.moveTo(x - w * 0.4, y + 2);
+        g.lineTo(x + w * 0.1, y - h * 0.8);
         g.stroke();
       } else {
         // 骸骨与残骸

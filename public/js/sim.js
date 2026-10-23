@@ -20,6 +20,13 @@ import {
   hitBonuses,
 } from './shared/effects.js';
 import { RNG } from './shared/rng.js';
+import {
+  hasResolvedEvent,
+  isEventWave,
+  normalizeEventHistory,
+  resolveEventOption,
+  rollEvent,
+} from './shared/events.js';
 import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
 import { generateWave } from './shared/waves.js';
@@ -54,6 +61,8 @@ export class Simulation {
     this.clearPending = false;
     this.kills = opts.kills || 0;
     this.relics = normalizeRelicStates(opts.relics || []);
+    // 事件历史：旧存档没有该字段时按“无事件”处理。
+    this.events = normalizeEventHistory(opts.events || []);
     this.unlockedTowers = opts.unlockedTowers || ['arrow', 'cannon', 'frost'];
     this.startedAt = opts.startedAt || Date.now();
 
@@ -103,6 +112,8 @@ export class Simulation {
     this.buildPath();
     this.recomputeMods();
     this.initSkill(opts);
+    // 事件阶段：续玩时由已清波次 + 事件历史推导，已结算过的不再重复弹出。
+    this.pendingEvent = this.computePendingEvent();
 
     // 开局遗物中的基地生命加成（读档时不重复结算）
     if (!opts.restored) {
@@ -365,7 +376,9 @@ export class Simulation {
       return;
     }
 
-    this.phase = 'prep';
+    // 第 5/10/15/20/25 波结束后进入事件阶段；结算前不推进下一波。
+    this.pendingEvent = this.computePendingEvent();
+    this.phase = this.pendingEvent ? 'event' : 'prep';
     // 时停/待落陨星/过载都属于进行中的这一波，清波即收起。
     this.stasis = null;
     this.skillPending = [];
@@ -1152,6 +1165,67 @@ export class Simulation {
     this.playSound('sell');
     this.save();
     return value;
+  }
+
+  // ---------- 局内事件 ----------
+
+  computePendingEvent() {
+    if (!isEventWave(this.clearedWave)) return null;
+    if (hasResolvedEvent(this.events, this.clearedWave)) return null;
+    return rollEvent(this.seed, this.clearedWave);
+  }
+
+  // 事件结算：效果由 shared/events.js 的纯函数给出，这里只做边界收敛与落盘。
+  applyEventOption(index) {
+    const event = this.pendingEvent;
+    if (!event) return { ok: false, reason: 'no-event' };
+    const option = event.options?.[Number(index)];
+    if (!option) return { ok: false, reason: 'invalid-option' };
+
+    const result = resolveEventOption(event, option.id, {
+      seed: this.seed,
+      wave: this.clearedWave,
+      gold: this.gold,
+      baseHp: this.baseHp,
+      maxHp: this.maxBaseHp,
+    });
+    if (!result.ok) return result;
+
+    const deltas = result.deltas || {};
+    const base = this.map.base;
+    if (deltas.gold) {
+      this.gold = Math.max(0, this.gold + deltas.gold);
+      this.addFloater(
+        base.x,
+        base.y - 0.7,
+        `${deltas.gold > 0 ? '+' : ''}${deltas.gold}`,
+        deltas.gold > 0 ? '#ffd36b' : '#ff8b7a',
+        true
+      );
+    }
+    if (deltas.maxHp) {
+      this.maxBaseHp = Math.max(1, this.maxBaseHp + deltas.maxHp);
+    }
+    if (deltas.hp) {
+      const before = this.baseHp;
+      this.baseHp = Math.max(1, Math.min(this.maxBaseHp, this.baseHp + deltas.hp));
+      const amount = this.baseHp - before;
+      if (amount > 0) {
+        this.addEffect({ kind: 'heal', x: base.x, y: base.y, ttl: 0.8 });
+        this.addFloater(base.x, base.y - 0.7, `+${amount}`, '#7ef0a5', true);
+      } else if (amount < 0) {
+        this.addFloater(base.x, base.y - 0.7, `${amount}`, '#ff8b7a', true);
+      }
+    }
+    this.baseHp = Math.min(this.baseHp, this.maxBaseHp);
+
+    this.events.push({ wave: this.clearedWave, eventId: event.id, optionId: option.id });
+    this.events = normalizeEventHistory(this.events);
+    this.pendingEvent = null;
+    this.phase = 'prep';
+    this.playSound('draft');
+    this.save();
+    return { ...result, applied: true };
   }
 
   getRelicLevel(id) {

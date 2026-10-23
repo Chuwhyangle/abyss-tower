@@ -1,6 +1,7 @@
 // 成就持久化：读取已解锁状态，按结算上下文幂等写入新解锁。
 import { db } from './index.mjs';
 import { careerStats } from './stats.mjs';
+import { seasonBounds, seasonOf } from './leaderboard.mjs';
 import { readSelectedSkill, readSkillLevels, skillUnlocked } from './skills.mjs';
 import {
   ACHIEVEMENTS,
@@ -57,6 +58,92 @@ function skillAbyssWins(accountId) {
   return wins;
 }
 
+// 无伤通关：结算时剩余基地生命不小于开局生命。旧局缺少 ruleset.meta 时无法判定，不计入。
+function flawlessSummary(accountId) {
+  const rows = db
+    .prepare(
+      `SELECT difficulty, ruleset_json, result_json FROM runs
+        WHERE account_id = ? AND status = 'finished' AND victory = 1`
+    )
+    .all(accountId);
+  let wins = 0;
+  let abyssWins = 0;
+  for (const row of rows) {
+    try {
+      const startHp = Number(JSON.parse(row.ruleset_json || '{}')?.meta?.baseHp);
+      const leftHp = Number(JSON.parse(row.result_json || '{}')?.baseHp);
+      if (!Number.isFinite(startHp) || startHp <= 0 || !Number.isFinite(leftHp)) continue;
+      if (leftHp < startHp) continue;
+      wins += 1;
+      if (row.difficulty === 'abyss') abyssWins += 1;
+    } catch {
+      /* 旧数据不是合法 JSON，忽略 */
+    }
+  }
+  return { wins, abyssWins };
+}
+
+// 赛季最佳排名：只统计注册账号，按榜单内个人最高分比较。
+function seasonBestRank(accountId, bounds) {
+  const boards = db
+    .prepare(
+      `SELECT DISTINCT board_key FROM leaderboard_entries
+        WHERE account_id = ? AND created_at >= ? AND created_at < ?`
+    )
+    .all(accountId, bounds.start, bounds.end);
+  let best = null;
+  for (const row of boards) {
+    const mine = db
+      .prepare(
+        `SELECT MAX(score) AS score FROM leaderboard_entries
+          WHERE account_id = ? AND board_key = ? AND created_at >= ? AND created_at < ?`
+      )
+      .get(accountId, row.board_key, bounds.start, bounds.end);
+    const myScore = Number(mine?.score) || 0;
+    const better = db
+      .prepare(
+        `SELECT COUNT(*) AS c FROM (
+           SELECT e.account_id, MAX(e.score) AS score
+             FROM leaderboard_entries e
+             JOIN accounts a ON a.id = e.account_id
+            WHERE e.board_key = ? AND a.kind = 'registered'
+              AND e.created_at >= ? AND e.created_at < ?
+            GROUP BY e.account_id
+         ) WHERE score > ?`
+      )
+      .get(row.board_key, bounds.start, bounds.end, myScore);
+    const rank = (Number(better?.c) || 0) + 1;
+    if (best == null || rank < best) best = rank;
+  }
+  return best;
+}
+
+// 当前赛季（自然月）统计：对局数、通关数、最高分、活跃天数与最佳榜单排名。
+function seasonContext(accountId, now = Date.now()) {
+  const key = seasonOf(now);
+  const bounds = seasonBounds(key);
+  if (!bounds) return { key: null, runs: 0, wins: 0, bestScore: 0, days: 0, rank: null };
+  const row = db
+    .prepare(
+      `SELECT COUNT(*) AS runs,
+              COALESCE(SUM(victory), 0) AS wins,
+              COALESCE(MAX(score), 0) AS best_score,
+              COUNT(DISTINCT day) AS days
+         FROM runs
+        WHERE account_id = ? AND status = 'finished'
+          AND created_at >= ? AND created_at < ?`
+    )
+    .get(accountId, bounds.start, bounds.end);
+  return {
+    key,
+    runs: Number(row?.runs) || 0,
+    wins: Number(row?.wins) || 0,
+    bestScore: Number(row?.best_score) || 0,
+    days: Number(row?.days) || 0,
+    rank: seasonBestRank(accountId, bounds),
+  };
+}
+
 // 进度所需的上下文与结算时保持一致，但 run 为空：本局专属的进度只能从结算响应看到。
 function progressContext(accountId, unlocked) {
   const career = careerStats(accountId);
@@ -70,6 +157,7 @@ function progressContext(accountId, unlocked) {
     };
   }
   const daily = dailySummary(accountId);
+  const flawless = flawlessSummary(accountId);
   return {
     run: null,
     stats: {
@@ -82,6 +170,9 @@ function progressContext(accountId, unlocked) {
     dailyWins: daily.wins,
     skills: skillContext(accountId),
     skillAbyssWins: skillAbyssWins(accountId),
+    noDamageWins: flawless.wins,
+    abyssFlawlessWins: flawless.abyssWins,
+    season: seasonContext(accountId),
     unlocked,
   };
 }
@@ -94,6 +185,7 @@ export function listUnlocked(accountId) {
 export function unlockAchievements(accountId, { run = null, stats = null } = {}) {
   const unlocked = new Set(listUnlocked(accountId).keys());
   const daily = dailySummary(accountId);
+  const flawless = flawlessSummary(accountId);
   const added = evaluateAchievements({
     run,
     stats,
@@ -101,6 +193,9 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
     dailyWins: daily.wins,
     skills: skillContext(accountId),
     skillAbyssWins: skillAbyssWins(accountId),
+    noDamageWins: flawless.wins,
+    abyssFlawlessWins: flawless.abyssWins,
+    season: seasonContext(accountId),
     unlocked,
   });
   if (!added.length) return [];

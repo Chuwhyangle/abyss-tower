@@ -7,6 +7,9 @@
 //   unlocked  —— 当前已解锁成就 id 集合（用于成就猎人等组合成就）
 //   skills    —— 技能养成状态（levels/unlocked/selected，服务端从 player_progress 读取）
 //   skillAbyssWins —— 携带主动技能通关深渊的次数
+//   noDamageWins    —— 无伤通关次数（服务端从 runs 的结算前后基地生命比对）
+//   abyssFlawlessWins —— 其中深渊难度的无伤通关次数
+//   season    —— 当前赛季（自然月）统计（key/runs/wins/bestScore/days/rank）
 import { DIFFICULTY_ORDER, RELIC_MAX_LEVEL, SKILLS, SKILL_ORDER } from './data.js';
 
 export const ACHIEVEMENT_GROUPS = [
@@ -47,6 +50,10 @@ function difficultyWins(ctx, id) {
   return Number(ctx.stats?.byDifficulty?.[id]?.wins) || 0;
 }
 
+function difficultyBestScore(ctx, id) {
+  return Number(ctx.stats?.byDifficulty?.[id]?.bestScore) || 0;
+}
+
 function difficultyWinsCount(ctx) {
   return DIFFICULTY_ORDER.filter((id) => difficultyWins(ctx, id) >= 1).length;
 }
@@ -65,6 +72,20 @@ const maxSkillLevel = (ctx) =>
   Math.max(0, ...SKILL_ORDER.map((id) => Number(ctx.skills?.levels?.[id]) || 0));
 const unlockedSkillCount = (ctx) =>
   SKILL_ORDER.filter((id) => !!ctx.skills?.unlocked?.[id]).length;
+const maxedSkillCount = (ctx) =>
+  SKILL_ORDER.filter((id) => (Number(ctx.skills?.levels?.[id]) || 0) >= MAX_SKILL_LEVEL).length;
+const totalSkillLevels = (ctx) =>
+  SKILL_ORDER.reduce((sum, id) => sum + (Number(ctx.skills?.levels?.[id]) || 0), 0);
+const skillAbyssWinCount = (ctx) => Number(ctx.skillAbyssWins) || 0;
+
+const seasonValue = (ctx, key) => Number(ctx.season?.[key]) || 0;
+const seasonRuns = (ctx) => seasonValue(ctx, 'runs');
+const seasonWins = (ctx) => seasonValue(ctx, 'wins');
+const seasonBestScore = (ctx) => seasonValue(ctx, 'bestScore');
+const seasonDays = (ctx) => seasonValue(ctx, 'days');
+
+const noDamageWins = (ctx) => Number(ctx.noDamageWins) || 0;
+const abyssNoDamageWins = (ctx) => Number(ctx.abyssFlawlessWins) || 0;
 
 // 带 target/progress 的成就自动由进度判定；其余成就自行提供 check。
 function define({ id, title, desc, condition, group, rarity, hidden = false, target, progress, check }) {
@@ -199,6 +220,48 @@ export const ACHIEVEMENTS = [
     rarity: 'rare',
     check: (ctx) =>
       !!ctx.run?.victory && (Number(ctx.run?.durationMs) || 0) <= 15 * 60 * 1000,
+  }),
+  define({
+    id: 'flawless_win',
+    title: '滴水不漏',
+    desc: '在基地生命毫发无损的情况下完成一次通关。',
+    condition: '无伤通关任意难度 1 次',
+    group: 'clear',
+    rarity: 'rare',
+    target: 1,
+    progress: noDamageWins,
+  }),
+  define({
+    id: 'flawless_win_3',
+    title: '完美守备',
+    desc: '累计无伤通关 3 次。',
+    condition: '无伤通关任意难度 3 次',
+    group: 'clear',
+    rarity: 'epic',
+    target: 3,
+    progress: noDamageWins,
+  }),
+  define({
+    id: 'abyss_speedrun',
+    title: '深渊疾行',
+    desc: '在 20 分钟内通关深渊难度。',
+    condition: '深渊难度通关用时不超过 20 分钟',
+    group: 'clear',
+    rarity: 'epic',
+    check: (ctx) =>
+      !!ctx.run?.victory &&
+      ctx.run?.difficulty === 'abyss' &&
+      (Number(ctx.run?.durationMs) || 0) <= 20 * 60 * 1000,
+  }),
+  define({
+    id: 'hidden_abyss_flawless',
+    title: '无瑕深渊',
+    desc: '在深渊难度完成一次无伤通关。',
+    condition: '深渊难度无伤通关 1 次',
+    group: 'clear',
+    rarity: 'epic',
+    hidden: true,
+    check: (ctx) => abyssNoDamageWins(ctx) >= 1,
   }),
 
   // ── 构筑 ──────────────────────────────────────────────────────────
@@ -434,6 +497,80 @@ export const ACHIEVEMENTS = [
     hidden: true,
     check: (ctx) => totalRuns(ctx) >= 5 && totalWins(ctx) === totalRuns(ctx),
   }),
+  define({
+    id: 'abyss_score_12000',
+    title: '深渊高分',
+    desc: '单局深渊难度得分达到 12000。',
+    condition: '深渊难度最高得分 12000',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 12000,
+    progress: (ctx) => difficultyBestScore(ctx, 'abyss'),
+  }),
+
+  // ── 赛季（自然月） ────────────────────────────────────────────────
+  define({
+    id: 'season_runs_10',
+    title: '赛季常客',
+    desc: '在单个赛季内完成 10 局远征。',
+    condition: '单赛季完成 10 局',
+    group: 'challenge',
+    rarity: 'common',
+    target: 10,
+    progress: seasonRuns,
+  }),
+  define({
+    id: 'season_wins_5',
+    title: '赛季凯旋',
+    desc: '在单个赛季内通关 5 次。',
+    condition: '单赛季通关 5 次',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 5,
+    progress: seasonWins,
+  }),
+  define({
+    id: 'season_score_5000',
+    title: '赛季高分',
+    desc: '在单个赛季内单局得分达到 5000。',
+    condition: '单赛季最高得分 5000',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 5000,
+    progress: seasonBestScore,
+  }),
+  define({
+    id: 'season_score_12000',
+    title: '赛季传奇',
+    desc: '在单个赛季内单局得分达到 12000。',
+    condition: '单赛季最高得分 12000',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 12000,
+    progress: seasonBestScore,
+  }),
+  define({
+    id: 'season_days_7',
+    title: '赛季常驻',
+    desc: '在单个赛季的 7 个不同日期完成对局。',
+    condition: '单赛季活跃 7 天',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 7,
+    progress: seasonDays,
+  }),
+  define({
+    id: 'season_top_10',
+    title: '赛季前十',
+    desc: '在单个赛季的任意榜单进入前 10 名。',
+    condition: '单赛季任意榜单排名前 10',
+    group: 'collect',
+    rarity: 'epic',
+    check: (ctx) => {
+      const rank = Number(ctx.season?.rank);
+      return Number.isInteger(rank) && rank >= 1 && rank <= 10;
+    },
+  }),
 
   // ── 收集 ──────────────────────────────────────────────────────────
   define({
@@ -546,6 +683,16 @@ export const ACHIEVEMENTS = [
     progress: unlockedSkillCount,
   }),
   define({
+    id: 'skill_level_3',
+    title: '融会贯通',
+    desc: '把任意主动技能提升到 3 级。',
+    condition: '任意技能达到 3 级',
+    group: 'build',
+    rarity: 'common',
+    target: 3,
+    progress: maxSkillLevel,
+  }),
+  define({
     id: 'skill_level_5',
     title: '渐入佳境',
     desc: '把任意主动技能提升到 5 级。',
@@ -573,7 +720,37 @@ export const ACHIEVEMENTS = [
     group: 'build',
     rarity: 'epic',
     target: 1,
-    progress: (ctx) => Number(ctx.skillAbyssWins) || 0,
+    progress: skillAbyssWinCount,
+  }),
+  define({
+    id: 'skill_abyss_win_5',
+    title: '深渊演武·五',
+    desc: '携带主动技能通关深渊 5 次。',
+    condition: '带技能通关深渊 5 次',
+    group: 'build',
+    rarity: 'rare',
+    target: 5,
+    progress: skillAbyssWinCount,
+  }),
+  define({
+    id: 'skill_levels_20',
+    title: '养成有方',
+    desc: '主动技能等级总和达到 20 级。',
+    condition: '技能等级总和 20',
+    group: 'build',
+    rarity: 'rare',
+    target: 20,
+    progress: totalSkillLevels,
+  }),
+  define({
+    id: 'skill_all_max',
+    title: '万法归一',
+    desc: '把全部主动技能提升到满级。',
+    condition: `全部 ${SKILL_ORDER.length} 个技能达到 ${MAX_SKILL_LEVEL} 级`,
+    group: 'build',
+    rarity: 'epic',
+    target: SKILL_ORDER.length,
+    progress: maxedSkillCount,
   }),
 ];
 

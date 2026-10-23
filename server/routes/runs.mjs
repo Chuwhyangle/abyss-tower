@@ -2,7 +2,7 @@
 import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-limit.mjs';
 import { RunError, RunService } from '../services/run-service.mjs';
 
-const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|relics|relic|finish|abandon))?$/;
+const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|relics|relic|events|event|finish|abandon))?$/;
 
 export class RunRoutes {
   constructor(service = new RunService()) {
@@ -64,6 +64,8 @@ export class RunRoutes {
     if (action === 'clear') return this.clear(ctx, run);
     if (action === 'relics') return this.relics(ctx, run);
     if (action === 'relic') return this.relic(ctx, run);
+    if (action === 'events') return this.events(ctx, run);
+    if (action === 'event') return this.event(ctx, run);
     if (action === 'finish') return this.finish(ctx, run);
     if (action === 'abandon') return this.abandon(ctx, run);
     return false;
@@ -99,6 +101,17 @@ export class RunRoutes {
         200,
         this.service.pickRelic(run, { index: body.index, relicId: body.relicId })
       )
+    );
+  }
+
+  events(ctx, run) {
+    return this.respond(ctx, () => ctx.json(200, this.service.eventNode(run)));
+  }
+
+  async event(ctx, run) {
+    const body = await ctx.readJson();
+    return this.respond(ctx, () =>
+      ctx.json(200, this.service.pickEvent(run, { index: body.index, optionId: body.optionId }))
     );
   }
 

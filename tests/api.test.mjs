@@ -8,7 +8,7 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { clampFinishPayload, computeOutcome } from '../public/js/shared/scoring.js';
+import { clampFinishPayload, computeOutcome, dayKey } from '../public/js/shared/scoring.js';
 import { DIFFICULTIES, SKILLS, TOWER_ORDER } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -349,7 +349,7 @@ test('每日挑战：固定规则集、自选难度、三次结算上限', async
     assert.deepEqual(started.data.skill, { id: 'chrono', level: 5 });
     assert.deepEqual(started.data.ruleset.meta, { startGold: 260, baseHp: 20, maxRerolls: 1 });
     assert.equal(started.data.ruleset.daily.ruleset, 'daily-v2');
-    assert.equal(started.data.ruleset.daily.date, new Date().toISOString().slice(0, 10));
+    assert.equal(started.data.ruleset.daily.date, dayKey());
     if (dailySeed == null) dailySeed = started.data.seed;
     else assert.equal(started.data.seed, dailySeed);
 

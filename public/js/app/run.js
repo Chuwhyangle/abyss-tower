@@ -7,7 +7,18 @@ import { RelicOffers } from './offers.js';
 import { skillApi } from './skills.js';
 
 export class RunController {
-  constructor({ state, api, ui, store, onWaveClear, onGameOver, onRequestError, onBindCanvas, onShowTitle }) {
+  constructor({
+    state,
+    api,
+    ui,
+    store,
+    onWaveClear,
+    onGameOver,
+    onRequestError,
+    onBindCanvas,
+    onShowTitle,
+    onPendingEvent,
+  }) {
     this.state = state;
     this.api = api;
     this.ui = ui;
@@ -17,6 +28,7 @@ export class RunController {
     this.onRequestError = onRequestError;
     this.onBindCanvas = onBindCanvas;
     this.onShowTitle = onShowTitle;
+    this.onPendingEvent = onPendingEvent;
   }
 
   async restorePendingMap() {
@@ -155,6 +167,8 @@ export class RunController {
       wave: snapshot?.clearedWave ?? snapshot?.wave ?? 0,
       clearedWave: data.clearedWaves ?? snapshot?.clearedWave ?? snapshot?.wave ?? 0,
       pendingDraft: snapshot?.pendingDraft ?? false,
+      // 旧存档没有 events：按“无事件”恢复。
+      events: snapshot?.events || [],
       kills: snapshot?.kills || 0,
       startedAt: snapshot?.startedAt,
       restored: !!snapshot,
@@ -266,6 +280,8 @@ export class RunController {
         skill: run.ruleset?.skill || null,
       };
       this.beginGame(data, snap);
+      // 未结算的事件节点优先恢复（快照里只存事件历史，待办事件由波次推导）。
+      if (this.state.sim?.pendingEvent) await this.onPendingEvent?.();
       if (snap.pendingDraft && run.clearedWaves === run.wavesServed) {
         await this.restorePendingDraft();
       } else if (run.clearedWaves < run.wavesServed) {
