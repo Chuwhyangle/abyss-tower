@@ -3,7 +3,7 @@ import { api, errorMessage, isRetryableError } from '../api.js';
 import { clearRetryableError, reportRetryableError } from './boot-errors.js';
 import { ui } from '../ui.js';
 import { audio } from '../audio.js';
-import { loadSettings, saveSettings } from '../settings.js';
+import { loadSettings, saveSettings, SettingsSync } from '../settings.js';
 import { ensureAuthGate } from '../auth-ui.js';
 import { RunStore } from './store.js';
 import { SessionController } from './session.js';
@@ -38,6 +38,15 @@ export class GameController {
       mapChoosing: false,
       mapCandidates: null,
     };
+
+    // 设置云同步：登录后拉取、修改后节流写回；回调把远端结果播给当前界面。
+    this.settingsSync = new SettingsSync({
+      api: this.api,
+      onChange: (settings) => {
+        this.state.settings = settings;
+        this.state.app?.applySettings(settings);
+      },
+    });
 
     // 子控制器只拿到自己需要的依赖与回调；GameController 是唯一的装配点与跨控制器调度者。
     this.session = new SessionController({
@@ -87,6 +96,9 @@ export class GameController {
     // 账号模式：未登录只渲染登录/注册页，不初始化大厅与战斗。
     const authenticated = await ensureAuthGate();
     if (!authenticated) return;
+
+    // 登录后同步一次云端设置：失败只保留本地值，不阻塞进入游戏。
+    this.settingsSync.pull().catch(() => {});
 
     this.ui.init({
       onPlay: () =>
@@ -251,6 +263,7 @@ export class GameController {
       inGame,
       onApply: (next) => {
         state.settings = saveSettings(next);
+        this.settingsSync.push(state.settings);
         state.app?.applySettings(state.settings);
         if (inGame) state.app?.setPaused(wasPaused);
         this.ui.toast('画质设置已应用', 1800);

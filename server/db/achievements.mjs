@@ -5,12 +5,141 @@ import { seasonBounds, seasonOf } from './leaderboard.mjs';
 import { readSelectedSkill, readSkillLevels, skillUnlocked } from './skills.mjs';
 import {
   ACHIEVEMENTS,
+  ACHIEVEMENT_BY_ID,
   ACHIEVEMENT_GROUPS,
   ACHIEVEMENT_RARITIES,
+  COSMETIC_FRAMES,
+  COSMETIC_TITLES,
   achievementProgress,
   evaluateAchievements,
 } from '../../public/js/shared/achievements.js';
 import { SKILL_ORDER } from '../../public/js/shared/data.js';
+
+const COSMETIC_NAMESPACE = 'cosmetics';
+const SELECTED_COSMETIC_KEY = 'selected';
+
+// 外观 id → 授予它的成就，接口据此展示来源。
+const COSMETIC_SOURCES = (() => {
+  const sources = { title: new Map(), frame: new Map() };
+  for (const achievement of ACHIEVEMENTS) {
+    if (achievement.reward?.title) sources.title.set(achievement.reward.title, achievement);
+    if (achievement.reward?.frame) sources.frame.set(achievement.reward.frame, achievement);
+  }
+  return sources;
+})();
+
+function cosmeticKey(kind, id) {
+  return `${kind}:${id}`;
+}
+
+// 解锁写入 player_kv：title:<id> / frame:<id>，值记录来源成就与时间。
+function writeCosmeticUnlocks(accountId, achievementIds, now) {
+  const insert = db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO NOTHING`
+  );
+  for (const achievementId of achievementIds) {
+    const reward = ACHIEVEMENT_BY_ID[achievementId]?.reward;
+    if (!reward) continue;
+    const value = JSON.stringify({ achievementId, unlockedAt: now });
+    if (reward.title) insert.run(accountId, COSMETIC_NAMESPACE, cosmeticKey('title', reward.title), value, now);
+    if (reward.frame) insert.run(accountId, COSMETIC_NAMESPACE, cosmeticKey('frame', reward.frame), value, now);
+  }
+}
+
+// 已解锁外观 = player_kv 记录 ∪ 成就表派生（后者覆盖上线前已解锁的老档案）。
+export function unlockedCosmetics(accountId) {
+  const titles = new Set();
+  const frames = new Set();
+  for (const achievementId of listUnlocked(accountId).keys()) {
+    const reward = ACHIEVEMENT_BY_ID[achievementId]?.reward;
+    if (reward?.title) titles.add(reward.title);
+    if (reward?.frame) frames.add(reward.frame);
+  }
+  const rows = db
+    .prepare('SELECT key FROM player_kv WHERE account_id = ? AND namespace = ?')
+    .all(accountId, COSMETIC_NAMESPACE);
+  for (const row of rows) {
+    const [kind, id] = String(row.key).split(':');
+    if (kind === 'title' && COSMETIC_TITLES[id]) titles.add(id);
+    else if (kind === 'frame' && COSMETIC_FRAMES[id]) frames.add(id);
+  }
+  return { titles, frames };
+}
+
+// 无选择 / 选择已失效时返回 null，旧档案因此默认无称号、无头像框。
+export function readSelectedCosmetics(accountId, unlocks = unlockedCosmetics(accountId)) {
+  const row = db
+    .prepare('SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?')
+    .get(accountId, COSMETIC_NAMESPACE, SELECTED_COSMETIC_KEY);
+  let state = {};
+  try {
+    state = JSON.parse(row?.value_json || '{}') || {};
+  } catch {
+    state = {};
+  }
+  return {
+    title: unlocks.titles.has(state.title) ? state.title : null,
+    frame: unlocks.frames.has(state.frame) ? state.frame : null,
+  };
+}
+
+// patch 只包含请求里显式给出的字段；undefined 表示保持原值。
+export function setSelectedCosmetics(accountId, patch = {}) {
+  const unlocks = unlockedCosmetics(accountId);
+  const next = readSelectedCosmetics(accountId, unlocks);
+  if (patch.title !== undefined) {
+    if (patch.title !== null && !COSMETIC_TITLES[patch.title]) {
+      return { ok: false, code: 'UNKNOWN_TITLE' };
+    }
+    if (patch.title !== null && !unlocks.titles.has(patch.title)) {
+      return { ok: false, code: 'TITLE_LOCKED' };
+    }
+    next.title = patch.title;
+  }
+  if (patch.frame !== undefined) {
+    if (patch.frame !== null && !COSMETIC_FRAMES[patch.frame]) {
+      return { ok: false, code: 'UNKNOWN_FRAME' };
+    }
+    if (patch.frame !== null && !unlocks.frames.has(patch.frame)) {
+      return { ok: false, code: 'FRAME_LOCKED' };
+    }
+    next.frame = patch.frame;
+  }
+  const now = Date.now();
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json,
+       updated_at = excluded.updated_at`
+  ).run(accountId, COSMETIC_NAMESPACE, SELECTED_COSMETIC_KEY, JSON.stringify(next), now);
+  return { ok: true, selected: next };
+}
+
+function cosmeticCatalogView(kind, unlocks) {
+  const catalog = kind === 'title' ? COSMETIC_TITLES : COSMETIC_FRAMES;
+  const owned = kind === 'title' ? unlocks.titles : unlocks.frames;
+  return Object.values(catalog).map((item) => {
+    const source = COSMETIC_SOURCES[kind].get(item.id) || null;
+    return {
+      ...item,
+      unlocked: owned.has(item.id),
+      achievementId: source?.id || null,
+      achievementTitle: source?.title || null,
+    };
+  });
+}
+
+export function cosmeticSummary(accountId) {
+  const unlocks = unlockedCosmetics(accountId);
+  return {
+    selected: readSelectedCosmetics(accountId, unlocks),
+    titles: cosmeticCatalogView('title', unlocks),
+    frames: cosmeticCatalogView('frame', unlocks),
+  };
+}
 
 function unlockedRows(accountId) {
   return db
@@ -206,6 +335,7 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
   );
   const now = Date.now();
   for (const id of added) insert.run(accountId, id, now);
+  writeCosmeticUnlocks(accountId, added, now);
   return added;
 }
 

@@ -25,6 +25,31 @@ export const ACHIEVEMENT_RARITIES = {
   epic: { id: 'epic', name: '史诗', color: '#c88bff' },
 };
 
+// 成就奖励目录：成就只引用这里的 id，展示文案与配色集中维护。
+export const COSMETIC_TITLES = {
+  wanderer: { id: 'wanderer', name: '初行者' },
+  recruit: { id: 'recruit', name: '塔下新兵' },
+  commander: { id: 'commander', name: '全能指挥官' },
+  abyss_conqueror: { id: 'abyss_conqueror', name: '深渊征服者' },
+  tower_dawn: { id: 'tower_dawn', name: '塔顶守望' },
+  gale: { id: 'gale', name: '疾风行者' },
+  soul_lord: { id: 'soul_lord', name: '万魂之主' },
+  collector: { id: 'collector', name: '遗物收藏家' },
+  iron_daily: { id: 'iron_daily', name: '每日铁人' },
+  achievement_master: { id: 'achievement_master', name: '成就宗师' },
+  season_legend: { id: 'season_legend', name: '赛季传奇' },
+};
+
+export const COSMETIC_FRAMES = {
+  bronze: { id: 'bronze', name: '青铜边框', color: '#b87333' },
+  abyss: { id: 'abyss', name: '深渊边框', color: '#8b5cf6' },
+  gold: { id: 'gold', name: '鎏金边框', color: '#f5c451' },
+  storm: { id: 'storm', name: '风暴边框', color: '#5bc8ff' },
+  emerald: { id: 'emerald', name: '翡翠边框', color: '#34d399' },
+  ember: { id: 'ember', name: '余烬边框', color: '#ff7a45' },
+  prism: { id: 'prism', name: '棱彩边框', color: '#c88bff' },
+};
+
 const totalRuns = (ctx) => Number(ctx.stats?.runs) || 0;
 const totalWins = (ctx) => Number(ctx.stats?.wins) || 0;
 const totalKills = (ctx) => Number(ctx.stats?.kills) || 0;
@@ -88,8 +113,22 @@ const noDamageWins = (ctx) => Number(ctx.noDamageWins) || 0;
 const abyssNoDamageWins = (ctx) => Number(ctx.abyssFlawlessWins) || 0;
 
 // 带 target/progress 的成就自动由进度判定；其余成就自行提供 check。
-function define({ id, title, desc, condition, group, rarity, hidden = false, target, progress, check }) {
+// reward 引用 COSMETIC_TITLES / COSMETIC_FRAMES 中的 id，解锁成就即解锁对应外观。
+function define({
+  id,
+  title,
+  desc,
+  condition,
+  group,
+  rarity,
+  hidden = false,
+  target,
+  progress,
+  check,
+  reward,
+}) {
   const item = { id, title, desc, condition, group, rarity, hidden };
+  if (reward) item.reward = reward;
   if (Number.isInteger(target) && target > 0 && typeof progress === 'function') {
     item.target = target;
     item.progress = progress;
@@ -109,6 +148,7 @@ export const ACHIEVEMENTS = [
     condition: '累计完成 1 局远征',
     group: 'clear',
     rarity: 'common',
+    reward: { title: 'wanderer' },
     target: 1,
     progress: totalRuns,
   }),
@@ -119,6 +159,7 @@ export const ACHIEVEMENTS = [
     condition: '累计通关 1 次',
     group: 'clear',
     rarity: 'common',
+    reward: { title: 'recruit', frame: 'bronze' },
     target: 1,
     progress: totalWins,
   }),
@@ -149,6 +190,7 @@ export const ACHIEVEMENTS = [
     condition: '深渊难度通关 1 次',
     group: 'clear',
     rarity: 'epic',
+    reward: { title: 'abyss_conqueror', frame: 'abyss' },
     target: 1,
     progress: (ctx) => difficultyWins(ctx, 'abyss'),
   }),
@@ -159,6 +201,7 @@ export const ACHIEVEMENTS = [
     condition: '漫游、远征、深渊各通关 1 次',
     group: 'clear',
     rarity: 'epic',
+    reward: { title: 'commander', frame: 'gold' },
     target: DIFFICULTY_ORDER.length,
     progress: difficultyWinsCount,
   }),
@@ -208,6 +251,7 @@ export const ACHIEVEMENTS = [
     condition: '任意难度最高抵达第 30 波',
     group: 'clear',
     rarity: 'epic',
+    reward: { title: 'tower_dawn' },
     target: 30,
     progress: bestWave,
   }),
@@ -218,6 +262,7 @@ export const ACHIEVEMENTS = [
     condition: '通关用时不超过 15 分钟',
     group: 'clear',
     rarity: 'rare',
+    reward: { title: 'gale', frame: 'storm' },
     check: (ctx) =>
       !!ctx.run?.victory && (Number(ctx.run?.durationMs) || 0) <= 15 * 60 * 1000,
   }),
@@ -238,6 +283,7 @@ export const ACHIEVEMENTS = [
     condition: '无伤通关任意难度 3 次',
     group: 'clear',
     rarity: 'epic',
+    reward: { frame: 'emerald' },
     target: 3,
     progress: noDamageWins,
   }),
@@ -302,6 +348,7 @@ export const ACHIEVEMENTS = [
     condition: '单局持有 5 件遗物',
     group: 'build',
     rarity: 'common',
+    reward: { title: 'collector' },
     target: 5,
     progress: relicCount,
   }),
@@ -364,6 +411,7 @@ export const ACHIEVEMENTS = [
     condition: '累计击杀 10000',
     group: 'challenge',
     rarity: 'epic',
+    reward: { title: 'soul_lord', frame: 'ember' },
     target: 10000,
     progress: totalKills,
   }),
@@ -546,6 +594,7 @@ export const ACHIEVEMENTS = [
     condition: '单赛季最高得分 12000',
     group: 'challenge',
     rarity: 'epic',
+    reward: { title: 'season_legend' },
     target: 12000,
     progress: seasonBestScore,
   }),
@@ -610,6 +659,7 @@ export const ACHIEVEMENTS = [
     condition: '完成 10 次每日挑战',
     group: 'collect',
     rarity: 'epic',
+    reward: { title: 'iron_daily' },
     target: 10,
     progress: totalDailyRuns,
   }),
@@ -640,6 +690,7 @@ export const ACHIEVEMENTS = [
     condition: '解锁 30 个成就',
     group: 'collect',
     rarity: 'epic',
+    reward: { title: 'achievement_master', frame: 'prism' },
     target: 30,
     progress: unlockedCount,
   }),

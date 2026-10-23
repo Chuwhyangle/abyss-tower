@@ -262,6 +262,15 @@ export function createApi({
     profile() {
       return request('/api/profile');
     },
+    settings() {
+      return request('/api/profile/settings');
+    },
+    saveSettings(settings, updatedAt) {
+      return request('/api/profile/settings', {
+        method: 'PUT',
+        body: { settings, updatedAt },
+      });
+    },
     progress(type) {
       const query = type ? `?type=${encodeURIComponent(type)}` : '';
       return request(`/api/profile/progress${query}`);
