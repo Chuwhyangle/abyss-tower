@@ -7,6 +7,7 @@
 - 技术设计：[docs/TECH_DESIGN.md](docs/TECH_DESIGN.md)
 - 地图设计：[docs/MAP_DESIGN.md](docs/MAP_DESIGN.md)
 - 平衡模拟记录：[docs/BALANCE.md](docs/BALANCE.md)
+- 真人试玩记录：[docs/PLAYTEST.md](docs/PLAYTEST.md)
 - 动态性能记录：[docs/PERFORMANCE.md](docs/PERFORMANCE.md)
 - 更新日志：[CHANGELOG.md](CHANGELOG.md)
 
