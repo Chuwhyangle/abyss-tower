@@ -2932,6 +2932,48 @@ body.is-touch .rotate-hint {
 }
 /* PANEL-TOKENS-END */
 
+/* ============ 无障碍：高对比度预设 ============ */
+/* settings.js 会把设置写到 <html data-contrast="high">；只提升对比，不改变布局与玩法。 */
+:root[data-contrast="high"] {
+  --bg: #000000;
+  --surface-1: #070b0f;
+  --surface-2: #111a22;
+  --surface-deep: #000000;
+  --surface-raised: #1b2731;
+  --line: #b9ccd6;
+  --line-soft: #7d96a4;
+  --text: #ffffff;
+  --muted: #dbe4e9;
+  --gold: #ffe066;
+  --green: #7dffb0;
+  --red: #ff9a9a;
+  --focus-ring: #ffffff;
+}
+
+:root[data-contrast="high"] .btn,
+:root[data-contrast="high"] .icon-btn,
+:root[data-contrast="high"] .speed-btn,
+:root[data-contrast="high"] .tower-card,
+:root[data-contrast="high"] .relic-card,
+:root[data-contrast="high"] .diff-card,
+:root[data-contrast="high"] .map-card,
+:root[data-contrast="high"] .setting-field select,
+:root[data-contrast="high"] .text-input {
+  border-color: var(--line);
+  border-width: 2px;
+}
+
+:root[data-contrast="high"] .relic-card,
+:root[data-contrast="high"] .tower-card,
+:root[data-contrast="high"] .rarity {
+  text-shadow: 0 0 1px #000000, 0 1px 2px #000000;
+}
+
+/* 色弱模式下稀有度始终附带图形前缀，避免只靠颜色传达。 */
+:root[data-colorblind]:not([data-colorblind="none"]) .rarity::before {
+  content: "◆ ";
+}
+
 /* ============ 无障碍：系统要求减少动效 ============ */
 /* 尊重 prefers-reduced-motion：关闭位移动画与长过渡，保留即时状态变化。 */
 @media (prefers-reduced-motion: reduce) {

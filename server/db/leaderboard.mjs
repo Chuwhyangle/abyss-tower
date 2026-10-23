@@ -1,9 +1,12 @@
-import { db } from './index.mjs';
+import { db, transaction } from './index.mjs';
 import { dayKey } from '../../public/js/shared/scoring.js';
 
 // v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
+// 无尽模式使用独立榜单，不与普通榜的三档难度合并。
 export function boardKeyFor(mode, day) {
-  return mode === 'daily' ? `daily:${day}:v2` : 'normal';
+  if (mode === 'daily') return `daily:${day}:v2`;
+  if (mode === 'endless') return 'endless';
+  return 'normal';
 }
 
 export const SEASON_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -266,5 +269,146 @@ export function accountBoardSummary(
     rank: (better?.c || 0) + 1,
     best: personalEntry(bestRow),
     latest: personalEntry(latestRow),
+  };
+}
+
+// ---------- 赛季结算 ----------
+
+// 名次区间与奖励集中定义：结算、CLI 展示与测试都以这里为准。
+export const SEASON_REWARD_TIERS = [
+  { from: 1, to: 1, cores: 300 },
+  { from: 2, to: 3, cores: 180 },
+  { from: 4, to: 10, cores: 100 },
+  { from: 11, to: 50, cores: 40 },
+];
+
+export const SEASON_REWARD_LIMIT = SEASON_REWARD_TIERS.at(-1).to;
+
+export function seasonRewardForRank(rank) {
+  const value = Math.floor(Number(rank));
+  if (!Number.isFinite(value) || value < 1) return 0;
+  return SEASON_REWARD_TIERS.find((tier) => value >= tier.from && value <= tier.to)?.cores || 0;
+}
+
+// 赛季名次：注册账号在赛季区间内所有榜单的最高分（同分比时长，再比记录先后）。
+// 无尽榜独立于三档难度，不参与赛季排名，避免高波次分数压过普通/每日榜。
+function seasonStandings(season) {
+  const bounds = seasonBounds(season);
+  if (!bounds) return [];
+  return db
+    .prepare(
+      `SELECT account_id, score, duration_ms, created_at, id FROM (
+         SELECT e.account_id, e.score, e.duration_ms, e.created_at, e.id,
+                ROW_NUMBER() OVER (
+                  PARTITION BY e.account_id
+                  ORDER BY e.score DESC, e.duration_ms ASC, e.id ASC
+                ) AS rn
+           FROM leaderboard_entries e
+           JOIN accounts a ON a.id = e.account_id
+          WHERE a.kind = 'registered'
+            AND e.board_key <> 'endless'
+            AND e.created_at >= ? AND e.created_at < ?
+       ) WHERE rn = 1
+       ORDER BY score DESC, duration_ms ASC, created_at ASC, id ASC
+       LIMIT ?`
+    )
+    .all(bounds.start, bounds.end, SEASON_REWARD_LIMIT);
+}
+
+function settledRows(season) {
+  return db
+    .prepare(
+      'SELECT account_id, rank, cores, settled_at FROM season_results WHERE season = ? ORDER BY rank ASC'
+    )
+    .all(season);
+}
+
+function settledSummary(season, rows, dryRun) {
+  return {
+    season,
+    dryRun,
+    alreadySettled: true,
+    settledCount: rows.length,
+    totalCores: rows.reduce((sum, row) => sum + (Number(row.cores) || 0), 0),
+    rewards: rows.map((row) => ({
+      accountId: row.account_id,
+      rank: Number(row.rank),
+      cores: Number(row.cores),
+      settledAt: Number(row.settled_at),
+    })),
+  };
+}
+
+function planRewards(season) {
+  return seasonStandings(season).map((row, index) => ({
+    accountId: row.account_id,
+    rank: index + 1,
+    cores: seasonRewardForRank(index + 1),
+  }));
+}
+
+// 幂等结算：已有结果的赛季直接返回既存结果，绝不重复发放。
+// 奖励写入与结果记录在同一事务内，中途失败整体回滚。
+export function settleSeason(season, { dryRun = false } = {}) {
+  if (!isSeasonKey(season)) throw new Error(`非法赛季：${season}`);
+
+  if (dryRun) {
+    const existing = settledRows(season);
+    if (existing.length) return settledSummary(season, existing, true);
+    const rewards = planRewards(season);
+    return {
+      season,
+      dryRun: true,
+      alreadySettled: false,
+      settledCount: rewards.length,
+      totalCores: rewards.reduce((sum, item) => sum + item.cores, 0),
+      rewards,
+    };
+  }
+
+  return transaction(() => {
+    const existing = settledRows(season);
+    if (existing.length) return settledSummary(season, existing, false);
+
+    const rewards = planRewards(season);
+    const settledAt = Date.now();
+    const insertResult = db.prepare(
+      `INSERT INTO season_results (account_id, season, rank, cores, settled_at)
+       VALUES (?, ?, ?, ?, ?)`
+    );
+    const grantCores = db.prepare(
+      `INSERT INTO player_wallets (account_id, currency_id, balance, updated_at)
+       VALUES (?, 'cores', ?, ?)
+       ON CONFLICT(account_id, currency_id) DO UPDATE SET
+         balance = balance + excluded.balance,
+         updated_at = excluded.updated_at`
+    );
+    for (const item of rewards) {
+      insertResult.run(item.accountId, season, item.rank, item.cores, settledAt);
+      if (item.cores > 0) grantCores.run(item.accountId, item.cores, settledAt);
+    }
+    return {
+      season,
+      dryRun: false,
+      alreadySettled: false,
+      settledCount: rewards.length,
+      totalCores: rewards.reduce((sum, item) => sum + item.cores, 0),
+      rewards: rewards.map((item) => ({ ...item, settledAt })),
+    };
+  });
+}
+
+// 个人赛季结果：只返回本人，未结算或未上榜返回 null。
+export function seasonResultFor(accountId, season) {
+  if (!accountId || !isSeasonKey(season)) return null;
+  const row = db
+    .prepare('SELECT season, rank, cores, settled_at FROM season_results WHERE account_id = ? AND season = ?')
+    .get(accountId, season);
+  if (!row) return null;
+  return {
+    season: row.season,
+    rank: Number(row.rank),
+    cores: Number(row.cores),
+    settledAt: Number(row.settled_at),
   };
 }

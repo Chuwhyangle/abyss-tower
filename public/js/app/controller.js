@@ -102,6 +102,11 @@ export class GameController {
           selectedSkill: this.state.selectedSkill,
         });
       },
+      onEndless: () =>
+        this.ui.showDifficultySelect('endless', {
+          skillState: this.state.skills,
+          selectedSkill: this.state.selectedSkill,
+        }),
       onChooseDifficulty: (mode, difficulty) => {
         this.forceLandscape();
         this.ui.closeModal();

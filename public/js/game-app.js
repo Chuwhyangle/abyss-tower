@@ -144,6 +144,8 @@ export class GameApp {
       this._lastMood = mood;
       audio.startMusic(mood);
     }
+    // 波次越高音乐电平略微上浮；非战斗阶段回到基准，避免结束后仍持续紧张。
+    audio.setMusicIntensity(sim.phase === 'wave' ? sim.wave : 0);
   }
 
   applySettings(settings) {

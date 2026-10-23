@@ -6,6 +6,89 @@ import { CanvasShapes } from './canvas-shapes.js';
 
 const T = TILE;
 
+// 三档动画预算：off 完全静态、light 只保留关键战斗反馈、full 保留全部程序化细节。
+// 配置在模块加载时冻结，渲染循环只查表，不新建对象。
+export const ENEMY_ANIMATIONS = Object.freeze({
+  walk: Object.freeze({ key: false, speed: 7, flyingSpeed: 10 }),
+  hitFlash: Object.freeze({ key: true, duration: 0.08, decay: 4 }),
+  deathShatter: Object.freeze({
+    key: false,
+    source: 'effects',
+    event: 'kill',
+    duration: 0.3,
+    maxParticles: 8,
+  }),
+});
+
+// 各体型的行走幅度：摆动量只影响表现，不参与模拟。
+export const ENEMY_WALK_PROFILES = Object.freeze({
+  blob: Object.freeze({ bob: 1.1, stride: 0.45, lean: 0.05 }),
+  dart: Object.freeze({ bob: 0.6, stride: 1.0, lean: 0.02 }),
+  bug: Object.freeze({ bob: 0.8, stride: 0.7, lean: 0.035 }),
+  hex: Object.freeze({ bob: 0.7, stride: 0.5, lean: 0.025 }),
+  wing: Object.freeze({ bob: 1.6, stride: 0.6, lean: 0.03 }),
+  priest: Object.freeze({ bob: 0.9, stride: 0.45, lean: 0.03 }),
+  shield: Object.freeze({ bob: 0.7, stride: 0.45, lean: 0.02 }),
+  split: Object.freeze({ bob: 0.9, stride: 0.55, lean: 0.03 }),
+  drum: Object.freeze({ bob: 0.9, stride: 0.45, lean: 0.03 }),
+  caster: Object.freeze({ bob: 1.0, stride: 0.45, lean: 0.03 }),
+  boss: Object.freeze({ bob: 0.8, stride: 0.35, lean: 0.02 }),
+});
+
+export function enemyWalkProfile(shape) {
+  return ENEMY_WALK_PROFILES[shape] || ENEMY_WALK_PROFILES.blob;
+}
+
+function buildEnemyAnim(tier) {
+  const keyFeedback = tier !== 'off';
+  const extras = tier === 'full';
+  return Object.freeze({
+    tier,
+    walk: Object.freeze({
+      enabled: extras,
+      speed: ENEMY_ANIMATIONS.walk.speed,
+      flyingSpeed: ENEMY_ANIMATIONS.walk.flyingSpeed,
+    }),
+    hitFlash: Object.freeze({
+      enabled: keyFeedback,
+      duration: ENEMY_ANIMATIONS.hitFlash.duration,
+      decay: ENEMY_ANIMATIONS.hitFlash.decay,
+      alpha: extras ? 0.42 : 0.32,
+      radius: 1.08,
+    }),
+    // 死亡碎裂沿用 EffectRenderer 的现有粒子池（模拟层 death 事件 → kill 特效），
+    // 渲染层不再复制一套粒子系统，这里只声明低配裁剪预算。
+    deathShatter: Object.freeze({
+      enabled: extras,
+      source: ENEMY_ANIMATIONS.deathShatter.source,
+      event: ENEMY_ANIMATIONS.deathShatter.event,
+      duration: ENEMY_ANIMATIONS.deathShatter.duration,
+      maxParticles: ENEMY_ANIMATIONS.deathShatter.maxParticles,
+    }),
+  });
+}
+
+export const ENEMY_ANIM_VARIANTS = Object.freeze({
+  off: buildEnemyAnim('off'),
+  light: buildEnemyAnim('light'),
+  full: buildEnemyAnim('full'),
+});
+
+export function enemyAnimVariant(decorations) {
+  return ENEMY_ANIM_VARIANTS[decorations] || ENEMY_ANIM_VARIANTS.light;
+}
+
+// 受击闪白只在前 0.08s 可见：hitFlash 由模拟以 decay/秒线性衰减，
+// 这里把剩余量映射成该窗口内的亮度，窗口外的尾段不再闪白。
+export function hitFlashAlpha(flash, variant = ENEMY_ANIM_VARIANTS.full) {
+  if (!variant.hitFlash.enabled || !(flash > 0)) return 0;
+  const window = Math.min(1, variant.hitFlash.duration * variant.hitFlash.decay);
+  if (!(window > 0)) return 0;
+  const cutoff = 1 - window;
+  const progress = (flash - cutoff) / window;
+  return progress > 0 ? Math.min(1, progress) : 0;
+}
+
 export class EnemyRenderer {
   constructor(game, { glow }) {
     this.game = game;
@@ -16,6 +99,8 @@ export class EnemyRenderer {
     const game = this.game;
     const t = time;
     const glow = settings.glow;
+    const anim = enemyAnimVariant(settings.decorations);
+    const walk = anim.walk;
 
     for (const enemy of game.enemies) {
       if (enemy.dead) continue;
@@ -25,9 +110,12 @@ export class EnemyRenderer {
       const r = enemy.r * T;
       const lift = enemy.flying ? 12 : 0;
       const vr = r * 1.12;
-      const bob = enemy.flying
-        ? Math.sin(t * 10 + enemy.id) * 1.6
-        : Math.sin(t * 7 + enemy.id) * 1.1;
+      const walkProfile = enemyWalkProfile(def.shape);
+      const phase = t * (enemy.flying ? walk.flyingSpeed : walk.speed) + enemy.id;
+      const stride = walk.enabled ? Math.sin(phase) : 0;
+      const bob = stride * walkProfile.bob;
+      const sway = stride * walkProfile.stride;
+      const lean = walk.enabled ? Math.sin(phase * 0.5 + 0.8) * walkProfile.lean : 0;
 
       g.fillStyle = `rgba(0,0,0,${enemy.flying ? 0.2 : 0.32})`;
       g.beginPath();
@@ -60,16 +148,26 @@ export class EnemyRenderer {
       }
 
       g.save();
-      g.translate(x, y - lift + bob);
-      if (def.shape === 'dart') g.rotate(enemy.angle);
-      else if (def.shape === 'hex') g.rotate(Math.sin(enemy.id) * 0.08);
-      this.drawEnemyBody(g, time, enemy, def, vr);
+      g.translate(x + sway, y - lift + bob);
+      if (def.shape === 'dart') g.rotate(enemy.angle + lean);
+      else if (def.shape === 'hex') g.rotate(Math.sin(enemy.id) * 0.08 + lean);
+      else if (walk.enabled) g.rotate(lean);
+      this.drawEnemyBody(
+        g,
+        time,
+        enemy,
+        def,
+        vr,
+        walk.enabled,
+        Palette.enemyColor(enemy.type, settings)
+      );
 
-      if (enemy.hitFlash > 0) {
-        g.globalAlpha = enemy.hitFlash * 0.32;
+      const flash = hitFlashAlpha(enemy.hitFlash, anim);
+      if (flash > 0) {
+        g.globalAlpha = flash * anim.hitFlash.alpha;
         g.fillStyle = '#ffffff';
         g.beginPath();
-        g.arc(0, 0, vr * 1.08, 0, Math.PI * 2);
+        g.arc(0, 0, vr * anim.hitFlash.radius, 0, Math.PI * 2);
         g.fill();
         g.globalAlpha = 1;
       }
@@ -333,9 +431,9 @@ export class EnemyRenderer {
     }
   }
 
-  drawEnemyBody(g, time, enemy, def, r) {
+  drawEnemyBody(g, time, enemy, def, r, animated = true, color = def.color) {
     const t = time;
-    const body = def.color;
+    const body = color;
     const dark = Palette.shade(body, -0.45);
     const light = Palette.shade(body, 0.28);
 
@@ -394,7 +492,7 @@ export class EnemyRenderer {
       g.strokeStyle = dark;
       g.lineWidth = Math.max(1.2, r * 0.16);
       for (let i = 0; i < 3; i++) {
-        const swing = Math.sin(t * 16 + i * 2.1) * r * 0.28;
+        const swing = animated ? Math.sin(t * 16 + i * 2.1) * r * 0.28 : 0;
         g.beginPath();
         g.moveTo(-r * 0.55 + i * r * 0.42, r * 0.35);
         g.lineTo(-r * 0.7 + i * r * 0.42 + swing, r * 0.9);
@@ -424,7 +522,7 @@ export class EnemyRenderer {
       g.lineWidth = Math.max(1, r * 0.14);
       for (let i = 0; i < 3; i++) {
         const y = -r * 0.45 + i * r * 0.45;
-        const wiggle = Math.sin(t * 18 + i * 1.6 + enemy.id) * r * 0.2;
+        const wiggle = animated ? Math.sin(t * 18 + i * 1.6 + enemy.id) * r * 0.2 : 0;
         g.beginPath();
         g.moveTo(-r * 0.55, y);
         g.lineTo(-r * 1.15, y + wiggle);
@@ -488,7 +586,7 @@ export class EnemyRenderer {
       g.fill();
     } else if (def.shape === 'wing') {
       // 翼魔
-      const flap = Math.sin(t * 16 + enemy.id) * 0.45;
+      const flap = animated ? Math.sin(t * 16 + enemy.id) * 0.45 : 0;
       g.fillStyle = Palette.shade(body, -0.22);
       g.strokeStyle = dark;
       g.lineWidth = 1.4;
@@ -520,7 +618,7 @@ export class EnemyRenderer {
       g.lineWidth = 1.4;
       g.beginPath();
       g.moveTo(-r * 0.9, 0);
-      g.quadraticCurveTo(-r * 1.4, Math.sin(t * 8) * r * 0.3, -r * 1.55, 0);
+      g.quadraticCurveTo(-r * 1.4, animated ? Math.sin(t * 8) * r * 0.3 : 0, -r * 1.55, 0);
       g.stroke();
     } else if (def.shape === 'priest') {
       // 祭司
@@ -649,7 +747,7 @@ export class EnemyRenderer {
       g.lineTo(r * 0.15, -r * 0.25);
       g.stroke();
 
-      const pulse = (Math.sin(t * 6 + enemy.id) + 1) * 0.5;
+      const pulse = animated ? (Math.sin(t * 6 + enemy.id) + 1) * 0.5 : 0.5;
       g.strokeStyle = Palette.hexToRgba(body, 0.55);
       g.lineWidth = 1.4;
       for (let i = 0; i < 2; i++) {
@@ -691,7 +789,7 @@ export class EnemyRenderer {
       g.arc(r * 0.13, -r * 0.45, r * 0.07, 0, Math.PI * 2);
       g.fill();
 
-      const orb = r * 0.18 + Math.sin(t * 5 + enemy.id) * r * 0.04;
+      const orb = r * 0.18 + (animated ? Math.sin(t * 5 + enemy.id) * r * 0.04 : 0);
       g.fillStyle = '#f4ffb0';
       g.beginPath();
       g.arc(r * 0.78, r * 0.1, orb, 0, Math.PI * 2);

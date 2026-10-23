@@ -21,44 +21,128 @@ const AMBIENT_TRACKS = {
   boss: { type: 'sine', freqs: [41.2, 61.74] },
 };
 
-// 三套程序化氛围：menu / battle / boss。每套是一段和弦进行，由振荡器循环合成。
-const MUSIC_TRACKS = {
+// 三套程序化氛围：menu / battle / boss。每套提供两首变体，全部由振荡器循环合成。
+// 会话开始时抽一个种子，同一会话内每个场景固定选同一首，换一局再重新抽。
+export const MUSIC_VARIANTS = {
   menu: {
-    type: 'triangle',
-    chordDur: 2.4,
-    chords: [
-      [261.63, 329.63, 392.0],
-      [220.0, 261.63, 329.63],
-      [174.61, 220.0, 261.63],
-      [196.0, 246.94, 293.66],
+    variants: [
+      {
+        id: 'menu-a',
+        type: 'triangle',
+        chordDur: 2.4,
+        chords: [
+          [261.63, 329.63, 392.0],
+          [220.0, 261.63, 329.63],
+          [174.61, 220.0, 261.63],
+          [196.0, 246.94, 293.66],
+        ],
+      },
+      {
+        id: 'menu-b',
+        type: 'sine',
+        chordDur: 2.8,
+        chords: [
+          [246.94, 293.66, 349.23],
+          [220.0, 277.18, 329.63],
+          [196.0, 246.94, 293.66],
+          [174.61, 220.0, 261.63],
+        ],
+      },
     ],
   },
   battle: {
-    type: 'square',
-    chordDur: 1.2,
-    chords: [
-      [220.0, 261.63, 329.63],
-      [174.61, 220.0, 261.63],
-      [196.0, 246.94, 293.66],
-      [164.81, 196.0, 246.94],
+    variants: [
+      {
+        id: 'battle-a',
+        type: 'square',
+        chordDur: 1.2,
+        chords: [
+          [220.0, 261.63, 329.63],
+          [174.61, 220.0, 261.63],
+          [196.0, 246.94, 293.66],
+          [164.81, 196.0, 246.94],
+        ],
+      },
+      {
+        id: 'battle-b',
+        type: 'triangle',
+        chordDur: 1.0,
+        chords: [
+          [246.94, 311.13, 369.99],
+          [220.0, 277.18, 329.63],
+          [196.0, 246.94, 293.66],
+          [185.0, 233.08, 277.18],
+        ],
+      },
     ],
   },
   boss: {
-    type: 'sawtooth',
-    chordDur: 0.9,
-    chords: [
-      [110.0, 130.81, 164.81],
-      [103.83, 123.47, 155.56],
-      [98.0, 116.54, 146.83],
-      [92.5, 110.0, 138.59],
+    variants: [
+      {
+        id: 'boss-a',
+        type: 'sawtooth',
+        chordDur: 0.9,
+        chords: [
+          [110.0, 130.81, 164.81],
+          [103.83, 123.47, 155.56],
+          [98.0, 116.54, 146.83],
+          [92.5, 110.0, 138.59],
+        ],
+      },
+      {
+        id: 'boss-b',
+        type: 'square',
+        chordDur: 0.8,
+        chords: [
+          [116.54, 138.59, 174.61],
+          [110.0, 138.59, 164.81],
+          [103.83, 123.47, 155.56],
+          [98.0, 123.47, 146.83],
+        ],
+      },
     ],
   },
 };
 
+// 曲目切换的交叉淡入淡出时长（秒）：新旧两路音乐总线交叠，避免切换爆音。
+export const CROSSFADE_SECONDS = 1.2;
+
+// 波次强度对音乐总线的轻微加成：开局为 1，高波次最多 +18%，音效总线不受影响。
+export const WAVE_INTENSITY_MAX = 0.18;
+export const WAVE_INTENSITY_WAVES = 20;
+
+export function musicWaveIntensity(wave) {
+  const step = Number.isFinite(wave) ? Math.max(0, wave) : 0;
+  return 1 + Math.min(1, step / WAVE_INTENSITY_WAVES) * WAVE_INTENSITY_MAX;
+}
+
+// FNV-1a：把场景名和会话种子混成稳定的 32 位整数。
+function hashVariant(scene, seed) {
+  let hash = 0x811c9dc5;
+  const text = `${scene}:${seed}`;
+  for (let i = 0; i < text.length; i += 1) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193) >>> 0;
+  }
+  return hash >>> 0;
+}
+
+// 确定性纯函数：同一场景 + 同一种子永远挑到同一首变体。
+export function pickMusicVariant(scene, seed) {
+  const entry = MUSIC_VARIANTS[scene];
+  if (!entry || entry.variants.length === 0) return null;
+  return entry.variants[hashVariant(scene, seed) % entry.variants.length];
+}
+
+// 会话种子：默认由随机数生成，测试可注入固定随机源。
+export function sessionSeed(random = Math.random) {
+  return (Math.floor(random() * 0x100000000) >>> 0);
+}
+
 class AudioFX {
   constructor() {
     const settings = loadSettings();
-    this.enabled = localStorage.getItem('abyss-tower.sound') !== 'off';
+    this.enabled = globalThis.localStorage?.getItem?.('abyss-tower.sound') !== 'off';
     this.musicEnabled = settings.music !== false;
     this.sfxVolume = normalizeVolume(settings.sfxVolume, DEFAULT_SFX_VOLUME);
     this.musicVolume = normalizeVolume(settings.musicVolume, DEFAULT_MUSIC_VOLUME);
@@ -74,15 +158,19 @@ class AudioFX {
     this._ambientNodes = null;
     this._musicTimer = null;
     this._musicStep = 0;
+    this.seed = sessionSeed();
+    this.intensity = 1;
+    this._spareMusicGain = null;
+    this._crossfadeUntil = 0;
     this._onVisibility = () => this.handleVisibility();
-    document.addEventListener('visibilitychange', this._onVisibility);
+    globalThis.document?.addEventListener?.('visibilitychange', this._onVisibility);
   }
 
   ensure() {
     if (!this.ctx) {
       // 音效、音乐、环境音都关闭时不必创建上下文。
       if (!this.enabled && !this.musicEnabled && !this.musicWanted && !this.ambientWanted) return null;
-      const AC = window.AudioContext || window.webkitAudioContext;
+      const AC = globalThis.window?.AudioContext || globalThis.window?.webkitAudioContext;
       if (!AC) return null;
       this.ctx = new AC();
       this.masterGain = this.ctx.createGain();
@@ -93,9 +181,13 @@ class AudioFX {
       this.sfxGain.gain.value = this.sfxLevel();
       this.sfxGain.connect(this.masterGain);
 
+      // 两路音乐总线：切歌时一路淡出、一路淡入，1.2s 交叠完成交叉淡化。
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = 0.0001;
       this.musicGain.connect(this.masterGain);
+      this._spareMusicGain = this.ctx.createGain();
+      this._spareMusicGain.gain.value = 0.0001;
+      this._spareMusicGain.connect(this.masterGain);
 
       // 环境音属于音效层，挂在 sfx 总线之后，音效静音时一并静音。
       this.ambientGain = this.ctx.createGain();
@@ -118,7 +210,7 @@ class AudioFX {
 
   setEnabled(value) {
     this.enabled = value;
-    localStorage.setItem('abyss-tower.sound', value ? 'on' : 'off');
+    globalThis.localStorage?.setItem?.('abyss-tower.sound', value ? 'on' : 'off');
     if (value) {
       this.ensure();
       this.maybeBeginAmbient();
@@ -135,6 +227,11 @@ class AudioFX {
 
   musicLevel() {
     return MUSIC_VOLUME * (this.musicVolume / 100);
+  }
+
+  // 音乐目标电平 = 用户音乐音量 × 波次强度；只作用于 music 总线，音效总线不动。
+  musicTargetLevel() {
+    return this.musicLevel() * this.intensity;
   }
 
   // 音量设置写回 settings.js 的存储；画质设置与其他字段保持不变。
@@ -158,10 +255,23 @@ class AudioFX {
     if (this.musicGain && this.ctx && this.musicWanted && this.musicEnabled) {
       const now = this.ctx.currentTime;
       this.musicGain.gain.cancelScheduledValues(now);
-      this.musicGain.gain.setTargetAtTime(this.musicLevel(), now, 0.12);
+      this.musicGain.gain.setTargetAtTime(this.musicTargetLevel(), now, 0.12);
     }
     this.persistVolumes();
     return this.musicVolume;
+  }
+
+  // 波次越高音乐越紧张：只微调音乐总线电平，音效与控制语义不变。
+  setMusicIntensity(wave) {
+    const intensity = musicWaveIntensity(wave);
+    if (intensity === this.intensity) return this.intensity;
+    this.intensity = intensity;
+    if (this.ctx && this.ctx.state === 'running' && this.musicWanted && this.musicEnabled && this._musicTimer) {
+      const now = this.ctx.currentTime;
+      this.musicGain.gain.cancelScheduledValues(now);
+      this.musicGain.gain.setTargetAtTime(this.musicTargetLevel(), now, 0.8);
+    }
+    return this.intensity;
   }
 
   // ---------- 背景音乐 ----------
@@ -177,7 +287,7 @@ class AudioFX {
   }
 
   startMusic(mood = 'menu') {
-    const next = MUSIC_TRACKS[mood] ? mood : 'menu';
+    const next = MUSIC_VARIANTS[mood] ? mood : 'menu';
     this.musicWanted = true;
     // 环境音跟随场景，与音乐共用同一套 menu/battle/boss 氛围切换点。
     this.startAmbient(next);
@@ -186,16 +296,21 @@ class AudioFX {
       if (this.ctx && !this._musicTimer) this.maybeBeginMusic();
       return;
     }
+    const playing = !!this._musicTimer;
     this.pauseMusicLoop();
     this._musicStep = 0;
     this.mood = next;
+    // 大厅不属于波次，回到菜单时把强度复位，避免带着上一局的紧张感。
+    if (next === 'menu') this.setMusicIntensity(0);
     const ctx = this.ensure();
+    if (ctx && playing) this.crossfadeMusicBus();
     if (ctx) this.maybeBeginMusic();
   }
 
   stopMusic() {
     this.musicWanted = false;
     this.mood = null;
+    this.intensity = 1;
     this.pauseMusicLoop();
     this.stopAmbient();
   }
@@ -205,20 +320,46 @@ class AudioFX {
     if (!this.musicEnabled || !this.musicWanted || !this.ctx || !this.masterGain || !this.musicGain) return;
     if (this.ctx.state !== 'running') return;
     const now = this.ctx.currentTime;
-    this.musicGain.gain.cancelScheduledValues(now);
-    this.musicGain.gain.setTargetAtTime(this.musicLevel(), now, 0.25);
+    // 交叉淡化期间不要再叠一次淡入，否则新旧两路的曲线会互相覆盖。
+    if (now >= this._crossfadeUntil) {
+      this.musicGain.gain.cancelScheduledValues(now);
+      this.musicGain.gain.setTargetAtTime(this.musicTargetLevel(), now, 0.25);
+    }
     if (!this._musicTimer) this.scheduleMusicStep();
   }
 
-  pauseMusicLoop() {
+  // 新旧两路音乐总线在 CROSSFADE_SECONDS 内交叠：旧路淡出、新路淡入，切换不产生爆音。
+  crossfadeMusicBus() {
+    if (!this.ctx || !this.musicGain || !this._spareMusicGain) return;
+    const now = this.ctx.currentTime;
+    const outgoing = this.musicGain;
+    const incoming = this._spareMusicGain;
+    const curve = CROSSFADE_SECONDS / 3;
+    incoming.gain.cancelScheduledValues(now);
+    incoming.gain.setValueAtTime(0.0001, now);
+    incoming.gain.setTargetAtTime(this.musicTargetLevel(), now, curve);
+    outgoing.gain.cancelScheduledValues(now);
+    outgoing.gain.setTargetAtTime(0.0001, now, curve);
+    this.musicGain = incoming;
+    this._spareMusicGain = outgoing;
+    this._crossfadeUntil = now + CROSSFADE_SECONDS;
+  }
+
+  clearMusicTimer() {
     if (this._musicTimer) {
       clearTimeout(this._musicTimer);
       this._musicTimer = null;
     }
-    if (this.musicGain && this.ctx) {
-      const now = this.ctx.currentTime;
-      this.musicGain.gain.cancelScheduledValues(now);
-      this.musicGain.gain.setTargetAtTime(0.0001, now, 0.08);
+  }
+
+  pauseMusicLoop() {
+    this.clearMusicTimer();
+    if (!this.ctx) return;
+    const now = this.ctx.currentTime;
+    for (const gain of [this.musicGain, this._spareMusicGain]) {
+      if (!gain) continue;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setTargetAtTime(0.0001, now, 0.08);
     }
   }
 
@@ -227,7 +368,7 @@ class AudioFX {
       this._musicTimer = null;
       return;
     }
-    const track = MUSIC_TRACKS[this.mood] || MUSIC_TRACKS.menu;
+    const track = pickMusicVariant(this.mood, this.seed) || pickMusicVariant('menu', this.seed);
     const chord = track.chords[this._musicStep % track.chords.length];
     const when = this.ctx.currentTime + 0.06;
     const level = this.mood === 'menu' ? 0.06 : 0.045;

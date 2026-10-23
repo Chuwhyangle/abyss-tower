@@ -6,18 +6,93 @@ import { CanvasShapes } from './canvas-shapes.js';
 
 const T = TILE;
 
+// 三档动画预算：off 静态、light 仅保留开火反馈、full 追加后坐细节与升级脉冲。
+// 配置模块加载时冻结，渲染循环只查表。
+export const TOWER_ANIMATIONS = Object.freeze({
+  recoil: Object.freeze({ key: true, duration: 0.2, distance: 4, barrel: 0.6 }),
+  upgradePulse: Object.freeze({
+    key: false,
+    speed: 0.45,
+    baseRadius: 20,
+    grow: 4,
+    alpha: 0.3,
+    minLevel: 1,
+  }),
+});
+
+// 各塔型的后坐系数：重炮 > 狙击 > 弩塔，支援塔不后坐。
+export const TOWER_RECOIL_SCALE = Object.freeze({
+  arrow: 1,
+  cannon: 1.5,
+  frost: 0.5,
+  arc: 0.6,
+  poison: 0.6,
+  banner: 0,
+  shock: 0.9,
+  sniper: 1.25,
+});
+
+function buildTowerAnim(tier) {
+  const keyFeedback = tier !== 'off';
+  const extras = tier === 'full';
+  return Object.freeze({
+    tier,
+    recoil: Object.freeze({
+      enabled: keyFeedback,
+      duration: TOWER_ANIMATIONS.recoil.duration,
+      distance: TOWER_ANIMATIONS.recoil.distance,
+      barrel: extras ? TOWER_ANIMATIONS.recoil.barrel : 0,
+    }),
+    upgradePulse: Object.freeze({
+      enabled: extras,
+      speed: TOWER_ANIMATIONS.upgradePulse.speed,
+      baseRadius: TOWER_ANIMATIONS.upgradePulse.baseRadius,
+      grow: TOWER_ANIMATIONS.upgradePulse.grow,
+      alpha: TOWER_ANIMATIONS.upgradePulse.alpha,
+      minLevel: TOWER_ANIMATIONS.upgradePulse.minLevel,
+    }),
+  });
+}
+
+export const TOWER_ANIM_VARIANTS = Object.freeze({
+  off: buildTowerAnim('off'),
+  light: buildTowerAnim('light'),
+  full: buildTowerAnim('full'),
+});
+
+export function towerAnimVariant(decorations) {
+  return TOWER_ANIM_VARIANTS[decorations] || TOWER_ANIM_VARIANTS.light;
+}
+
+// recoil 是模拟层已有的瞬时字段；渲染只读取并换算成像素位移，不回写。
+export function towerRecoilAmount(recoil, type, variant = TOWER_ANIM_VARIANTS.full) {
+  if (!variant.recoil.enabled) return 0;
+  const scale = TOWER_RECOIL_SCALE[type] || 0;
+  if (!(scale > 0)) return 0;
+  const amount = Number.isFinite(recoil) ? Math.min(1, Math.max(0, recoil)) : 0;
+  return amount * scale;
+}
+
+// 升级脉冲：返回 0..1 的相位，等级越高环越亮，未升级的塔不出现。
+export function towerUpgradePulse(level, time, variant = TOWER_ANIM_VARIANTS.full, phaseSeed = 0) {
+  const cfg = variant.upgradePulse;
+  if (!cfg.enabled || !(level >= cfg.minLevel)) return 0;
+  const wave = Math.sin((time * cfg.speed + phaseSeed) * Math.PI * 2);
+  return 0.5 + 0.5 * wave;
+}
+
 export class TowerRenderer {
   constructor(game, { glow }) {
     this.game = game;
     this.glow = glow;
   }
 
-  renderRanges(g) {
+  renderRanges(g, settings) {
     const game = this.game;
     const tower = game.selectedTower;
     if (tower) {
       const stats = game.statsFor(tower);
-      this.drawRangeCircle(g, tower.x, tower.y, stats.range, TOWERS[tower.type].color, 0.55);
+      this.drawRangeCircle(g, tower.x, tower.y, stats.range, Palette.towerColor(tower.type, settings), 0.55);
     }
   }
 
@@ -37,19 +112,21 @@ export class TowerRenderer {
   render(g, time, settings) {
     const game = this.game;
     const glow = settings.glow;
+    const anim = towerAnimVariant(settings.decorations);
     for (const tower of game.towers) {
       const x = tower.x * T;
       const y = tower.y * T;
       const def = TOWERS[tower.type];
       const level = tower.level;
-      const color = def.color;
+      const color = Palette.towerColor(tower.type, settings);
       // 进化分支的专属配色；未进化时退回塔的默认色。
       const evolution = tower.evolution
         ? def.evolutions?.find((entry) => entry.id === tower.evolution) || null
         : null;
-      const accent = evolution?.color || color;
+      const accent = evolution ? Palette.presentColor(evolution.color, settings) : color;
       const disableLeft = (tower.disabledUntil || 0) - game.time;
       const disabled = disableLeft > 0;
+      const recoil = towerRecoilAmount(tower.recoil || 0, tower.type, anim);
 
       g.fillStyle = 'rgba(0,0,0,0.38)';
       g.beginPath();
@@ -63,6 +140,16 @@ export class TowerRenderer {
       g.save();
       g.translate(x, y);
       g.scale(1.06, 1.06);
+
+      // 升级脉冲：只在高配出现，相位固定到塔位避免整场同频闪烁。
+      const pulse = towerUpgradePulse(level, time, anim, tower.x * 0.37 + tower.y * 0.21);
+      if (pulse > 0) {
+        g.strokeStyle = Palette.hexToRgba(accent, (anim.upgradePulse.alpha + level * 0.04) * (0.4 + pulse * 0.6));
+        g.lineWidth = 1.2 + pulse * 0.8;
+        g.beginPath();
+        g.arc(0, 0, anim.upgradePulse.baseRadius + (1 - pulse) * anim.upgradePulse.grow, 0, Math.PI * 2);
+        g.stroke();
+      }
 
       const oct = (radius) => {
         g.beginPath();
@@ -152,11 +239,20 @@ export class TowerRenderer {
         g.restore();
       }
 
-      // 炮塔
+      // 炮塔：整机后退 + 高配追加炮管回缩，二者都只读模拟层已有的 recoil。
       g.save();
       g.rotate(tower.angle);
-      g.translate(-(tower.recoil || 0) * 4, 0);
-      this.drawTowerShape(g, time, tower.type, 0, 1, level, glow);
+      g.translate(-recoil * anim.recoil.distance, 0);
+      this.drawTowerShape(
+        g,
+        time,
+        tower.type,
+        Math.min(1, recoil * anim.recoil.barrel),
+        1,
+        level,
+        glow,
+        color
+      );
       g.restore();
 
       // 被首领震击停摆：变暗 + 电弧 + 剩余时间弧线。
@@ -214,8 +310,7 @@ export class TowerRenderer {
     g.restore();
   }
 
-  drawTowerShape(g, time, type, recoil, alpha, level = 0, glowOn = false) {
-    const def = TOWERS[type];
+  drawTowerShape(g, time, type, recoil, alpha, level = 0, glowOn = false, color = TOWERS[type].color) {
     const push = -recoil * 3;
     g.globalAlpha = alpha;
 
@@ -229,7 +324,7 @@ export class TowerRenderer {
       g.stroke();
 
       // 弩臂
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 2.4;
       g.beginPath();
       g.moveTo(7 + push, -12);
@@ -262,7 +357,7 @@ export class TowerRenderer {
       g.fill();
 
       if (level >= 1) {
-        g.strokeStyle = Palette.hexToRgba(def.color, 0.6);
+        g.strokeStyle = Palette.hexToRgba(color, 0.6);
         g.lineWidth = 1.2;
         g.beginPath();
         g.arc(0, 0, 9.5, 0, Math.PI * 2);
@@ -301,14 +396,14 @@ export class TowerRenderer {
       g.beginPath();
       g.arc(23 + push, 0, 4.6, 0, Math.PI * 2);
       g.fill();
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 1.6;
       g.beginPath();
       g.arc(23 + push, 0, 5.6, 0, Math.PI * 2);
       g.stroke();
 
       if (level >= 1) {
-        g.strokeStyle = Palette.hexToRgba(def.color, 0.55);
+        g.strokeStyle = Palette.hexToRgba(color, 0.55);
         g.lineWidth = 1.2;
         g.beginPath();
         g.arc(0, 0, 9.5, 0, Math.PI * 2);
@@ -331,7 +426,7 @@ export class TowerRenderer {
 
       // 主水晶
       g.fillStyle = '#2b6d8a';
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 1.8;
       g.beginPath();
       g.moveTo(0, -13);
@@ -374,7 +469,7 @@ export class TowerRenderer {
     } else if (type === 'arc') {
       // 特斯拉线圈
       g.fillStyle = '#221d33';
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(0, 0, 9, 0, Math.PI * 2);
@@ -410,7 +505,7 @@ export class TowerRenderer {
     } else if (type === 'poison') {
       // 炼金装置
       g.fillStyle = '#1c2a18';
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(0, 0, 9, 0, Math.PI * 2);
@@ -475,7 +570,7 @@ export class TowerRenderer {
       g.stroke();
 
       g.fillStyle = '#2a2318';
-      g.strokeStyle = Palette.hexToRgba(def.color, 0.7);
+      g.strokeStyle = Palette.hexToRgba(color, 0.7);
       g.lineWidth = 1.6;
       g.beginPath();
       g.arc(0, 15, 3.4, 0, Math.PI * 2);
@@ -484,8 +579,8 @@ export class TowerRenderer {
 
       // 旗面：随时间轻微摆动
       const wave = Math.sin(time * 3) * 2.2;
-      g.fillStyle = Palette.hexToRgba(def.color, 0.85);
-      g.strokeStyle = def.color;
+      g.fillStyle = Palette.hexToRgba(color, 0.85);
+      g.strokeStyle = color;
       g.lineWidth = 1.6;
       g.beginPath();
       g.moveTo(1, -14);
@@ -516,7 +611,7 @@ export class TowerRenderer {
       g.fill();
 
       if (level >= 1) {
-        g.strokeStyle = Palette.hexToRgba(def.color, 0.6);
+        g.strokeStyle = Palette.hexToRgba(color, 0.6);
         g.lineWidth = 1.2;
         g.beginPath();
         g.arc(0, 0, 9.5, 0, Math.PI * 2);
@@ -525,7 +620,7 @@ export class TowerRenderer {
     } else if (type === 'shock') {
       // 震荡核心
       g.fillStyle = '#1d3a36';
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(0, 0, 9, 0, Math.PI * 2);
@@ -563,7 +658,7 @@ export class TowerRenderer {
       g.fill();
 
       if (level >= 1) {
-        g.strokeStyle = Palette.hexToRgba(def.color, 0.55);
+        g.strokeStyle = Palette.hexToRgba(color, 0.55);
         g.lineWidth = 1.2;
         g.beginPath();
         g.arc(0, 0, 9.5, 0, Math.PI * 2);
@@ -572,7 +667,7 @@ export class TowerRenderer {
     } else if (type === 'sniper') {
       // 支架
       g.fillStyle = '#1b2537';
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 2;
       g.beginPath();
       g.arc(0, 0, 9, 0, Math.PI * 2);
@@ -600,7 +695,7 @@ export class TowerRenderer {
       g.fill();
 
       // 枪口制退器
-      g.strokeStyle = def.color;
+      g.strokeStyle = color;
       g.lineWidth = 1.8;
       g.beginPath();
       g.moveTo(24 + push, -3.2);
@@ -610,7 +705,7 @@ export class TowerRenderer {
       g.stroke();
 
       if (level >= 1) {
-        g.strokeStyle = Palette.hexToRgba(def.color, 0.6);
+        g.strokeStyle = Palette.hexToRgba(color, 0.6);
         g.lineWidth = 1.2;
         g.beginPath();
         g.arc(0, 0, 9.5, 0, Math.PI * 2);
@@ -621,7 +716,7 @@ export class TowerRenderer {
     g.globalAlpha = 1;
   }
 
-  renderPlacement(g, time, glowOn) {
+  renderPlacement(g, time, glowOn, settings) {
     const game = this.game;
     const hover = game.hover;
 
@@ -658,7 +753,16 @@ export class TowerRenderer {
     g.save();
     g.translate(x, y);
     g.rotate(-Math.PI / 2);
-    this.drawTowerShape(g, time, game.placementType, 0, 1, 0, glowOn);
+    this.drawTowerShape(
+      g,
+      time,
+      game.placementType,
+      0,
+      1,
+      0,
+      glowOn,
+      Palette.towerColor(game.placementType, settings)
+    );
     g.restore();
     g.globalAlpha = 1;
     g.restore();

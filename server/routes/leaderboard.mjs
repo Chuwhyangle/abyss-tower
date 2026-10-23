@@ -11,6 +11,7 @@ import {
   listSeasons,
   seasonBounds,
   seasonOf,
+  seasonResultFor,
 } from '../db/leaderboard.mjs';
 import { today } from './support.mjs';
 
@@ -26,7 +27,9 @@ export class LeaderboardRoutes {
   register(router) {
     router.add('GET', '/api/leaderboard', (ctx) => {
       const params = ctx.url.searchParams;
-      const mode = params.get('mode') === 'daily' ? 'daily' : 'normal';
+      const requestedMode = params.get('mode');
+      const mode =
+        requestedMode === 'daily' ? 'daily' : requestedMode === 'endless' ? 'endless' : 'normal';
       const day = params.get('day') || today();
       const page = boundedInt(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
       const size = boundedInt(params.get('size'), DEFAULT_SIZE, MAX_BOARD_PAGE_SIZE);
@@ -75,6 +78,15 @@ export class LeaderboardRoutes {
         seasonStart: dayKey(new Date(bounds.start)),
         seasonEnd: dayKey(new Date(bounds.end - 1)),
       });
+    });
+
+    // 个人赛季结算结果：只暴露本人名次与奖励，结算本身由 CLI 显式触发。
+    router.add('GET', '/api/leaderboard/seasons/:season/result', (ctx, params) => {
+      const season = params?.season;
+      if (!isSeasonKey(season)) {
+        return ctx.fail(400, '非法赛季：应为 YYYY-MM', 'INVALID_SEASON');
+      }
+      return ctx.json(200, { season, result: seasonResultFor(ctx.token, season) });
     });
   }
 }

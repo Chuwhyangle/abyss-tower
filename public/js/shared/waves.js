@@ -16,32 +16,50 @@ const POOL = [
   { type: 'caster', weight: 1.1, countMult: 0.4, minWave: 13, interval: 1.3 },
 ];
 
-export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) {
-  const index = Math.max(1, Math.min(MAX_WAVE, Math.floor(wave)));
+// 无尽模式曲线硬上限：血量/移速/数量在封顶后不再增长，避免数值爆炸。
+export const ENDLESS = {
+  maxIndex: 999,        // 波次号硬上限，超过后重复最后一档曲线
+  hpCapWave: 40,        // 普通敌人血量曲线封顶波次
+  bossHpCapWave: 50,    // 首领血量曲线封顶波次
+  speedCap: 2.2,        // 移速倍率硬上限
+  rewardCapWave: 60,    // 清波金币增量封顶波次
+  maxBosses: 3,         // 首领波同时出现的首领数量上限
+};
+
+export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, { endless = false } = {}) {
+  const rawIndex = Math.max(1, Math.floor(wave));
+  const index = endless
+    ? Math.min(ENDLESS.maxIndex, rawIndex)
+    : Math.max(1, Math.min(MAX_WAVE, rawIndex));
   const diff = getDifficulty(difficulty);
   const rng = new RNG(`${seed}:wave:${index}`);
   const modifier = mapMeta.modifier || null;
   const portalCount = Math.max(1, Math.min(3, Math.floor(mapMeta.portalCount || 1)));
-  const isFinal = index === MAX_WAVE;
+  const isFinal = !endless && index === MAX_WAVE;
+  // 无尽模式下曲线只推进到封顶波次，之后保持恒定难度。
+  const hpIndex = endless ? Math.min(index, ENDLESS.hpCapWave) : index;
+  const bossHpIndex = endless ? Math.min(index, ENDLESS.bossHpCapWave) : index;
   const hpMul =
-    Math.pow(BALANCE.hpGrowth, index - 1) *
+    Math.pow(BALANCE.hpGrowth, hpIndex - 1) *
     diff.hpMul *
     (isFinal ? BALANCE.finalBossMul : 1) *
     (modifier?.hpMul || 1);
   // 首领使用独立血量曲线：普通敌人的 1.165 曲线到第 30 波会让首领血量失控。
   const bossHpMul = round3(
-    Math.pow(BALANCE.bossHpGrowth, index - 1) *
+    Math.pow(BALANCE.bossHpGrowth, bossHpIndex - 1) *
       diff.hpMul *
       (isFinal ? BALANCE.bossFinalMul : 1) *
       (modifier?.hpMul || 1)
   );
-  const speedMul =
+  const rawSpeedMul =
     (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1);
+  const speedMul = endless ? Math.min(ENDLESS.speedCap, rawSpeedMul) : rawSpeedMul;
   const isBoss = index % 5 === 0;
   const groups = [];
 
   if (isBoss) {
-    const bosses = isFinal ? 1 : 1 + Math.floor(index / 15);
+    const bossCount = isFinal ? 1 : 1 + Math.floor(index / 15);
+    const bosses = endless ? Math.min(ENDLESS.maxBosses, bossCount) : bossCount;
     groups.push({ type: 'boss', count: bosses, interval: 3.0, delay: 0.4, hpMul: bossHpMul });
     groups.push({ type: 'grunt', count: 6 + Math.round(index * 0.8), interval: 0.5, delay: 1.6 });
     if (index >= 15) {
@@ -117,7 +135,8 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) 
     group.portal = activePortals[i % activePortals.length];
   });
 
-  const reward = BALANCE.waveRewardBase + index * BALANCE.waveRewardPerWave;
+  const rewardIndex = endless ? Math.min(index, ENDLESS.rewardCapWave) : index;
+  const reward = BALANCE.waveRewardBase + rewardIndex * BALANCE.waveRewardPerWave;
 
   return {
     index,
@@ -132,6 +151,7 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) 
     totalCount,
     portals: activePortals,
     modifierId: modifier?.id || null,
+    ...(endless ? { endless: true } : {}),
     label: isFinal ? '最终首领' : isBoss ? '首领波次' : `第 ${index} 波`,
   };
 }

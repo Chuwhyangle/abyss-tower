@@ -5,6 +5,11 @@ export const SETTINGS_KEY = 'abyss-tower.settings.v1';
 export const DEFAULT_SFX_VOLUME = 80;
 export const DEFAULT_MUSIC_VOLUME = 50;
 
+// 色弱模式只改表现层配色，不参与战斗模拟。
+export const COLOR_BLIND_MODES = ['none', 'deuteranopia', 'protanopia', 'tritanopia'];
+export const DEFAULT_COLOR_BLIND_MODE = 'none';
+export const DEFAULT_HIGH_CONTRAST = false;
+
 export const QUALITY_PRESETS = {
   low: {
     fps: 30,
@@ -17,6 +22,8 @@ export const QUALITY_PRESETS = {
     music: true,
     sfxVolume: DEFAULT_SFX_VOLUME,
     musicVolume: DEFAULT_MUSIC_VOLUME,
+    colorBlind: DEFAULT_COLOR_BLIND_MODE,
+    highContrast: DEFAULT_HIGH_CONTRAST,
   },
   high: {
     fps: 60,
@@ -29,6 +36,8 @@ export const QUALITY_PRESETS = {
     music: true,
     sfxVolume: DEFAULT_SFX_VOLUME,
     musicVolume: DEFAULT_MUSIC_VOLUME,
+    colorBlind: DEFAULT_COLOR_BLIND_MODE,
+    highContrast: DEFAULT_HIGH_CONTRAST,
   },
 };
 
@@ -39,6 +48,7 @@ export const SETTING_OPTIONS = {
   dpr: [1, 2],
   decorations: ['off', 'light', 'full'],
   floaters: ['off', 'key', 'all'],
+  colorBlind: COLOR_BLIND_MODES,
 };
 
 function pick(value, allowed, fallback) {
@@ -71,7 +81,21 @@ export function normalizeSettings(raw) {
     music: typeof source.music === 'boolean' ? source.music : DEFAULT_SETTINGS.music,
     sfxVolume: normalizeVolume(source.sfxVolume, DEFAULT_SFX_VOLUME),
     musicVolume: normalizeVolume(source.musicVolume, DEFAULT_MUSIC_VOLUME),
+    colorBlind: pick(source.colorBlind, COLOR_BLIND_MODES, DEFAULT_COLOR_BLIND_MODE),
+    highContrast:
+      typeof source.highContrast === 'boolean' ? source.highContrast : DEFAULT_HIGH_CONTRAST,
   };
+}
+
+// 把表现偏好写到根元素，供 CSS 高对比规则使用；无 document 的环境（Node 测试）跳过。
+export function applyAccessibilityTheme(
+  settings,
+  root = globalThis.document?.documentElement
+) {
+  if (!root?.dataset) return;
+  const normalized = normalizeSettings(settings);
+  root.dataset.colorblind = normalized.colorBlind;
+  root.dataset.contrast = normalized.highContrast ? 'high' : 'normal';
 }
 
 export function settingsEqual(a, b) {
@@ -94,21 +118,24 @@ export function presetSettings(name) {
 }
 
 export function loadSettings(storage = globalThis.localStorage) {
+  let settings;
   try {
     const raw = storage?.getItem?.(SETTINGS_KEY);
-    if (!raw) return { ...DEFAULT_SETTINGS };
-    return normalizeSettings(JSON.parse(raw));
+    settings = raw ? normalizeSettings(JSON.parse(raw)) : { ...DEFAULT_SETTINGS };
   } catch {
-    return { ...DEFAULT_SETTINGS };
+    settings = { ...DEFAULT_SETTINGS };
   }
+  applyAccessibilityTheme(settings);
+  return settings;
 }
 
 export function saveSettings(settings, storage = globalThis.localStorage) {
   const source = settings && typeof settings === 'object' ? settings : {};
   const normalized = normalizeSettings(source);
-  // 画质面板只提交画质字段：没带的音量键沿用已存值，避免应用预设把音量重置。
+  // 画质面板只提交画质字段：没带的音量/无障碍键沿用已存值，
+  // 避免应用预设把音量或色弱设置重置。
   const previous = loadSettings(storage);
-  for (const key of ['sfxVolume', 'musicVolume']) {
+  for (const key of ['sfxVolume', 'musicVolume', 'colorBlind', 'highContrast']) {
     if (!Object.prototype.hasOwnProperty.call(source, key)) normalized[key] = previous[key];
   }
   try {
@@ -116,6 +143,7 @@ export function saveSettings(settings, storage = globalThis.localStorage) {
   } catch {
     /* 存储不可用/配额满：本次仍使用内存设置 */
   }
+  applyAccessibilityTheme(normalized);
   return normalized;
 }
 

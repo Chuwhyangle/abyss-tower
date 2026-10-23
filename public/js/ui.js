@@ -116,6 +116,7 @@ class UI {
       play: $('btn-play'),
       daily: $('btn-daily'),
       dailyLabel: $('daily-label'),
+      endless: $('btn-endless'),
       resume: $('btn-resume'),
       shop: $('btn-shop'),
       board: $('btn-board'),
@@ -158,6 +159,7 @@ class UI {
 
     this.el.play.onclick = () => this.handlers.onPlay?.();
     this.el.daily.onclick = () => this.handlers.onDaily?.();
+    if (this.el.endless) this.el.endless.onclick = () => this.handlers.onEndless?.();
     this.el.resume.onclick = () => this.handlers.onResume?.();
     this.el.rename.onclick = () => this.handlers.onRename?.();
     this.el.settingsTitle.onclick = () => this.handlers.onSettings?.();
@@ -488,7 +490,12 @@ class UI {
         </button>`;
     }).join('');
 
-    const title = mode === 'daily' ? t('difficulty.dailyTitle') : t('difficulty.startTitle');
+    const endless = mode === 'endless';
+    const title = mode === 'daily'
+      ? t('difficulty.dailyTitle')
+      : endless
+        ? t('difficulty.endlessTitle')
+        : t('difficulty.startTitle');
     const affixes = (daily?.modifiers || [])
       .map((modifier) => `<span style="color:${modifier.color}">${modifier.name}</span>`)
       .join(' · ');
@@ -497,11 +504,18 @@ class UI {
       mode === 'daily'
         ? `<p class="muted">${t('difficulty.dailyNote', { n: dailyLeft ?? 0 })}</p>
            ${affixes ? `<p class="muted">${t('difficulty.dailyAffixes', { affixes })}${streakNote}</p>` : ''}`
-        : `<p class="muted">${t('difficulty.note')}</p>`;
+        : endless
+          ? `<p class="muted">${t('difficulty.endlessNote')}</p>`
+          : `<p class="muted">${t('difficulty.note')}</p>`;
+    const eyebrow = mode === 'daily'
+      ? t('difficulty.eyebrowDaily')
+      : endless
+        ? t('difficulty.eyebrowEndless')
+        : t('difficulty.eyebrowNormal');
 
     const modal = this.openModal(
       `<div class="difficulty">
-        <p class="eyebrow">${t(mode === 'daily' ? 'difficulty.eyebrowDaily' : 'difficulty.eyebrowNormal')}</p>
+        <p class="eyebrow">${eyebrow}</p>
         <h2>${title} · ${t('difficulty.title')}</h2>
         ${note}
         ${this.skillBarHtml(skillState, selectedSkill)}
@@ -636,11 +650,13 @@ class UI {
           })
         : t(hud.wave === 0 ? 'hud.phase.ready' : 'hud.phase.rallyStage');
       this.el.waveState.classList.remove('live');
-      this.el.nextWave.disabled = hud.wave >= MAX_WAVE;
+      // 无尽模式没有“最终波次”：第 30 波后仍可继续放行。
+      const atFinalWave = hud.mode !== 'endless' && hud.wave >= MAX_WAVE;
+      this.el.nextWave.disabled = atFinalWave;
       this.el.nextWave.textContent =
         hud.wave === 0
           ? t('hud.startWave1')
-          : hud.wave >= MAX_WAVE
+          : atFinalWave
             ? t('hud.finalWave')
             : t('hud.startWave', { wave: hud.wave + 1 });
     }
@@ -1263,7 +1279,9 @@ class UI {
     const extra =
       mode === 'daily' && dailyLeft != null
         ? `<p class="muted">${t('result.dailyLeft', { n: dailyLeft })}</p>`
-        : '';
+        : mode === 'endless'
+          ? `<p class="muted">${t('result.endlessNote')}</p>`
+          : '';
 
     const diffTag = victory
       ? t('result.clearedTag', { name: diffName(diff) })
@@ -1329,6 +1347,7 @@ class UI {
           <div class="tabs">
             <button class="tab ${mode === 'normal' ? 'active' : ''}" data-mode="normal">${t('board.normal')}</button>
             <button class="tab ${mode === 'daily' ? 'active' : ''}" data-mode="daily">${t('board.daily')}${day ? ` · ${day.slice(5)}` : ''}</button>
+            <button class="tab ${mode === 'endless' ? 'active' : ''}" data-mode="endless">${t('board.endless')}</button>
           </div>
           <div class="board-list">${rows}</div>
           <div class="modal-actions">

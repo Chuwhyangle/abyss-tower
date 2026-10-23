@@ -14,6 +14,18 @@
 DB_PATH=/tmp/rtd-dev.db PORT=8787 npm start
 ```
 
+## 新贡献者先读什么
+
+按这个顺序读，能在最短时间内建立全局认识：
+
+1. `README.md`：游戏是什么、怎么跑起来、有哪些验收命令。
+2. [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)：运行时分层、数据流、确定性约束、测试分层与文件所有权。**动手前先读这一份。**
+3. `docs/GLOSSARY.md`：中英文用词的正本，改文案前必读。
+4. `docs/PRD.md`（做什么）与 `docs/TECH_DESIGN.md`（怎么做）：需要查具体规则、接口或数据模型时再深入。
+5. `CLAUDE.md`：仓库的协作与代码约定（先文档后开发、子代理分工、封装优先）。
+
+`docs/ARCHITECTURE.md` 是地图，`docs/PRD.md` / `docs/TECH_DESIGN.md` 是规范正本；两者冲突时以正本和代码为准。
+
 ## 分支模型
 
 - `main`：随时可发布；只接受 PR 合入，禁止直接 push。
