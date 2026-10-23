@@ -12,6 +12,7 @@ import {
 import { RNG } from './shared/rng.js';
 import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
+import { generateWave } from './shared/waves.js';
 
 export class Simulation {
   constructor(opts) {
@@ -937,6 +938,35 @@ export class Simulation {
     this.opts.onSave?.(snapshot);
   }
 
+  // 下一波情报：整备阶段展示。波次由种子确定性生成，客户端只做预测展示，
+  // 真正放行仍由服务端 /wave 决定，不改变波次流程。
+  nextWavePreview() {
+    if (this.phase !== 'prep') return null;
+    const next = this.clearedWave + 1;
+    if (next > MAX_WAVE) return null;
+    const meta = this.map?.meta || {};
+    const key = `${next}|${this.difficulty}|${meta.modifier?.id || ''}|${meta.portalCount || 1}`;
+    if (this._previewCache?.key === key) return this._previewCache.value;
+    const def = generateWave(this.seed, next, this.difficulty, {
+      portalCount: meta.portalCount || 1,
+      modifier: meta.modifier || null,
+    });
+    const totals = new Map();
+    for (const group of def.groups) {
+      totals.set(group.type, (totals.get(group.type) || 0) + group.count);
+    }
+    const value = {
+      index: def.index,
+      boss: !!def.boss,
+      finalBoss: !!def.finalBoss,
+      totalCount: def.totalCount,
+      portals: def.portals?.length || 1,
+      enemies: [...totals.entries()].map(([type, count]) => ({ type, count })),
+    };
+    this._previewCache = { key, value };
+    return value;
+  }
+
   getHud() {
     return {
       gold: Math.floor(this.gold),
@@ -952,6 +982,7 @@ export class Simulation {
       difficulty: this.difficulty,
       portalCount: this.map.spawns?.length || 1,
       activePortals: this.activePortals.slice(),
+      nextWave: this.nextWavePreview(),
       waveDef: this.waveDef
         ? {
             index: this.waveDef.index,

@@ -495,6 +495,58 @@ button {
   cursor: default;
 }
 
+/* 下一波情报：仅整备阶段显示，附在遗物面板底部 */
+.next-wave-panel {
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(120, 160, 175, 0.14);
+  pointer-events: none;
+}
+
+.next-wave-panel[hidden] {
+  display: none;
+}
+
+.next-wave-panel .relic-title span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.next-wave-panel .relic-title span.boss {
+  color: #ff8a6b;
+}
+
+.next-wave-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 6px;
+}
+
+.next-wave-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+  color: #b9c8d3;
+}
+
+.next-wave-row i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--c, #9fb0c3);
+  box-shadow: 0 0 6px var(--c, #9fb0c3);
+  flex: none;
+}
+
+.next-wave-row b {
+  margin-left: auto;
+  color: #e6eef3;
+  font-family: var(--font-mono);
+  font-weight: 600;
+}
+
 .relic-chip i {
   width: 6px;
   height: 6px;
@@ -1838,6 +1890,13 @@ body.is-touch .rotate-hint {
   flex-direction: column;
   gap: 8px;
   margin-top: 14px;
+}
+
+/* 遗物弹窗里叠加"下一波"区块时，与后面的遗物标题拉开层次 */
+.relics-modal .relic-modal-list + .eyebrow {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(120, 160, 175, 0.12);
 }
 
 .relic-modal-row {

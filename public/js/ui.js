@@ -2,6 +2,7 @@
 import {
   TOWERS,
   TOWER_ORDER,
+  ENEMIES,
   RELIC_BY_ID,
   RARITY,
   UNLOCKS,
@@ -70,6 +71,9 @@ class UI {
       portalHint: null,
       relicList: $('relic-list'),
       relicCount: $('relic-count'),
+      nextWavePanel: $('next-wave-panel'),
+      nextWaveList: $('next-wave-list'),
+      nextWaveMeta: $('next-wave-meta'),
       towerPanel: $('tower-panel'),
       shopList: $('shop-list'),
       tooltip: $('tooltip'),
@@ -318,6 +322,7 @@ class UI {
     }
 
     this.updatePortalHint(hud);
+    this.updateNextWave(hud);
 
     if (hud.phase === 'wave') {
       this.el.waveState.textContent = hud.waveDef?.finalBoss
@@ -333,7 +338,12 @@ class UI {
       this.el.waveState.classList.remove('live');
       this.el.nextWave.disabled = true;
     } else {
-      this.el.waveState.textContent = hud.wave === 0 ? '准备阶段' : '整备阶段';
+      const next = hud.nextWave;
+      this.el.waveState.textContent = next
+        ? `${hud.wave === 0 ? '准备' : '整备'} · 下波 ${next.totalCount} 敌${next.boss ? ' ⚠' : ''}`
+        : hud.wave === 0
+          ? '准备阶段'
+          : '整备阶段';
       this.el.waveState.classList.remove('live');
       this.el.nextWave.disabled = hud.wave >= MAX_WAVE;
       this.el.nextWave.textContent =
@@ -384,6 +394,35 @@ class UI {
     }).join('');
     hint.hidden = false;
     hint.innerHTML = `<span class="portal-label">${inWave ? '本波入口' : '入口'}</span>${chips}`;
+  }
+
+  // 下一波情报：整备阶段挂在遗物面板底部；波中隐藏，避免干扰战斗。
+  updateNextWave(hud) {
+    const panel = this.el?.nextWavePanel;
+    if (!panel) return;
+    const preview = hud.phase === 'prep' ? hud.nextWave : null;
+    if (!preview) {
+      panel.hidden = true;
+      this._nextWaveSig = '';
+      return;
+    }
+    panel.hidden = false;
+    const signature = `${preview.index}|${preview.totalCount}|${preview.boss}|${preview.enemies
+      .map((item) => `${item.type}:${item.count}`)
+      .join(',')}`;
+    if (signature === this._nextWaveSig) return;
+    this._nextWaveSig = signature;
+    this.el.nextWaveMeta.textContent = preview.boss
+      ? `第 ${preview.index} 波 · 首领`
+      : `第 ${preview.index} 波`;
+    this.el.nextWaveMeta.classList.toggle('boss', !!preview.boss);
+    this.el.nextWaveList.innerHTML = [...preview.enemies]
+      .sort((a, b) => b.count - a.count)
+      .map(({ type, count }) => {
+        const def = ENEMIES[type] || { name: type, color: '#9fb0c3' };
+        return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${def.name}<b>×${count}</b></div>`;
+      })
+      .join('');
   }
 
   // ---------- 商店 ----------
@@ -832,6 +871,8 @@ class UI {
 
   showRelicsModal() {
     const relics = this.game?.relics || [];
+    const hud = this.game?.getHud?.() || {};
+    const preview = hud.phase === 'prep' ? hud.nextWave : null;
     const rows = relics.length
       ? relics
           .map((state) => {
@@ -848,9 +889,25 @@ class UI {
           .join('')
       : '<p class="empty">本局还没有遗物。</p>';
 
+    const waveBlock = preview
+      ? `
+          <p class="eyebrow">NEXT WAVE</p>
+          <h2>下一波 <span class="cores-inline">${preview.totalCount} 敌</span></h2>
+          <div class="relic-modal-list">
+            ${[...preview.enemies]
+              .sort((a, b) => b.count - a.count)
+              .map(({ type, count }) => {
+                const def = ENEMIES[type] || { name: type, color: '#9fb0c3' };
+                return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${def.name}<b>×${count}</b></div>`;
+              })
+              .join('')}
+          </div>`
+      : '';
+
     const modal = this.openModal(
       `
         <div class="relics-modal">
+          ${waveBlock}
           <p class="eyebrow">RELICS</p>
           <h2>遗物 <span class="cores-inline">${relics.length}</span></h2>
           <div class="relic-modal-list">${rows}</div>
