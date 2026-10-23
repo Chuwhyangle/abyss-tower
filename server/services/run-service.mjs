@@ -29,7 +29,7 @@ import {
 } from '../db/skills.mjs';
 import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
 import { generateMapCandidates } from '../../public/js/shared/mapgen.js';
-import { generateWave } from '../../public/js/shared/waves.js';
+import { ENDLESS, generateWave } from '../../public/js/shared/waves.js';
 import { findEventOption, rollEvent } from '../../public/js/shared/events.js';
 import {
   rollRelicOffers,
@@ -146,7 +146,8 @@ export class RunService {
   }
 
   create({ token, profile, body, testSeed }) {
-    const mode = body.mode === 'daily' ? 'daily' : 'normal';
+    const mode =
+      body.mode === 'daily' ? 'daily' : body.mode === 'endless' ? 'endless' : 'normal';
     const difficulty = DIFFICULTIES[body.difficulty] ? body.difficulty : 'standard';
     const diff = DIFFICULTIES[difficulty];
     const day = dayKey();
@@ -217,7 +218,8 @@ export class RunService {
     }
 
     const id = crypto.randomBytes(9).toString('base64url');
-    const boardKey = mode === 'daily' ? `daily:${day}:v2` : 'normal';
+    const boardKey =
+      mode === 'daily' ? `daily:${day}:v2` : mode === 'endless' ? 'endless' : 'normal';
     abandonActiveRuns(token, Date.now());
     insertRun({
       id,
@@ -291,21 +293,23 @@ export class RunService {
       portalCount: mapMeta.portalCount || 1,
       modifier: mapMeta.modifier || null,
     };
+    const endless = run.mode === 'endless';
     // 有未结算波次时重放当前波，不推进波次、不重复发奖。
     if (run.clearedWaves < run.wavesServed) {
       const current = run.wavesServed;
       return {
-        wave: generateWave(run.seed, current, run.difficulty, waveOptions),
+        wave: generateWave(run.seed, current, run.difficulty, waveOptions, { endless }),
         replay: true,
         clearedWaves: run.clearedWaves,
         wavesServed: run.wavesServed,
       };
     }
-    if (run.clearedWaves >= MAX_WAVE) throw new RunError(409, '已抵达最终波次');
+    // 普通/每日模式在第 30 波后结束；无尽模式继续生成递增波次。
+    if (!endless && run.clearedWaves >= MAX_WAVE) throw new RunError(409, '已抵达最终波次');
     const next = run.wavesServed + 1;
     setWavesServed(run.id, next);
     return {
-      wave: generateWave(run.seed, next, run.difficulty, waveOptions),
+      wave: generateWave(run.seed, next, run.difficulty, waveOptions, { endless }),
       replay: false,
       clearedWaves: run.clearedWaves,
       wavesServed: next,
@@ -313,7 +317,8 @@ export class RunService {
   }
 
   clearWave(run, wave) {
-    if (!Number.isFinite(wave) || wave < 1 || wave > MAX_WAVE) {
+    const maxWave = run.mode === 'endless' ? ENDLESS.maxIndex : MAX_WAVE;
+    if (!Number.isFinite(wave) || wave < 1 || wave > maxWave) {
       throw new RunError(400, '波次号不合法');
     }
     if (wave > run.wavesServed) throw new RunError(409, '该波次尚未放行');
@@ -505,6 +510,7 @@ export class RunService {
       wavesServed: run.clearedWaves,
       difficulty: run.difficulty,
       scoreMul: mapMeta?.scoreMul || 1,
+      mode: run.mode,
     });
     const now = Date.now();
     const durationMs = Math.max(0, now - run.createdAt);

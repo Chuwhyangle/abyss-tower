@@ -15,6 +15,7 @@ import {
 } from './data.js';
 import { ARCHETYPES, MODIFIER_BY_ID } from './mapgen.js';
 import { normalizeEventHistory } from './events.js';
+import { ENDLESS } from './waves.js';
 
 export const SAVE_VERSION = 4;
 export const MIN_SAVE_VERSION = 2;
@@ -24,7 +25,7 @@ export const BASE_SAVE_VERSION = 3;
 const DEFAULT_DIFFICULTY = 'standard';
 const DEFAULT_ARCHETYPE = 'canyon';
 const DEFAULT_MODE = 'normal';
-const MODES = new Set(['normal', 'daily']);
+const MODES = new Set(['normal', 'daily', 'endless']);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -46,8 +47,10 @@ function boundedInt(value, min, max, fallback = min) {
   return Math.max(min, Math.min(max, Math.floor(parsed)));
 }
 
-function clampWave(value) {
-  return boundedInt(value, 0, MAX_WAVE, 0);
+// 无尽模式的波次可超过 MAX_WAVE，但同样收敛到硬上限。
+function clampWave(value, mode = DEFAULT_MODE) {
+  const max = mode === 'endless' ? ENDLESS.maxIndex : MAX_WAVE;
+  return boundedInt(value, 0, max, 0);
 }
 
 function normalizeTowers(towers) {
@@ -107,7 +110,8 @@ function collectWarnings(snap) {
   }
   if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
   const rawWave = finiteNumber(snap.clearedWave ?? snap.wave);
-  if (rawWave !== null && (rawWave < 0 || rawWave > MAX_WAVE)) warnings.push('wave-clamped');
+  const maxWave = snap.mode === 'endless' ? ENDLESS.maxIndex : MAX_WAVE;
+  if (rawWave !== null && (rawWave < 0 || rawWave > maxWave)) warnings.push('wave-clamped');
   return warnings;
 }
 
@@ -147,7 +151,8 @@ export function toSnapshot(state) {
 
 // 版本迁移与字段收敛。只有 validateSnapshot 判定合法后才会调用。
 export function migrateSnapshot(snap) {
-  const clearedWave = clampWave(snap.clearedWave ?? snap.wave);
+  const mode = normalizeMode(snap.mode ?? DEFAULT_MODE);
+  const clearedWave = clampWave(snap.clearedWave ?? snap.wave, mode);
   const out = {
     ...snap,
     version: SAVE_VERSION,
@@ -160,7 +165,7 @@ export function migrateSnapshot(snap) {
 
   if ('seed' in snap) out.seed = typeof snap.seed === 'string' && snap.seed ? snap.seed : null;
   if ('runId' in snap) out.runId = typeof snap.runId === 'string' ? snap.runId : null;
-  if ('mode' in snap) out.mode = normalizeMode(snap.mode);
+  if ('mode' in snap) out.mode = mode;
   if ('difficulty' in snap) out.difficulty = normalizeDifficulty(snap.difficulty);
   if ('gold' in snap) out.gold = boundedInt(snap.gold, 0, Number.MAX_SAFE_INTEGER, 0);
   if ('kills' in snap) out.kills = boundedInt(snap.kills, 0, Number.MAX_SAFE_INTEGER, 0);

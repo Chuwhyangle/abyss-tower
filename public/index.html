@@ -28,12 +28,15 @@
           <nav class="title-actions" aria-label="主菜单">
             <button id="btn-play" class="btn primary big" type="button" data-i18n="title.play">开始远征</button>
             <button id="btn-daily" class="btn ghost" type="button"><span data-i18n="title.daily">每日挑战</span> <span id="daily-label"></span></button>
+            <button id="btn-endless" class="btn ghost" type="button"><span data-i18n="title.endless">无尽模式</span> <span id="endless-label" data-i18n="title.endless.tag">30 波后继续挑战</span></button>
             <button id="btn-resume" class="btn ghost" type="button" data-i18n="title.resume" hidden>继续上一局</button>
             <div class="row" role="group" aria-label="更多功能">
               <button id="btn-shop" class="btn small" type="button" data-i18n="title.shop">星核商店</button>
               <button id="btn-board" class="btn small" type="button" data-i18n="title.board">排行榜</button>
+              <button id="btn-daily-history" class="btn small" type="button">每日历史</button>
               <button id="btn-achievements" class="btn small" type="button" data-i18n="title.achievements">成就</button>
               <button id="btn-stats" class="btn small" type="button" data-i18n="title.stats">生涯</button>
+              <button id="btn-season" class="btn small" type="button" data-i18n="title.season">赛季</button>
               <button id="btn-help" class="btn small" type="button" data-i18n="title.help">玩法</button>
             </div>
           </nav>
@@ -59,7 +62,10 @@
             <div id="stats-body" class="career-body"></div>
           </div>
 
+          <div id="season-panel" class="season-panel" hidden></div>
+
           <div id="leaderboard-panel" hidden></div>
+          <div id="daily-history-panel" hidden></div>
         </div>
 
         <p class="footnote" data-i18n="title.footnote">服务端生成地图 / 波次 / 遗物 · 每波自动存档</p>
@@ -143,5 +149,7 @@
   <script type="module" src="/js/achievements-ui.js"></script>
   <script type="module" src="/js/stats-ui.js"></script>
   <script type="module" src="/js/leaderboard-ui.js"></script>
+  <script type="module" src="/js/season-ui.js"></script>
+  <script type="module" src="/js/daily-history-ui.js"></script>
 </body>
 </html>

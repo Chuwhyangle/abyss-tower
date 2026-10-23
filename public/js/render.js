@@ -24,7 +24,7 @@ export class Renderer {
     this.settings = normalizeSettings(settings);
     this.W = game.map.cols * T;
     this.H = game.map.rows * T;
-    this.palette = biomePalette(game.map);
+    this.palette = biomePalette(game.map, this.settings);
     this.applyDpr();
     this.time = 0;
     this.fpsFrames = 0;
@@ -67,10 +67,13 @@ export class Renderer {
   applySettings(settings) {
     const next = normalizeSettings(settings);
     const needsRebuild =
-      next.dpr !== this.settings.dpr || next.decorations !== this.settings.decorations;
+      next.dpr !== this.settings.dpr ||
+      next.decorations !== this.settings.decorations ||
+      next.colorBlind !== this.settings.colorBlind ||
+      next.highContrast !== this.settings.highContrast;
     this.settings = next;
     if (needsRebuild) {
-      this.palette = biomePalette(this.game.map);
+      this.palette = biomePalette(this.game.map, this.settings);
       this.applyDpr();
       this.bg = this.buildBackground();
     }
@@ -130,7 +133,7 @@ export class Renderer {
     this.skillRenderer.renderL0(g, this.time, this.settings);
 
     this.portals.render(g, this.time, this.settings.glow);
-    this.towers.renderRanges(g);
+    this.towers.renderRanges(g, this.settings);
     // 前摇预警：射程圈之上、塔与敌人之下，保持路径信息可读。
     this.skillRenderer.renderWarnings(g, this.time, this.settings);
     // L1：塔之前的地面层（焦痕 / 霜裂 / 时间刻度）
@@ -142,7 +145,7 @@ export class Renderer {
     // L2：敌人与弹道之后（冰壳 / 时间泡 / 光柱 / 流星 / 碎晶）
     this.skillRenderer.renderL2(g, this.time, this.settings);
     this.floaters.render(g);
-    this.towers.renderPlacement(g, this.time, this.settings.glow);
+    this.towers.renderPlacement(g, this.time, this.settings.glow, this.settings);
 
     g.restore();
 

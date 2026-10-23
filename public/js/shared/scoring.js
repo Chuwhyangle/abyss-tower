@@ -4,6 +4,8 @@ import { candidatePlan } from './mapgen.js';
 
 export const VICTORY_BONUS = 10000;
 export const VICTORY_CORES = 25;
+// 无尽模式独立倍率：榜单独立，分数略高于同波次普通局。
+export const ENDLESS_SCORE_MUL = 1.25;
 // 速死刷核保护：清波不足 5 波不给任何星核。
 export const MIN_CORES_WAVES = 5;
 
@@ -37,11 +39,16 @@ export function computeOutcome({
   baseHp,
   difficulty = 'standard',
   scoreMul = 1,
+  mode = 'normal',
 }) {
   const diff = getDifficulty(difficulty);
-  const victory = isVictory(waveReached, wavesServed);
+  const endless = mode === 'endless';
+  // 无尽模式没有通关结算：第 30 波后继续挑战，直到基地被摧毁。
+  const victory = endless ? false : isVictory(waveReached, wavesServed);
   const rawScore = computeRawScore({ waveReached, kills, goldLeft, baseHp, victory });
-  const score = Math.round(rawScore * diff.scoreMul * scoreMul);
+  const score = Math.round(
+    rawScore * diff.scoreMul * scoreMul * (endless ? ENDLESS_SCORE_MUL : 1)
+  );
   const waves = Math.floor(waveReached);
   const cores =
     waves < MIN_CORES_WAVES
@@ -99,6 +106,17 @@ export function dailyChallenge(day = dayKey()) {
     color: modifier.color,
   }));
   return { day, seed, modifiers };
+}
+
+// 最近若干天的每日挑战派生：按日期从新到旧排列，词缀只保留 id，便于历史面板复用。
+export function recentDailyChallenges(today = dayKey(), days = 14) {
+  if (!isDayKey(today)) throw new TypeError(`非法日期：${today}`);
+  const count = Number.isFinite(Number(days)) ? Math.max(0, Math.floor(Number(days))) : 14;
+  return Array.from({ length: count }, (_, offset) => {
+    const day = shiftDay(today, -offset);
+    const { seed, modifiers } = dailyChallenge(day);
+    return { day, seed, modifiers: modifiers.map((modifier) => modifier.id) };
+  });
 }
 
 // 连续参与天数：从今天（今天未参与则从昨天）向前数连续出现的日期。

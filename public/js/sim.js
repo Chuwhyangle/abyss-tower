@@ -371,7 +371,8 @@ export class Simulation {
     this.waveDef = null;
     this.clearedWave = cleared;
 
-    if (cleared >= MAX_WAVE) {
+    // 无尽模式不清算通关：第 30 波后继续生成递增波次，直到基地被摧毁。
+    if (this.mode !== 'endless' && cleared >= MAX_WAVE) {
       this.gameOver(true);
       return;
     }
@@ -405,6 +406,7 @@ export class Simulation {
       baseHp: Math.max(0, Math.ceil(this.baseHp)),
       difficulty: this.difficulty,
       scoreMul: this.mapMeta?.scoreMul || 1,
+      mode: this.mode,
     });
     const stats = {
       wave: this.wave,
@@ -1895,14 +1897,21 @@ export class Simulation {
   nextWavePreview() {
     if (this.phase !== 'prep') return null;
     const next = this.clearedWave + 1;
-    if (next > MAX_WAVE) return null;
+    const endless = this.mode === 'endless';
+    if (!endless && next > MAX_WAVE) return null;
     const meta = this.map?.meta || {};
-    const key = `${next}|${this.difficulty}|${meta.modifier?.id || ''}|${meta.portalCount || 1}`;
+    const key = `${next}|${this.difficulty}|${meta.modifier?.id || ''}|${meta.portalCount || 1}|${this.mode}`;
     if (this._previewCache?.key === key) return this._previewCache.value;
-    const def = generateWave(this.seed, next, this.difficulty, {
-      portalCount: meta.portalCount || 1,
-      modifier: meta.modifier || null,
-    });
+    const def = generateWave(
+      this.seed,
+      next,
+      this.difficulty,
+      {
+        portalCount: meta.portalCount || 1,
+        modifier: meta.modifier || null,
+      },
+      { endless }
+    );
     const totals = new Map();
     for (const group of def.groups) {
       totals.set(group.type, (totals.get(group.type) || 0) + group.count);
@@ -1935,6 +1944,7 @@ export class Simulation {
         ? { id: this.skill.id, level: this.skill.level, cooldown: this.skill.cooldown }
         : null,
       difficulty: this.difficulty,
+      mode: this.mode,
       portalCount: this.map.spawns?.length || 1,
       activePortals: this.activePortals.slice(),
       nextWave: this.nextWavePreview(),

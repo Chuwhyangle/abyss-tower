@@ -1,4 +1,4 @@
-// 本地运维 CLI：备份 / 账户查询 / 禁用账号 / 从备份恢复。
+// 本地运维 CLI：备份 / 账户查询 / 禁用账号 / 从备份恢复 / 赛季结算。
 // 零依赖，直接复用 node:sqlite 与 VACUUM INTO 备份方式（同 scripts/backup.mjs）。
 // 用法：node scripts/ops.mjs <command> [options]，详见 --help。
 import fs from 'node:fs';
@@ -21,6 +21,7 @@ const USAGE = `本地运维 CLI
   accounts [--search <name>] [--limit N]   列出账号摘要（不含密码/恢复码哈希）
   disable <username> [--yes]               禁用账号；未加 --yes 时只做 dry-run
   restore <backup> --to <db> [--yes]       从备份恢复到目标库；拒绝覆盖正在使用的库
+  settle-season <YYYY-MM> [--yes]          结算赛季并发放星核；未加 --yes 时只做 dry-run
 
 通用选项：
   --db <path>    操作的数据库（默认 $DB_PATH 或 server/data/game.db）
@@ -275,6 +276,20 @@ function commandRestore(backup, opts) {
   };
 }
 
+// ---------- settle-season ----------
+
+async function commandSettleSeason(season, opts) {
+  if (!season) {
+    throw new OpsError('用法：node scripts/ops.mjs settle-season <YYYY-MM> [--yes]');
+  }
+  const file = requireDbFile(dbPathFor(opts));
+  // 复用服务端结算逻辑：必须在 import 前把连接指向目标库（导入会执行迁移）。
+  process.env.DB_PATH = file;
+  const { isSeasonKey, settleSeason } = await import('../server/db/leaderboard.mjs');
+  if (!isSeasonKey(season)) throw new OpsError(`非法赛季：${season}（应为 YYYY-MM）`);
+  return settleSeason(season, { dryRun: !opts.yes });
+}
+
 // ---------- output ----------
 
 function printHuman(command, result, opts) {
@@ -311,12 +326,25 @@ function printHuman(command, result, opts) {
   if (command === 'restore') {
     console.log(result.message);
     if (result.bytes != null) console.log(`目标大小：${formatBytes(result.bytes)}`);
+    return;
+  }
+
+  if (command === 'settle-season') {
+    const prefix = result.dryRun ? '[dry-run] ' : '';
+    const state = result.alreadySettled ? '已结算' : '结算';
+    console.log(
+      `${prefix}赛季 ${result.season} ${state}：${result.settledCount} 人，共 ${result.totalCores} 星核`
+    );
+    for (const item of result.rewards) {
+      console.log(`  #${item.rank}  ${item.accountId}  +${item.cores} 星核`);
+    }
+    if (result.dryRun) console.log('[dry-run] 加 --yes 执行');
   }
 }
 
 // ---------- main ----------
 
-function main(argv) {
+async function main(argv) {
   const { command, args, opts } = parseCli(argv);
   if (opts.help || !command) {
     if (command && !opts.help) throw new OpsError(`未知命令：${command}`);
@@ -338,6 +366,9 @@ function main(argv) {
     case 'restore':
       result = commandRestore(args[0], opts);
       break;
+    case 'settle-season':
+      result = await commandSettleSeason(args[0], opts);
+      break;
     default:
       throw new OpsError(`未知命令：${command}（用 --help 查看用法）`);
   }
@@ -356,14 +387,16 @@ function main(argv) {
   return 0;
 }
 
-try {
-  process.exitCode = main(process.argv.slice(2));
-} catch (error) {
-  const wantsJson = process.argv.includes('--json');
-  if (wantsJson) {
-    console.error(JSON.stringify({ ok: false, error: error.message }, null, 2));
-  } else {
-    console.error(`错误：${error.message}`);
-  }
-  process.exitCode = 1;
-}
+main(process.argv.slice(2))
+  .then((code) => {
+    process.exitCode = code;
+  })
+  .catch((error) => {
+    const wantsJson = process.argv.includes('--json');
+    if (wantsJson) {
+      console.error(JSON.stringify({ ok: false, error: error.message }, null, 2));
+    } else {
+      console.error(`错误：${error.message}`);
+    }
+    process.exitCode = 1;
+  });

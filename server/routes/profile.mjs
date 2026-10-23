@@ -9,7 +9,10 @@ import {
 import { recordPlayerEvent } from '../db/events.mjs';
 import { hashIp, recordAuthEvent } from '../auth/rate-limit.mjs';
 import { clearSessionCookie } from '../auth/cookies.mjs';
-import { cleanName, dailyAttemptsLeft, dailyState } from './support.mjs';
+import { recentDailyChallenges } from '../../public/js/shared/scoring.js';
+import { cleanName, dailyAttemptsLeft, dailyState, today } from './support.mjs';
+
+const HISTORY_DAYS = 14;
 
 function readProgress(accountId, type = null) {
   const rows = type
@@ -46,6 +49,7 @@ export class ProfileRoutes {
     router.add('GET', '/api/profile', (ctx) => ctx.json(200, { profile: ctx.profile }));
     router.add('GET', '/api/profile/progress', (ctx) => this.progress(ctx));
     router.add('GET', '/api/profile/export', (ctx) => this.exportData(ctx));
+    router.add('GET', '/api/daily/history', (ctx) => this.dailyHistory(ctx));
     router.add('DELETE', '/api/profile', (ctx) => this.remove(ctx));
   }
 
@@ -72,6 +76,44 @@ export class ProfileRoutes {
       unlocks: profile.unlocks,
       wallet: { cores: profile.cores },
       progress,
+    });
+  }
+
+  // 每日挑战历史：派生最近 N 天的种子与词缀，只合并当前账号自己的每日最佳。
+  dailyHistory(ctx) {
+    const raw = Number(ctx.url.searchParams.get('days'));
+    const days = Number.isFinite(raw)
+      ? Math.max(1, Math.min(HISTORY_DAYS, Math.floor(raw)))
+      : HISTORY_DAYS;
+    const entries = recentDailyChallenges(today(), days);
+    const oldest = entries[entries.length - 1]?.day;
+    const bestByDay = new Map();
+    if (oldest) {
+      const rows = db
+        .prepare(
+          `SELECT day, MAX(score) AS best_score, MAX(wave_reached) AS best_wave,
+                  COUNT(*) AS attempts, MAX(finished_at) AS last_played_at
+             FROM runs
+            WHERE account_id = ? AND mode = 'daily' AND status = 'finished' AND day >= ?
+            GROUP BY day`
+        )
+        .all(ctx.token, oldest);
+      for (const row of rows) bestByDay.set(row.day, row);
+    }
+    return ctx.json(200, {
+      today: entries[0]?.day ?? null,
+      days,
+      history: entries.map((entry) => {
+        const row = bestByDay.get(entry.day);
+        return {
+          ...entry,
+          played: !!row,
+          bestScore: row ? row.best_score : null,
+          bestWave: row ? row.best_wave : null,
+          attempts: row ? row.attempts : 0,
+          lastPlayedAt: row ? row.last_played_at : null,
+        };
+      }),
     });
   }
 
