@@ -196,14 +196,14 @@ generateWave(seed, wave, difficulty, mapMeta) -> {
 
 ### 4.5 遗物等级与抽取
 
-- 池：`RELICS`（30 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
+- 池：`RELICS`（50 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
 - 等级修正：基础 `mods` 为 Ⅰ 级，Ⅱ/Ⅲ 级按 `×1.6 / ×2.2` 缩放，并应用单件上限（`PER_RELIC_CAPS`）。多件汇总后再应用全局上限（`GLOBAL_MOD_CAPS`），攻速、连锁、溅射等有硬上限。
 - 抽取：候选池包含未拥有与新遗物及未满级遗物；三件 ID 不重复；满级退出；候选不足用金币/修复补位。
 - 种子：`${seed}:relic:${combo}:${nonce}`，`combo` 为已清波次，`nonce = 已刷新次数`。
 - 服务端保存每波 `{ offers, picked }`；`pick` 按索引校验，`picked` 后拒绝二次选择与刷新。
 - 兼容旧 `{ids:[...]}` 选项与旧遗物 ID 存档，统一归一化为 Ⅰ 级。
 - 即时生命效果：获得/升级时只补发该等级相对上一等级新增的 `baseHp`。
-- 套装：遗物可选 `set` 标签（`hunter` / `frost` / `guild`），档位在 `effects.js` 的 `RELIC_SET_BONUSES` 声明 2/4 件效果；`recomputeMods` 按不同遗物 ID 计件（升级不重复计入），追加档位后统一应用单件与全局上限。文案由效果注册表的 `effectText` 生成。
+- 套装：遗物可选 `set` 标签（`hunter` / `frost` / `guild` / `gambit` / `synergy`），档位在 `effects.js` 的 `RELIC_SET_BONUSES` 声明 2/4 件效果；`recomputeMods` 按不同遗物 ID 计件（升级不重复计入），追加档位后统一应用单件与全局上限。文案由效果注册表的 `effectText` 生成。
 - 塔的稳定属性在建造、升级、遗物变化时缓存；模拟步内不重建对象。
 
 ### 4.6 数值与伤害管线

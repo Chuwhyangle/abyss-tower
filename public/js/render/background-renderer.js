@@ -113,6 +113,80 @@ export function ambientParticleBudget(decorations, maxCount) {
   return Math.max(1, Math.round(cap * 0.35));
 }
 
+// 天气层：雨/雾/流星雨。天气与时段只由地图词缀/种子派生，不新增模拟状态。
+export const WEATHER_TYPES = Object.freeze({
+  rain: Object.freeze({
+    id: 'rain', name: '降雨', max: 64, size: 2.2, speed: 1.2, drift: 0.9,
+    angle: 0.32, alpha: 0.22, color: '#9fc7ff',
+  }),
+  fog: Object.freeze({
+    id: 'fog', name: '浓雾', max: 10, size: 3.2, speed: 0.15, drift: 0.3,
+    angle: 0, alpha: 0.06, color: '#cfd8e3',
+  }),
+  meteor: Object.freeze({
+    id: 'meteor', name: '流星雨', max: 14, size: 2.6, speed: 1.8, drift: 0.6,
+    angle: -0.85, alpha: 0.26, color: '#ffd9a0',
+  }),
+});
+export const WEATHER_IDS = Object.freeze(Object.keys(WEATHER_TYPES));
+
+// 词缀 → 天气/时段：显式映射优先，其余按种子稳定派生。
+const WEATHER_BY_MODIFIER = Object.freeze({
+  mist: 'fog', dusk: 'fog', starlit: 'meteor', swift: 'rain', surge: 'rain', rift: 'meteor',
+});
+const PHASE_BY_MODIFIER = Object.freeze({
+  mist: 'dawn', dusk: 'dusk', starlit: 'night', rift: 'dusk', surge: 'day',
+});
+
+// 昼夜色调：全屏低透明度叠加，alpha 上限 0.08，路径与单位轮廓仍然最清晰。
+export const DAY_PHASES = Object.freeze({
+  dawn: Object.freeze({ id: 'dawn', name: '黎明', color: '255, 190, 140', alpha: 0.05 }),
+  day: Object.freeze({ id: 'day', name: '白昼', color: '255, 244, 210', alpha: 0.02 }),
+  dusk: Object.freeze({ id: 'dusk', name: '黄昏', color: '255, 150, 110', alpha: 0.07 }),
+  night: Object.freeze({ id: 'night', name: '夜晚', color: '70, 100, 170', alpha: 0.08 }),
+});
+export const DAY_PHASE_IDS = Object.freeze(Object.keys(DAY_PHASES));
+
+export function modifierIdOf(mapMeta) {
+  const modifier = mapMeta?.modifier;
+  return (typeof modifier === 'string' ? modifier : modifier?.id) || null;
+}
+
+// 同种子完全确定：词缀优先，未知/缺省时用独立 RNG 派生，不触碰背景烘焙的 RNG 序列。
+export function weatherFor(mapMeta, seed) {
+  const id = modifierIdOf(mapMeta);
+  if (id && WEATHER_BY_MODIFIER[id]) return WEATHER_BY_MODIFIER[id];
+  const rng = new RNG(`${seed ?? 'weather'}:weather`);
+  return WEATHER_IDS[rng.int(WEATHER_IDS.length)];
+}
+
+export function timeOfDayFor(mapMeta, seed) {
+  const id = modifierIdOf(mapMeta);
+  if (id && PHASE_BY_MODIFIER[id]) return PHASE_BY_MODIFIER[id];
+  const rng = new RNG(`${seed ?? 'weather'}:phase`);
+  return DAY_PHASE_IDS[rng.int(DAY_PHASE_IDS.length)];
+}
+
+// 天气粒子预算：off 为 0（低配可完全关闭），light 约 40%，full 到场景上限。
+export function weatherParticleBudget(decorations, maxCount) {
+  const cap = Number.isFinite(maxCount) ? Math.floor(maxCount) : 0;
+  if (cap <= 0 || decorations === 'off') return 0;
+  if (decorations === 'full') return cap;
+  return Math.max(1, Math.round(cap * 0.4));
+}
+
+// 一次烘焙所需的完整天气规格：调用方只传地图元数据/种子，不接触模拟状态。
+export function weatherLayer(mapMeta, seed, decorations = 'full') {
+  const weather = weatherFor(mapMeta, seed);
+  const phase = timeOfDayFor(mapMeta, seed);
+  return {
+    weather,
+    phase,
+    tint: DAY_PHASES[phase],
+    particles: weatherParticleBudget(decorations, WEATHER_TYPES[weather].max),
+  };
+}
+
 // 装饰排除区：路径格及其一圈相邻格不放置地表道具，保证路线与塔位清晰。
 export function decorExclusion(map) {
   const excluded = new Set();
@@ -344,6 +418,16 @@ export class BackgroundRenderer {
       g.fill();
     }
 
+    // 昼夜色调 + 天气层：只读地图元数据/种子；粒子排除路径格，不遮挡路线与敌人轮廓。
+    const meta = game.mapMeta || map.meta || {};
+    const weatherSeed = game.seed ?? map.seed;
+    const weather = weatherLayer(meta, weatherSeed, decor);
+    this.drawDayNightTint(g, width, height, weather.tint);
+    if (weather.particles > 0) {
+      // 独立 RNG：天气粒子的随机序列不改变既有背景烘焙的取数顺序。
+      this.drawWeather(g, width, height, map, P, new RNG(`${weatherSeed}:${weather.weather}`), weather, excluded);
+    }
+
     // 边缘暗角
     const vignette = g.createRadialGradient(
       width / 2,
@@ -420,6 +504,57 @@ export class BackgroundRenderer {
       g.fillStyle = grad;
       g.fillRect(cx - half, 0, half * 2, height);
     }
+  }
+
+  // 昼夜色调：全屏低透明度叠加，路径与单位轮廓对比不被压低。
+  drawDayNightTint(g, width, height, phase) {
+    const tint = phase || DAY_PHASES.day;
+    g.fillStyle = `rgba(${tint.color}, ${tint.alpha})`;
+    g.fillRect(0, 0, width, height);
+  }
+
+  // 天气粒子：只落在路径/塔位排除区之外，且数量受画质预算约束（off 时不绘制）。
+  drawWeather(g, width, height, map, P, rng, spec, excluded) {
+    const def = WEATHER_TYPES[spec.weather] || WEATHER_TYPES.rain;
+    const count = spec.particles;
+    const cols = Math.floor(Number(map?.cols) || 0);
+    const rows = Math.floor(Number(map?.rows) || 0);
+    if (count <= 0 || cols <= 0 || rows <= 0) return;
+
+    const cellW = width / cols;
+    const cellH = height / rows;
+    const dropColor = def.color || P.accent;
+
+    for (let i = 0; i < count; i++) {
+      const c = rng.int(cols);
+      const r = rng.int(rows);
+      // 路径及其相邻格不放天气粒子，保证路线与敌人轮廓清晰。
+      if (excluded?.has(c * rows + r)) continue;
+      const x = (c + rng.float()) * cellW;
+      const y = (r + rng.float()) * cellH;
+
+      if (spec.weather === 'fog') {
+        const rx = cellW * def.size * (0.5 + rng.float() * 0.6);
+        const ry = rx * (0.28 + rng.float() * 0.22);
+        g.fillStyle = Palette.hexToRgba(dropColor, def.alpha * (0.5 + rng.float() * 0.5));
+        g.beginPath();
+        g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+        g.fill();
+        continue;
+      }
+
+      const length = def.size * (spec.weather === 'meteor' ? 7 : 5);
+      const dx = Math.cos(def.angle) * length;
+      const dy = Math.sin(def.angle) * length;
+      g.strokeStyle = Palette.hexToRgba(dropColor, def.alpha * (0.55 + rng.float() * 0.45));
+      g.lineWidth = spec.weather === 'meteor' ? def.size * 0.9 : def.size * 0.55;
+      g.lineCap = 'round';
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(x + dx, y + dy);
+      g.stroke();
+    }
+    g.lineCap = 'butt';
   }
 
   // 生物群系地表道具：只画低对比度地贴，塔与单位仍是最清晰的层次。

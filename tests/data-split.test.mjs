@@ -33,7 +33,8 @@ const EXPECTED_EXPORTS = [
 // W19-009：敌人扩容到 12 种（含机制型敌人），内容快照随之更新。
 // V26-001：遗物扩容到 40 件，内容快照随之更新。
 // V30-002：遗物新增 set 套装标签，内容快照随之更新（单件 mods 未改动）。
-const BASELINE_HASH = '6ebeaf21eab68e43134ea752e5e1584f5ae987192870f52bed8a5c73cbd66622';
+// V34-001：遗物扩容到 50 件并新增 2 套套装，内容快照随之更新。
+const BASELINE_HASH = '307cc09f3081a163bd2e5062334b911cd6bc5fb22138ce137341e8b029b75fa5';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -143,7 +144,7 @@ test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
   assert.equal(Object.keys(data.ENEMIES).length, 12);
-  assert.equal(data.RELICS.length, 40);
+  assert.equal(data.RELICS.length, 50);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);
 });
