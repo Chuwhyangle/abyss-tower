@@ -486,15 +486,7 @@ export class Renderer {
       g.ellipse(x, y + 12, 21, 9, 0, 0, Math.PI * 2);
       g.fill();
 
-      if (glow) {
-        const halo = g.createRadialGradient(x, y, 4, x, y, 30);
-        halo.addColorStop(0, hexToRgba(color, level >= 2 ? 0.2 : 0.12));
-        halo.addColorStop(1, hexToRgba(color, 0));
-        g.fillStyle = halo;
-        g.beginPath();
-        g.arc(x, y, 30, 0, Math.PI * 2);
-        g.fill();
-      }
+      if (glow) this.drawGlow(g, color, x, y, 30, level >= 2 ? 0.2 : 0.12);
 
       g.save();
       g.translate(x, y);
@@ -756,15 +748,7 @@ export class Renderer {
 
       // 电球
       const pulse = 1 + Math.sin(this.time * 8) * 0.15;
-      if (this.settings.glow) {
-        const orbGlow = g.createRadialGradient(15, 0, 1, 15, 0, 13);
-        orbGlow.addColorStop(0, 'rgba(210,185,255,0.55)');
-        orbGlow.addColorStop(1, 'rgba(180,140,255,0)');
-        g.fillStyle = orbGlow;
-        g.beginPath();
-        g.arc(15, 0, 13, 0, Math.PI * 2);
-        g.fill();
-      }
+      if (this.settings.glow) this.drawGlow(g, '#d2b9ff', 15, 0, 13, 0.55);
       g.fillStyle = '#e8dcff';
       g.beginPath();
       g.arc(15, 0, 4.6 * pulse, 0, Math.PI * 2);
@@ -866,21 +850,9 @@ export class Renderer {
       g.fill();
 
       if (enemy.boss && glow) {
-        const aura = g.createRadialGradient(x, y - lift, r * 0.5, x, y - lift, r * 2.3);
-        aura.addColorStop(0, 'rgba(226, 80, 150, 0.3)');
-        aura.addColorStop(1, 'rgba(226, 80, 150, 0)');
-        g.fillStyle = aura;
-        g.beginPath();
-        g.arc(x, y - lift, vr * 2.3, 0, Math.PI * 2);
-        g.fill();
+        this.drawGlow(g, '#e25096', x, y - lift, vr * 2.3, 0.3);
       } else if (enemy.heal > 0 && glow) {
-        const aura = g.createRadialGradient(x, y - lift, r * 0.4, x, y - lift, r * 2);
-        aura.addColorStop(0, 'rgba(90, 240, 170, 0.18)');
-        aura.addColorStop(1, 'rgba(90, 240, 170, 0)');
-        g.fillStyle = aura;
-        g.beginPath();
-        g.arc(x, y - lift, vr * 2, 0, Math.PI * 2);
-        g.fill();
+        this.drawGlow(g, '#5af0aa', x, y - lift, vr * 2, 0.18);
       }
 
       g.save();
@@ -1265,15 +1237,7 @@ export class Renderer {
         g.moveTo(-30, 0);
         g.lineTo(-18, 0);
         g.stroke();
-        if (this.settings.glow) {
-          const glow = g.createRadialGradient(0, 0, 1, 0, 0, 12);
-          glow.addColorStop(0, 'rgba(255, 176, 102, 0.55)');
-          glow.addColorStop(1, 'rgba(255, 176, 102, 0)');
-          g.fillStyle = glow;
-          g.beginPath();
-          g.arc(0, 0, 12, 0, Math.PI * 2);
-          g.fill();
-        }
+        if (this.settings.glow) this.drawGlow(g, '#ffb066', 0, 0, 12, 0.55);
         g.fillStyle = '#23282e';
         g.strokeStyle = '#ffb066';
         g.lineWidth = 2;
@@ -1292,15 +1256,7 @@ export class Renderer {
         g.moveTo(-18, 0);
         g.lineTo(-3, 0);
         g.stroke();
-        if (this.settings.glow) {
-          const glow = g.createRadialGradient(0, 0, 1, 0, 0, 11);
-          glow.addColorStop(0, 'rgba(160, 235, 255, 0.5)');
-          glow.addColorStop(1, 'rgba(160, 235, 255, 0)');
-          g.fillStyle = glow;
-          g.beginPath();
-          g.arc(0, 0, 11, 0, Math.PI * 2);
-          g.fill();
-        }
+        if (this.settings.glow) this.drawGlow(g, '#a0ebff', 0, 0, 11, 0.5);
         g.fillStyle = '#e6fbff';
         g.strokeStyle = '#7cd4f5';
         g.lineWidth = 1.5;
@@ -1325,15 +1281,7 @@ export class Renderer {
         g.moveTo(-16, 0);
         g.lineTo(-3, 0);
         g.stroke();
-        if (this.settings.glow) {
-          const glow = g.createRadialGradient(0, 0, 1, 0, 0, 10);
-          glow.addColorStop(0, 'rgba(154, 223, 106, 0.45)');
-          glow.addColorStop(1, 'rgba(154, 223, 106, 0)');
-          g.fillStyle = glow;
-          g.beginPath();
-          g.arc(0, 0, 10, 0, Math.PI * 2);
-          g.fill();
-        }
+        if (this.settings.glow) this.drawGlow(g, '#9adf6a', 0, 0, 10, 0.45);
         g.fillStyle = '#9adf6a';
         g.beginPath();
         g.arc(0, 0, 4.8, 0, Math.PI * 2);
@@ -1378,6 +1326,34 @@ export class Renderer {
     }
   }
 
+  // 光晕贴图缓存：每帧新建 radial gradient 在软件渲染下开销明显，按颜色缓存一次。
+  glowSprite(color) {
+    if (!this._glowCache) this._glowCache = new Map();
+    let sprite = this._glowCache.get(color);
+    if (sprite) return sprite;
+    const size = 64;
+    sprite = document.createElement('canvas');
+    sprite.width = size;
+    sprite.height = size;
+    const sg = sprite.getContext('2d');
+    const grad = sg.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0, withAlpha(color, 1));
+    grad.addColorStop(0.45, withAlpha(color, 0.35));
+    grad.addColorStop(1, withAlpha(color, 0));
+    sg.fillStyle = grad;
+    sg.fillRect(0, 0, size, size);
+    this._glowCache.set(color, sprite);
+    return sprite;
+  }
+
+  drawGlow(g, color, x, y, radius, alpha) {
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = alpha;
+    g.drawImage(this.glowSprite(color), x - radius, y - radius, radius * 2, radius * 2);
+    g.restore();
+  }
+
   drawEffects(g) {
     const glow = this.settings.glow;
     const t = this.time;
@@ -1395,13 +1371,7 @@ export class Renderer {
         g.save();
         if (glow) g.globalCompositeOperation = 'lighter';
         if (glow && p < 0.45) {
-          const flash = g.createRadialGradient(x, y, 1, x, y, radius * 0.75);
-          flash.addColorStop(0, withAlpha(color, 0.42 * (1 - p / 0.45)));
-          flash.addColorStop(1, withAlpha(color, 0));
-          g.fillStyle = flash;
-          g.beginPath();
-          g.arc(x, y, radius * 0.75, 0, Math.PI * 2);
-          g.fill();
+          this.drawGlow(g, color, x, y, radius * 0.75, 0.42 * (1 - p / 0.45));
         }
         g.globalAlpha = fade * 0.95;
         g.strokeStyle = color;
@@ -1460,10 +1430,7 @@ export class Renderer {
         g.rotate(effect.angle);
         if (glow) g.globalCompositeOperation = 'lighter';
         g.globalAlpha = fade;
-        const flash = g.createLinearGradient(0, 0, 18, 0);
-        flash.addColorStop(0, withAlpha(color, 0.9));
-        flash.addColorStop(1, withAlpha(color, 0));
-        g.fillStyle = flash;
+        g.fillStyle = withAlpha(color, 0.55);
         g.beginPath();
         g.moveTo(0, -4.5);
         g.lineTo(18, -1.6);
@@ -1595,17 +1562,7 @@ export class Renderer {
       } else if (effect.kind === 'leak') {
         g.save();
         const rr = 12 + p * 28;
-        if (glow) {
-          g.globalCompositeOperation = 'lighter';
-          const grad = g.createRadialGradient(x, y, 1, x, y, rr);
-          grad.addColorStop(0, `rgba(255, 76, 76, ${fade * 0.45})`);
-          grad.addColorStop(1, 'rgba(255, 40, 40, 0)');
-          g.fillStyle = grad;
-          g.beginPath();
-          g.arc(x, y, rr, 0, Math.PI * 2);
-          g.fill();
-          g.globalCompositeOperation = 'source-over';
-        }
+        if (glow) this.drawGlow(g, '#ff4c4c', x, y, rr, fade * 0.45);
         g.globalAlpha = fade * 0.75;
         g.strokeStyle = '#ff5a5a';
         g.lineWidth = 2.4;
