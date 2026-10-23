@@ -3,6 +3,7 @@
 - 状态：**已评审**（2026-10-22）
 - 对应需求：`docs/PRD.md` v1.2
 - 目标：确定架构、模块边界、接口契约、数据模型、难度探索方法与测试策略，作为 M2–M5 的实现依据。
+- v1.8 文档同步（2026-10-23）：按实际交付校准内容量（塔 8 / 遗物 30 / 地图原型 6 / 词缀 8）；数据表已拆到 `shared/data/`，runs 路由拆为仓储 + 领域服务，快照统一为 v4。
 - v2.0 方向（2026-10-23）：新增第 14 节（成就 / 生涯统计 / 音乐 / 可访问性）；只新增系统设计，不改变第 1–13 节已有决策。
 - 评审结论：
   - 难度命名「漫游 / 远征 / 深渊」。
@@ -159,7 +160,7 @@ export const DIFFICULTIES = {
 ### 4.3 地图生成（路径图）
 
 - 网格 22×12；每张地图由 1–3 条 lane 组成，每条 lane 从左侧入口出发，可共享汇流段/支路。
-- 5 种原型：`canyon / twin / triple / ring / cross`；每种原型有 spawn 数、蜿蜒系数、分数倍率。
+- 6 种原型：`canyon / twin / triple / ring / cross / switchback`；每种原型有 spawn 数、蜿蜒系数、分数倍率。
 - 生成流程：选基地与汇流点 → 生成主路/支路 → 用带约束的随机 DFS 生成各入口到汇流点/基地的路径 → 校验长度差、可建造比例、路径不重叠 → 失败重试 140 次，最终兜底单径蛇形。
 - 输出：
   ```js
@@ -172,7 +173,7 @@ export const DIFFICULTIES = {
   }
   ```
 - `generateMapCandidates(seed, 3)` 生成三张候选；同种子完全一致，至少包含一张单径/双径低复杂度地图。
-- 4 个词缀：`rich / swift / mist / rift`；`rift` 增加一个入口，`cross` 与 `rift` 组合会自动换词缀避免过度拥挤。
+- 8 个词缀：`rich / swift / mist / rift / armored / bounty / vista / surge`；`rift` 增加一个入口，`cross` 与 `rift` 组合会自动换词缀避免过度拥挤。
 - 服务端与客户端使用同一生成器；服务端下发完整地图与 `meta`。
 
 ### 4.4 波次生成
@@ -195,7 +196,7 @@ generateWave(seed, wave, difficulty, mapMeta) -> {
 
 ### 4.5 遗物等级与抽取
 
-- 池：`RELICS`（22 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
+- 池：`RELICS`（30 件，稀有度权重 普通 58 / 稀有 30 / 史诗 12），每件最多 Ⅲ 级。
 - 等级修正：基础 `mods` 为 Ⅰ 级，Ⅱ/Ⅲ 级按 `×1.6 / ×2.2` 缩放，并应用单件上限（`PER_RELIC_CAPS`）。多件汇总后再应用全局上限（`GLOBAL_MOD_CAPS`），攻速、连锁、溅射等有硬上限。
 - 抽取：候选池包含未拥有与新遗物及未满级遗物；三件 ID 不重复；满级退出；候选不足用金币/修复补位。
 - 种子：`${seed}:relic:${combo}:${nonce}`，`combo` 为已清波次，`nonce = 已刷新次数`。
@@ -206,9 +207,9 @@ generateWave(seed, wave, difficulty, mapMeta) -> {
 
 ### 4.6 数值与伤害管线
 
-集中定义在 `shared/data.js`：
+集中定义在 `shared/data/`（`shared/data.js` 统一再导出）：
 
-- 塔：5 种 × 3 级，字段 `dmg / rate / range / splash / slow / slowDur / dot / dotDur / chain / cost`。
+- 塔：8 种 × 3 级，字段 `dmg / rate / range / splash / slow / slowDur / dot / dotDur / chain / knockback / buffDmg / buffRate / support / cost`。
 - 敌人：7 类，字段 `hp / speed / armor / gold / dmg / r / flying / heal / boss`。
 - 遗物按等级聚合为全局修正 `mods`，在获得/升级时统一重算。
 
