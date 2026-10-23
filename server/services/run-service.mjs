@@ -50,6 +50,14 @@ import {
   MAX_WAVE,
 } from '../../public/js/shared/data.js';
 import {
+  applyMutations,
+  composeWaveModifier,
+  mutationKey,
+  mutationScoreMul,
+  mutationSummary,
+  validateMutationSelection,
+} from '../../public/js/shared/mutations.js';
+import {
   clampFinishPayload,
   computeOutcome,
   DAILY_MODIFIER_COUNT,
@@ -148,6 +156,7 @@ export class RunService {
       relics: normalizeRelicStates(run.relics),
       skill: run.ruleset?.skill || null,
       ruleset: run.ruleset || null,
+      mutations: run.ruleset?.mutations || null,
       status: run.status,
     };
     if (withVictory) payload.victory = !!run.victory;
@@ -181,13 +190,29 @@ export class RunService {
           ? 'weekly'
           : body.mode === 'endless'
             ? 'endless'
-            : 'normal';
+            : body.mode === 'mutated'
+              ? 'mutated'
+              : 'normal';
     const difficulty = DIFFICULTIES[body.difficulty] ? body.difficulty : 'standard';
     const diff = DIFFICULTIES[difficulty];
     const daily = mode === 'daily' ? dailyChallenge(dayKey()) : null;
     const weekly = mode === 'weekly' ? weeklyChallenge() : null;
-    // 每日以日期为维度，本周挑战以 ISO 周为维度；day 列对 weekly 存周键。
-    const day = daily ? daily.day : weekly ? weekly.week : dayKey();
+    // 变异组合必须先通过校验，非法组合直接拒绝建局。
+    let mutationIds = null;
+    if (mode === 'mutated') {
+      const selection = validateMutationSelection(body.mutations);
+      if (!selection.ok) throw new RunError(400, selection.error, 'INVALID_MUTATION_COMBO');
+      mutationIds = selection.ids;
+    }
+    // 每日以日期为维度，本周挑战以 ISO 周为维度，变异挑战以规范化组合为维度。
+    const day =
+      mutationIds != null
+        ? mutationKey(mutationIds)
+        : daily
+          ? daily.day
+          : weekly
+            ? weekly.week
+            : dayKey();
     const fixedRules = isFixedRulesMode(mode);
 
     // 技能选择：每日/本周挑战允许任意技能且固定等级；普通局必须已解锁，等级只从 DB 读。
@@ -225,13 +250,30 @@ export class RunService {
           : crypto.randomBytes(8).toString('hex');
     const unlocks = profile.unlocks;
     // 每日/本周挑战使用固定开局资源，忽略难度加成与账号 meta 加成，保证榜单公平。
-    const startingGold = fixedRules
+    let startingGold = fixedRules
       ? DAILY_START_GOLD
       : Math.max(100, START_GOLD + (unlocks.includes('start_gold') ? META_GOLD : 0) + diff.goldBonus);
-    const baseHp = fixedRules
+    let baseHp = fixedRules
       ? DAILY_START_HP
       : Math.max(8, START_HP + (unlocks.includes('start_hp') ? META_HP : 0) + diff.hpBonus);
-    const maxRerolls = fixedRules ? 1 : maxRerollsFor(profile);
+    let maxRerolls = fixedRules ? 1 : maxRerollsFor(profile);
+    let towersUnlocked = fixedRules ? [...TOWER_ORDER] : unlockedTowerIds(unlocks);
+    // 变异只改既有开局参数与波次倍率，不改机制本身。
+    let mutationInfo = null;
+    if (mutationIds) {
+      const applied = applyMutations({ startingGold, baseHp, maxRerolls, towersUnlocked }, mutationIds);
+      startingGold = applied.startingGold;
+      baseHp = applied.baseHp;
+      maxRerolls = applied.maxRerolls;
+      towersUnlocked = applied.towersUnlocked;
+      mutationInfo = {
+        ids: mutationIds,
+        key: mutationKey(mutationIds),
+        scoreMul: applied.scoreMul,
+        hpMul: applied.hpMul,
+        speedMul: applied.speedMul,
+      };
+    }
     const ruleset = {
       v: 1,
       contentVersion: CONTENT_VERSION,
@@ -240,6 +282,7 @@ export class RunService {
     };
     if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
     if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
+    if (mutationInfo) ruleset.mutations = mutationInfo;
     const startRelics = unlocks.includes('start_relic')
       ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1)
           .filter((offer) => offer.kind === 'relic')
@@ -315,11 +358,14 @@ export class RunService {
       startingGold,
       baseHp,
       relics: startRelics,
-      // 每日/本周挑战开放全部塔，保证同一规则集下的榜单公平。
-      towersUnlocked: fixedRules ? [...TOWER_ORDER] : unlockedTowerIds(unlocks),
+      // 每日/本周挑战开放全部塔，保证同一规则集下的榜单公平；变异会收窄可用塔。
+      towersUnlocked,
       skill: ruleset.skill,
       ruleset,
       maxRerolls,
+      mutations: mutationInfo ? mutationSummary(mutationIds) : null,
+      mutationScoreMul: mutationInfo?.scoreMul ?? null,
+      boardKey,
       clearedWaves: 0,
       wavesServed: 0,
       dailyAttemptsLeft: mode === 'daily' ? dailyAttemptsLeft(token) : null,
@@ -351,9 +397,11 @@ export class RunService {
     if (run.mapChoice < 0) throw new RunError(409, '请先选择地图');
     const candidates = generateMapCandidates(run.seed, 3);
     const mapMeta = candidates[run.mapChoice]?.meta || {};
+    // 变异挑战在既有地图词缀上叠加 hpMul/speedMul，不改波次结构与 RNG 顺序。
+    const mutationIds = run.ruleset?.mutations?.ids || [];
     const waveOptions = {
       portalCount: mapMeta.portalCount || 1,
-      modifier: mapMeta.modifier || null,
+      modifier: composeWaveModifier(mapMeta.modifier || null, mutationIds),
     };
     const endless = run.mode === 'endless';
     // 有未结算波次时重放当前波，不推进波次、不重复发奖。
@@ -567,11 +615,12 @@ export class RunService {
       run.mapChoice >= 0
         ? generateMapCandidates(run.seed, 3)[run.mapChoice]?.meta || null
         : null;
+    const mutationMul = mutationScoreMul(run.ruleset?.mutations?.ids || []);
     const outcome = computeOutcome({
       ...payload,
       wavesServed: run.clearedWaves,
       difficulty: run.difficulty,
-      scoreMul: mapMeta?.scoreMul || 1,
+      scoreMul: (mapMeta?.scoreMul || 1) * mutationMul,
       mode: run.mode,
     });
     const now = Date.now();
@@ -605,12 +654,16 @@ export class RunService {
       : [];
 
     // 入榜前过基线反作弊：异常成绩直接拒绝入榜但照常结算，可疑成绩钳制后标记。
-    const guard = validateLeaderboardEntry({
-      score: outcome.score,
-      durationMs,
-      wave: payload.waveReached,
-      kills: payload.kills,
-    });
+    // 变异倍率同步放宽反作弊上下限，否则合法的高倍率成绩会被误判。
+    const guard = validateLeaderboardEntry(
+      {
+        score: outcome.score,
+        durationMs,
+        wave: payload.waveReached,
+        kills: payload.kills,
+      },
+      { scoreMul: mutationMul }
+    );
     const guardEvent = {
       runId: run.id,
       reason: guard.reason,
@@ -704,6 +757,7 @@ export class RunService {
       rank,
       durationMs,
       skill: run.ruleset?.skill || null,
+      mutations: run.ruleset?.mutations || null,
       unlockedSkill: unlockedSkillId || null,
       unlockedSkills,
       dailyAttemptsLeft: run.mode === 'daily' ? dailyAttemptsLeft(token) : null,

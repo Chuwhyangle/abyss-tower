@@ -64,3 +64,44 @@ export const BOSS_SKILLS = {
   summon: { id: 'summon', name: '裂隙召唤', color: '#e2609e', unlockWave: 10 },
   slam: { id: 'slam', name: '地脉震击', color: '#ffb066', radiusKey: 'bossSlamRadius', unlockWave: 15 },
 };
+
+// 首领变体纯数据：波次只负责挑选，sim 只按 skillWeights 选技能并套用属性修正。
+// skillWeights 为整数权重，决定技能轮转序列中的出现次数。
+export const BOSS_VARIANTS = {
+  armored: {
+    id: 'armored',
+    name: '磐岩渊主',
+    desc: '重甲高血、移速迟缓，地脉震击权重远高于其它技能。',
+    shape: 'boss-armored',
+    color: '#8fa3bf',
+    hpMul: 1.2,
+    armorBonus: 6,
+    speedMul: 0.88,
+    skillWeights: { roar: 1, summon: 1, slam: 4 },
+  },
+  summoner: {
+    id: 'summoner',
+    name: '裂隙亲王',
+    desc: '本体脆弱，持续撕开裂隙召唤噬虫，裂隙召唤权重最高。',
+    shape: 'boss-summoner',
+    color: '#d75bd0',
+    hpMul: 0.9,
+    armorBonus: 0,
+    speedMul: 1.0,
+    skillWeights: { roar: 1, summon: 4, slam: 1 },
+  },
+  berserk: {
+    id: 'berserk',
+    name: '血怒渊主',
+    desc: '移速更快、血怒咆哮不断，深渊咆哮权重最高。',
+    shape: 'boss-berserk',
+    color: '#ff5533',
+    hpMul: 0.95,
+    armorBonus: 0,
+    speedMul: 1.12,
+    skillWeights: { roar: 4, summon: 1, slam: 1 },
+  },
+};
+
+// 普通首领波按此顺序每 5 波轮换；最终波固定为 berserk。
+export const BOSS_VARIANT_ROTATION = ['armored', 'summoner', 'berserk'];

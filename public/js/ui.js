@@ -19,6 +19,12 @@ import {
   isSkillUnlocked,
 } from './shared/data.js';
 import { canAffordEventOption } from './shared/events.js';
+import {
+  MUTATIONS,
+  MUTATION_MAX,
+  MUTATION_ORDER,
+  mutationScoreMul,
+} from './shared/mutations.js';
 import { weekKey, weeklyChallenge } from './shared/scoring.js';
 import { normalizeSettings, detectPreset, presetSettings } from './settings.js';
 import { audio } from './audio.js';
@@ -176,6 +182,7 @@ class UI {
     this.el.play.onclick = () => this.handlers.onPlay?.();
     this.el.daily.onclick = () => this.handlers.onDaily?.();
     this.buildWeeklyEntry();
+    this.buildMutationEntry();
     if (this.el.endless) this.el.endless.onclick = () => this.handlers.onEndless?.();
     this.el.resume.onclick = () => this.handlers.onResume?.();
     this.el.rename.onclick = () => this.handlers.onRename?.();
@@ -218,6 +225,22 @@ class UI {
     this.el.weekly = button;
     this.el.weeklyTitle = button.querySelector('[data-weekly-title]');
     this.el.weeklyLabel = button.querySelector('#weekly-label');
+  }
+
+  // 变异挑战入口同样动态插入，保持标题页既有结构不变。
+  buildMutationEntry() {
+    if (this.el.mutation || !this.el.weekly) return;
+    const button = document.createElement('button');
+    button.id = 'btn-mutation';
+    button.type = 'button';
+    button.className = 'btn ghost';
+    button.textContent = '变异挑战';
+    button.onclick = () => {
+      if (this.handlers.onMutation) return this.handlers.onMutation();
+      this.showMutationSelect();
+    };
+    this.el.weekly.insertAdjacentElement('afterend', button);
+    this.el.mutation = button;
   }
 
   // 周规则来自共享派生函数：同一周键与服务端派生同一套种子和词缀。
@@ -588,6 +611,96 @@ class UI {
     });
     this.bindSkillChips(modal);
     modal.querySelector('#btn-cancel-diff').onclick = () => this.closeModal();
+  }
+
+  // 变异挑战面板：复用难度弹窗结构，变异多选 + 难度单选。
+  showMutationSelect({ skillState = null, selectedSkill = null } = {}) {
+    this._fixedMode = false;
+    const chosen = new Set(this._mutationSelection || []);
+    const mutationCards = MUTATION_ORDER.map((id) => {
+      const def = MUTATIONS[id];
+      const on = chosen.has(id);
+      return `
+        <button class="diff-card" type="button" data-mutation="${id}" aria-pressed="${on}"
+          style="--diff:#c58cff${on ? ';border-color:#c58cff' : ''}">
+          <span class="diff-name">${escapeHtml(def.name)}</span>
+          <p>${escapeHtml(def.desc)}</p>
+          <div class="diff-mods"><span>分数 ×${def.scoreMul.toFixed(2)}</span></div>
+        </button>`;
+    }).join('');
+    const diffCards = DIFFICULTY_ORDER.map((id) => {
+      const diff = DIFFICULTIES[id];
+      return `
+        <button class="diff-card" type="button" data-diff="${id}" style="--diff:${diff.color}">
+          <span class="diff-name">${diffName(diff)}</span>
+          <p>${diffDesc(diff)}</p>
+          <div class="diff-mods">
+            <span>${t('difficulty.hp', { mul: diff.hpMul.toFixed(2) })}</span>
+            <span>${t('difficulty.count', { mul: diff.countMul.toFixed(2) })}</span>
+            <span>${t('difficulty.score', { mul: diff.scoreMul.toFixed(2) })}</span>
+          </div>
+        </button>`;
+    }).join('');
+
+    const modal = this.openModal(
+      `<div class="difficulty">
+        <p class="eyebrow">SELF TRANSCENDENCE</p>
+        <h2>变异挑战 · 选择变异（1–${MUTATION_MAX}）</h2>
+        <p class="muted">变异会同时提高最终分数倍率；同一组变异拥有独立榜单。</p>
+        ${this.skillBarHtml(skillState, selectedSkill)}
+        <div class="diff-cards" data-mutation-cards>${mutationCards}</div>
+        <p class="muted" id="mutation-summary"></p>
+        <h2>${t('difficulty.title')}</h2>
+        <div class="diff-cards">${diffCards}</div>
+        <div class="modal-actions">
+          <button class="btn ghost" id="btn-cancel-mutation">${t('difficulty.cancel')}</button>
+        </div>
+      </div>`,
+      { className: 'difficulty-modal', closable: true }
+    );
+
+    const summary = modal.querySelector('#mutation-summary');
+    const refresh = () => {
+      const ids = [...chosen].sort();
+      const mul = mutationScoreMul(ids);
+      summary.textContent = ids.length
+        ? `已选 ${ids.length}/${MUTATION_MAX} · 分数 ×${mul.toFixed(2)}`
+        : `最多选择 ${MUTATION_MAX} 个变异`;
+      modal.querySelectorAll('[data-mutation]').forEach((card) => {
+        const on = chosen.has(card.dataset.mutation);
+        card.setAttribute('aria-pressed', String(on));
+        card.style.borderColor = on ? '#c58cff' : '';
+      });
+    };
+    refresh();
+
+    modal.querySelectorAll('[data-mutation]').forEach((card) => {
+      card.onclick = () => {
+        const id = card.dataset.mutation;
+        if (chosen.has(id)) {
+          chosen.delete(id);
+        } else if (chosen.size >= MUTATION_MAX) {
+          this.toast(`最多选择 ${MUTATION_MAX} 个变异`, 2200);
+          return;
+        } else {
+          chosen.add(id);
+        }
+        refresh();
+      };
+    });
+
+    modal.querySelectorAll('[data-diff]').forEach((card) => {
+      card.onclick = () => {
+        if (chosen.size < 1) {
+          this.toast('请先选择至少一个变异', 2200);
+          return;
+        }
+        this._mutationSelection = [...chosen].sort();
+        this.handlers.onChooseMutation?.(card.dataset.diff, this._mutationSelection);
+      };
+    });
+    this.bindSkillChips(modal);
+    modal.querySelector('#btn-cancel-mutation').onclick = () => this.closeModal();
   }
 
   showMapSelect({ candidates, onChoose, onCancel }) {
@@ -1344,12 +1457,17 @@ class UI {
     const cores = res ? res.coresEarned : 0;
     const rank = res?.rank;
     const personalBest = res?.personalBest;
+    const mutationNames = (res?.mutations?.ids || [])
+      .map((id) => MUTATIONS[id]?.name || id)
+      .join(' · ');
     const extra =
       mode === 'daily' && dailyLeft != null
         ? `<p class="muted">${t('result.dailyLeft', { n: dailyLeft })}</p>`
         : mode === 'endless'
           ? `<p class="muted">${t('result.endlessNote')}</p>`
-          : '';
+          : mode === 'mutated'
+            ? `<p class="muted">变异挑战${mutationNames ? ` · ${escapeHtml(mutationNames)}` : ''}</p>`
+            : '';
 
     const diffTag = victory
       ? t('result.clearedTag', { name: diffName(diff) })

@@ -21,6 +21,7 @@ import {
   relicSetTierBonuses,
 } from './shared/effects.js';
 import { RNG } from './shared/rng.js';
+import { BOSS_VARIANTS } from './shared/data/enemies.js';
 import {
   hasResolvedEvent,
   isEventWave,
@@ -293,16 +294,18 @@ export class Simulation {
     const base = ENEMIES[type];
     const hpMul = hpMulOverride ?? this.waveDef?.hpMul ?? 1;
     const speedMul = this.waveDef?.speedMul || 1;
-    const hp = Math.max(1, Math.round(base.hp * hpMul));
+    const variant = base.boss ? BOSS_VARIANTS[this.waveDef?.bossVariant] || null : null;
+    const hp = Math.max(1, Math.round(base.hp * hpMul * (variant?.hpMul || 1)));
     const lane = Math.max(0, Math.min(this.lanes.length - 1, laneIndex || 0));
     const pos = this.posAt(progress, lane);
     this.enemies.push({
       id: this.nextId++,
       type,
+      variant: variant?.id || null,
       hp,
       maxHp: hp,
-      armor: base.armor,
-      baseSpeed: base.speed * speedMul,
+      armor: base.armor + (variant?.armorBonus || 0),
+      baseSpeed: base.speed * speedMul * (variant?.speedMul || 1),
       r: base.r,
       gold: base.gold,
       dmg: base.dmg,
@@ -614,7 +617,8 @@ export class Simulation {
     this.playSound('bossCast');
   }
 
-  // 按波次解锁技能，冷却好才进入候选；轮转选择，避免连续重复。
+  // 按波次解锁技能，冷却好才进入候选；变体权重决定轮转序列中的出现次数。
+  // 用 castIndex 做确定性权重轮转，不额外消耗 RNG，保证同种子轨迹不变。
   pickBossSkill(enemy) {
     const wave = this.waveDef?.index || this.wave || 1;
     const options = [];
@@ -622,9 +626,20 @@ export class Simulation {
     if (wave >= 10 && enemy.cooldowns.summon <= 0) options.push('summon');
     if (wave >= 15 && enemy.cooldowns.slam <= 0) options.push('slam');
     if (!options.length) return null;
-    const kind = options[enemy.castIndex % options.length];
+    const weights = enemy.variant ? BOSS_VARIANTS[enemy.variant]?.skillWeights : null;
+    const weightOf = (kind) => (weights ? Math.max(0, Math.round(weights[kind] || 0)) : 1);
+    let total = 0;
+    for (const kind of options) total += weightOf(kind);
+    if (total <= 0) return null;
+    let cursor = enemy.castIndex % total;
     enemy.castIndex += 1;
-    return kind;
+    for (const kind of options) {
+      const weight = weightOf(kind);
+      if (weight === 0) continue;
+      if (cursor < weight) return kind;
+      cursor -= weight;
+    }
+    return options[0];
   }
 
   castBossSkill(enemy, kind, now) {

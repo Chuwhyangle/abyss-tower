@@ -32,6 +32,8 @@ export class GameController {
       currentOffers: null,
       settings: loadSettings(),
       starting: false,
+      // 变异挑战的最近一次组合：结算后再来一局时沿用，避免 mutated 局缺少组合。
+      lastMutations: null,
       loadingWave: false,
       mapChoosing: false,
       mapCandidates: null,
@@ -107,10 +109,20 @@ export class GameController {
           skillState: this.state.skills,
           selectedSkill: this.state.selectedSkill,
         }),
+      onMutation: () =>
+        this.ui.showMutationSelect({
+          skillState: this.state.skills,
+          selectedSkill: this.state.selectedSkill,
+        }),
       onChooseDifficulty: (mode, difficulty) => {
         this.forceLandscape();
         this.ui.closeModal();
         this.run.startRun(mode, difficulty);
+      },
+      onChooseMutation: (difficulty, mutations) => {
+        this.forceLandscape();
+        this.ui.closeModal();
+        this.run.startRun('mutated', difficulty, mutations);
       },
       onResume: () => {
         this.forceLandscape();
@@ -141,7 +153,7 @@ export class GameController {
       onRestart: (mode, difficulty) => {
         this.forceLandscape();
         this.store.clearSnapshot();
-        this.run.startRun(mode, difficulty);
+        this.run.startRun(mode, difficulty, mode === 'mutated' ? this.state.lastMutations : null);
       },
       onHome: () => this.goHome(),
       onBuyUnlock: (id) => this.session.buyUnlock(id),
