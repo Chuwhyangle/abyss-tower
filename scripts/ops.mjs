@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { DatabaseSync } from 'node:sqlite';
+import { parseRotate, rotateBackups } from './backup.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DEFAULT_DB = process.env.DB_PATH || path.join(ROOT, 'server', 'data', 'game.db');
@@ -17,7 +18,8 @@ const USAGE = `本地运维 CLI
   node scripts/ops.mjs <command> [options]
 
 命令：
-  backup [--out <path>]                    备份数据库（VACUUM INTO，拒绝覆盖已有文件）
+  backup [--out <path>] [--rotate N]       备份数据库（VACUUM INTO，拒绝覆盖已有文件）
+                                            --rotate N 保留最近 N 份与每周首份，删除前校验
   accounts [--search <name>] [--limit N]   列出账号摘要（不含密码/恢复码哈希）
   disable <username> [--yes]               禁用账号；未加 --yes 时只做 dry-run
   restore <backup> --to <db> [--yes]       从备份恢复到目标库；拒绝覆盖正在使用的库
@@ -38,6 +40,7 @@ function parseCli(argv) {
     options: {
       db: { type: 'string' },
       out: { type: 'string' },
+      rotate: { type: 'string' },
       search: { type: 'string' },
       limit: { type: 'string' },
       to: { type: 'string' },
@@ -92,6 +95,13 @@ function vacuumInto(db, target) {
 // ---------- backup ----------
 
 function commandBackup(opts) {
+  let keep = null;
+  try {
+    keep = parseRotate(opts.rotate);
+  } catch (error) {
+    throw new OpsError(error.message);
+  }
+
   const source = requireDbFile(dbPathFor(opts));
   const target = path.resolve(
     opts.out || path.join(ROOT, 'backups', `game-${backupStamp()}.db`)
@@ -106,7 +116,15 @@ function commandBackup(opts) {
   } finally {
     db.close();
   }
-  return { source, target, bytes: fs.statSync(target).size };
+
+  const result = { source, target, bytes: fs.statSync(target).size };
+  if (keep != null) {
+    result.rotation = rotateBackups(path.dirname(target), {
+      keep,
+      protect: [target, source],
+    });
+  }
+  return result;
 }
 
 // ---------- accounts ----------
@@ -315,6 +333,14 @@ function printHuman(command, result, opts) {
 
   if (command === 'backup') {
     console.log(`备份完成：${result.target}（${formatBytes(result.bytes)}）`);
+    if (result.rotation) {
+      if (result.rotation.removed.length > 0) {
+        console.log(`轮转：删除 ${result.rotation.removed.length} 份旧备份`);
+      }
+      for (const failure of result.rotation.failed) {
+        console.error(`警告：备份校验失败，保留不删：${failure.file}（${failure.verdict}）`);
+      }
+    }
     return;
   }
 

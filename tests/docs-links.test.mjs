@@ -7,7 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
-const DOCS = ['README.md', 'docs/GUIDE.md'];
+const DOCS = ['README.md', 'docs/GUIDE.md', 'docs/PRD.md'];
 
 // 仓库内可引用的顶层目录；代码块只校验这些前缀，避免把命令参数当成路径。
 const REPO_DIRS = ['docs', 'tests', 'scripts', 'server', 'public', 'deploy', 'tasks', 'goals', 'adr', 'meta'];
@@ -40,6 +40,22 @@ function headingSlugs(markdown) {
       .filter(Boolean)
       .map(slugify)
   );
+}
+
+// 取指定二级标题下的正文，到下一个二级标题为止；找不到时返回 null。
+export function sectionByHeading(markdown, heading) {
+  const lines = markdown.split('\n');
+  const isH2 = (line) => /^##\s+/.test(line);
+  const start = lines.findIndex(
+    (line) => isH2(line) && line.replace(/^##\s+/, '').trim() === heading
+  );
+  if (start === -1) return null;
+  const body = [];
+  for (let i = start + 1; i < lines.length; i += 1) {
+    if (isH2(lines[i])) break;
+    body.push(lines[i]);
+  }
+  return body.join('\n');
 }
 
 // 返回该文档中所有无法解析的相对链接；target 去掉 ?query 与 #anchor 后再看文件。
@@ -110,6 +126,31 @@ test('文档代码块引用的仓库路径存在', () => {
     problems.push(...collectBrokenCodePaths(ROOT, doc, markdown));
   }
   assert.deepEqual(problems, [], problems.join('\n'));
+});
+
+const MODE_NAMES = ['普通', '每日', '本周', '无尽', '变异'];
+
+test('玩家手册模式对照表覆盖全部模式', () => {
+  const markdown = fs.readFileSync(path.join(ROOT, 'docs/GUIDE.md'), 'utf8');
+  const section = sectionByHeading(markdown, '模式一览');
+  assert.ok(section, 'docs/GUIDE.md 缺少「## 模式一览」小节');
+  const rows = section
+    .split('\n')
+    .filter((line) => /^\|/.test(line) && !/^\|\s*:?-+/.test(line));
+  assert.ok(
+    rows.length >= MODE_NAMES.length + 1,
+    `模式对照表应有表头与 ${MODE_NAMES.length} 个模式行，实际 ${rows.length} 行`
+  );
+  for (const name of MODE_NAMES) {
+    assert.ok(
+      rows.some((row) => row.includes(name)),
+      `模式对照表缺少「${name}」`
+    );
+  }
+  assert.match(rows[0], /模式/);
+  assert.match(rows[0], /规则/);
+  assert.match(rows[0], /榜单/);
+  assert.match(rows[0], /适合人群/);
 });
 
 test('损坏的相对链接与代码块路径会被检出', (t) => {

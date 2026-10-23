@@ -1054,7 +1054,7 @@ export class Simulation {
       y: r + 0.5,
       level,
       invested,
-      // 满级二选一的分支 id；旧存档没有该字段时按未进化处理。
+      // 满级三选一的分支 id；旧存档没有该字段时按未进化处理。
       evolution: evolution || null,
       cd: 0,
       angle: TOWERS[type]?.support ? 0 : -Math.PI / 2,

@@ -81,6 +81,10 @@ function evolutionEffectText(evolution) {
     .join(' · ');
 }
 
+// 「三选一」这类补充分支数量文案，避免写死二选一。
+const CHOICE_LABELS = ['', '单选', '二选一', '三选一', '四选一'];
+const choiceLabel = (count) => CHOICE_LABELS[count] || `${count} 选一`;
+
 // 技能数据表只有中文；按 id 取当前语言文案，缺译名回退数据原值。
 const skillName = (entry) => tOr(`skill.${entry.id}.name`, entry.name);
 const skillDesc = (entry) => tOr(`skill.${entry.id}.desc`, entry.desc);
@@ -1076,13 +1080,13 @@ class UI {
         : ''}
       ${evolutions.length
         ? `<div class="tp-evolutions" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-             <span class="muted">满级进化 · 二选一</span>
-             <div class="tp-evolution-actions" style="display:flex;gap:6px;flex-wrap:wrap">
+             <span class="muted">满级进化 · ${choiceLabel(evolutions.length)}</span>
+             <div class="tp-evolution-actions" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
                ${evolutions
                  .map(
                    (entry, index) =>
                      `<button class="btn small evolve" data-evolve="${entry.id}" title="${escapeHtml(entry.desc)}"
-                        style="border-color:${entry.color || def.color}"><em>${index + 1}</em> ${escapeHtml(entry.name)}</button>`
+                        style="border-color:${entry.color || def.color};flex:0 0 auto;white-space:nowrap"><em>${index + 1}</em> ${escapeHtml(entry.name)}</button>`
                  )
                  .join('')}
              </div>
@@ -1115,7 +1119,7 @@ class UI {
     }
   }
 
-  // 满级二选一：与遗物三选一区分开，键盘 1 / 2 直接选择。
+  // 满级分支选择：与遗物三选一区分开，键盘 1 / 2 / 3 直接选择。
   showEvolutionModal(tower) {
     if (!this.game || !tower) return;
     const def = TOWERS[tower.type];
@@ -1141,7 +1145,7 @@ class UI {
           <h2>选择最终形态</h2>
           <div class="draft-cards">${cards}</div>
           <div class="draft-actions">
-            <span class="muted">键盘 1 / 2 选择 · Esc 稍后再选</span>
+            <span class="muted">键盘 ${options.map((_, index) => index + 1).join(' / ')} 选择 · Esc 稍后再选</span>
           </div>
         </div>
       `,
@@ -1157,7 +1161,7 @@ class UI {
     });
 
     const onKey = (event) => {
-      if (event.key !== '1' && event.key !== '2') return;
+      if (!/^[1-9]$/.test(event.key)) return;
       const evolution = options[Number(event.key) - 1];
       if (!evolution) return;
       event.preventDefault();
