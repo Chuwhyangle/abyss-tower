@@ -127,6 +127,8 @@ class UI {
     this._panelTower = null;
     this._skillState = null;
     this.selectedSkill = null;
+    this._bossBannerWave = null;
+    this._bossBannerTimer = null;
   }
 
   init(handlers) {
@@ -323,6 +325,8 @@ class UI {
     audio.startMusic('menu');
     this.el.title.hidden = false;
     this.el.game.hidden = true;
+    this.hideBossBanner();
+    this.playViewEnter(this.el.title);
     this.closeModal();
     this.hideTowerPanel();
     this.renderTitle();
@@ -756,6 +760,7 @@ class UI {
       `,
       { className: 'map-modal', closable: false }
     );
+    this.playViewEnter(modal);
 
     modal.querySelectorAll('.map-card').forEach((card) => {
       card.onclick = () => onChoose?.(Number(card.dataset.index));
@@ -769,12 +774,54 @@ class UI {
     audio.startMusic('battle');
     this.el.title.hidden = true;
     this.el.game.hidden = false;
+    this._bossBannerWave = null;
+    this.hideBossBanner();
+    this.playViewEnter(this.el.game);
     this.closeModal();
     this.hideTowerPanel();
     this.renderShop();
     this.renderRelics();
     this.updateHud(game.getHud());
     this.updateSkillButton(game.getHud());
+  }
+
+  // 轻量转场：先移除再强制回流，保证同一视图连续进入时也能重播。
+  playViewEnter(target) {
+    if (!target?.classList) return;
+    target.classList.remove('view-enter');
+    void target.offsetWidth;
+    target.classList.add('view-enter');
+  }
+
+  // 首领预警横幅：每波只播一次，1.5s 后自动收起；pointer-events 交给 CSS 关闭。
+  showBossBanner(wave, waveDef) {
+    if (!this.el?.game || this._bossBannerWave === wave) return;
+    this._bossBannerWave = wave;
+    const label = waveDef?.finalBoss ? t('hud.state.finalBoss') : t('hud.state.boss');
+    const text = label.replace(/^[^\p{L}\p{N}]+/u, '');
+    let banner = this.el.bossBanner;
+    if (!banner) {
+      banner = document.createElement('div');
+      banner.setAttribute('role', 'status');
+      banner.setAttribute('aria-live', 'polite');
+      this.el.game.appendChild(banner);
+      this.el.bossBanner = banner;
+    }
+    banner.textContent = text;
+    banner.classList.remove('boss-banner');
+    void banner.offsetWidth;
+    banner.classList.add('boss-banner');
+    clearTimeout(this._bossBannerTimer);
+    this._bossBannerTimer = setTimeout(() => {
+      banner.classList.remove('boss-banner');
+      this._bossBannerTimer = null;
+    }, 1500);
+  }
+
+  hideBossBanner() {
+    clearTimeout(this._bossBannerTimer);
+    this._bossBannerTimer = null;
+    if (this.el?.bossBanner) this.el.bossBanner.classList.remove('boss-banner');
   }
 
   // ---------- HUD ----------
@@ -812,6 +859,9 @@ class UI {
         )}`;
       } else {
         this.el.waveState.textContent = t('hud.state.fighting');
+      }
+      if (hud.waveDef?.boss || hud.waveDef?.finalBoss) {
+        this.showBossBanner(hud.wave, hud.waveDef);
       }
       this.el.waveState.classList.add('live');
       this.el.nextWave.disabled = true;
@@ -1171,17 +1221,18 @@ class UI {
     this._modalCleanup = () => window.removeEventListener('keydown', onKey);
   }
 
-  // 局内事件节点：祭坛/商队/赌局三选一，与遗物三选一用不同标题与卡片样式区分。
+  // 局内事件节点：常规/稀有事件共用一套面板，选项数量随事件定义（键盘 1–N 选择）。
   showEventModal({ wave, event, gold, baseHp, maxHp, onChoose }) {
     if (!event) return;
     const options = event.options || [];
+    const accent = event.rare ? '#b26bff' : '#c9a227';
     const cards = options
       .map((option, index) => {
         const affordable = canAffordEventOption(option, { gold, baseHp, maxHp });
         return `
           <button class="relic-card event-card ${affordable ? '' : 'locked'}" data-index="${index}"
-            ${affordable ? '' : 'disabled'} style="--rarity:#c9a227">
-            <span class="rarity">事件 · ${index + 1}</span>
+            ${affordable ? '' : 'disabled'} style="--rarity:${accent}">
+            <span class="rarity">${event.rare ? '稀有事件' : '事件'} · ${index + 1}</span>
             <h3>${escapeHtml(option.name)}</h3>
             <p class="relic-flavor">${escapeHtml(option.desc)}</p>
             <span class="pick">${affordable ? '选择' : '资源不足'}</span>
@@ -1455,6 +1506,7 @@ class UI {
 
   showResult({ stats, res, mode, dailyLeft }) {
     audio.stopMusic();
+    this.hideBossBanner();
     const victory = res?.victory ?? stats.victory ?? false;
     const difficulty = res?.difficulty || stats.difficulty || 'standard';
     const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
@@ -1555,6 +1607,7 @@ class UI {
       { className: 'result-modal', closable: false }
     );
 
+    modal.classList.add('result-fade');
     this._animateResultScore(modal, Number(score) || 0);
 
     modal.querySelector('#btn-again').onclick = () => this.handlers.onRestart?.(mode, difficulty);

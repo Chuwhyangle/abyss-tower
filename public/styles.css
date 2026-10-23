@@ -3207,6 +3207,73 @@ body.is-touch .rotate-hint {
   content: "◆ ";
 }
 
+/* ============ 界面转场与首领横幅 ============ */
+/* 轻量转场：只改透明度与位移，时长 ≤400ms；reduced-motion 下直接显示。 */
+.view-enter {
+  animation: view-enter 320ms var(--ease-standard) both;
+}
+
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.result-fade {
+  animation: result-fade 360ms var(--ease-standard) both;
+}
+
+@keyframes result-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* 首领预警横幅：居中显示 1.5s；pointer-events: none 保证不拦截任何操作。 */
+.boss-banner {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  z-index: 350;
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-deep) 88%, transparent);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  animation: boss-banner 1500ms var(--ease-standard) both;
+}
+
+@keyframes boss-banner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.98);
+  }
+  12%,
+  78% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px) scale(0.99);
+  }
+}
+
 /* ============ 无障碍：系统要求减少动效 ============ */
 /* 尊重 prefers-reduced-motion：关闭位移动画与长过渡，保留即时状态变化。 */
 @media (prefers-reduced-motion: reduce) {
@@ -3224,6 +3291,13 @@ body.is-touch .rotate-hint {
   }
 
   .stat.hp.low b {
+    animation: none !important;
+  }
+
+  /* 界面转场与首领横幅：直接显示，不播放位移/淡出动画。 */
+  .view-enter,
+  .boss-banner,
+  .result-fade {
     animation: none !important;
   }
 
