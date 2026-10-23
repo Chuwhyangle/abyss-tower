@@ -19,7 +19,10 @@ export class Renderer {
     this.fpsFrames = 0;
     this.fpsSince = 0;
     this.fps = 60;
+    this.lastBaseHp = null;
+    this.hurtFlash = 0;
     this.bg = this.buildBackground();
+    this.hurtOverlay = this.buildHurtOverlay();
   }
 
   applyDpr() {
@@ -229,6 +232,9 @@ export class Renderer {
       g.restore();
     }
 
+    // 生物群系地表遗迹：不同原型各自的氛围道具
+    if (decor !== 'off') this.drawBiomeProps(g, map, P, rng, decor);
+
     // 生物群系氛围光点
     if (decor !== 'off') {
       const motes = decor === 'light' ? 24 : 70;
@@ -257,6 +263,156 @@ export class Renderer {
     g.fillRect(0, 0, this.W, this.H);
 
     return bg;
+  }
+
+  // 生物群系地表道具：只画低对比度地贴，塔与单位仍是最清晰的层次。
+  drawBiomeProps(g, map, P, rng, decor) {
+    const arch = map.archetype || 'canyon';
+    const count = decor === 'light' ? 6 : 14;
+
+    for (let i = 0; i < count; i++) {
+      const c = rng.int(map.cols);
+      const r = rng.int(map.rows);
+      if (!map.buildable?.[r]?.[c]) continue;
+      const x = c * T + rng.range(0.25, 0.75) * T;
+      const y = r * T + rng.range(0.25, 0.75) * T;
+
+      if (arch === 'twin') {
+        // 潮湿洼地 + 芦苇
+        const rx = rng.range(10, 18);
+        const ry = rng.range(5, 9);
+        g.fillStyle = hexToRgba(P.accent, 0.09);
+        g.beginPath();
+        g.ellipse(x, y, rx, ry, rng.float() * 0.6, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = hexToRgba(P.accent, 0.16);
+        g.lineWidth = 1;
+        g.stroke();
+        g.strokeStyle = hexToRgba(P.tuft, 0.22);
+        g.lineWidth = 1.2;
+        for (let j = 0; j < 3; j++) {
+          const bx = x + rng.range(-rx * 0.7, rx * 0.7);
+          g.beginPath();
+          g.moveTo(bx, y + ry * 0.6);
+          g.lineTo(bx + rng.range(-2, 2), y - rng.range(6, 12));
+          g.stroke();
+        }
+      } else if (arch === 'triple') {
+        // 地裂与余烬
+        g.strokeStyle = 'rgba(24, 12, 10, 0.55)';
+        g.lineWidth = 2;
+        g.beginPath();
+        let px = x - rng.range(8, 14);
+        let py = y + rng.range(-4, 4);
+        g.moveTo(px, py);
+        for (let j = 0; j < 4; j++) {
+          px += rng.range(5, 9);
+          py += rng.range(-5, 5);
+          g.lineTo(px, py);
+        }
+        g.stroke();
+        g.strokeStyle = hexToRgba(P.accent, 0.28);
+        g.lineWidth = 1;
+        g.stroke();
+      } else if (arch === 'ring') {
+        // 浮空符文石
+        const s = rng.range(4, 7);
+        g.fillStyle = 'rgba(10, 8, 18, 0.45)';
+        g.beginPath();
+        g.ellipse(x, y + s * 0.9, s * 0.9, s * 0.35, 0, 0, Math.PI * 2);
+        g.fill();
+        g.save();
+        g.translate(x, y);
+        g.rotate(rng.range(-0.25, 0.25));
+        g.fillStyle = hexToRgba(P.rock, 0.9);
+        g.strokeStyle = hexToRgba(P.rockEdge, 0.7);
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(-s * 0.7, s);
+        g.lineTo(-s * 0.5, -s);
+        g.lineTo(s * 0.5, -s);
+        g.lineTo(s * 0.7, s);
+        g.closePath();
+        g.fill();
+        g.stroke();
+        g.strokeStyle = hexToRgba(P.accent, 0.5);
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(0, -s * 0.1, s * 0.32, 0, Math.PI * 2);
+        g.moveTo(-s * 0.32, -s * 0.1);
+        g.lineTo(s * 0.32, -s * 0.1);
+        g.stroke();
+        g.restore();
+      } else if (arch === 'cross') {
+        // 断柱与碎石
+        const h = rng.range(6, 13);
+        const w = rng.range(5, 8);
+        g.fillStyle = 'rgba(12, 10, 6, 0.35)';
+        g.beginPath();
+        g.ellipse(x + 2, y + 4, w * 1.1, w * 0.4, 0, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = hexToRgba(P.rock, 0.85);
+        g.strokeStyle = hexToRgba(P.rockEdge, 0.6);
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x - w / 2, y + 4);
+        g.lineTo(x - w / 2, y - h);
+        g.lineTo(x - w / 4, y - h + 3);
+        g.lineTo(x + w / 4, y - h - 2);
+        g.lineTo(x + w / 2, y - h + 2);
+        g.lineTo(x + w / 2, y + 4);
+        g.closePath();
+        g.fill();
+        g.stroke();
+        g.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+        g.lineWidth = 1;
+        g.beginPath();
+        g.moveTo(x + w * 0.15, y + 3);
+        g.lineTo(x + w * 0.15, y - h + 4);
+        g.stroke();
+      } else {
+        // 骸骨与残骸
+        g.strokeStyle = 'rgba(206, 200, 182, 0.24)';
+        g.lineWidth = 1.4;
+        g.lineCap = 'round';
+        for (let j = 0; j < 2; j++) {
+          const bx = x + rng.range(-8, 8);
+          const by = y + rng.range(-5, 5);
+          const a = rng.float() * Math.PI;
+          g.beginPath();
+          g.moveTo(bx - Math.cos(a) * 6, by - Math.sin(a) * 6);
+          g.lineTo(bx + Math.cos(a) * 6, by + Math.sin(a) * 6);
+          g.stroke();
+        }
+        g.fillStyle = 'rgba(206, 200, 182, 0.2)';
+        g.beginPath();
+        g.arc(x + rng.range(-6, 6), y + rng.range(-4, 4), 2.2, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    g.lineCap = 'butt';
+  }
+
+  // 屏幕空间红色暗角：基地受击闪烁 + 低血常驻警示，烘焙一次按透明度复用。
+  buildHurtOverlay() {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(2, Math.round(this.W / 2));
+    canvas.height = Math.max(2, Math.round(this.H / 2));
+    const g = canvas.getContext('2d');
+    const grad = g.createRadialGradient(
+      canvas.width / 2,
+      canvas.height / 2,
+      Math.min(canvas.width, canvas.height) * 0.2,
+      canvas.width / 2,
+      canvas.height / 2,
+      Math.max(canvas.width, canvas.height) * 0.62
+    );
+    grad.addColorStop(0, 'rgba(255, 40, 40, 0)');
+    grad.addColorStop(0.65, 'rgba(255, 40, 40, 0.25)');
+    grad.addColorStop(1, 'rgba(255, 32, 32, 0.85)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    return canvas;
   }
 
   screenToTile(event) {
@@ -297,6 +453,24 @@ export class Renderer {
     this.drawPlacement(g);
 
     g.restore();
+
+    // 基地受击 / 低血警示（屏幕空间，不参与震屏）
+    const hpRatio = game.maxBaseHp > 0 ? game.baseHp / game.maxBaseHp : 1;
+    if (this.lastBaseHp == null) this.lastBaseHp = game.baseHp;
+    if (game.baseHp < this.lastBaseHp) {
+      this.hurtFlash = Math.min(1, this.hurtFlash + 0.45 * (this.lastBaseHp - game.baseHp));
+    }
+    this.lastBaseHp = game.baseHp;
+    this.hurtFlash = Math.max(0, this.hurtFlash - dt * 1.8);
+    const lowPulse =
+      game.baseHp > 0 && hpRatio <= 0.35 ? 0.1 + Math.sin(this.time * 3.2) * 0.04 : 0;
+    const hurtAlpha = Math.min(0.72, this.hurtFlash * 0.55 + lowPulse);
+    if (hurtAlpha > 0.01) {
+      g.save();
+      g.globalAlpha = hurtAlpha;
+      g.drawImage(this.hurtOverlay, 0, 0, this.W, this.H);
+      g.restore();
+    }
 
     if (this.settings.showFps) {
       g.save();
