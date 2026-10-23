@@ -76,10 +76,14 @@ node scripts/release.mjs build v1.14.0 --ref develop --yes --out ../abyss-tower-
 从 `--ref`（默认 `develop`）生成只包含代码与文档的发布树：
 
 - 先用 `git show` 校验来源 ref 的版本标记与目标版本一致，不一致则失败，不创建目录。
-- 通过 `git worktree add --detach` 创建树，然后删除 `tasks/`、`goals/`、`.quay/`
-  （任务板属于本地工作流，不进发布产物），并移除 `.git` 文件使其成为独立目录。
+- 用一个**隔离的临时 index** 执行 `git read-tree <ref>` + `git checkout-index -a --prefix=<out>/`
+  来物化来源树：不注册 git worktree，也不改源仓库自己的 index；失败时源仓库无残留。
+- 物化后只删除 `tasks/`、`goals/`、`.quay/`（任务板属于本地工作流，不进发布产物）。
+  仓库骨架原样保留，特别是 `.gitignore` 与 `.github/workflows/ci.yml`。
+- 发布树天然没有 `.git`（`checkout-index` 只写工作文件），因此是独立目录。
+- 只复制来源 ref 中已跟踪的文件：工作树里未跟踪的 `.env`、草稿等不会泄露进发布树。
 - 默认输出到 `<仓库目录名>-release/<version>`；用 `--out` 指定其他位置。
-- 默认 dry-run；`--yes` 才创建。输出目录已存在且非空时拒绝执行。
+- 默认 dry-run；`--yes` 才创建。输出目录已存在且非空时拒绝执行并点名该目录。
 - 停止条件：来源 ref 不存在、版本不一致、输出目录非空。失败时点名具体文件与值。
 
 ### `verify <version>`
@@ -109,3 +113,24 @@ node scripts/release.mjs build v1.14.0 --ref develop --yes --out ../abyss-tower-
   是 CI / pre-push 用的只读自洽检查，额外要求 tag 指向当前 `HEAD`；`release.mjs verify`
   面向发布流程，额外核对 tag 提交内容，不要求 tag == HEAD。
 - **零第三方依赖**：只使用 Node 内置模块与系统 `git`。
+
+## 实际使用记录（v1.19.0 / 下一次 v1.20.0）
+
+在 v1.19.0 上对真实仓库跑过以下命令（`--root` 默认为仓库根）：
+
+```bash
+node scripts/release.mjs verify v1.19.0        # 退出码 0
+node scripts/release.mjs build v1.19.0 --ref develop --out /tmp/release-probe --yes
+node scripts/release.mjs prepare v1.20.0 --date 2026-10-24   # dry-run，git status 无改动
+```
+
+- `verify v1.19.0`：工作树与 tag 指向提交的 `CONTENT_VERSION`、CHANGELOG、PRD、
+  `package.json` 全部一致，退出码 0。
+- `build`：发布树包含 `.gitignore` 与 `.github/workflows/ci.yml`，不含 `tasks/`
+  `goals/` `.quay/` 与 `.git`；源仓库的 `git worktree list` 在构建前后不变。
+- `prepare v1.20.0` 的 dry-run 打印三处将发生的改动，但 `git status` 保持干净，
+  确认默认不落盘。
+
+下一次正式发版（v1.20.0）按上面的标准流程执行：先 dry-run 预览，确认后加 `--yes`
+写入三处版本标记，补全 CHANGELOG / PRD 正文，全量测试，再提交、开 PR、打 tag，
+最后用 `verify` 复核。

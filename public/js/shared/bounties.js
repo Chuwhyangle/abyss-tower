@@ -12,75 +12,172 @@ export const BOUNTY_PERIOD_LABELS = {
   season: '赛季悬赏',
 };
 
-// 奖励集中定义：调整数值只改这里，派生、接口与 UI 都以此为准。
+// 三档难度：目标值按难度放大；奖励由「周期基础奖励 × 难度系数」集中计算。
+export const BOUNTY_TIERS = ['normal', 'challenge', 'extreme'];
+
+export const BOUNTY_TIER_LABELS = {
+  normal: '普通',
+  challenge: '挑战',
+  extreme: '极限',
+};
+
+export const BOUNTY_TIER_TARGET_SCALE = {
+  normal: 1,
+  challenge: 2,
+  extreme: 3,
+};
+
+export const BOUNTY_TIER_REWARD_SCALE = {
+  normal: 1,
+  challenge: 1.5,
+  extreme: 2.5,
+};
+
+// 每个周期的普通难度基础奖励：调整数值只改这里，派生、接口与 UI 都以此为准。
 export const BOUNTY_REWARDS = {
   daily: 30,
   weekly: 80,
   season: 200,
 };
 
-// 目标池：每个周期按周期键确定性抽取 BOUNTIES_PER_PERIOD 个。
-// metric 引用 BOUNTY_METRICS，targets 为各周期的完成门槛。
-export const BOUNTY_POOL = [
+// 每周一次免费刷新：刷新代数只作用于周悬赏，记录键为 ISO 周键。
+export const BOUNTY_REFRESH_LIMIT = 1;
+export const BOUNTY_REFRESH_PERIOD = 'weekly';
+
+export function bountyReward(period, tier) {
+  const base = Number(BOUNTY_REWARDS[period]);
+  const scale = Number(BOUNTY_TIER_REWARD_SCALE[tier]);
+  if (!Number.isFinite(base) || !Number.isFinite(scale) || base <= 0 || scale <= 0) return 0;
+  return Math.max(1, Math.round(base * scale));
+}
+
+// 目标模板：一个模板 × 三档难度 = 三条池子条目（14 × 3 = 42）。
+// targets 为普通难度在各周期的门槛，挑战/极限按 BOUNTY_TIER_TARGET_SCALE 放大。
+export const BOUNTY_TEMPLATES = [
   {
-    id: 'veteran',
+    key: 'veteran',
     title: '身经百战',
-    desc: (target) => `在周期内完成 ${target} 局远征`,
     metric: 'runs',
     targets: { daily: 3, weekly: 8, season: 20 },
+    desc: (target) => `在周期内完成 ${target} 局远征`,
   },
   {
-    id: 'first_win',
+    key: 'first_win',
     title: '稳住阵线',
-    desc: (target) => `在周期内通关 ${target} 局`,
     metric: 'wins',
     targets: { daily: 1, weekly: 2, season: 4 },
+    desc: (target) => `在周期内通关 ${target} 局`,
   },
   {
-    id: 'slayer',
+    key: 'slayer',
     title: '歼灭者',
-    desc: (target) => `单局击杀达到 ${target}`,
     metric: 'maxKills',
     targets: { daily: 120, weekly: 200, season: 300 },
+    desc: (target) => `单局击杀达到 ${target}`,
   },
   {
-    id: 'wave_rider',
+    key: 'wave_rider',
     title: '逐浪者',
-    desc: (target) => `单局抵达第 ${target} 波`,
     metric: 'maxWave',
     targets: { daily: 12, weekly: 20, season: 25 },
+    desc: (target) => `单局抵达第 ${target} 波`,
   },
   {
-    id: 'high_score',
+    key: 'high_score',
     title: '高分纪录',
-    desc: (target) => `单局得分达到 ${target}`,
     metric: 'maxScore',
     targets: { daily: 15000, weekly: 25000, season: 40000 },
+    desc: (target) => `单局得分达到 ${target}`,
   },
   {
-    id: 'flawless',
+    key: 'flawless',
     title: '毫发无伤',
-    desc: (target) => `无伤通关 ${target} 局`,
     metric: 'flawlessWins',
     targets: { daily: 1, weekly: 1, season: 2 },
+    desc: (target) => `无伤通关 ${target} 局`,
   },
   {
-    id: 'abyss_win',
+    key: 'abyss_win',
     title: '深渊行者',
-    desc: (target) => `通关深渊难度 ${target} 局`,
     metric: 'abyssWins',
     targets: { daily: 1, weekly: 2, season: 3 },
+    desc: (target) => `通关深渊难度 ${target} 局`,
   },
   {
-    id: 'endurance',
+    key: 'endurance',
     title: '持久战',
-    desc: (target) => `在周期内累计击杀 ${target}`,
     metric: 'totalKills',
     targets: { daily: 300, weekly: 800, season: 2000 },
+    desc: (target) => `在周期内累计击杀 ${target}`,
+  },
+  {
+    key: 'abyss_run',
+    title: '深渊常客',
+    metric: 'abyssRuns',
+    targets: { daily: 1, weekly: 2, season: 3 },
+    desc: (target) => `在深渊难度完成 ${target} 局`,
+  },
+  {
+    key: 'big_score',
+    title: '大额进账',
+    metric: 'bigScoreRuns',
+    targets: { daily: 1, weekly: 2, season: 4 },
+    desc: (target) => `单局得分超过 30000 的对局达到 ${target} 局`,
+  },
+  {
+    key: 'deep_run',
+    title: '深处足迹',
+    metric: 'deepRuns',
+    targets: { daily: 1, weekly: 3, season: 5 },
+    desc: (target) => `单局抵达第 20 波以上的对局达到 ${target} 局`,
+  },
+  {
+    key: 'total_score',
+    title: '积分积累',
+    metric: 'totalScore',
+    targets: { daily: 20000, weekly: 60000, season: 150000 },
+    desc: (target) => `在周期内累计得分 ${target}`,
+  },
+  {
+    key: 'total_wave',
+    title: '波次积累',
+    metric: 'totalWaves',
+    targets: { daily: 20, weekly: 60, season: 150 },
+    desc: (target) => `在周期内累计推进 ${target} 波`,
+  },
+  {
+    key: 'standard_win',
+    title: '远征常胜',
+    metric: 'standardWins',
+    targets: { daily: 1, weekly: 3, season: 6 },
+    desc: (target) => `通关远征难度 ${target} 局`,
   },
 ];
 
+function scaledTargets(targets, scale) {
+  return Object.fromEntries(
+    BOUNTY_PERIODS.map((period) => [period, Math.max(1, Math.ceil(targets[period] * scale))])
+  );
+}
+
+// 目标池：普通难度沿用旧 id，挑战/极限以「:tier」后缀区分，保证旧领取记录可继续对上。
+export const BOUNTY_POOL = BOUNTY_TEMPLATES.flatMap((template) =>
+  BOUNTY_TIERS.map((tier) => ({
+    id: tier === 'normal' ? template.key : `${template.key}:${tier}`,
+    key: template.key,
+    tier,
+    title: template.title,
+    metric: template.metric,
+    desc: template.desc,
+    targets: scaledTargets(template.targets, BOUNTY_TIER_TARGET_SCALE[tier]),
+  }))
+);
+
 export const BOUNTY_BY_ID = Object.fromEntries(BOUNTY_POOL.map((item) => [item.id, item]));
+
+const BOUNTY_BY_TIER = Object.fromEntries(
+  BOUNTY_TIERS.map((tier) => [tier, BOUNTY_POOL.filter((item) => item.tier === tier)])
+);
 
 function toCount(value) {
   const n = Math.floor(Number(value));
@@ -95,6 +192,8 @@ export const BOUNTY_METRICS = {
   maxWave: (runs) => Math.max(0, ...runs.map((run) => toCount(run.waveReached))),
   maxScore: (runs) => Math.max(0, ...runs.map((run) => toCount(run.score))),
   totalKills: (runs) => runs.reduce((sum, run) => sum + toCount(run.kills), 0),
+  totalScore: (runs) => runs.reduce((sum, run) => sum + toCount(run.score), 0),
+  totalWaves: (runs) => runs.reduce((sum, run) => sum + toCount(run.waveReached), 0),
   flawlessWins: (runs) =>
     runs.filter(
       (run) =>
@@ -104,6 +203,11 @@ export const BOUNTY_METRICS = {
     ).length,
   abyssWins: (runs) =>
     runs.filter((run) => run.victory && run.difficulty === 'abyss').length,
+  abyssRuns: (runs) => runs.filter((run) => run.difficulty === 'abyss').length,
+  standardWins: (runs) =>
+    runs.filter((run) => run.victory && run.difficulty === 'standard').length,
+  bigScoreRuns: (runs) => runs.filter((run) => toCount(run.score) >= 30000).length,
+  deepRuns: (runs) => runs.filter((run) => toCount(run.waveReached) >= 20).length,
 };
 
 export const isBountyPeriod = (period) => BOUNTY_PERIODS.includes(period);
@@ -145,26 +249,30 @@ export function bountyPeriodBounds(period, ts = Date.now()) {
   };
 }
 
-// 同一周期键在服务端与客户端派生完全一致的结果。
-export function deriveBounties(period, periodKey) {
+// 同一周期键 + 同一刷新代数在服务端与客户端派生完全一致的结果。
+// 每档难度从各自候选集中取一条；刷新代数整体后移一个候选，保证刷新后集合必不同。
+export function deriveBounties(period, periodKey, generation = 0) {
   if (!isBountyPeriod(period) || !periodKey) return [];
+  const gen = Math.max(0, Math.floor(Number(generation) || 0));
   const rng = new RNG(`bounty:${period}:${periodKey}`);
-  return rng
-    .shuffle(BOUNTY_POOL)
-    .slice(0, BOUNTIES_PER_PERIOD)
-    .map((definition) => {
-      const target = definition.targets[period];
-      return {
-        id: definition.id,
-        title: definition.title,
-        desc: definition.desc(target),
-        metric: definition.metric,
-        target,
-        reward: BOUNTY_REWARDS[period],
-        period,
-        periodKey,
-      };
-    });
+  return BOUNTY_TIERS.map((tier) => {
+    const candidates = BOUNTY_BY_TIER[tier];
+    const offset = rng.int(candidates.length);
+    const definition = candidates[(offset + gen) % candidates.length];
+    const target = definition.targets[period];
+    return {
+      id: definition.id,
+      title: definition.title,
+      desc: definition.desc(target),
+      metric: definition.metric,
+      tier,
+      tierLabel: BOUNTY_TIER_LABELS[tier],
+      target,
+      reward: bountyReward(period, tier),
+      period,
+      periodKey,
+    };
+  });
 }
 
 export function bountyProgress(bounty, runs) {

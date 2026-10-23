@@ -21,6 +21,8 @@ const versionFiles = (version, overrides = {}) => ({
   'docs/PRD.md': `# 需求文档\n\n- 修订记录：\n  - ${version} 初始版本\n\n---\n\n正文\n`,
   'package.json': JSON.stringify({ name: 'fixture', version: '1.0.0' }, null, 2),
   'docs/RELEASE.md': '# 发布流程\n',
+  '.gitignore': 'node_modules/\n',
+  '.github/workflows/ci.yml': 'name: CI\non: [push]\n',
   'tasks/T1.md': '# 任务\n',
   'goals/G1.md': '# 目标\n',
   '.quay/config.yml': 'providers: {}\n',
@@ -225,6 +227,56 @@ test('build --yes 生成仅代码的发布树', (t) => {
   for (const excluded of ['tasks', 'goals', '.quay', '.git']) {
     assert.equal(fs.existsSync(path.join(out, excluded)), false, excluded);
   }
+});
+
+test('build 保留仓库骨架：.gitignore 与 CI 配置不被排除', (t) => {
+  const root = gitFixture(t, baseFiles());
+  const out = path.join(fixture(t, {}), 'tree');
+
+  const result = run(root, ['build', 'v1.2.3', '--ref', 'main', '--out', out, '--yes']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.readFileSync(path.join(out, '.gitignore'), 'utf8'), 'node_modules/\n');
+  assert.equal(
+    fs.readFileSync(path.join(out, '.github/workflows/ci.yml'), 'utf8'),
+    'name: CI\non: [push]\n',
+  );
+});
+
+test('build 不复制工作树里未跟踪的文件', (t) => {
+  const root = gitFixture(t, baseFiles());
+  fs.writeFileSync(path.join(root, '.env'), 'SECRET=1\n');
+  fs.writeFileSync(path.join(root, 'local-only.txt'), 'draft\n');
+  const out = path.join(fixture(t, {}), 'tree');
+
+  const result = run(root, ['build', 'v1.2.3', '--ref', 'main', '--out', out, '--yes']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(path.join(out, '.env')), false);
+  assert.equal(fs.existsSync(path.join(out, 'local-only.txt')), false);
+});
+
+test('build 不注册 git worktree，源仓库无残留', (t) => {
+  const root = gitFixture(t, baseFiles());
+  const out = path.join(fixture(t, {}), 'tree');
+  const before = git(root, ['worktree', 'list', '--porcelain']);
+
+  const result = run(root, ['build', 'v1.2.3', '--ref', 'main', '--out', out, '--yes']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(git(root, ['worktree', 'list', '--porcelain']), before);
+  assert.equal(fs.existsSync(path.join(out, '.git')), false);
+});
+
+test('build：输出目录已存在且非空时失败并点名目录', (t) => {
+  const root = gitFixture(t, baseFiles());
+  const out = fixture(t, { 'keep.txt': 'occupied\n' });
+
+  const result = run(root, ['build', 'v1.2.3', '--ref', 'main', '--out', out, '--yes']);
+
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /输出目录 .* 已存在且非空/);
+  assert.equal(fs.readFileSync(path.join(out, 'keep.txt'), 'utf8'), 'occupied\n');
 });
 
 test('build：来源分支版本不一致时失败，不创建目录', (t) => {

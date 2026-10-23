@@ -3,6 +3,8 @@ import { db, grantCores, getCores, transaction } from '../db.mjs';
 import {
   BOUNTY_PERIODS,
   BOUNTY_PERIOD_LABELS,
+  BOUNTY_REFRESH_LIMIT,
+  BOUNTY_REFRESH_PERIOD,
   bountyPeriodBounds,
   bountyPeriodKey,
   bountyProgress,
@@ -51,6 +53,21 @@ function periodRuns(accountId, bounds) {
   });
 }
 
+// 本周已用刷新次数：只有周悬赏参与刷新代数，其它周期固定为第 0 代。
+function refreshCount(accountId, periodKey) {
+  const row = db
+    .prepare(
+      'SELECT refresh_count FROM account_bounty_refreshes WHERE account_id = ? AND period_key = ?'
+    )
+    .get(accountId, periodKey);
+  return Math.max(0, Number(row?.refresh_count) || 0);
+}
+
+function periodGeneration(accountId, period, periodKey) {
+  if (period !== BOUNTY_REFRESH_PERIOD) return 0;
+  return Math.min(refreshCount(accountId, periodKey), BOUNTY_REFRESH_LIMIT);
+}
+
 function periodRows(accountId, period, periodKey) {
   return db
     .prepare(
@@ -88,11 +105,12 @@ function buildPeriod(accountId, period, now) {
   const key = bountyPeriodKey(period, now);
   const bounds = bountyPeriodBounds(period, now);
   const runs = periodRuns(accountId, bounds);
+  const generation = periodGeneration(accountId, period, key);
   const existing = new Map(
     periodRows(accountId, period, key).map((row) => [row.bounty_id, row])
   );
 
-  const bounties = deriveBounties(period, key).map((definition) => {
+  const bounties = deriveBounties(period, key, generation).map((definition) => {
     const progress = bountyProgress(definition, runs);
     const row = existing.get(definition.id);
     const claimedAt = row?.claimed_at ? Number(row.claimed_at) : null;
@@ -101,6 +119,8 @@ function buildPeriod(accountId, period, now) {
       title: definition.title,
       desc: definition.desc,
       metric: definition.metric,
+      tier: definition.tier,
+      tierLabel: definition.tierLabel,
       target: progress.target,
       progress: progress.current,
       reward: definition.reward,
@@ -123,10 +143,57 @@ function buildPeriod(accountId, period, now) {
 }
 
 export function bountySummary(accountId, now = Date.now()) {
+  const refreshKey = bountyPeriodKey(BOUNTY_REFRESH_PERIOD, now);
+  const used = Math.min(refreshCount(accountId, refreshKey), BOUNTY_REFRESH_LIMIT);
   return {
     now,
+    refresh: {
+      period: BOUNTY_REFRESH_PERIOD,
+      periodKey: refreshKey,
+      limit: BOUNTY_REFRESH_LIMIT,
+      used,
+      remaining: Math.max(0, BOUNTY_REFRESH_LIMIT - used),
+    },
     periods: BOUNTY_PERIODS.map((period) => buildPeriod(accountId, period, now)),
   };
+}
+
+// 每周一次免费刷新：写事务内检查并递增次数，随后按新代数重建周悬赏。
+// 旧周的行不删除，已领取状态与历史进度原样保留。
+export function refreshBounties(accountId, now = Date.now()) {
+  const periodKey = bountyPeriodKey(BOUNTY_REFRESH_PERIOD, now);
+  if (!periodKey) return { ok: false, code: 'REFRESH_UNAVAILABLE' };
+
+  return transaction(() => {
+    const used = refreshCount(accountId, periodKey);
+    if (used >= BOUNTY_REFRESH_LIMIT) {
+      return {
+        ok: false,
+        code: 'REFRESH_LIMIT',
+        limit: BOUNTY_REFRESH_LIMIT,
+        used,
+        remaining: 0,
+      };
+    }
+
+    const next = used + 1;
+    db.prepare(
+      `INSERT INTO account_bounty_refreshes
+         (account_id, period_key, refresh_count, refreshed_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(account_id, period_key) DO UPDATE SET
+         refresh_count = excluded.refresh_count,
+         refreshed_at = excluded.refreshed_at,
+         updated_at = excluded.updated_at`
+    ).run(accountId, periodKey, next, now, now);
+
+    return {
+      ok: true,
+      refreshCount: next,
+      remaining: Math.max(0, BOUNTY_REFRESH_LIMIT - next),
+      summary: bountySummary(accountId, now),
+    };
+  });
 }
 
 // 幂等领取：先确认目标属于当前周期，再在写事务内检查完成度与领取状态。
@@ -134,7 +201,8 @@ export function bountySummary(accountId, now = Date.now()) {
 export function claimBounty(accountId, bountyId, now = Date.now()) {
   for (const period of BOUNTY_PERIODS) {
     const key = bountyPeriodKey(period, now);
-    const definition = deriveBounties(period, key).find((item) => item.id === bountyId);
+    const generation = periodGeneration(accountId, period, key);
+    const definition = deriveBounties(period, key, generation).find((item) => item.id === bountyId);
     if (!definition) continue;
 
     const bounds = bountyPeriodBounds(period, now);

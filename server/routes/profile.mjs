@@ -19,6 +19,7 @@ import {
   normalizeSkinSelection,
   resolveSkin,
   skinCatalog,
+  skinSetCatalog,
 } from '../../public/js/shared/skins.js';
 import { cleanName, dailyAttemptsLeft, dailyState, today } from './support.mjs';
 
@@ -168,7 +169,11 @@ function selectedSkins(accountId, unlocked) {
 
 function skinSummary(accountId) {
   const unlocked = readUnlockedAchievementIds(accountId);
-  return { selected: selectedSkins(accountId, unlocked), skins: skinCatalog(unlocked) };
+  return {
+    selected: selectedSkins(accountId, unlocked),
+    skins: skinCatalog(unlocked),
+    sets: skinSetCatalog(unlocked),
+  };
 }
 
 function writeSkinSelection(accountId, selection) {

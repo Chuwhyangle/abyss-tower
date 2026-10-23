@@ -25,6 +25,20 @@ const STYLE = `
 .cosmetic-chip-head { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .cosmetic-chip-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--cosmetic-color, currentColor); }
 .cosmetic-chip-source { color: var(--muted, #9fb0c3); font-size: var(--text-xs, 12px); }
+.cosmetic-set-list { display: grid; gap: 8px; }
+.cosmetic-set { display: grid; gap: 8px; padding: 10px 12px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: var(--radius-md, 12px); background: var(--surface-1, rgba(255,255,255,.04)); }
+.cosmetic-set.complete { border-color: var(--set-accent, #5bc8ff); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--set-accent, #5bc8ff) 40%, transparent); }
+.cosmetic-set.complete .cosmetic-set-title { color: var(--set-accent, #5bc8ff); }
+.cosmetic-set-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.cosmetic-set-title { font-weight: 700; }
+.cosmetic-set-progress { color: var(--muted, #9fb0c3); font-size: var(--text-xs, 12px); }
+.cosmetic-set-note { margin: 0; color: var(--muted, #9fb0c3); font-size: var(--text-xs, 12px); }
+.cosmetic-set-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.cosmetic-thumb { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: var(--radius-sm, 8px); background: var(--surface-2, rgba(255,255,255,.05)); opacity: .5; }
+.cosmetic-thumb.unlocked { opacity: 1; border-color: var(--thumb-color, var(--cyan, #5bc8ff)); }
+.cosmetic-thumb-art { width: 30px; height: 30px; border-radius: 50%; background: radial-gradient(circle at 34% 30%, var(--thumb-glow, #fff), var(--thumb-color, #7a8794) 70%); box-shadow: 0 0 8px color-mix(in srgb, var(--thumb-glow, #fff) 45%, transparent); }
+.cosmetic-thumb-label { font-size: var(--text-xs, 12px); text-align: center; }
+.cosmetic-thumb-source { color: var(--muted, #9fb0c3); font-size: 11px; text-align: center; }
 .cosmetic-status { min-height: 1.2em; color: var(--muted, #9fb0c3); font-size: var(--text-sm, 13px); }
 .player-title-badge { padding: 2px 8px; border-radius: var(--radius-pill, 999px); border: 1px solid var(--cosmetic-frame, var(--line, rgba(255,255,255,.2))); background: color-mix(in srgb, var(--cosmetic-frame, #5bc8ff) 14%, transparent); color: var(--text, #e6edf3); font-size: var(--text-xs, 12px); white-space: nowrap; }
 @media (max-width: 640px) { .cosmetic-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); } }
@@ -133,19 +147,69 @@ function skinSection(target, label, items) {
     </section>`;
 }
 
+function skinSetThumb(set, member) {
+  const color = member.outline?.color || '#7a8794';
+  const glow = set.glow || color;
+  const classes = ['cosmetic-thumb', member.unlocked ? 'unlocked' : 'locked'];
+  const hint = `${member.name} · ${sourceLabel(member)}`;
+  return `
+    <div class="${classes.join(' ')}" data-target="${escapeHtml(member.target)}" data-type="${escapeHtml(member.type)}"
+      style="--thumb-color:${escapeHtml(color)};--thumb-glow:${escapeHtml(glow)}"
+      title="${escapeHtml(hint)}">
+      <span class="cosmetic-thumb-art" aria-hidden="true"></span>
+      <span class="cosmetic-thumb-label">${escapeHtml(member.name)}</span>
+      ${member.unlocked ? '' : `<span class="cosmetic-thumb-source">${escapeHtml(sourceLabel(member))}</span>`}
+    </div>`;
+}
+
+function skinSetCard(set) {
+  const progress = set.progress || { unlocked: 0, total: 0 };
+  const classes = ['cosmetic-set'];
+  if (set.unlocked) classes.push('complete');
+  const progressText = tOr('cosmetics.setProgress', '已收集 {done}/{total}', {
+    done: progress.unlocked,
+    total: progress.total,
+  });
+  const completeNote = set.unlocked ? ` · ${tOr('cosmetics.setComplete', '已集齐')}` : '';
+  return `
+    <article class="${classes.join(' ')}" data-set="${escapeHtml(set.id)}"
+      style="--set-accent:${escapeHtml(set.accent || '#5bc8ff')}">
+      <header class="cosmetic-set-head">
+        <span class="cosmetic-set-title">${escapeHtml(set.name)}${escapeHtml(completeNote)}</span>
+        <span class="cosmetic-set-progress">${escapeHtml(progressText)}</span>
+      </header>
+      ${set.description ? `<p class="cosmetic-set-note">${escapeHtml(set.description)}</p>` : ''}
+      <div class="cosmetic-set-grid">
+        ${(set.members || []).map((member) => skinSetThumb(set, member)).join('')}
+      </div>
+    </article>`;
+}
+
+function skinSetsSection(skins) {
+  if (!skins?.sets?.length) return '';
+  return `
+    <section class="cosmetic-section" data-section="skin-sets">
+      <h3>${escapeHtml(tOr('cosmetics.skinSets', '皮肤套装'))}</h3>
+      <div class="cosmetic-set-list">
+        ${skins.sets.map(skinSetCard).join('')}
+      </div>
+    </section>`;
+}
+
 function skinsSection(skins) {
-  if (!skins?.skins?.length) return '';
+  if (!skins) return '';
   const labels = {
     tower: tOr('cosmetics.skinTower', '塔皮肤'),
     enemy: tOr('cosmetics.skinEnemy', '敌人皮肤'),
   };
-  return SKIN_TARGETS.map((target) =>
+  const targets = SKIN_TARGETS.map((target) =>
     skinSection(
       target,
       labels[target],
-      skins.skins.filter((item) => item.target === target)
+      Array.isArray(skins.skins) ? skins.skins.filter((item) => item.target === target) : []
     )
   ).join('');
+  return targets + skinSetsSection(skins);
 }
 
 function selectedSkinName(skins, target) {

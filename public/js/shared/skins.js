@@ -3,6 +3,7 @@
 // 因此色弱/高对比模式仍然先决定基础色，皮肤只做二次上色。
 // 解锁条件引用成就 id；未解锁的皮肤不能被选中，读取时回退默认皮肤。
 import { ACHIEVEMENT_BY_ID } from './achievements.js';
+import { ENEMIES, TOWERS } from './data.js';
 
 export const SKIN_TARGETS = Object.freeze(['tower', 'enemy']);
 
@@ -125,6 +126,216 @@ export function normalizeSkinSelection(raw) {
     selection[target] = skin && skin.target === target ? skin.id : DEFAULT_SKIN_BY_TARGET[target];
   }
   return selection;
+}
+
+// 皮肤套装：同主题的塔/敌人分类型配色，用于收集画廊与解锁进度。
+// 套装只描述表现，不写入 active 选择，也不被 sim 读取。
+const SKIN_SET_DEFS = Object.freeze({
+  molten: Object.freeze({
+    name: '熔火',
+    description: '熔岩浇筑的塔身与被灼烧的敌群',
+    accent: '#ff7a45',
+    glow: '#ffd0a3',
+    tower: Object.freeze({
+      arrow: Object.freeze({
+        transform: Object.freeze({ hueShift: -118, saturation: 1.3, lightness: 0.04 }),
+        outline: Object.freeze({ color: '#ffd0a3', width: 1.6, alpha: 0.8 }),
+        unlock: 'first_run',
+      }),
+      cannon: Object.freeze({
+        transform: Object.freeze({ hueShift: -132, saturation: 1.35, lightness: 0.02 }),
+        outline: Object.freeze({ color: '#ffc08a', width: 1.6, alpha: 0.8 }),
+        unlock: 'wave_5',
+      }),
+      poison: Object.freeze({
+        transform: Object.freeze({ hueShift: -106, saturation: 1.28, lightness: 0.01 }),
+        outline: Object.freeze({ color: '#ffb27a', width: 1.6, alpha: 0.78 }),
+        unlock: 'wave_10',
+      }),
+      shock: Object.freeze({
+        transform: Object.freeze({ hueShift: -145, saturation: 1.32, lightness: 0.05 }),
+        outline: Object.freeze({ color: '#ffe3c2', width: 1.6, alpha: 0.82 }),
+        unlock: 'boss_slayer',
+      }),
+    }),
+    enemy: Object.freeze({
+      grunt: Object.freeze({
+        transform: Object.freeze({ hueShift: -100, saturation: 1.4, lightness: -0.01 }),
+        outline: Object.freeze({ color: '#ffb27a', width: 1.3, alpha: 0.75 }),
+        unlock: 'first_run',
+      }),
+      tank: Object.freeze({
+        transform: Object.freeze({ hueShift: -124, saturation: 1.45, lightness: 0.02 }),
+        outline: Object.freeze({ color: '#ffc99a', width: 1.3, alpha: 0.75 }),
+        unlock: 'wave_5',
+      }),
+    }),
+  }),
+  frost: Object.freeze({
+    name: '霜寂',
+    description: '永冻塔群与踏雪而来的霜裔',
+    accent: '#5bc8ff',
+    glow: '#dbf4ff',
+    tower: Object.freeze({
+      frost: Object.freeze({
+        transform: Object.freeze({ hueShift: 156, saturation: 0.84, lightness: 0.1 }),
+        outline: Object.freeze({ color: '#dbf4ff', width: 1.5, alpha: 0.78 }),
+        unlock: 'first_win',
+      }),
+      arc: Object.freeze({
+        transform: Object.freeze({ hueShift: 168, saturation: 0.8, lightness: 0.09 }),
+        outline: Object.freeze({ color: '#c9ecff', width: 1.5, alpha: 0.78 }),
+        unlock: 'wave_10',
+      }),
+      sniper: Object.freeze({
+        transform: Object.freeze({ hueShift: 148, saturation: 0.78, lightness: 0.11 }),
+        outline: Object.freeze({ color: '#e2f7ff', width: 1.5, alpha: 0.8 }),
+        unlock: 'boss_slayer',
+      }),
+      banner: Object.freeze({
+        transform: Object.freeze({ hueShift: 162, saturation: 0.86, lightness: 0.08 }),
+        outline: Object.freeze({ color: '#d2f0ff', width: 1.5, alpha: 0.76 }),
+        unlock: 'win_standard',
+      }),
+    }),
+    enemy: Object.freeze({
+      runner: Object.freeze({
+        transform: Object.freeze({ hueShift: 172, saturation: 0.72, lightness: 0.08 }),
+        outline: Object.freeze({ color: '#c9ecff', width: 1.2, alpha: 0.72 }),
+        unlock: 'first_run',
+      }),
+      flyer: Object.freeze({
+        transform: Object.freeze({ hueShift: 158, saturation: 0.76, lightness: 0.1 }),
+        outline: Object.freeze({ color: '#e2f7ff', width: 1.2, alpha: 0.72 }),
+        unlock: 'wave_5',
+      }),
+    }),
+  }),
+});
+
+function buildSkinSet(id) {
+  const def = SKIN_SET_DEFS[id];
+  const members = {};
+  for (const target of SKIN_TARGETS) {
+    const catalog = target === 'tower' ? TOWERS : ENEMIES;
+    const group = {};
+    for (const [type, entry] of Object.entries(def[target])) {
+      group[type] = Object.freeze({
+        id: `${id}_${type}`,
+        setId: id,
+        target,
+        type,
+        name: catalog[type].name,
+        transform: entry.transform,
+        outline: entry.outline,
+        unlock: Object.freeze({ achievement: entry.unlock }),
+      });
+    }
+    members[target] = Object.freeze(group);
+  }
+  return Object.freeze({
+    id,
+    name: def.name,
+    description: def.description,
+    accent: def.accent,
+    glow: def.glow,
+    members: Object.freeze(members),
+  });
+}
+
+export const SKIN_SETS = Object.freeze(
+  Object.fromEntries(Object.keys(SKIN_SET_DEFS).map((id) => [id, buildSkinSet(id)]))
+);
+
+export const SKIN_SET_ORDER = Object.freeze(Object.keys(SKIN_SETS));
+
+export function skinSetById(id) {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(SKIN_SETS, id)
+    ? SKIN_SETS[id]
+    : null;
+}
+
+function asSkinSet(setOrId) {
+  return typeof setOrId === 'string' ? skinSetById(setOrId) : setOrId || null;
+}
+
+export function skinSetMember(setOrId, target, type) {
+  const set = asSkinSet(setOrId);
+  return set?.members?.[target]?.[type] || null;
+}
+
+export function skinSetMembers(setOrId) {
+  const set = asSkinSet(setOrId);
+  if (!set) return [];
+  return SKIN_TARGETS.flatMap((target) => Object.values(set.members[target] || {}));
+}
+
+export function isSkinSetMemberUnlocked(member, unlocked = []) {
+  if (!member) return false;
+  if (!member.unlock) return true;
+  return unlockSet(unlocked).has(member.unlock.achievement);
+}
+
+// 套装进度按成员成就计算；集齐全部成员即视为套装解锁。
+export function skinSetProgress(setOrId, unlocked = []) {
+  const members = skinSetMembers(setOrId);
+  const total = members.length;
+  const count = members.filter((member) => isSkinSetMemberUnlocked(member, unlocked)).length;
+  return {
+    unlocked: count,
+    total,
+    ratio: total ? count / total : 0,
+    complete: total > 0 && count === total,
+  };
+}
+
+// 未解锁/未知成员返回 null，调用方沿用基础配色（默认回退）。
+export function resolveSkinSetMember(setOrId, target, type, unlocked = []) {
+  const member = skinSetMember(setOrId, target, type);
+  return member && isSkinSetMemberUnlocked(member, unlocked) ? member : null;
+}
+
+export function skinSetColorFor(setOrId, target, type, color, unlocked = []) {
+  return skinColorFor(resolveSkinSetMember(setOrId, target, type, unlocked), color);
+}
+
+export function skinSetCatalog(unlocked = []) {
+  return SKIN_SET_ORDER.map((id) => {
+    const set = SKIN_SETS[id];
+    const progress = skinSetProgress(set, unlocked);
+    const members = skinSetMembers(set).map((member) => {
+      const source = member.unlock ? ACHIEVEMENT_BY_ID[member.unlock.achievement] || null : null;
+      return {
+        id: member.id,
+        setId: id,
+        name: member.name,
+        target: member.target,
+        type: member.type,
+        outline: { ...member.outline },
+        unlocked: isSkinSetMemberUnlocked(member, unlocked),
+        achievementId: source?.id || null,
+        achievementTitle: source?.title || null,
+      };
+    });
+    const requirements = [];
+    for (const member of members) {
+      if (!member.achievementId) continue;
+      if (!requirements.some((item) => item.id === member.achievementId)) {
+        requirements.push({ id: member.achievementId, title: member.achievementTitle });
+      }
+    }
+    return {
+      id,
+      name: set.name,
+      description: set.description,
+      accent: set.accent,
+      glow: set.glow,
+      unlocked: progress.complete,
+      progress,
+      requirements,
+      members,
+    };
+  });
 }
 
 const colorCache = new Map();
