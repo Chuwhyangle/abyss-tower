@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { SECURITY_HEADERS, fail } from './respond.mjs';
+import { SECURITY_HEADERS, MAX_PATH_LENGTH, fail } from './respond.mjs';
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -19,7 +19,7 @@ const MIME = {
 
 export class StaticFiles {
   constructor(rootDir) {
-    this.rootDir = rootDir;
+    this.rootDir = path.resolve(rootDir);
   }
 
   serve(req, res, pathname) {
@@ -29,10 +29,19 @@ export class StaticFiles {
     } catch {
       return fail(res, 400, '非法路径');
     }
+    // 空字节会触发 fs 的同步异常，超长路径必然落空：两者都按「资源不存在」处理。
+    if (decoded.includes('\0') || decoded.length > MAX_PATH_LENGTH) {
+      return fail(res, 404, '资源不存在');
+    }
+    if (!decoded.startsWith('/')) return fail(res, 400, '非法路径');
     if (decoded === '/') decoded = '/index.html';
 
-    const file = path.normalize(path.join(this.rootDir, decoded));
-    if (!file.startsWith(this.rootDir + path.sep)) return fail(res, 403, '禁止访问');
+    // 先拼成「根目录 + 相对路径」再回读相对位置，确保规范化后仍位于 rootDir 内。
+    const file = path.resolve(this.rootDir, `.${decoded}`);
+    const relative = path.relative(this.rootDir, file);
+    if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
+      return fail(res, 404, '资源不存在');
+    }
 
     fs.stat(file, (error, stat) => {
       if (!error && stat.isFile()) return this.serveFile(res, file);
@@ -49,6 +58,8 @@ export class StaticFiles {
       'content-type': MIME[ext] || 'application/octet-stream',
       'cache-control': 'no-cache',
     });
-    fs.createReadStream(file).pipe(res);
+    const stream = fs.createReadStream(file);
+    stream.on('error', () => res.destroy());
+    stream.pipe(res);
   }
 }

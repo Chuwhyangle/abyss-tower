@@ -1,5 +1,5 @@
 // 本地存档：战斗快照与“选图阶段”待办记录。键名与数据形状必须保持兼容。
-import { normalizeSnapshot } from '../shared/save.js';
+import { validateSave } from '../shared/save.js';
 
 const SNAPSHOT_KEY = 'abyss-tower.snapshot.v2';
 // 选图阶段尚无战斗快照：单独记录开局参数，刷新/重进后可恢复同一组候选地图。
@@ -7,21 +7,34 @@ const MAP_PENDING_KEY = 'abyss-tower.mapselect.v1';
 
 export class RunStore {
   loadSnapshot() {
+    let raw;
     try {
-      const raw = localStorage.getItem(SNAPSHOT_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      const snap = normalizeSnapshot(parsed);
-      // normalizeSnapshot 会规范化 skill 字段；readyAt（epoch）只用于续玩冷却，
-      // 单独从原始存档补回，避免被归一化丢弃。
-      const readyAt = Number(parsed?.skill?.readyAt);
-      if (snap?.skill && Number.isFinite(readyAt) && readyAt > 0) {
-        snap.skill.readyAt = readyAt;
-      }
-      return snap;
+      raw = localStorage.getItem(SNAPSHOT_KEY);
     } catch {
       return null;
     }
+    if (!raw) return null;
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return null;
+    }
+
+    const result = validateSave(parsed);
+    if (!result.ok) {
+      // 损坏存档直接重开，避免带着半截状态进入战斗。
+      console.warn('[snapshot] 存档无效，已忽略', result.reason);
+      return null;
+    }
+    const snapshot = result.snapshot;
+    // readyAt（epoch）只用于续玩冷却，单独从原始存档补回，避免被归一化丢弃。
+    const readyAt = Number(parsed?.skill?.readyAt);
+    if (snapshot?.skill && Number.isFinite(readyAt) && readyAt > 0) {
+      snapshot.skill.readyAt = readyAt;
+    }
+    return snapshot;
   }
 
   saveSnapshot(snap) {

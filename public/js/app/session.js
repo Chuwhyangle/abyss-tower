@@ -4,20 +4,11 @@ import { SKILLS, isSkillUnlocked } from '../shared/data.js';
 import { skillApi, loadSelectedSkill, saveSelectedSkill } from './skills.js';
 
 export class SessionController {
-  constructor(game) {
-    this.game = game;
-  }
-
-  get state() {
-    return this.game.state;
-  }
-
-  get api() {
-    return this.game.api;
-  }
-
-  get ui() {
-    return this.game.ui;
+  constructor({ state, api, ui, store }) {
+    this.state = state;
+    this.api = api;
+    this.ui = ui;
+    this.store = store;
   }
 
   // silent 用于结算后的资料同步：离线时不提示、不写日志。
@@ -26,6 +17,7 @@ export class SessionController {
       const res = await this.api.session();
       this.state.profile = res.profile;
       this.state.dailyLeft = res.dailyAttemptsLeft;
+      this.state.daily = res.daily || null;
     } catch (error) {
       if (silent) return;
       console.error('[session]', error);
@@ -69,8 +61,9 @@ export class SessionController {
 
   showTitle() {
     this.ui.showTitle(this.state.profile, {
-      hasSnapshot: !!this.game.store.loadSnapshot(),
+      hasSnapshot: !!this.store.loadSnapshot(),
       dailyLeft: this.state.dailyLeft,
+      daily: this.state.daily,
       skillState: this.state.skills,
       selectedSkill: this.state.selectedSkill,
     });
@@ -148,6 +141,7 @@ export class SessionController {
         const res = await this.api.session(name);
         this.state.profile = res.profile;
         this.state.dailyLeft = res.dailyAttemptsLeft;
+        this.state.daily = res.daily || null;
         this.showTitle();
       } catch (error) {
         this.ui.toast(error.message, 2800);

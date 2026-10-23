@@ -7,24 +7,16 @@ import { RelicOffers } from './offers.js';
 import { skillApi } from './skills.js';
 
 export class RunController {
-  constructor(game) {
-    this.game = game;
-  }
-
-  get state() {
-    return this.game.state;
-  }
-
-  get api() {
-    return this.game.api;
-  }
-
-  get ui() {
-    return this.game.ui;
-  }
-
-  get store() {
-    return this.game.store;
+  constructor({ state, api, ui, store, onWaveClear, onGameOver, onRequestError, onBindCanvas, onShowTitle }) {
+    this.state = state;
+    this.api = api;
+    this.ui = ui;
+    this.store = store;
+    this.onWaveClear = onWaveClear;
+    this.onGameOver = onGameOver;
+    this.onRequestError = onRequestError;
+    this.onBindCanvas = onBindCanvas;
+    this.onShowTitle = onShowTitle;
   }
 
   async restorePendingMap() {
@@ -90,7 +82,10 @@ export class RunController {
         this.beginGame(data, null);
       }
     } catch (error) {
-      this.ui.toast(error.message, 3000);
+      this.onRequestError(error, {
+        title: '开始远征',
+        onRetry: () => this.startRun(mode, difficulty),
+      });
     } finally {
       this.state.starting = false;
     }
@@ -123,7 +118,7 @@ export class RunController {
         this.state.mapCandidates = null;
         this.state.mapChoosing = false;
         this.ui.closeModal();
-        this.game.session.showTitle();
+        this.onShowTitle();
       },
     });
   }
@@ -169,8 +164,8 @@ export class RunController {
       skillReadyAt: skill?.readyAt ?? null,
       skillSpeed: skill?.speed ?? 1,
       ruleset,
-      onWaveClear: (wave, info) => this.game.combat.handleWaveClear(wave, info),
-      onGameOver: (stats) => this.game.combat.handleGameOver(stats),
+      onWaveClear: (wave, info) => this.onWaveClear(wave, info),
+      onGameOver: (stats) => this.onGameOver(stats),
       onSave: (snap) => this.store.saveSnapshot(this.stampSkillCooldown(snap)),
       // 只补写波前快照里的技能冷却，保留金币/波次等波前状态。
       onSkillCast: (snap) => {
@@ -202,6 +197,7 @@ export class RunController {
       skill: skill ? { id: skill.id, level: skill.level || 1 } : null,
     };
     if (data.dailyAttemptsLeft != null) state.dailyLeft = data.dailyAttemptsLeft;
+    if (data.daily) state.daily = data.daily;
 
     const canvas = document.getElementById('game-canvas');
     state.app = new GameApp(sim, canvas, {
@@ -210,7 +206,7 @@ export class RunController {
     });
 
     this.ui.showGame({ game: sim, profile: state.profile });
-    this.game.input.bindCanvas(canvas);
+    this.onBindCanvas(canvas);
     state.app.start();
     this.store.saveSnapshot(this.stampSkillCooldown(sim.toSnapshot()));
     // 地图已选定且战斗快照已落盘，选图阶段记录不再需要。
@@ -278,7 +274,10 @@ export class RunController {
         this.ui.toast('已恢复至上次波次结束', 2200);
       }
     } catch (error) {
-      this.ui.toast(error.message, 3000);
+      this.onRequestError(error, {
+        title: '恢复远征',
+        onRetry: () => this.resumeRun(),
+      });
     }
   }
 

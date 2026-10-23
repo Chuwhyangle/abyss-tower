@@ -431,6 +431,157 @@ export class TowerRenderer {
         g.arc(0, -9, 2.2, 0, Math.PI * 2);
         g.fill();
       }
+    } else if (type === 'banner') {
+      // 旗杆与底座
+      g.strokeStyle = '#c9b47a';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(0, 15);
+      g.lineTo(0, -14);
+      g.stroke();
+
+      g.fillStyle = '#2a2318';
+      g.strokeStyle = Palette.hexToRgba(def.color, 0.7);
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.arc(0, 15, 3.4, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // 旗面：随时间轻微摆动
+      const wave = Math.sin(time * 3) * 2.2;
+      g.fillStyle = Palette.hexToRgba(def.color, 0.85);
+      g.strokeStyle = def.color;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(1, -14);
+      g.quadraticCurveTo(10 + wave, -11, 18, -8);
+      g.lineTo(18, 2);
+      g.quadraticCurveTo(9 + wave, -1, 1, 2);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      // 旗面纹章
+      g.strokeStyle = 'rgba(60, 42, 10, 0.7)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.moveTo(9 + wave * 0.5, -8);
+      g.lineTo(9 + wave * 0.5, -2);
+      g.moveTo(5 + wave * 0.5, -5);
+      g.lineTo(13 + wave * 0.5, -5);
+      g.stroke();
+
+      // 顶端旗尖
+      g.fillStyle = '#ffe6a0';
+      g.beginPath();
+      g.moveTo(0, -19);
+      g.lineTo(3, -14);
+      g.lineTo(-3, -14);
+      g.closePath();
+      g.fill();
+
+      if (level >= 1) {
+        g.strokeStyle = Palette.hexToRgba(def.color, 0.6);
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(0, 0, 9.5, 0, Math.PI * 2);
+        g.stroke();
+      }
+    } else if (type === 'shock') {
+      // 震荡核心
+      g.fillStyle = '#1d3a36';
+      g.strokeStyle = def.color;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(0, 0, 9, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // 发射喇叭
+      g.fillStyle = '#28524b';
+      g.strokeStyle = '#8ff0dc';
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(4, -5);
+      g.lineTo(18, -9);
+      g.lineTo(18, 9);
+      g.lineTo(4, 5);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      // 口部的同心震荡环
+      const pulse = (time * 1.6) % 1;
+      for (let i = 0; i < 2; i++) {
+        const phase = (pulse + i * 0.5) % 1;
+        g.strokeStyle = `rgba(111, 227, 200, ${0.55 * (1 - phase)})`;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.arc(18, 0, 3 + phase * 7, -1.1, 1.1);
+        g.stroke();
+      }
+
+      // 核心亮点
+      g.fillStyle = 'rgba(190, 255, 240, 0.85)';
+      g.beginPath();
+      g.arc(0, 0, 2.6, 0, Math.PI * 2);
+      g.fill();
+
+      if (level >= 1) {
+        g.strokeStyle = Palette.hexToRgba(def.color, 0.55);
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(0, 0, 9.5, 0, Math.PI * 2);
+        g.stroke();
+      }
+    } else if (type === 'sniper') {
+      // 支架
+      g.fillStyle = '#1b2537';
+      g.strokeStyle = def.color;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.arc(0, 0, 9, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      // 长枪管
+      g.strokeStyle = '#9fb4d6';
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(4 + push, 0);
+      g.lineTo(26 + push, 0);
+      g.stroke();
+
+      // 瞄准镜
+      g.fillStyle = '#2b3d5c';
+      g.strokeStyle = '#cfe2ff';
+      g.lineWidth = 1.4;
+      CanvasShapes.roundRect(g, -2 + push, -7.5, 11, 5.4, 2.4);
+      g.fill();
+      g.stroke();
+      g.fillStyle = 'rgba(180, 220, 255, 0.85)';
+      g.beginPath();
+      g.arc(6 + push, -4.8, 1.4, 0, Math.PI * 2);
+      g.fill();
+
+      // 枪口制退器
+      g.strokeStyle = def.color;
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.moveTo(24 + push, -3.2);
+      g.lineTo(24 + push, 3.2);
+      g.moveTo(28 + push, -3.2);
+      g.lineTo(28 + push, 3.2);
+      g.stroke();
+
+      if (level >= 1) {
+        g.strokeStyle = Palette.hexToRgba(def.color, 0.6);
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(0, 0, 9.5, 0, Math.PI * 2);
+        g.stroke();
+      }
     }
 
     g.globalAlpha = 1;

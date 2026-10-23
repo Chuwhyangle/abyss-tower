@@ -12,11 +12,18 @@ import {
   normalizeRelicStates,
   relicModsAtLevel,
 } from './shared/data.js';
+import {
+  applyEffect,
+  clampMods,
+  createMods,
+  effectValue,
+  hitBonuses,
+} from './shared/effects.js';
 import { RNG } from './shared/rng.js';
 import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
 import { generateWave } from './shared/waves.js';
-import { SNAPSHOT_VERSION, BASE_SNAPSHOT_VERSION } from './shared/save.js';
+import { toSnapshot } from './shared/snapshot.js';
 
 // 主动技能常量：落点间距、预警时长、余烬连锁范围。
 const SKILL_METEOR_WARNING = 0.55;
@@ -110,6 +117,7 @@ export class Simulation {
     for (const tower of opts.towers || []) {
       this.towers.push(this.makeTower(tower.type, tower.c, tower.r, tower.level, tower.invested));
     }
+    this.recomputeTowerStats();
 
     this.combatRng = new RNG(`${this.seed}:combat:0`);
   }
@@ -587,6 +595,11 @@ export class Simulation {
     for (const tower of this.towers) {
       tower.cd = Math.max(0, tower.cd - dt);
       tower.recoil = Math.max(0, (tower.recoil || 0) - dt * 5);
+      // 支援塔不索敌、不攻击，只通过 recomputeTowerStats 产生的光环影响其他塔。
+      if (TOWERS[tower.type].support) {
+        tower.target = null;
+        continue;
+      }
       // 被首领震击停摆：不索敌、不开火，冷却照常流逝。
       if (this.time < (tower.disabledUntil || 0)) continue;
       // 稳定属性缓存在建造/升级/遗物变化时刷新，不在每个模拟步重建对象。
@@ -676,6 +689,7 @@ export class Simulation {
       slowDur: stats.slowDur || 0,
       dot: stats.dot || 0,
       dotDur: stats.dotDur || 0,
+      knockback: stats.knockback || 0,
       ignoreArmor: !!def.ignoreArmor,
       ttl: 4,
       done: false,
@@ -781,6 +795,10 @@ export class Simulation {
         enemy.poisonUntil = this.time + (proj.dotDur || 3);
       }
     }
+    if (proj.knockback > 0) {
+      // 击退只回退路径进度，位置在下个模拟步由 posAt 重新求得，不引入额外随机数。
+      enemy.progress = Math.max(0, enemy.progress - proj.knockback);
+    }
   }
 
   // ---------- 伤害 ----------
@@ -795,8 +813,8 @@ export class Simulation {
   // 面板显示 statsFor().dmg，对零护甲、无暴击、无条件增伤的目标应完全一致。
   computeHit(base, towerType, enemy, opts = {}) {
     let dmg = base;
-    if (this.mods.bossDmg && enemy.boss) dmg *= 1 + this.mods.bossDmg;
-    if (this.mods.lowHpDmg && this.baseHp / this.maxBaseHp < 0.4) dmg *= 1 + this.mods.lowHpDmg;
+    // 条件增伤由注册表按声明顺序给出，乘法顺序与重构前一致。
+    for (const bonus of hitBonuses(this, enemy)) dmg *= 1 + bonus;
     let crit = false;
     if (!opts.noCrit && this.mods.crit > 0 && this.combatRng.float() < this.mods.crit) {
       dmg *= 2;
@@ -911,7 +929,7 @@ export class Simulation {
       level,
       invested,
       cd: 0,
-      angle: -Math.PI / 2,
+      angle: TOWERS[type]?.support ? 0 : -Math.PI / 2,
       target: null,
       recoil: 0,
       disabledUntil: 0,
@@ -965,7 +983,7 @@ export class Simulation {
     const tower = this.makeTower(type, c, r, 0, cost);
     this.inheritTowerOverdrive(tower);
     this.towers.push(tower);
-    this.refreshTowerStats(tower);
+    this.recomputeTowerStats();
     this.addEffect({ kind: 'place', x: c + 0.5, y: r + 0.5, ttl: 0.45, color: TOWERS[type].color });
     this.playSound('place');
     this.save();
@@ -982,7 +1000,7 @@ export class Simulation {
     this.gold -= cost;
     tower.level += 1;
     tower.invested += cost;
-    this.refreshTowerStats(tower);
+    this.recomputeTowerStats();
     this.addEffect({ kind: 'place', x: tower.x, y: tower.y, ttl: 0.5, color: '#ffd36b' });
     this.playSound('upgrade');
     this.save();
@@ -993,6 +1011,7 @@ export class Simulation {
     const value = this.sellValue(tower);
     this.gold += value;
     this.towers = this.towers.filter((t) => t !== tower);
+    this.recomputeTowerStats();
     if (this.selectedTower === tower) this.selectedTower = null;
     this.addFloater(tower.x, tower.y - 0.4, `+${value}`, '#ffd36b');
     this.playSound('sell');
@@ -1067,61 +1086,48 @@ export class Simulation {
     return { applied: false };
   }
 
+  // 聚合与封顶完全由效果注册表驱动：未注册的键会在 relicModsAtLevel/applyEffect 中报错。
   recomputeMods() {
-    const mods = {
-      dmg: {}, dmgAll: 0, fireRate: 0, range: 0, splash: 0,
-      slow: 0, slowDur: 0, chain: 0, dot: 0,
-      goldMul: 0, killGold: 0, interest: 0, crit: 0,
-      armorPierce: 0, costMul: 0, frostDmgBonus: 0,
-      lowHpDmg: 0, projSpeed: 0, bossDmg: 0, baseHp: 0,
-    };
+    const mods = createMods();
     for (const relic of this.relics) {
       const levelMods = relicModsAtLevel(relic.id, relic.level);
       for (const [key, value] of Object.entries(levelMods)) {
-        if (key === 'dmg') {
-          for (const [type, amount] of Object.entries(value)) {
-            mods.dmg[type] = (mods.dmg[type] || 0) + amount;
-          }
-        } else if (typeof mods[key] === 'number') {
-          mods[key] += value;
-        }
+        applyEffect(mods, key, value);
       }
     }
-
-    for (const type of Object.keys(mods.dmg)) {
-      mods.dmg[type] = Math.min(mods.dmg[type], GLOBAL_MOD_CAPS.dmgType);
-    }
-    for (const [key, cap] of Object.entries(GLOBAL_MOD_CAPS)) {
-      if (key === 'dmgType' || typeof mods[key] !== 'number') continue;
-      mods[key] = key === 'costMul' ? Math.max(mods[key], cap) : Math.min(mods[key], cap);
-    }
+    clampMods(mods);
 
     this.mods = mods;
     // 遗物变化时统一刷新塔的稳定属性，模拟步内不再重算。
-    for (const tower of this.towers) this.refreshTowerStats(tower);
+    this.recomputeTowerStats();
   }
 
   computeTowerStats(tower) {
     const def = TOWERS[tower.type];
     const level = def.levels[Math.min(tower.level, def.levels.length - 1)];
     const mods = this.mods;
+    const dmg = effectValue(mods, 'dmg');
+    let rate = level.rate * (1 + effectValue(mods, 'fireRate'));
+    let range = level.range + effectValue(mods, 'range');
     // 时之终章的过载窗口：攻速/射程只在窗口内生效，结束即刷新缓存。
-    let rate = level.rate * (1 + mods.fireRate);
-    let range = level.range + mods.range;
     if (this.time < (tower.skillOverdriveUntil || 0)) {
       rate *= 1 + (tower.skillOverdriveAtk || 0);
       range += tower.skillOverdriveRange || 0;
     }
     return {
-      dmg: level.dmg * (1 + (mods.dmg[tower.type] || 0) + mods.dmgAll),
+      dmg: level.dmg * (1 + (dmg[tower.type] || 0) + effectValue(mods, 'dmgAll')),
       rate,
       range: range * (this.modifier?.rangeMul || 1),
-      splash: (level.splash || 0) * (1 + mods.splash),
+      splash: (level.splash || 0) * (1 + effectValue(mods, 'splash')),
       slow: level.slow || 0,
       slowDur: level.slowDur || 0,
-      chain: (level.chain || 0) + mods.chain,
+      chain: (level.chain || 0) + effectValue(mods, 'chain'),
       dot: level.dot || 0,
       dotDur: level.dotDur || 0,
+      knockback: level.knockback || 0,
+      buffDmg: level.buffDmg || 0,
+      buffRate: level.buffRate || 0,
+      support: !!def.support,
       maxLevel: def.levels.length,
     };
   }
@@ -1129,6 +1135,42 @@ export class Simulation {
   refreshTowerStats(tower) {
     tower.stats = this.computeTowerStats(tower);
     return tower.stats;
+  }
+
+  // 战旗塔光环：只读塔的位置与等级属性，不消耗 RNG，因此在建造/升级/出售/遗物变化时重算即可。
+  // 单塔光环加成上限 80%，与遗物减速/增伤的封顶量级一致。
+  recomputeTowerStats() {
+    for (const tower of this.towers) {
+      tower.aura = null;
+      tower.stats = this.computeTowerStats(tower);
+    }
+    const banners = this.towers.filter((tower) => TOWERS[tower.type].support);
+    if (!banners.length) return;
+    for (const tower of this.towers) {
+      if (TOWERS[tower.type].support) continue;
+      let dmg = 0;
+      let rate = 0;
+      for (const banner of banners) {
+        const range = banner.stats.range;
+        const dx = banner.x - tower.x;
+        const dy = banner.y - tower.y;
+        if (dx * dx + dy * dy <= range * range) {
+          dmg += banner.stats.buffDmg;
+          rate += banner.stats.buffRate;
+        }
+      }
+      if (dmg <= 0 && rate <= 0) continue;
+      dmg = Math.min(0.8, dmg);
+      rate = Math.min(0.8, rate);
+      tower.aura = { dmg, rate };
+      tower.stats = {
+        ...tower.stats,
+        dmg: tower.stats.dmg * (1 + dmg),
+        rate: tower.stats.rate * (1 + rate),
+        auraDmg: dmg,
+        auraRate: rate,
+      };
+    }
   }
 
   statsFor(tower) {
@@ -1621,30 +1663,7 @@ export class Simulation {
   // ---------- 存档 / HUD ----------
 
   toSnapshot() {
-    return {
-      version: this.skill ? SNAPSHOT_VERSION : BASE_SNAPSHOT_VERSION,
-      runId: this.runId,
-      seed: this.seed,
-      mode: this.mode,
-      difficulty: this.difficulty,
-      wave: this.clearedWave,
-      clearedWave: this.clearedWave,
-      pendingDraft: this.pendingDraft,
-      gold: Math.floor(this.gold),
-      baseHp: Math.max(0, this.baseHp),
-      maxBaseHp: this.maxBaseHp,
-      kills: this.kills,
-      relics: this.relics.map((r) => ({ id: r.id, level: r.level || 1 })),
-      towers: this.towers.map((t) => ({
-        type: t.type, c: t.c, r: t.r, level: t.level, invested: t.invested,
-      })),
-      // 含技能时写 v4；无技能局保持 v3，旧测试/旧客户端仍按原格式读取。
-      skill: this.skill
-        ? { id: this.skill.id, level: this.skill.level, cooldown: this.skill.cooldown }
-        : null,
-      startedAt: this.startedAt,
-      savedAt: Date.now(),
-    };
+    return toSnapshot(this);
   }
 
   save() {

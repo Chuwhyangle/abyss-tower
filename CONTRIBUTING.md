@@ -28,6 +28,30 @@ git push -u origin feature/boss-abilities
 gh pr create --fill
 ```
 
+## quay 本地开发
+
+本仓库用 quay 驱动任务开发，任务 worktree 与主检出分离。
+
+- **worktree 供给**：每个任务 worktree 需要拿到主检出里被 gitignore 的 `.quay/config.yml`
+  与 `.quay/profiles.yml`，否则测试读不到 `test_command`。声明清单在 `.worktreeinclude`，
+  脚本 `scripts/worktree-include.sh` 按清单复制：
+
+  ```bash
+  git worktree add ../abyss-tower-worktrees/<task-id> -b task/<task-id> develop
+  bash scripts/worktree-include.sh ../abyss-tower-worktrees/<task-id>
+  bash scripts/worktree-include.sh --verify ../abyss-tower-worktrees/<task-id>
+  ```
+
+  `--verify` 只检查不复制，缺文件时打印具体路径并以 exit 2 失败。
+
+- **driver 启动**：在仓库根目录运行 `quay driver start --kind promotion` 与
+  `quay driver start --kind worker`，再用 `quay serve` 打开任务板。配置见 `.quay/config.yml`
+  的 `loop:` 段（`worktree_root`、`test_command`、`gates`）。
+
+- **任务板只在本地 `develop` 线跟踪**：`tasks/`、`goals/`、`adr/`、`meta/` 与 `.quay/` 是
+  quay 的本地工作线；`main` 保持干净、只走正常发布 PR。不要从 `main` 分叉任务 worktree，
+  也不要把任务板状态提交到 `main`。
+
 ## 合并前检查
 
 - `npm test` 全绿（50+ 项，含接口与迁移）。

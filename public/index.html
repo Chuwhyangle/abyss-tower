@@ -13,61 +13,82 @@
     <section id="title-screen" class="screen title-screen">
       <div class="title-glow" aria-hidden="true"></div>
       <div class="title-inner">
-        <p class="logo-kicker">ROGUELIKE TOWER DEFENSE</p>
-        <h1>渊塔守卫</h1>
-        <p class="logo-sub">在深渊吞没基地之前，守住最后三十波。</p>
+        <p class="logo-kicker" data-i18n="title.kicker">ROGUELIKE TOWER DEFENSE</p>
+        <h1 data-i18n="title.name">渊塔守卫</h1>
+        <p class="logo-sub" data-i18n="title.tagline">在深渊吞没基地之前，守住最后三十波。</p>
 
         <div class="title-card">
           <div class="profile-line">
-            <span id="player-name" class="player-name">指挥官</span>
-            <button id="btn-rename" class="icon-btn" title="修改昵称">✎</button>
-            <button id="btn-settings-title" class="icon-btn" title="画质设置">⚙</button>
+            <span id="player-name" class="player-name" data-i18n="title.commander">指挥官</span>
+            <button id="btn-rename" class="icon-btn" title="修改昵称" data-i18n-title="title.rename">✎</button>
+            <button id="btn-settings-title" class="icon-btn" title="画质设置" data-i18n-title="title.settings">⚙</button>
             <span class="cores-badge">◈ <b id="cores">0</b></span>
           </div>
 
           <div class="title-actions">
-            <button id="btn-play" class="btn primary big">开始远征</button>
-            <button id="btn-daily" class="btn ghost">每日挑战 <span id="daily-label"></span></button>
-            <button id="btn-resume" class="btn ghost" hidden>继续上一局</button>
+            <button id="btn-play" class="btn primary big" data-i18n="title.play">开始远征</button>
+            <button id="btn-daily" class="btn ghost"><span data-i18n="title.daily">每日挑战</span> <span id="daily-label"></span></button>
+            <button id="btn-resume" class="btn ghost" data-i18n="title.resume" hidden>继续上一局</button>
             <div class="row">
-              <button id="btn-shop" class="btn small">星核商店</button>
-              <button id="btn-board" class="btn small">排行榜</button>
-              <button id="btn-help" class="btn small">玩法</button>
+              <button id="btn-shop" class="btn small" data-i18n="title.shop">星核商店</button>
+              <button id="btn-board" class="btn small" data-i18n="title.board">排行榜</button>
+              <button id="btn-achievements" class="btn small" data-i18n="title.achievements">成就</button>
+              <button id="btn-stats" class="btn small" data-i18n="title.stats">生涯</button>
+              <button id="btn-help" class="btn small" data-i18n="title.help">玩法</button>
             </div>
           </div>
 
           <div id="title-skills" class="skill-cards"></div>
 
           <div id="title-stats" class="title-stats"></div>
+
+          <div id="achievements-panel" class="achievements-panel" hidden>
+            <div class="achievements-head">
+              <h2 data-i18n="title.achievements">成就</h2>
+              <span id="achievements-progress" class="achievements-progress">0 / 0</span>
+              <button id="btn-achievements-close" class="icon-btn" title="关闭成就面板" data-i18n-title="title.closeAchievements">✕</button>
+            </div>
+            <div id="achievements-list" class="achievements-list"></div>
+          </div>
+
+          <div id="stats-panel" class="career-panel" hidden>
+            <div class="career-head">
+              <h2 data-i18n="title.stats">生涯</h2>
+              <button id="btn-stats-close" class="icon-btn" title="关闭生涯面板" data-i18n-title="title.closeStats">✕</button>
+            </div>
+            <div id="stats-body" class="career-body"></div>
+          </div>
+
+          <div id="leaderboard-panel" hidden></div>
         </div>
 
-        <p class="footnote">服务端生成地图 / 波次 / 遗物 · 每波自动存档</p>
+        <p class="footnote" data-i18n="title.footnote">服务端生成地图 / 波次 / 遗物 · 每波自动存档</p>
       </div>
     </section>
 
     <section id="game-screen" class="screen game-screen" hidden>
       <header class="hud">
         <div class="hud-left">
-          <div class="stat"><span class="stat-label">波次</span><b id="hud-wave">0</b><span class="stat-max">/30</span></div>
-          <div class="stat gold"><span class="stat-label">金币</span><b id="hud-gold">0</b></div>
-          <div class="stat hp"><span class="stat-label">基地</span><b id="hud-hp">20</b><span class="stat-max" id="hud-hpmax">/20</span></div>
-          <div class="stat"><span class="stat-label">击杀</span><b id="hud-kills">0</b></div>
+          <div class="stat"><span class="stat-label" data-i18n="hud.wave">波次</span><b id="hud-wave">0</b><span class="stat-max">/30</span></div>
+          <div class="stat gold"><span class="stat-label" data-i18n="hud.gold">金币</span><b id="hud-gold">0</b></div>
+          <div class="stat hp"><span class="stat-label" data-i18n="hud.base">基地</span><b id="hud-hp">20</b><span class="stat-max" id="hud-hpmax">/20</span></div>
+          <div class="stat"><span class="stat-label" data-i18n="hud.kills">击杀</span><b id="hud-kills">0</b></div>
         </div>
         <div class="hud-right">
-          <div id="hud-difficulty" class="diff-badge">远征</div>
-          <div id="wave-state" class="wave-state">准备阶段</div>
-          <button id="btn-next-wave" class="btn primary">开始第 1 波</button>
-          <div class="speed-group" role="group" aria-label="游戏速度">
-            <button class="speed-btn" data-speed="0" title="暂停 / 继续">❚❚</button>
+          <div id="hud-difficulty" class="diff-badge" data-i18n="hud.defaultDifficulty">远征</div>
+          <div id="wave-state" class="wave-state" data-i18n="hud.prep">准备阶段</div>
+          <button id="btn-next-wave" class="btn primary" data-i18n="hud.startWave1">开始第 1 波</button>
+          <div class="speed-group" role="group" aria-label="游戏速度" data-i18n-aria="hud.speedGroup">
+            <button class="speed-btn" data-speed="0" title="暂停 / 继续" data-i18n-title="hud.pauseResume">❚❚</button>
             <button class="speed-btn active" data-speed="1">1×</button>
             <button class="speed-btn" data-speed="2">2×</button>
             <button class="speed-btn" data-speed="3">3×</button>
           </div>
-          <button id="btn-relics-mobile" class="icon-btn mobile-only" title="查看遗物">◈<span id="hud-relics">0</span></button>
-          <button id="btn-fullscreen" class="icon-btn mobile-only" title="全屏 / 横屏">⛶</button>
-          <button id="btn-settings-game" class="icon-btn" title="画质设置">⚙</button>
-          <button id="btn-sound" class="icon-btn" title="音效">🔊</button>
-          <button id="btn-quit" class="icon-btn" title="退出远征">✕</button>
+          <button id="btn-relics-mobile" class="icon-btn mobile-only" title="查看遗物" data-i18n-title="hud.viewRelics">◈<span id="hud-relics">0</span></button>
+          <button id="btn-fullscreen" class="icon-btn mobile-only" title="全屏 / 横屏" data-i18n-title="hud.fullscreen">⛶</button>
+          <button id="btn-settings-game" class="icon-btn" title="画质设置" data-i18n-title="hud.settings">⚙</button>
+          <button id="btn-sound" class="icon-btn" title="音效" data-i18n-title="hud.sound">🔊</button>
+          <button id="btn-quit" class="icon-btn" title="退出远征" data-i18n-title="hud.quit">✕</button>
         </div>
       </header>
 
@@ -76,10 +97,10 @@
           <canvas id="game-canvas" width="1056" height="576"></canvas>
 
           <aside class="relic-panel">
-            <div class="relic-title">遗物 <span id="relic-count">0</span></div>
+            <div class="relic-title"><span data-i18n="hud.relics">遗物</span> <span id="relic-count">0</span></div>
             <div id="relic-list" class="relic-list"></div>
             <div id="next-wave-panel" class="next-wave-panel" hidden>
-              <div class="relic-title">下一波 <span id="next-wave-meta"></span></div>
+              <div class="relic-title"><span data-i18n="hud.nextWave">下一波</span> <span id="next-wave-meta"></span></div>
               <div id="next-wave-list" class="next-wave-list"></div>
             </div>
           </aside>
@@ -101,16 +122,16 @@
       <div id="rotate-hint" class="rotate-hint">
         <div class="rotate-card">
           <div class="rotate-icon" aria-hidden="true">▭</div>
-          <h2>正在切换横屏</h2>
-          <p>游戏需要横屏进行。若浏览器未自动旋转，请关闭系统竖屏锁定后重试。</p>
-          <button id="btn-rotate-retry" class="btn primary">重试自动横屏</button>
-          <p class="rotate-note">iOS Safari 不支持网页强制旋转，请在浏览器菜单中选择横屏。</p>
+          <h2 data-i18n="rotate.title">正在切换横屏</h2>
+          <p data-i18n="rotate.body">游戏需要横屏进行。若浏览器未自动旋转，请关闭系统竖屏锁定后重试。</p>
+          <button id="btn-rotate-retry" class="btn primary" data-i18n="rotate.retry">重试自动横屏</button>
+          <p class="rotate-note" data-i18n="rotate.note">iOS Safari 不支持网页强制旋转，请在浏览器菜单中选择横屏。</p>
         </div>
       </div>
 
       <footer class="shop">
         <div id="shop-list" class="shop-list"></div>
-        <div class="shop-hint">选择塔卡 → 点击空地建造 · 快捷键 1–5 · Q 技能 · U 升级 · S 出售 · 空格暂停 · Esc 取消</div>
+        <div class="shop-hint" data-i18n="shop.hint">选择塔卡 → 点击空地建造 · 快捷键 1–5 · Q 技能 · U 升级 · S 出售 · 空格暂停 · Esc 取消</div>
       </footer>
     </section>
 
@@ -119,5 +140,8 @@
 
   <div id="auth-root"></div>
   <script type="module" src="/js/main.js"></script>
+  <script type="module" src="/js/achievements-ui.js"></script>
+  <script type="module" src="/js/stats-ui.js"></script>
+  <script type="module" src="/js/leaderboard-ui.js"></script>
 </body>
 </html>

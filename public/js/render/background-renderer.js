@@ -6,6 +6,81 @@ import { Palette } from './palette.js';
 
 const T = TILE;
 
+// 背景分层顺序（绘制从远到近）。背景只在构造/画质变更时烘焙一次，不进入每帧循环。
+export const BACKGROUND_LAYERS = Object.freeze(['far', 'mist', 'ground', 'decor', 'particles']);
+
+// 每个生物群系一套分层定义；颜色仍来自 palette.js，这里只声明层次与预算。
+export const BIOME_SCENES = Object.freeze({
+  canyon: Object.freeze({
+    motif: 'mesa',
+    far: Object.freeze({ bands: 3, alpha: 0.05, tilt: 0.18 }),
+    mist: Object.freeze({ patches: 4, alpha: 0.035, size: 0.2 }),
+    ground: Object.freeze({ moss: 0.12 }),
+    decor: Object.freeze({ prop: 'bones', density: 0.55 }),
+    particles: Object.freeze({ max: 64, drift: 0.6, size: 2.2 }),
+  }),
+  twin: Object.freeze({
+    motif: 'wetland',
+    far: Object.freeze({ bands: 4, alpha: 0.055, tilt: 0.12 }),
+    mist: Object.freeze({ patches: 6, alpha: 0.05, size: 0.26 }),
+    ground: Object.freeze({ moss: 0.2 }),
+    decor: Object.freeze({ prop: 'reed', density: 0.6 }),
+    particles: Object.freeze({ max: 72, drift: 0.8, size: 2.4 }),
+  }),
+  triple: Object.freeze({
+    motif: 'rift',
+    far: Object.freeze({ bands: 3, alpha: 0.06, tilt: 0.24 }),
+    mist: Object.freeze({ patches: 3, alpha: 0.03, size: 0.18 }),
+    ground: Object.freeze({ moss: 0.06 }),
+    decor: Object.freeze({ prop: 'crack', density: 0.6 }),
+    particles: Object.freeze({ max: 58, drift: 0.45, size: 2 }),
+  }),
+  ring: Object.freeze({
+    motif: 'runes',
+    far: Object.freeze({ bands: 4, alpha: 0.05, tilt: 0.08 }),
+    mist: Object.freeze({ patches: 5, alpha: 0.04, size: 0.24 }),
+    ground: Object.freeze({ moss: 0.1 }),
+    decor: Object.freeze({ prop: 'rune', density: 0.5 }),
+    particles: Object.freeze({ max: 68, drift: 0.7, size: 2.2 }),
+  }),
+  cross: Object.freeze({
+    motif: 'ruins',
+    far: Object.freeze({ bands: 3, alpha: 0.045, tilt: 0.2 }),
+    mist: Object.freeze({ patches: 4, alpha: 0.032, size: 0.22 }),
+    ground: Object.freeze({ moss: 0.08 }),
+    decor: Object.freeze({ prop: 'pillar', density: 0.55 }),
+    particles: Object.freeze({ max: 60, drift: 0.55, size: 2.1 }),
+  }),
+});
+
+export function biomeScene(map) {
+  return BIOME_SCENES[map?.archetype] || BIOME_SCENES.canyon;
+}
+
+// 环境粒子预算：低配约为高配的 35%，off 为 0，未知档位回退低配；数量永不超过场景上限。
+export function ambientParticleBudget(decorations, maxCount) {
+  const cap = Number.isFinite(maxCount) ? Math.floor(maxCount) : 0;
+  if (cap <= 0 || decorations === 'off') return 0;
+  if (decorations === 'full') return cap;
+  return Math.max(1, Math.round(cap * 0.35));
+}
+
+// 装饰排除区：路径格及其一圈相邻格不放置地表道具，保证路线与塔位清晰。
+export function decorExclusion(map) {
+  const excluded = new Set();
+  const rows = map.rows;
+  for (const cell of map.pathCells || []) {
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const c = cell.c + dc;
+        const r = cell.r + dr;
+        if (c >= 0 && c < map.cols && r >= 0 && r < rows) excluded.add(c * rows + r);
+      }
+    }
+  }
+  return excluded;
+}
+
 export class BackgroundRenderer {
   constructor(game) {
     this.game = game;
@@ -21,9 +96,11 @@ export class BackgroundRenderer {
     g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const rng = new RNG(game.seed + ':bg');
     const decor = settings.decorations;
+    const scene = biomeScene(map);
     const tuftCount = decor === 'off' ? 0 : decor === 'light' ? 90 : 260;
     const pebbleCount = decor === 'off' ? 0 : decor === 'light' ? 60 : 170;
     const chevronStep = decor === 'off' ? Infinity : decor === 'light' ? 4.2 : 2.4;
+    const excluded = decorExclusion(map);
 
     const P = palette;
     g.fillStyle = P.grass2;
@@ -36,7 +113,7 @@ export class BackgroundRenderer {
         g.fillRect(c * T, r * T, T, T);
         g.fillStyle = `rgba(255,255,255,${rng.float() * 0.014})`;
         g.fillRect(c * T, r * T, T, T);
-        if (rng.float() < 0.12) {
+        if (rng.float() < scene.ground.moss) {
           g.fillStyle = `rgba(${P.tuft},${0.025 + rng.float() * 0.035})`;
           g.beginPath();
           g.ellipse(
@@ -52,6 +129,9 @@ export class BackgroundRenderer {
         }
       }
     }
+
+    // 远景/雾霭层：低对比度叠在地面之上，路径与装饰随后绘制，保证路线始终最清晰。
+    this.drawDepthLayers(g, width, height, P, scene, rng);
 
     // 细网格
     g.strokeStyle = P.grid;
@@ -200,19 +280,17 @@ export class BackgroundRenderer {
     }
 
     // 生物群系地表遗迹：不同原型各自的氛围道具
-    if (decor !== 'off') this.drawBiomeProps(g, map, P, rng, decor);
+    if (decor !== 'off') this.drawBiomeProps(g, map, P, rng, decor, excluded);
 
-    // 生物群系氛围光点
-    if (decor !== 'off') {
-      const motes = decor === 'light' ? 24 : 70;
-      for (let i = 0; i < motes; i++) {
-        const x = rng.float() * width;
-        const y = rng.float() * height;
-        g.fillStyle = `${P.ambient}${0.035 + rng.float() * 0.06})`;
-        g.beginPath();
-        g.arc(x, y, rng.range(0.8, 2.2), 0, Math.PI * 2);
-        g.fill();
-      }
+    // 生物群系氛围光点：数量由场景上限与画质档位共同约束（低配约 35%）。
+    const motes = ambientParticleBudget(decor, scene.particles.max);
+    for (let i = 0; i < motes; i++) {
+      const x = rng.float() * width;
+      const y = rng.float() * height;
+      g.fillStyle = `${P.ambient}${0.035 + rng.float() * 0.06})`;
+      g.beginPath();
+      g.arc(x, y, rng.range(0.8, scene.particles.size), 0, Math.PI * 2);
+      g.fill();
     }
 
     // 边缘暗角
@@ -232,8 +310,52 @@ export class BackgroundRenderer {
     return bg;
   }
 
+  // 远景山脊 + 雾霭：每层透明度不同，形成静态视差纵深；不覆盖路径与塔位。
+  drawDepthLayers(g, width, height, P, scene, rng) {
+    const { far, mist } = scene;
+
+    const sky = g.createLinearGradient(0, 0, 0, height * 0.62);
+    sky.addColorStop(0, Palette.hexToRgba(P.grass2, Math.min(0.82, 0.5 + far.alpha * 5)));
+    sky.addColorStop(1, Palette.hexToRgba(P.grass2, 0));
+    g.fillStyle = sky;
+    g.fillRect(0, 0, width, height * 0.62);
+
+    const steps = 12;
+    for (let band = 0; band < far.bands; band++) {
+      const baseY = height * (0.08 + band * 0.11);
+      const amp = height * (0.015 + band * 0.007);
+      const alpha = far.alpha * (1 - band * 0.16);
+      g.fillStyle = Palette.hexToRgba(P.accent, alpha);
+      g.beginPath();
+      g.moveTo(0, baseY);
+      for (let i = 0; i <= steps; i++) {
+        const x = (i / steps) * width;
+        const y =
+          baseY +
+          Math.sin(i * 1.7 + band * 2.3 + rng.float() * 0.6) * amp +
+          far.tilt * height * 0.015 * (i / steps - 0.5);
+        g.lineTo(x, y);
+      }
+      g.lineTo(width, baseY + height * 0.2);
+      g.lineTo(0, baseY + height * 0.2);
+      g.closePath();
+      g.fill();
+    }
+
+    for (let i = 0; i < mist.patches; i++) {
+      const x = rng.float() * width;
+      const y = height * (0.22 + rng.float() * 0.56);
+      const rx = width * mist.size * (0.5 + rng.float() * 0.7);
+      const ry = rx * (0.26 + rng.float() * 0.22);
+      g.fillStyle = Palette.hexToRgba(P.accent, mist.alpha * (0.6 + rng.float() * 0.8));
+      g.beginPath();
+      g.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+
   // 生物群系地表道具：只画低对比度地贴，塔与单位仍是最清晰的层次。
-  drawBiomeProps(g, map, P, rng, decor) {
+  drawBiomeProps(g, map, P, rng, decor, excluded) {
     const arch = map.archetype || 'canyon';
     const count = decor === 'light' ? 6 : 14;
 
@@ -241,6 +363,8 @@ export class BackgroundRenderer {
       const c = rng.int(map.cols);
       const r = rng.int(map.rows);
       if (!map.buildable?.[r]?.[c]) continue;
+      // 路径与其相邻格不放置地贴，避免挡住路线和塔位。
+      if (excluded?.has(c * map.rows + r)) continue;
       const x = c * T + rng.range(0.25, 0.75) * T;
       const y = r * T + rng.range(0.25, 0.75) * T;
 

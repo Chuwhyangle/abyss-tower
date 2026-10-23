@@ -1,4 +1,4 @@
-// 地图生成：多入口/汇流路径图、5 种原型、地图词缀与三候选。
+// 地图生成：多入口/汇流路径图、6 种原型、地图词缀与三候选。
 import { RNG } from './rng.js';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -26,6 +26,10 @@ export const ARCHETYPES = {
     id: 'cross', name: '交叉回廊', spawns: 2, wind: 0.4, scoreMul: 1.1,
     desc: '两路先汇合再分叉到基地，需要二次分配火力。',
   },
+  switchback: {
+    id: 'switchback', name: '折返长廊', spawns: 1, wind: 0.52, scoreMul: 1.0,
+    desc: '单入口反复折返，直线火力难以覆盖全程，需要沿路分段布防。',
+  },
 };
 
 export const MAP_MODIFIERS = [
@@ -49,28 +53,51 @@ export const MAP_MODIFIERS = [
     desc: '额外一个入口，金币收入 +10%',
     hpMul: 1.05, speedMul: 1.03, goldMul: 1.1, rangeMul: 1, scoreMul: 1.05, extraPortal: 1,
   },
+  {
+    id: 'armored', name: '重甲', color: '#8f9bb3',
+    desc: '敌人生命 +18%、移速 -4%，击杀金币 +10%',
+    hpMul: 1.18, speedMul: 0.96, goldMul: 1.1, rangeMul: 1, scoreMul: 1.06, extraPortal: 0,
+  },
+  {
+    id: 'bounty', name: '悬赏', color: '#f2a65a',
+    desc: '击杀金币 +28%，最终分数 -4%',
+    hpMul: 1, speedMul: 1, goldMul: 1.28, rangeMul: 1, scoreMul: 0.96, extraPortal: 0,
+  },
+  {
+    id: 'vista', name: '远眺', color: '#7fd1ae',
+    desc: '防御塔射程 +12%，击杀金币 -6%',
+    hpMul: 1, speedMul: 1, goldMul: 0.94, rangeMul: 1.12, scoreMul: 0.97, extraPortal: 0,
+  },
+  {
+    id: 'surge', name: '涌潮', color: '#6fa8ff',
+    desc: '敌人移速 +22%，击杀金币 +15%',
+    hpMul: 1, speedMul: 1.22, goldMul: 1.15, rangeMul: 1, scoreMul: 1.07, extraPortal: 0,
+  },
 ];
 
 export const MODIFIER_BY_ID = Object.fromEntries(MAP_MODIFIERS.map((m) => [m.id, m]));
 
-// 三张候选地图：同种子完全一致；至少包含一张低复杂度地图。
-export function generateMapCandidates(seed, count = 3, cols = 22, rows = 12) {
+// 候选地图的原型与词缀排列：同种子完全一致。
+// 每日挑战复用本函数派生当日词缀，RNG 调用顺序不可改动。
+export function candidatePlan(seed, count = 3) {
   const rng = new RNG(`${seed}:candidates`);
-  const ids = rng.shuffle(Object.keys(ARCHETYPES)).slice(0, Math.min(count, 5));
+  const ids = rng
+    .shuffle(Object.keys(ARCHETYPES))
+    .slice(0, Math.min(count, Object.keys(ARCHETYPES).length));
   if (!ids.some((id) => id === 'canyon' || id === 'twin')) {
     ids[ids.length - 1] = rng.float() < 0.5 ? 'canyon' : 'twin';
   }
   const modifierPool = rng.shuffle(MAP_MODIFIERS);
+  return { ids, modifierPool };
+}
+
+// 三张候选地图：同种子完全一致；至少包含一张低复杂度地图。
+export function generateMapCandidates(seed, count = 3, cols = 22, rows = 12) {
+  const { ids, modifierPool } = candidatePlan(seed, count);
   const candidates = [];
   for (let i = 0; i < count; i++) {
     const archetypeId = ids[i % ids.length];
-    let modifier = modifierPool[i % modifierPool.length];
-    // 交叉回廊 + 裂界（三入口）在当前网格上过于拥挤，换一个词缀。
-    if (archetypeId === 'cross' && modifier.id === 'rift') {
-      modifier =
-        modifierPool.find((item, index) => index > i && item.id !== 'rift') ||
-        MODIFIER_BY_ID.rich;
-    }
+    const modifier = modifierPool[i % modifierPool.length];
     const candidate = buildCandidate(
       `${seed}:candidate:${i}`,
       archetypeId,
@@ -181,7 +208,9 @@ function buildLayout(rng, archetype, modifier, cols, rows) {
     }
     if (cells.length < Math.max(8, Math.floor(cols * 0.45))) return null;
 
-    for (const cell of cells) blocked.add(cellKey(cell, rows));
+    // 交叉回廊的入口路径允许彼此重叠：三条入口都挤在汇流点左侧，
+    // 后一条若被前一条整段占格，会在小网格上无路可走（裂界三入口）。
+    if (!branches) for (const cell of cells) blocked.add(cellKey(cell, rows));
     lanes.push({ spawn, cells });
   }
 

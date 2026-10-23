@@ -3,6 +3,7 @@
 - 状态：**已评审**（2026-10-22）
 - 对应需求：`docs/PRD.md` v1.2
 - 目标：确定架构、模块边界、接口契约、数据模型、难度探索方法与测试策略，作为 M2–M5 的实现依据。
+- v2.0 方向（2026-10-23）：新增第 14 节（成就 / 生涯统计 / 音乐 / 可访问性）；只新增系统设计，不改变第 1–13 节已有决策。
 - 评审结论：
   - 难度命名「漫游 / 远征 / 深渊」。
   - 排行榜合并，按最终分数排序，展示难度标签。
@@ -369,7 +370,7 @@ leaderboard(
 
 | 方法 | 路径 | 请求体 | 返回 |
 |---|---|---|---|
-| POST | `/api/session` | `{name?}` | `{profile, dailyAttemptsLeft}` |
+| POST | `/api/session` | `{name?}` | `{profile, dailyAttemptsLeft, daily}`（`daily = {day, seed, modifiers[], streak}`） |
 | GET | `/api/profile` | — | `{profile}` |
 | POST | `/api/runs` | `{mode, difficulty}` | 见下 |
 | GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls） |
@@ -400,9 +401,13 @@ leaderboard(
   "towersUnlocked": ["arrow", "cannon", "frost"],
   "maxRerolls": 1,
   "dailyAttemptsLeft": null,
+  "daily": null,
   "difficultyConfig": { "…": "倍率与说明，UI 展示用" }
 }
 ```
+
+每日挑战（`mode=daily`）额外返回 `daily: {day, seed, modifiers[{id,name,desc,color}], streak}`；
+服务端在开局时校验 `seed === daily-${day}` 且候选地图词缀与派生组合一致。
 
 **结算校验**：
 
@@ -438,9 +443,14 @@ cores = Math.round(
 
 ### 6.4 每日挑战
 
-- 种子：`daily-${UTC 日期}`；玩家可自选 `difficulty`，不影响地图与波次组合（只影响倍率）。
+- 日期：`dayKey()` 取服务器本地时区（`YYYY-MM-DD`），`runs.day`、次数上限、榜单与种子统一使用该日期。
+- 种子：`daily-${日期}`；玩家可自选 `difficulty`，不影响地图与波次组合（只影响倍率）。
+- 词缀：`dailyChallenge(day)`（shared/scoring.js）以同一种子复用 `candidatePlan()` 的原型/词缀排列，
+  取前三项作为当日词缀；开局时服务端校验候选地图词缀与派生组合一致，不一致返回 500。
+- 连续参与：`dailyStreak(days, today)` 从今天（今天未参与则从昨天）向前统计连续日期；
+  开局的每日远征即计入，与是否结算无关。
 - 每次开始前检查当天已结算次数 < 3。
-- 每日榜按 `(mode=daily, day)` 查询，合并三档难度，按最终分数排序并展示难度标签。
+- 每日榜按 `(mode=daily, day)` 查询，合并三档难度，按最终分数排序并展示难度标签（结构不变）。
 
 ### 6.5 静态资源与安全
 
@@ -621,3 +631,74 @@ cores = Math.round(
 **已知风险**：
 - 合并榜下，深渊的 1.5× 分数倍率可能导致高难度成绩主导榜单。首版接受此设定；M4 平衡时若发现倍率失衡，只调 `scoreMul`，不改榜单结构。
 - 每日挑战同种子但不同难度，敌人强度不同；榜单以最终分数比较，需在 UI 中明确展示难度标签，避免误解。
+
+---
+
+## 14. v2.0 系统设计（成就 / 生涯统计 / 音乐 / 可访问性）
+
+本节只写新增决策。既有数据模型与接口见第 6 节，客户端运行时见第 5 节；不重复抄录。
+
+### 14.1 成就系统
+
+**数据模型**（迁移 `0002_achievements`，已存在）：
+
+```sql
+account_achievements(
+  account_id     TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  achievement_id TEXT NOT NULL,
+  unlocked_at    INTEGER NOT NULL,
+  PRIMARY KEY (account_id, achievement_id)
+)
+```
+
+- **定义单一来源**：`public/js/shared/achievements.js` 导出 `ACHIEVEMENTS`（`id/title/desc/condition/group/rarity/hidden/target/progress/check`）、分组表 `ACHIEVEMENT_GROUPS`（通关 / 构筑 / 挑战 / 收集）、稀有度表 `ACHIEVEMENT_RARITIES`（common / rare / epic）与纯函数 `evaluateAchievements(ctx)`；服务端判定，客户端只读取展示。
+- **判定上下文**：`run`（本局结算：mode/difficulty/victory/waveReached/kills/score/durationMs/relics）、`stats`（结算后的生涯统计）、`dailyRuns` / `dailyWins`、`unlocked`（已解锁集合，供组合成就使用）。
+- **落库时序**：`POST /api/runs/:id/finish` 在同一结算流程内先更新 `player_stats`，再调用 `unlockAchievements`，保证成就看到的是「本局已计入」的统计。
+- **幂等**：主键 + `INSERT OR IGNORE`，重复结算不会重复解锁或重复发奖。
+- **进度模型**：带 `target` 的成就额外提供 `progress(ctx)`，判定统一为 `progress(ctx) >= target`；`achievementProgress()` 返回 `{current, target}` 并封顶到 target。摘要接口用 `careerStats()` + 每日挑战统计重建只读上下文（`run` 为空），已解锁成就的进度直接显示为完成。
+- **接口**：`GET /api/achievements` 返回 `{total, unlockedCount, groups[], achievements[]}`；每项含 `id/title/desc/condition/group/groupName/rarity/rarityName/hidden/unlocked/unlockedAt/progress`。未解锁的隐藏成就只返回 `title: "???"`、`desc: ""`、`condition: "???"`、`progress: null`，真实描述不下发；结算响应可附带本次新增成就用于即时提示。
+- **扩展规则**：新增成就只加定义与（必要时）判定上下文字段，不改表；累计/组合类成就必须基于服务端统计判定，禁止客户端上报解锁。
+- **验收**：`node --test tests/achievements.test.mjs tests/achievements-depth.test.mjs`（AC-102）。
+
+### 14.2 生涯统计聚合口径
+
+**存储**：`player_stats(account_id, stat_key, scope_key, value_num, updated_at)`；`scope_key` 为空串表示全局，`difficulty:<id>` 表示分难度。
+
+| 口径 | 键 | 聚合方式 |
+|---|---|---|
+| 全局 | `runs` | 已结算且未放弃的对局数 |
+| 全局 | `wins` | `victory = 1` 的对局数 |
+| 全局 | `kills` | 结算被服务端接受的击杀数累计 |
+| 分难度 | `runs` / `wins` | 同上，按 `roam / standard / abyss` 分别累计 |
+| 分难度 | `best_wave` / `best_score` | 历史最大值，单调不减 |
+
+- **计入范围**：每日挑战与远征同样计入生涯统计与成就；`abandoned` 对局不计入 `runs / wins / kills`，也不刷新 `best_*`。
+- **写入时机**：只在对局结算（finish）时聚合，不逐波累加；统计更新与成就判定处于同一结算事务，失败一起回滚。
+- **接口**：`GET /api/profile` 内已含 `stats`；新增只读快照 `GET /api/stats`，返回同一口径（含按难度分组），不引入第二套计算。
+- **展示**：总局数、通关率、最高波次、最常用塔/遗物；其中「最常用塔/遗物」从历史对局派生，属于展示层聚合，不写入 `player_stats` 主键。
+- **验收**：`node --test tests/stats.test.mjs`（AC-103），覆盖胜利 / 失败 / 放弃三类，并验证 `best_*` 单调性与分难度口径。
+
+### 14.3 音乐系统结构
+
+- **依赖边界**：纯 WebAudio 合成，无音频素材、无第三方依赖，不参与战斗判定。
+- **结构**：`AudioFX` 单例（`public/js/audio.js`）。`MUSIC_TRACKS` 按情绪分轨（`menu / battle / boss`），每轨 = 和弦进行 + 振荡器音色 + 和弦时值；`scheduleMusicStep()` 用定时器逐和弦调度，振荡器 + 包络合成，循环播放。
+- **音量通道**：音效走 master 增益，音乐走独立 `musicGain`（默认明显低于音效）；`sound` 与 `music` 两个设置项相互独立。
+- **生命周期**：`startMusic(mood)` / `stopMusic()`；页面隐藏时暂停、回到前台续播；用户手势前不创建 `AudioContext`；音效与音乐都关闭时不创建上下文。
+- **扩展约束**：新增曲目只加 `MUSIC_TRACKS` 数据；曲目切换不得阻塞主循环，也不得触发 `sim.js` 的任何随机调用。
+- **验收**：`tests/audio-events.test.mjs` 与 `tests/music.test.mjs`（AC-105）。
+
+### 14.4 可访问性基线
+
+- **动效**：尊重 `prefers-reduced-motion`，关闭屏幕震动、粒子与光晕等装饰动画；战斗模拟、波次与计分完全不变。
+- **键盘**：所有可交互控件可 Tab 到达，焦点样式可见且不被全局 `outline: none` 覆盖；弹窗打开后焦点进入并限制在弹窗内，Esc 可关闭。
+- **语义**：弹窗使用 `role="dialog" aria-modal="true"` + `aria-labelledby`；控件组（如速度）使用 `role="group"` + `aria-label`；动态提示使用 `aria-live="polite"`；纯装饰元素标 `aria-hidden="true"`。
+- **对比与信息传达**：正文对比度达到 WCAG AA（≥4.5:1），关键数值可读；状态不只靠颜色区分。
+- **边界**：可访问性只改 DOM、样式与动画开关，不进入 `sim.js`，不改变伤害、敌人数、攻速、掉落或计分。
+- **验收**：`node --test tests/a11y-baseline.test.mjs`（AC-104），至少覆盖 reduced-motion 开关、键盘焦点可见性与关键弹窗语义。
+
+### 14.5 硬约束（v1.8–v2.0 全程）
+
+1. **零依赖**：不引入第三方运行时/前端依赖，不引入构建链；优先使用 Node 与浏览器内置能力。
+2. **模拟确定性**：`sim.js` 的 RNG 调用顺序不可改变；新增内容不得插入、删除或重排既有随机调用，平衡结果必须能用固定种子复现。
+3. **表现与模拟解耦**：音乐、可访问性、UI 与特效只作用于表现层，任何情况下都不得改变战斗结果。
+4. **数值纪律**：未经过平衡模拟（`npm run balance` / `npm run sweep`，40 种子 × 3 候选地图）定版的新塔/敌人/遗物数值，在文档中一律标注「待平衡模拟校准」，不写未评估的数值承诺。

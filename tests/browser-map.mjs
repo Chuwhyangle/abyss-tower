@@ -1,5 +1,5 @@
 // 地图 v2 体验验收：三选一弹窗/预览、放弃与刷新恢复、多入口渲染与 HUD、汇流几何。
-// 使用隔离服务端 + 固定测试种子，确保同时覆盖单入口、双入口与三入口地图。
+// 使用隔离服务端 + 固定测试种子；拓扑期望从 mapgen 推导，跨种子不变量另行校验。
 import assert from 'node:assert/strict';
 import { startTestServer, launchBrowser, registerAndLogin } from './harness.mjs';
 import { generateMapCandidates } from '../public/js/shared/mapgen.js';
@@ -29,6 +29,67 @@ function fingerprint(candidate) {
     scoreMul: candidate.meta?.scoreMul,
     lanes: candidate.lanes.length,
   };
+}
+
+// 地图生成的结构不变量：不依赖某个固定种子一定产出某种拓扑。
+function assertCandidateInvariants(candidate, label) {
+  const portals = candidate.spawns.length;
+  const base = { x: candidate.base.c + 0.5, y: candidate.base.r + 0.5 };
+  assert.ok(portals >= 1 && portals <= 3, `${label} 入口数越界：${portals}`);
+  assert.equal(candidate.lanes.length, portals, `${label} lane 数与入口数不一致`);
+  assert.equal(candidate.meta.portalCount, portals, `${label} meta 入口数不一致`);
+  candidate.lanes.forEach((lane, laneIndex) => {
+    const spawn = candidate.spawns[lane.id];
+    assert.equal(lane.spawnId, laneIndex, `${label} lane ${laneIndex} spawn 绑定错误`);
+    assert.deepEqual(
+      lane.polyline[0],
+      { x: spawn.x, y: spawn.y },
+      `${label} lane ${laneIndex} 起点不是入口`
+    );
+    assert.deepEqual(
+      lane.polyline.at(-1),
+      base,
+      `${label} lane ${laneIndex} 终点不是基地`
+    );
+    for (let i = 1; i < lane.cells.length; i++) {
+      const prev = lane.cells[i - 1];
+      const cur = lane.cells[i];
+      assert.equal(
+        Math.abs(prev.c - cur.c) + Math.abs(prev.r - cur.r),
+        1,
+        `${label} lane ${laneIndex} 路径不连通`
+      );
+    }
+    if (portals > 1 && candidate.meta.merge) {
+      assert.ok(
+        lane.cells.some(
+          (cell) => cell.c === candidate.meta.merge.c && cell.r === candidate.meta.merge.r
+        ),
+        `${label} lane ${laneIndex} 未经过汇流点`
+      );
+    }
+  });
+}
+
+// 跨种子语料：入口数分布合法且三种拓扑都会出现，路径始终连通到基地。
+function assertSeedCorpusInvariants(seedCount = 40) {
+  const distribution = new Map();
+  for (let i = 0; i < seedCount; i++) {
+    const seed = `ux-invariant-${i}`;
+    const candidates = generateMapCandidates(seed, 3);
+    assert.equal(candidates.length, 3, `种子 ${seed} 候选数量`);
+    candidates.forEach((candidate, index) => {
+      assertCandidateInvariants(candidate, `种子 ${seed} 候选 ${index}`);
+      const portals = candidate.spawns.length;
+      distribution.set(portals, (distribution.get(portals) || 0) + 1);
+    });
+  }
+  assert.deepEqual(
+    [...distribution.keys()].sort(),
+    [1, 2, 3],
+    `跨 ${seedCount} 个种子的入口数分布异常：${JSON.stringify([...distribution])}`
+  );
+  return Object.fromEntries([...distribution].sort((a, b) => a[0] - b[0]));
 }
 
 async function openMapModal(browser) {
@@ -148,8 +209,18 @@ async function main() {
   let browser = null;
   try {
     assert.equal(EXPECTED.length, 3);
-    assert.ok(EXPECTED.some((item) => item.spawns.length === 1), '固定种子需包含单入口地图');
-    assert.ok(EXPECTED.some((item) => item.spawns.length === 3), '固定种子需包含三入口地图');
+    const distribution = assertSeedCorpusInvariants();
+    EXPECTED.forEach((candidate, index) =>
+      assertCandidateInvariants(candidate, `当前候选 ${index}`)
+    );
+    // 浏览器验收聚焦入口最多的候选地图，入口数由数据推导而非写死。
+    const focusIndex = EXPECTED.reduce(
+      (best, item, index) =>
+        item.spawns.length > EXPECTED[best].spawns.length ? index : best,
+      0
+    );
+    const focusPortals = EXPECTED[focusIndex].spawns.length;
+    const allPortals = Array.from({ length: focusPortals }, (_, i) => i);
 
     browser = await launchBrowser({
       base: server.base,
@@ -212,9 +283,8 @@ async function main() {
     );
     await browser.screenshot(`${OUT_DIR}/rtd-map-03-restored-select.png`);
 
-    // ---------- 4. 选择三入口地图：地图、塔位、HUD 入口提示 ----------
-    const tripleIndex = EXPECTED.findIndex((item) => item.spawns.length === 3);
-    await browser.evaluate(`document.querySelector('.map-card[data-index="${tripleIndex}"]').click()`);
+    // ---------- 4. 选择入口最多的地图：地图、塔位、HUD 入口提示 ----------
+    await browser.evaluate(`document.querySelector('.map-card[data-index="${focusIndex}"]').click()`);
     await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '地图加载');
     await browser.waitFor(`document.getElementById('game-screen').hidden === false`, '战斗界面');
     await sleep(250);
@@ -242,23 +312,23 @@ async function main() {
         saved: !!localStorage.getItem('abyss-tower.snapshot.v2'),
       };
     })()`);
-    assert.equal(game.mapIndex, tripleIndex, '选中的地图索引不正确');
-    assert.equal(game.archetype, EXPECTED[tripleIndex].archetype);
-    assert.equal(game.portals, 3, '三入口地图入口数');
-    assert.equal(game.lanes, 3, '三入口地图 lane 数');
-    assert.deepEqual(game.laneColors, EXPECTED[tripleIndex].lanes.map((lane) => lane.color));
-    assert.deepEqual(game.spawnColors, EXPECTED[tripleIndex].spawns.map((spawn) => spawn.color));
+    assert.equal(game.mapIndex, focusIndex, '选中的地图索引不正确');
+    assert.equal(game.archetype, EXPECTED[focusIndex].archetype);
+    assert.equal(game.portals, focusPortals, '选中地图入口数');
+    assert.equal(game.lanes, focusPortals, '选中地图 lane 数');
+    assert.deepEqual(game.laneColors, EXPECTED[focusIndex].lanes.map((lane) => lane.color));
+    assert.deepEqual(game.spawnColors, EXPECTED[focusIndex].spawns.map((spawn) => spawn.color));
     game.laneEnds.forEach((point) => {
       assert.equal(point.x, game.base.x, '路径未抵达基地 x');
       assert.equal(point.y, game.base.y, '路径未抵达基地 y');
     });
     game.laneStarts.forEach((point, index) => {
-      assert.equal(point.x, EXPECTED[tripleIndex].spawns[index].x, '路径起点不是入口 x');
-      assert.equal(point.y, EXPECTED[tripleIndex].spawns[index].y, '路径起点不是入口 y');
+      assert.equal(point.x, EXPECTED[focusIndex].spawns[index].x, '路径起点不是入口 x');
+      assert.equal(point.y, EXPECTED[focusIndex].spawns[index].y, '路径起点不是入口 y');
     });
     assert.deepEqual(game.activePortals, [], '整备阶段不应有激活入口');
     assert.ok(game.portalStates.every((state) => state.active && !state.dimmed), '整备阶段入口应全部常态');
-    assert.equal(game.chipCount, 3, 'HUD 入口提示数量');
+    assert.equal(game.chipCount, focusPortals, 'HUD 入口提示数量');
     assert.equal(game.chipIdle, 0, '整备阶段 HUD 入口不应变暗');
     assert.equal(game.chipLabel, '入口');
     assert.equal(game.hintHidden, false, 'HUD 入口提示未显示');
@@ -323,9 +393,9 @@ async function main() {
       }
       return { c: null, r: null, towers: sim.towers.length };
     })()`);
-    assert.equal(built.towers, 1, '三入口地图无法建塔');
+    assert.equal(built.towers, 1, '选中的地图无法建塔');
     await browser.evaluate(`window.__rtd.state.app.emitHud(true)`);
-    await browser.screenshot(`${OUT_DIR}/rtd-map-04-triple-map.png`);
+    await browser.screenshot(`${OUT_DIR}/rtd-map-04-focus-map.png`);
 
     // ---------- 5. 多入口波次：激活入口、变暗、HUD、出生 lane ----------
     const portalWave = await browser.evaluate(`(async () => {
@@ -382,16 +452,25 @@ async function main() {
       `出怪入口超出本波激活入口：${JSON.stringify(portalWave)}`
     );
     assert.equal(portalWave.earlyStates.filter((state) => state.active).length, 1);
-    assert.equal(portalWave.earlyStates.filter((state) => state.dimmed).length, 2, '非激活入口未变暗');
-    assert.equal(portalWave.earlyChips, 3, 'HUD 应显示全部入口');
-    assert.equal(portalWave.earlyIdle, 2, 'HUD 非激活入口未变暗');
+    assert.equal(
+      portalWave.earlyStates.filter((state) => state.dimmed).length,
+      focusPortals - 1,
+      '非激活入口未变暗'
+    );
+    assert.equal(portalWave.earlyChips, focusPortals, 'HUD 应显示全部入口');
+    assert.equal(portalWave.earlyIdle, focusPortals - 1, 'HUD 非激活入口未变暗');
     assert.equal(portalWave.earlyLabel, '本波入口');
+    const portalLabels = allPortals.map((index) => index + 1);
     assert.deepEqual(
       portalWave.earlyStates.map((state) => state.label),
-      [1, 2, 3],
+      portalLabels,
       '传送门编号'
     );
-    assert.deepEqual(portalWave.earlyChipTexts, ['1', '2', '3'], 'HUD 传送门编号');
+    assert.deepEqual(
+      portalWave.earlyChipTexts,
+      portalLabels.map(String),
+      'HUD 传送门编号'
+    );
     portalWave.spawned.forEach((item, lane) => {
       assert.equal(item.lane, lane, '敌人 lane 绑定错误');
       assert.equal(item.x, item.spawn.x, `lane ${lane} 出生 x 错误`);
@@ -424,13 +503,15 @@ async function main() {
         enemies: sim.enemies.map((enemy) => enemy.lane),
       };
     })()`);
-    assert.equal(allPortalWave.portals.length, 3, '第 25 波应激活全部入口');
-    assert.deepEqual(allPortalWave.active, [0, 1, 2], '第 25 波激活入口错误');
-    assert.ok(allPortalWave.queuePortals.every((portal) => portal >= 0 && portal <= 2));
+    assert.equal(allPortalWave.portals.length, focusPortals, '第 25 波应激活全部入口');
+    assert.deepEqual(allPortalWave.active, allPortals, '第 25 波激活入口错误');
+    assert.ok(
+      allPortalWave.queuePortals.every((portal) => portal >= 0 && portal < focusPortals)
+    );
     assert.ok(allPortalWave.states.every((state) => state.active && !state.dimmed), '全入口波仍有入口变暗');
     assert.equal(allPortalWave.idle, 0, '全入口波 HUD 不应有变暗入口');
-    assert.equal(allPortalWave.chips, 3);
-    assert.deepEqual(allPortalWave.enemies, [0, 1, 2], '敌人未按 lane 出生');
+    assert.equal(allPortalWave.chips, focusPortals);
+    assert.deepEqual(allPortalWave.enemies, allPortals, '敌人未按 lane 出生');
     await sleep(300);
     await browser.screenshot(`${OUT_DIR}/rtd-map-06-all-portals-wave.png`);
 
@@ -476,7 +557,9 @@ async function main() {
     console.log('[map] 通过');
     console.log(JSON.stringify({
       candidates: EXPECTED.map(fingerprint),
-      tripleIndex,
+      distribution,
+      focusIndex,
+      focusPortals,
       geometry,
       built,
       early: { portals: portalWave.earlyPortals, idle: portalWave.earlyIdle, states: portalWave.earlyStates },

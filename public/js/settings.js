@@ -10,6 +10,7 @@ export const QUALITY_PRESETS = {
     glow: false,
     shake: false,
     showFps: false,
+    music: true,
   },
   high: {
     fps: 60,
@@ -19,6 +20,7 @@ export const QUALITY_PRESETS = {
     glow: true,
     shake: true,
     showFps: false,
+    music: true,
   },
 };
 
@@ -45,6 +47,7 @@ export function normalizeSettings(raw) {
     glow: typeof source.glow === 'boolean' ? source.glow : DEFAULT_SETTINGS.glow,
     shake: typeof source.shake === 'boolean' ? source.shake : DEFAULT_SETTINGS.shake,
     showFps: typeof source.showFps === 'boolean' ? source.showFps : DEFAULT_SETTINGS.showFps,
+    music: typeof source.music === 'boolean' ? source.music : DEFAULT_SETTINGS.music,
   };
 }
 

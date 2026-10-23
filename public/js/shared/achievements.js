@@ -1,0 +1,537 @@
+// 成就定义与判定规则：服务端据此判定并落库，客户端只读取展示。
+// 判定上下文：
+//   run       —— 本局结算信息（mode/difficulty/victory/waveReached/kills/score/durationMs/relics）
+//   stats     —— 结算后的账号统计（runs/kills/wins/byDifficulty）
+//   dailyRuns —— 已完成的每日挑战局数
+//   dailyWins —— 已通关的每日挑战局数
+//   unlocked  —— 当前已解锁成就 id 集合（用于成就猎人等组合成就）
+import { DIFFICULTY_ORDER, RELIC_MAX_LEVEL } from './data.js';
+
+export const ACHIEVEMENT_GROUPS = [
+  { id: 'clear', name: '通关' },
+  { id: 'build', name: '构筑' },
+  { id: 'challenge', name: '挑战' },
+  { id: 'collect', name: '收集' },
+];
+
+export const ACHIEVEMENT_RARITIES = {
+  common: { id: 'common', name: '普通', color: '#9fb0c3' },
+  rare: { id: 'rare', name: '稀有', color: '#5bc8ff' },
+  epic: { id: 'epic', name: '史诗', color: '#c88bff' },
+};
+
+const totalRuns = (ctx) => Number(ctx.stats?.runs) || 0;
+const totalWins = (ctx) => Number(ctx.stats?.wins) || 0;
+const totalKills = (ctx) => Number(ctx.stats?.kills) || 0;
+const totalDailyRuns = (ctx) => Number(ctx.dailyRuns) || 0;
+const totalDailyWins = (ctx) => Number(ctx.dailyWins) || 0;
+const unlockedCount = (ctx) => ctx.unlocked?.size || 0;
+
+function bestWave(ctx) {
+  return Math.max(
+    0,
+    ...DIFFICULTY_ORDER.map((id) => Number(ctx.stats?.byDifficulty?.[id]?.bestWave) || 0)
+  );
+}
+
+function bestScore(ctx) {
+  return Math.max(
+    0,
+    ...DIFFICULTY_ORDER.map((id) => Number(ctx.stats?.byDifficulty?.[id]?.bestScore) || 0)
+  );
+}
+
+function difficultyWins(ctx, id) {
+  return Number(ctx.stats?.byDifficulty?.[id]?.wins) || 0;
+}
+
+function difficultyWinsCount(ctx) {
+  return DIFFICULTY_ORDER.filter((id) => difficultyWins(ctx, id) >= 1).length;
+}
+
+function relicLevels(ctx) {
+  return (ctx.run?.relics || []).map((relic) => Number(relic?.level) || 0);
+}
+
+const maxRelicLevel = (ctx) => Math.max(0, ...relicLevels(ctx));
+const maxRelicCount = (ctx) =>
+  relicLevels(ctx).filter((level) => level >= RELIC_MAX_LEVEL).length;
+const relicCount = (ctx) => (ctx.run?.relics || []).length;
+
+// 带 target/progress 的成就自动由进度判定；其余成就自行提供 check。
+function define({ id, title, desc, condition, group, rarity, hidden = false, target, progress, check }) {
+  const item = { id, title, desc, condition, group, rarity, hidden };
+  if (Number.isInteger(target) && target > 0 && typeof progress === 'function') {
+    item.target = target;
+    item.progress = progress;
+    item.check = (ctx) => Number(progress(ctx)) >= target;
+  } else {
+    item.check = check;
+  }
+  return item;
+}
+
+export const ACHIEVEMENTS = [
+  // ── 通关 ──────────────────────────────────────────────────────────
+  define({
+    id: 'first_run',
+    title: '首次远征',
+    desc: '完成任意一局远征。',
+    condition: '累计完成 1 局远征',
+    group: 'clear',
+    rarity: 'common',
+    target: 1,
+    progress: totalRuns,
+  }),
+  define({
+    id: 'first_win',
+    title: '首胜',
+    desc: '首次守住第 30 波。',
+    condition: '累计通关 1 次',
+    group: 'clear',
+    rarity: 'common',
+    target: 1,
+    progress: totalWins,
+  }),
+  define({
+    id: 'win_roam',
+    title: '漫游者',
+    desc: '在「漫游」难度完成通关。',
+    condition: '漫游难度通关 1 次',
+    group: 'clear',
+    rarity: 'common',
+    target: 1,
+    progress: (ctx) => difficultyWins(ctx, 'roam'),
+  }),
+  define({
+    id: 'win_standard',
+    title: '远征者',
+    desc: '在「远征」难度完成通关。',
+    condition: '远征难度通关 1 次',
+    group: 'clear',
+    rarity: 'rare',
+    target: 1,
+    progress: (ctx) => difficultyWins(ctx, 'standard'),
+  }),
+  define({
+    id: 'win_abyss',
+    title: '深渊征服',
+    desc: '在「深渊」难度完成通关。',
+    condition: '深渊难度通关 1 次',
+    group: 'clear',
+    rarity: 'epic',
+    target: 1,
+    progress: (ctx) => difficultyWins(ctx, 'abyss'),
+  }),
+  define({
+    id: 'all_difficulties',
+    title: '全能指挥官',
+    desc: '三档难度全部完成通关。',
+    condition: '漫游、远征、深渊各通关 1 次',
+    group: 'clear',
+    rarity: 'epic',
+    target: DIFFICULTY_ORDER.length,
+    progress: difficultyWinsCount,
+  }),
+  define({
+    id: 'boss_slayer',
+    title: '深渊领主',
+    desc: '击败最终波的首领。',
+    condition: '完成任意难度通关',
+    group: 'clear',
+    rarity: 'rare',
+    check: (ctx) => !!ctx.run?.victory,
+  }),
+  define({
+    id: 'wave_5',
+    title: '初入塔中',
+    desc: '单局抵达第 5 波。',
+    condition: '任意难度最高抵达第 5 波',
+    group: 'clear',
+    rarity: 'common',
+    target: 5,
+    progress: bestWave,
+  }),
+  define({
+    id: 'wave_10',
+    title: '十层回响',
+    desc: '单局抵达第 10 波。',
+    condition: '任意难度最高抵达第 10 波',
+    group: 'clear',
+    rarity: 'common',
+    target: 10,
+    progress: bestWave,
+  }),
+  define({
+    id: 'wave_20',
+    title: '二十层的风',
+    desc: '单局抵达第 20 波。',
+    condition: '任意难度最高抵达第 20 波',
+    group: 'clear',
+    rarity: 'rare',
+    target: 20,
+    progress: bestWave,
+  }),
+  define({
+    id: 'wave_30',
+    title: '塔顶的黎明',
+    desc: '单局抵达第 30 波。',
+    condition: '任意难度最高抵达第 30 波',
+    group: 'clear',
+    rarity: 'epic',
+    target: 30,
+    progress: bestWave,
+  }),
+  define({
+    id: 'speedrun',
+    title: '疾风远征',
+    desc: '在 15 分钟内完成一次通关。',
+    condition: '通关用时不超过 15 分钟',
+    group: 'clear',
+    rarity: 'rare',
+    check: (ctx) =>
+      !!ctx.run?.victory && (Number(ctx.run?.durationMs) || 0) <= 15 * 60 * 1000,
+  }),
+
+  // ── 构筑 ──────────────────────────────────────────────────────────
+  define({
+    id: 'relic_level_2',
+    title: '遗物初鸣',
+    desc: '把一件遗物强化到 2 级。',
+    condition: '单局内任意遗物达到 2 级',
+    group: 'build',
+    rarity: 'common',
+    target: 2,
+    progress: maxRelicLevel,
+  }),
+  define({
+    id: 'relic_max',
+    title: '遗物满级',
+    desc: '把一件遗物强化到满级。',
+    condition: `单局内任意遗物达到 ${RELIC_MAX_LEVEL} 级`,
+    group: 'build',
+    rarity: 'rare',
+    target: RELIC_MAX_LEVEL,
+    progress: maxRelicLevel,
+  }),
+  define({
+    id: 'relic_max_3',
+    title: '三件满级',
+    desc: '单局内把三件遗物强化到满级。',
+    condition: `单局内 3 件遗物达到 ${RELIC_MAX_LEVEL} 级`,
+    group: 'build',
+    rarity: 'epic',
+    target: 3,
+    progress: maxRelicCount,
+  }),
+  define({
+    id: 'relic_collector',
+    title: '遗物收藏家',
+    desc: '单局内集齐 5 件遗物。',
+    condition: '单局持有 5 件遗物',
+    group: 'build',
+    rarity: 'common',
+    target: 5,
+    progress: relicCount,
+  }),
+  define({
+    id: 'hidden_no_relic_win',
+    title: '赤手空拳',
+    desc: '不依赖任何遗物完成一次通关。',
+    condition: '单局不持有遗物并完成通关',
+    group: 'build',
+    rarity: 'rare',
+    hidden: true,
+    check: (ctx) => !!ctx.run?.victory && relicCount(ctx) === 0,
+  }),
+
+  // ── 挑战 ──────────────────────────────────────────────────────────
+  define({
+    id: 'kills_100',
+    title: '百人斩',
+    desc: '累计击杀 100 个敌人。',
+    condition: '累计击杀 100',
+    group: 'challenge',
+    rarity: 'common',
+    target: 100,
+    progress: totalKills,
+  }),
+  define({
+    id: 'kills_250',
+    title: '战场收割',
+    desc: '累计击杀 250 个敌人。',
+    condition: '累计击杀 250',
+    group: 'challenge',
+    rarity: 'common',
+    target: 250,
+    progress: totalKills,
+  }),
+  define({
+    id: 'kills_1000',
+    title: '千人斩',
+    desc: '累计击杀 1000 个敌人。',
+    condition: '累计击杀 1000',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 1000,
+    progress: totalKills,
+  }),
+  define({
+    id: 'kills_5000',
+    title: '深渊屠夫',
+    desc: '累计击杀 5000 个敌人。',
+    condition: '累计击杀 5000',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 5000,
+    progress: totalKills,
+  }),
+  define({
+    id: 'kills_10000',
+    title: '万魂之主',
+    desc: '累计击杀 10000 个敌人。',
+    condition: '累计击杀 10000',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 10000,
+    progress: totalKills,
+  }),
+  define({
+    id: 'runs_10',
+    title: '老练指挥官',
+    desc: '累计完成 10 局远征。',
+    condition: '累计完成 10 局',
+    group: 'challenge',
+    rarity: 'common',
+    target: 10,
+    progress: totalRuns,
+  }),
+  define({
+    id: 'runs_25',
+    title: '百战之身',
+    desc: '累计完成 25 局远征。',
+    condition: '累计完成 25 局',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 25,
+    progress: totalRuns,
+  }),
+  define({
+    id: 'runs_50',
+    title: '远征老兵',
+    desc: '累计完成 50 局远征。',
+    condition: '累计完成 50 局',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 50,
+    progress: totalRuns,
+  }),
+  define({
+    id: 'runs_100',
+    title: '塔下常客',
+    desc: '累计完成 100 局远征。',
+    condition: '累计完成 100 局',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 100,
+    progress: totalRuns,
+  }),
+  define({
+    id: 'wins_5',
+    title: '五度凯旋',
+    desc: '累计通关 5 次。',
+    condition: '累计通关 5 次',
+    group: 'challenge',
+    rarity: 'common',
+    target: 5,
+    progress: totalWins,
+  }),
+  define({
+    id: 'wins_10',
+    title: '十战十胜',
+    desc: '累计通关 10 次。',
+    condition: '累计通关 10 次',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 10,
+    progress: totalWins,
+  }),
+  define({
+    id: 'wins_20',
+    title: '常胜将军',
+    desc: '累计通关 20 次。',
+    condition: '累计通关 20 次',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 20,
+    progress: totalWins,
+  }),
+  define({
+    id: 'wins_50',
+    title: '深渊之王',
+    desc: '累计通关 50 次。',
+    condition: '累计通关 50 次',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 50,
+    progress: totalWins,
+  }),
+  define({
+    id: 'score_2000',
+    title: '崭露头角',
+    desc: '单局得分达到 2000。',
+    condition: '任意难度最高得分 2000',
+    group: 'challenge',
+    rarity: 'common',
+    target: 2000,
+    progress: bestScore,
+  }),
+  define({
+    id: 'score_5000',
+    title: '高分纪录',
+    desc: '单局得分达到 5000。',
+    condition: '任意难度最高得分 5000',
+    group: 'challenge',
+    rarity: 'rare',
+    target: 5000,
+    progress: bestScore,
+  }),
+  define({
+    id: 'score_10000',
+    title: '万分传奇',
+    desc: '单局得分达到 10000。',
+    condition: '任意难度最高得分 10000',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 10000,
+    progress: bestScore,
+  }),
+  define({
+    id: 'score_20000',
+    title: '二十万分之上',
+    desc: '单局得分达到 20000。',
+    condition: '任意难度最高得分 20000',
+    group: 'challenge',
+    rarity: 'epic',
+    target: 20000,
+    progress: bestScore,
+  }),
+  define({
+    id: 'hidden_perfect_run',
+    title: '完美履历',
+    desc: '累计完成至少 5 局且从未失败。',
+    condition: '完成 ≥5 局且全部通关',
+    group: 'challenge',
+    rarity: 'epic',
+    hidden: true,
+    check: (ctx) => totalRuns(ctx) >= 5 && totalWins(ctx) === totalRuns(ctx),
+  }),
+
+  // ── 收集 ──────────────────────────────────────────────────────────
+  define({
+    id: 'daily_first',
+    title: '每日首战',
+    desc: '完成一次每日挑战。',
+    condition: '完成 1 次每日挑战',
+    group: 'collect',
+    rarity: 'common',
+    target: 1,
+    progress: totalDailyRuns,
+  }),
+  define({
+    id: 'daily_win',
+    title: '每日征服',
+    desc: '在每日挑战中完成通关。',
+    condition: '每日挑战通关 1 次',
+    group: 'collect',
+    rarity: 'rare',
+    target: 1,
+    progress: totalDailyWins,
+  }),
+  define({
+    id: 'daily_5',
+    title: '每日常客',
+    desc: '累计完成 5 次每日挑战。',
+    condition: '完成 5 次每日挑战',
+    group: 'collect',
+    rarity: 'rare',
+    target: 5,
+    progress: totalDailyRuns,
+  }),
+  define({
+    id: 'daily_10',
+    title: '每日铁人',
+    desc: '累计完成 10 次每日挑战。',
+    condition: '完成 10 次每日挑战',
+    group: 'collect',
+    rarity: 'epic',
+    target: 10,
+    progress: totalDailyRuns,
+  }),
+  define({
+    id: 'achievement_10',
+    title: '成就猎人',
+    desc: '解锁 10 个成就。',
+    condition: '解锁 10 个成就',
+    group: 'collect',
+    rarity: 'rare',
+    target: 10,
+    progress: unlockedCount,
+  }),
+  define({
+    id: 'achievement_20',
+    title: '成就大师',
+    desc: '解锁 20 个成就。',
+    condition: '解锁 20 个成就',
+    group: 'collect',
+    rarity: 'epic',
+    target: 20,
+    progress: unlockedCount,
+  }),
+  define({
+    id: 'achievement_30',
+    title: '成就宗师',
+    desc: '解锁 30 个成就。',
+    condition: '解锁 30 个成就',
+    group: 'collect',
+    rarity: 'epic',
+    target: 30,
+    progress: unlockedCount,
+  }),
+];
+
+export const ACHIEVEMENT_BY_ID = Object.fromEntries(
+  ACHIEVEMENTS.map((item) => [item.id, item])
+);
+
+// 返回 { current, target }；非进度型成就返回 null。current 不超过 target，便于直接画进度条。
+export function achievementProgress(achievement, ctx) {
+  if (!achievement || !achievement.target || typeof achievement.progress !== 'function') {
+    return null;
+  }
+  const raw = Number(achievement.progress(ctx));
+  const current = Math.max(
+    0,
+    Math.min(achievement.target, Math.floor(Number.isFinite(raw) ? raw : 0))
+  );
+  return { current, target: achievement.target };
+}
+
+// 反复扫描直到不再有新成就，保证「解锁 10 个成就」这类组合成就能在同一次结算内成立。
+export function evaluateAchievements(ctx) {
+  const unlocked = new Set(ctx.unlocked || []);
+  const added = [];
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const achievement of ACHIEVEMENTS) {
+      if (unlocked.has(achievement.id)) continue;
+      if (achievement.check({ ...ctx, unlocked })) {
+        unlocked.add(achievement.id);
+        added.push(achievement.id);
+        changed = true;
+      }
+    }
+  }
+  return added;
+}

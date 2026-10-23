@@ -18,19 +18,19 @@ import {
   skillUnlockText,
   isSkillUnlocked,
 } from './shared/data.js';
-import {
-  normalizeSettings,
-  detectPreset,
-  presetSettings,
-  DECORATION_LABELS,
-  FLOATER_LABELS,
-} from './settings.js';
+import { normalizeSettings, detectPreset, presetSettings } from './settings.js';
 import { audio } from './audio.js';
+import { t, tData, initI18n, getLocale, setLocale, LOCALES } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
+// 数据表只保存中文名；按 id 取当前语言译名，缺译名时回退原值。
+const towerName = (def) => tData('tower', def.id, 'name', def.name);
+const enemyName = (def) => tData('enemy', def.id, 'name', def.name);
+const diffName = (def) => tData('difficulty', def.id, 'name', def.name);
+const diffDesc = (def) => tData('difficulty', def.id, 'desc', def.desc);
 const ROMAN = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
 const ROLE_LABELS = { control: '控场', burst: '爆发', ultimate: '终极' };
 
@@ -61,6 +61,8 @@ class UI {
 
   init(handlers) {
     this.handlers = handlers;
+    initI18n();
+    document.addEventListener('i18n:change', () => this.refreshLocale());
     this.el = {
       title: $('title-screen'),
       game: $('game-screen'),
@@ -188,7 +190,7 @@ class UI {
   updateSoundIcon() {
     if (!this.el?.sound) return;
     this.el.sound.textContent = audio.enabled ? '🔊' : '🔇';
-    this.el.sound.title = audio.enabled ? '音效：开' : '音效：关';
+    this.el.sound.title = t(audio.enabled ? 'hud.soundOn' : 'hud.soundOff');
   }
 
   setResumeAvailable(available) {
@@ -197,29 +199,55 @@ class UI {
 
   showTitle(profile, extras = {}) {
     this.profile = profile;
+    this._titleExtras = extras;
     this.game = null;
+    audio.startMusic('menu');
     this.el.title.hidden = false;
     this.el.game.hidden = true;
     this.closeModal();
     this.hideTowerPanel();
+    this.renderTitle();
+  }
 
+  renderTitle() {
+    const profile = this.profile;
+    const extras = this._titleExtras || {};
     const stats = profile?.stats || {};
-    this.el.playerName.textContent = profile?.name || '离线指挥官';
+    this.el.playerName.textContent = profile?.name || t('title.offline');
     this.el.cores.textContent = fmt(profile?.cores || 0);
     this.el.titleStats.innerHTML = `
-      <div class="stat-cell"><span>最高波次</span><b>${fmt(stats.bestWave)}</b></div>
-      <div class="stat-cell"><span>最高分数</span><b>${fmt(stats.bestScore)}</b></div>
-      <div class="stat-cell"><span>累计击杀</span><b>${fmt(stats.kills)}</b></div>
-      <div class="stat-cell"><span>远征次数</span><b>${fmt(stats.runs)}</b></div>
+      <div class="stat-cell"><span>${t('title.stat.bestWave')}</span><b>${fmt(stats.bestWave)}</b></div>
+      <div class="stat-cell"><span>${t('title.stat.bestScore')}</span><b>${fmt(stats.bestScore)}</b></div>
+      <div class="stat-cell"><span>${t('title.stat.kills')}</span><b>${fmt(stats.kills)}</b></div>
+      <div class="stat-cell"><span>${t('title.stat.runs')}</span><b>${fmt(stats.runs)}</b></div>
     `;
 
     const left = extras.dailyLeft;
     const date = new Date();
     const label = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-    this.el.dailyLabel.textContent = left == null ? label : `${label} · 剩 ${left} 次`;
+    const streak = extras.daily?.streak || 0;
+    const parts = [label];
+    if (left != null) parts.push(t('title.daily.left', { n: left }));
+    if (streak > 0) parts.push(t('title.daily.streak', { n: streak }));
+    this.el.dailyLabel.textContent = parts.join(' · ');
     this.setResumeAvailable(!!extras.hasSnapshot);
     this.renderTitleSkills(profile, extras);
   }
+
+  // 语言切换后重渲染当前界面的动态文案；静态文案由 i18n 层统一处理。
+  refreshLocale() {
+    if (!this.el) return;
+    this.updateSoundIcon();
+    if (this.game) {
+      this.updateHud(this.game.getHud());
+      this.renderShop();
+      this.renderRelics();
+      if (this._panelTower) this.showTowerPanel(this._panelTower);
+    } else if (this.profile) {
+      this.renderTitle();
+    }
+  }
+
 
   // ---------- 技能（标题页 / 难度弹窗） ----------
 
@@ -398,7 +426,7 @@ class UI {
     });
   }
 
-  showDifficultySelect(mode = 'normal', { dailyLeft = null, skillState = null, selectedSkill = null } = {}) {
+  showDifficultySelect(mode = 'normal', { dailyLeft = null, daily = null, skillState = null, selectedSkill = null } = {}) {
     this._dailyMode = mode === 'daily';
     const stats = this.profile?.stats?.byDifficulty || {};
     const cards = DIFFICULTY_ORDER.map((id) => {
@@ -406,32 +434,37 @@ class UI {
       const best = stats[id] || {};
       return `
         <button class="diff-card" data-id="${id}" style="--diff:${diff.color}">
-          <span class="diff-name">${diff.name}</span>
-          <p>${diff.desc}</p>
+          <span class="diff-name">${diffName(diff)}</span>
+          <p>${diffDesc(diff)}</p>
           <div class="diff-mods">
-            <span>敌人生命 ×${diff.hpMul.toFixed(2)}</span>
-            <span>数量 ×${diff.countMul.toFixed(2)}</span>
-            <span>分数 ×${diff.scoreMul.toFixed(2)}</span>
+            <span>${t('difficulty.hp', { mul: diff.hpMul.toFixed(2) })}</span>
+            <span>${t('difficulty.count', { mul: diff.countMul.toFixed(2) })}</span>
+            <span>${t('difficulty.score', { mul: diff.scoreMul.toFixed(2) })}</span>
           </div>
-          <div class="diff-best">最佳：第 ${fmt(best.bestWave)} 波 · ${fmt(best.bestScore)} 分</div>
+          <div class="diff-best">${t('difficulty.best', { wave: fmt(best.bestWave), score: fmt(best.bestScore) })}</div>
         </button>`;
     }).join('');
 
-    const title = mode === 'daily' ? '每日挑战' : '开始远征';
+    const title = mode === 'daily' ? t('difficulty.dailyTitle') : t('difficulty.startTitle');
+    const affixes = (daily?.modifiers || [])
+      .map((modifier) => `<span style="color:${modifier.color}">${modifier.name}</span>`)
+      .join(' · ');
+    const streakNote = daily?.streak > 0 ? t('difficulty.streak', { n: daily.streak }) : '';
     const note =
       mode === 'daily'
-        ? `<p class="muted">今日同一套地图与波次种子 · 固定开局资源 · 全塔开放 · 技能固定 Ⅴ 级 · 剩余 ${dailyLeft ?? 0} 次结算机会</p>`
-        : '<p class="muted">三档难度共享 30 波结构，选择你的挑战。</p>';
+        ? `<p class="muted">${t('difficulty.dailyNote', { n: dailyLeft ?? 0 })}</p>
+           ${affixes ? `<p class="muted">${t('difficulty.dailyAffixes', { affixes })}${streakNote}</p>` : ''}`
+        : `<p class="muted">${t('difficulty.note')}</p>`;
 
     const modal = this.openModal(
       `<div class="difficulty">
-        <p class="eyebrow">${mode === 'daily' ? 'DAILY CHALLENGE' : 'EXPEDITION'}</p>
-        <h2>${title} · 选择难度</h2>
+        <p class="eyebrow">${t(mode === 'daily' ? 'difficulty.eyebrowDaily' : 'difficulty.eyebrowNormal')}</p>
+        <h2>${title} · ${t('difficulty.title')}</h2>
         ${note}
         ${this.skillBarHtml(skillState, selectedSkill)}
         <div class="diff-cards">${cards}</div>
         <div class="modal-actions">
-          <button class="btn ghost" id="btn-cancel-diff">取消</button>
+          <button class="btn ghost" id="btn-cancel-diff">${t('difficulty.cancel')}</button>
         </div>
       </div>`,
       { className: 'difficulty-modal', closable: true }
@@ -454,25 +487,25 @@ class UI {
         // 单入口地图即使 meta.merge 指向基地，也不应展示“汇流”文案。
         const desc =
           portalCount <= 1
-            ? '单路推进，塔位充足'
+            ? t('mapSelect.single')
             : candidate.archetype === 'cross'
-              ? '先汇合再分叉，火力需要二次分配'
-              : '路径汇流，关键路口价值高';
+              ? t('mapSelect.cross')
+              : t('mapSelect.merge');
         return `
           <button class="map-card" data-index="${index}" style="--lane:${color}">
             <div class="map-preview">${preview}</div>
             <div class="map-card-head">
               <b>${candidate.archetypeName}</b>
-              <span class="map-portals">${portalCount} 入口</span>
+              <span class="map-portals">${t('mapSelect.portals', { n: portalCount })}</span>
             </div>
             <p class="map-desc">${desc}</p>
             <div class="map-mod" style="color:${color}">
-              <b>${modifier?.name || '无词缀'}</b>
-              <span>${modifier?.desc || '标准地图'}</span>
+              <b>${modifier?.name || t('mapSelect.noModifier')}</b>
+              <span>${modifier?.desc || t('mapSelect.standard')}</span>
             </div>
             <div class="map-foot">
-              <span>分数 ×${candidate.meta?.scoreMul?.toFixed(2) || '1.00'}</span>
-              <span class="pick">选择此图</span>
+              <span>${t('mapSelect.score', { mul: candidate.meta?.scoreMul?.toFixed(2) || '1.00' })}</span>
+              <span class="pick">${t('mapSelect.pick')}</span>
             </div>
           </button>`;
       })
@@ -481,12 +514,12 @@ class UI {
     const modal = this.openModal(
       `
         <div class="map-select">
-          <p class="eyebrow">EXPEDITION MAP</p>
-          <h2>选择远征地图</h2>
-          <p class="muted">三张候选地图共享本局种子；入口、汇流与词缀会改变防守策略。</p>
+          <p class="eyebrow">${t('mapSelect.eyebrow')}</p>
+          <h2>${t('mapSelect.title')}</h2>
+          <p class="muted">${t('mapSelect.note')}</p>
           <div class="map-cards">${cards}</div>
           <div class="modal-actions">
-            <button class="btn ghost" id="btn-cancel-map">放弃本局</button>
+            <button class="btn ghost" id="btn-cancel-map">${t('mapSelect.abandon')}</button>
           </div>
         </div>
       `,
@@ -502,6 +535,7 @@ class UI {
   showGame({ game, profile }) {
     this.game = game;
     if (profile) this.profile = profile;
+    audio.startMusic('battle');
     this.el.title.hidden = true;
     this.el.game.hidden = false;
     this.closeModal();
@@ -527,7 +561,7 @@ class UI {
 
     if (hud.difficulty && this.el.hudDifficulty) {
       const diff = DIFFICULTIES[hud.difficulty] || DIFFICULTIES.standard;
-      this.el.hudDifficulty.textContent = diff.name;
+      this.el.hudDifficulty.textContent = diffName(diff);
       this.el.hudDifficulty.style.setProperty('--diff', diff.color);
     }
 
@@ -535,33 +569,37 @@ class UI {
     this.updateNextWave(hud);
 
     if (hud.phase === 'wave') {
+      audio.startMusic(hud.waveDef?.boss || hud.waveDef?.finalBoss ? 'boss' : 'battle');
       this.el.waveState.textContent = hud.waveDef?.finalBoss
-        ? '⚠ 最终首领'
+        ? t('hud.state.finalBoss')
         : hud.waveDef?.boss
-          ? '⚠ 首领波次'
-          : '战斗中';
+          ? t('hud.state.boss')
+          : t('hud.state.fighting');
       this.el.waveState.classList.add('live');
       this.el.nextWave.disabled = true;
-      this.el.nextWave.textContent = `战斗中 · ${hud.enemies} 敌`;
+      this.el.nextWave.textContent = t('hud.fightingEnemies', { count: hud.enemies });
     } else if (hud.phase === 'over') {
-      this.el.waveState.textContent = '远征结束';
+      this.el.waveState.textContent = t('hud.state.over');
       this.el.waveState.classList.remove('live');
       this.el.nextWave.disabled = true;
     } else {
+      audio.startMusic('battle');
       const next = hud.nextWave;
       this.el.waveState.textContent = next
-        ? `${hud.wave === 0 ? '准备' : '整备'} · 下波 ${next.totalCount} 敌${next.boss ? ' ⚠' : ''}`
-        : hud.wave === 0
-          ? '准备阶段'
-          : '整备阶段';
+        ? t('hud.state.incoming', {
+            phase: t(hud.wave === 0 ? 'hud.phase.prepare' : 'hud.phase.rally'),
+            count: next.totalCount,
+            boss: next.boss ? ' ⚠' : '',
+          })
+        : t(hud.wave === 0 ? 'hud.phase.ready' : 'hud.phase.rallyStage');
       this.el.waveState.classList.remove('live');
       this.el.nextWave.disabled = hud.wave >= MAX_WAVE;
       this.el.nextWave.textContent =
         hud.wave === 0
-          ? '开始第 1 波'
+          ? t('hud.startWave1')
           : hud.wave >= MAX_WAVE
-            ? '已抵达最终波次'
-            : `开始第 ${hud.wave + 1} 波`;
+            ? t('hud.finalWave')
+            : t('hud.startWave', { wave: hud.wave + 1 });
     }
 
     document.querySelectorAll('.speed-btn').forEach((button) => {
@@ -646,12 +684,12 @@ class UI {
       const isActive = active.has(index);
       const idle = inWave && !isActive;
       return `<span class="portal-chip${isActive ? ' active' : ''}${idle ? ' idle' : ''}"
-        style="--portal:${color}" title="传送门 ${index + 1}${idle ? '（本波未激活）' : ''}">
+        style="--portal:${color}" title="${t('hud.portal.title', { n: index + 1 })}${idle ? `（${t('hud.portal.idle')}）` : ''}">
         <i aria-hidden="true"></i>${index + 1}
       </span>`;
     }).join('');
     hint.hidden = false;
-    hint.innerHTML = `<span class="portal-label">${inWave ? '本波入口' : '入口'}</span>${chips}`;
+    hint.innerHTML = `<span class="portal-label">${t(inWave ? 'hud.portal.active' : 'hud.portal.label')}</span>${chips}`;
   }
 
   // 下一波情报：整备阶段挂在遗物面板底部；波中隐藏，避免干扰战斗。
@@ -671,14 +709,14 @@ class UI {
     if (signature === this._nextWaveSig) return;
     this._nextWaveSig = signature;
     this.el.nextWaveMeta.textContent = preview.boss
-      ? `第 ${preview.index} 波 · 首领`
-      : `第 ${preview.index} 波`;
+      ? t('hud.nextWave.bossMeta', { wave: preview.index })
+      : t('hud.nextWave.meta', { wave: preview.index });
     this.el.nextWaveMeta.classList.toggle('boss', !!preview.boss);
     this.el.nextWaveList.innerHTML = [...preview.enemies]
       .sort((a, b) => b.count - a.count)
       .map(({ type, count }) => {
-        const def = ENEMIES[type] || { name: type, color: '#9fb0c3' };
-        return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${def.name}<b>×${count}</b></div>`;
+        const def = ENEMIES[type] || { id: type, name: type, color: '#9fb0c3' };
+        return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${enemyName(def)}<b>×${count}</b></div>`;
       })
       .join('');
   }
@@ -695,14 +733,22 @@ class UI {
       button.className = `tower-card${locked ? ' locked' : ''}`;
       button.dataset.type = id;
       button.disabled = locked;
-      button.dataset.tip = `<b style="color:${def.color}">${def.name}</b><p>${def.desc}</p>
-        <p class="tip-stats">造价 ${this.game.towerCost(id)} · 基础伤害 ${def.levels[0].dmg} · 射程 ${def.levels[0].range}</p>`;
+      const level0 = def.levels[0];
+      const statsText = def.support
+        ? t('shop.auraStats', {
+            dmg: Math.round(level0.buffDmg * 100),
+            rate: Math.round(level0.buffRate * 100),
+            range: level0.range,
+          })
+        : t('shop.baseStats', { dmg: level0.dmg, range: level0.range });
+      button.dataset.tip = `<b style="color:${def.color}">${towerName(def)}</b><p>${def.desc}</p>
+        <p class="tip-stats">${t('shop.cost')} ${this.game.towerCost(id)} · ${statsText}</p>`;
       button.innerHTML = `
         <span class="key">${index + 1}</span>
         <span class="glyph" style="color:${def.color}">${def.glyph}</span>
-        <span class="name">${def.name}</span>
+        <span class="name">${towerName(def)}</span>
         <span class="cost">◆ ${this.game.towerCost(id)}</span>
-        ${locked ? '<span class="lock">未解锁</span>' : ''}
+        ${locked ? `<span class="lock">${t('shop.locked')}</span>` : ''}
       `;
       button.onclick = () => this.handlers.onSelectShop?.(id);
       this.el.shopList.appendChild(button);
@@ -729,7 +775,7 @@ class UI {
     if (!this.game.relics.length) {
       const empty = document.createElement('div');
       empty.className = 'relic-empty';
-      empty.textContent = '每波结束可三选一';
+      empty.textContent = t('relic.empty');
       this.el.relicList.appendChild(empty);
       return;
     }
@@ -758,19 +804,23 @@ class UI {
     this.el.towerPanel.hidden = false;
     this.el.towerPanel.innerHTML = `
       <div class="tp-head">
-        <span class="tp-name" style="color:${def.color}">${def.name} <em>Lv.${tower.level + 1}</em></span>
-        <button class="tp-close" title="取消选择">✕</button>
+        <span class="tp-name" style="color:${def.color}">${towerName(def)} <em>Lv.${tower.level + 1}</em></span>
+        <button class="tp-close" title="${t('towerPanel.close')}">✕</button>
       </div>
       <div class="tp-stats">
-        <span>伤害 <b>${stats.dmg.toFixed(1)}</b></span>
-        <span>攻速 <b>${stats.rate.toFixed(2)}/s</b></span>
-        <span>射程 <b>${stats.range.toFixed(1)}</b></span>
+        ${def.support
+          ? `<span>${t('towerPanel.auraDmg')} <b>+${Math.round(stats.buffDmg * 100)}%</b></span>
+        <span>${t('towerPanel.auraRate')} <b>+${Math.round(stats.buffRate * 100)}%</b></span>
+        <span>${t('towerPanel.range')} <b>${stats.range.toFixed(1)}</b></span>`
+          : `<span>${t('towerPanel.damage')} <b>${stats.dmg.toFixed(1)}</b></span>
+        <span>${t('towerPanel.attackSpeed')} <b>${stats.rate.toFixed(2)}/s</b></span>
+        <span>${t('towerPanel.rangeShort')} <b>${stats.range.toFixed(1)}</b></span>`}
       </div>
       <div class="tp-actions">
         <button class="btn small upgrade" ${cost == null ? 'disabled' : ''}>
-          ${cost == null ? '已满级' : `升级 · ◆ ${cost}`}
+          ${cost == null ? t('towerPanel.maxed') : t('towerPanel.upgrade', { cost })}
         </button>
-        <button class="btn small danger sell">出售 +${sell}</button>
+        <button class="btn small danger sell">${t('towerPanel.sell', { value: sell })}</button>
       </div>
     `;
     this.el.towerPanel.querySelector('.tp-close').onclick = () => this.handlers.onDeselect?.();
@@ -843,18 +893,18 @@ class UI {
           const isUpgrade = fromLevel > 0;
           const levelLabel = isUpgrade
             ? `${RELIC_LEVEL_LABELS[fromLevel - 1]} → ${RELIC_LEVEL_LABELS[toLevel - 1]}`
-            : '新获得 · Ⅰ级';
+            : t('draft.new');
           const effect = isUpgrade
-            ? `<div class="relic-effect"><span>当前</span>${relicEffectText(offer.id, fromLevel)}</div>
-               <div class="relic-effect upgrade"><span>升级</span>${relicEffectText(offer.id, toLevel)}</div>`
-            : `<div class="relic-effect"><span>效果</span>${relicEffectText(offer.id, toLevel)}</div>`;
+            ? `<div class="relic-effect"><span>${t('draft.current')}</span>${relicEffectText(offer.id, fromLevel)}</div>
+               <div class="relic-effect upgrade"><span>${t('draft.upgrade')}</span>${relicEffectText(offer.id, toLevel)}</div>`
+            : `<div class="relic-effect"><span>${t('draft.effect')}</span>${relicEffectText(offer.id, toLevel)}</div>`;
           return `
             <button class="relic-card ${isUpgrade ? 'upgrade' : ''}" data-index="${index}" style="--rarity:${rarity.color}">
               <span class="rarity">${rarity.name} · ${levelLabel}</span>
               <h3>${relic.name}</h3>
               ${effect}
               <p class="relic-flavor">${relic.desc}</p>
-              <span class="pick">选择</span>
+              <span class="pick">${t('draft.pick')}</span>
             </button>
           `;
         }
@@ -863,13 +913,13 @@ class UI {
         const amount = Math.max(0, Math.floor(offer.amount || 0));
         return `
           <button class="relic-card fallback" data-index="${index}" style="--rarity:#8fa3b2">
-            <span class="rarity">补给 · 通用奖励</span>
-            <h3>${isGold ? '金币补给' : '基地修复'}</h3>
-            <div class="relic-effect"><span>效果</span>${
-              isGold ? `获得 ${amount} 金币` : `恢复 ${amount} 点基地生命（不超过上限）`
+            <span class="rarity">${t('draft.supply')}</span>
+            <h3>${isGold ? t('draft.goldSupply') : t('draft.repair')}</h3>
+            <div class="relic-effect"><span>${t('draft.effect')}</span>${
+              isGold ? t('draft.goldEffect', { n: amount }) : t('draft.repairEffect', { n: amount })
             }</div>
-            <p class="relic-flavor">遗物池耗尽时的通用补位，保证选择流程继续。</p>
-            <span class="pick">选择</span>
+            <p class="relic-flavor">${t('draft.fallbackFlavor')}</p>
+            <span class="pick">${t('draft.pick')}</span>
           </button>
         `;
       })
@@ -878,13 +928,13 @@ class UI {
     const modal = this.openModal(
       `
         <div class="draft">
-          <p class="eyebrow">第 ${wave} 波清除 · 战利品</p>
-          <h2>选择一件遗物或补给</h2>
+          <p class="eyebrow">${t('draft.eyebrow', { wave })}</p>
+          <h2>${t('draft.title')}</h2>
           <div class="draft-cards">${cards}</div>
           <div class="draft-actions">
-            <span class="muted">当前金币 ◆ ${fmt(gold)}</span>
+            <span class="muted">${t('draft.gold', { gold: fmt(gold) })}</span>
             <button class="btn ghost" id="btn-reroll" ${used >= max || gold < cost ? 'disabled' : ''}>
-              刷新选项 · ◆ ${cost} <span class="muted">(${used}/${max})</span>
+              ${t('draft.reroll', { cost })} <span class="muted">(${used}/${max})</span>
             </button>
           </div>
         </div>
@@ -904,47 +954,58 @@ class UI {
     const current = normalizeSettings(settings);
     const option = (value, label, selected) =>
       `<option value="${value}" ${String(selected) === String(value) ? 'selected' : ''}>${label}</option>`;
-    const presetName = detectPreset(current);
-    const presetLabel =
-      presetName === 'custom' ? '自定义' : presetName === 'low' ? '低配预设' : '高配预设';
+    const presetLabel = (name) =>
+      name === 'custom'
+        ? t('settings.presetCustom')
+        : name === 'low'
+          ? t('settings.presetLowName')
+          : t('settings.presetHighName');
+    const toOption = (value, label, selected) =>
+      `<option value="${value}" ${String(selected) === String(value) ? 'selected' : ''}>${label}</option>`;
+    const currentLocale = getLocale();
 
     const modal = this.openModal(
       `
         <div class="settings">
-          <p class="eyebrow">DISPLAY & PERFORMANCE</p>
-          <h2>画质设置</h2>
-          <p class="muted">${
-            inGame ? '游戏已暂停。设置只影响表现，不改变战斗结果。' : '设置会保存在当前浏览器。'
-          }</p>
+          <p class="eyebrow">${t('settings.eyebrow')}</p>
+          <h2>${t('settings.title')}</h2>
+          <p class="muted">${t(inGame ? 'settings.noteInGame' : 'settings.note')}</p>
           <div class="settings-grid">
-            <label class="setting-field"><span>目标帧率</span>
+            <label class="setting-field"><span>${t('settings.targetFps')}</span>
               <select id="set-fps">${option(30, '30 FPS', current.fps)}${option(60, '60 FPS', current.fps)}</select>
             </label>
-            <label class="setting-field"><span>画面清晰度</span>
-              <select id="set-dpr">${option(1, '标准（DPR 1）', current.dpr)}${option(2, '高清（DPR 2）', current.dpr)}</select>
+            <label class="setting-field"><span>${t('settings.resolution')}</span>
+              <select id="set-dpr">${option(1, t('settings.dprStandard'), current.dpr)}${option(2, t('settings.dprHigh'), current.dpr)}</select>
             </label>
-            <label class="setting-field"><span>装饰特效</span>
+            <label class="setting-field"><span>${t('settings.decorations')}</span>
               <select id="set-decorations">${['off', 'light', 'full']
-                .map((value) => option(value, DECORATION_LABELS[value], current.decorations))
+                .map((value) => option(value, t(`settings.decor.${value}`), current.decorations))
                 .join('')}</select>
             </label>
-            <label class="setting-field"><span>伤害飘字</span>
+            <label class="setting-field"><span>${t('settings.floaters')}</span>
               <select id="set-floaters">${['off', 'key', 'all']
-                .map((value) => option(value, FLOATER_LABELS[value], current.floaters))
+                .map((value) => option(value, t(`settings.floater.${value}`), current.floaters))
                 .join('')}</select>
             </label>
-            <label class="setting-check"><input type="checkbox" id="set-glow" ${current.glow ? 'checked' : ''} /> 光晕</label>
-            <label class="setting-check"><input type="checkbox" id="set-shake" ${current.shake ? 'checked' : ''} /> 屏幕震动</label>
-            <label class="setting-check"><input type="checkbox" id="set-showfps" ${current.showFps ? 'checked' : ''} /> 显示 FPS</label>
+            <label class="setting-check"><input type="checkbox" id="set-glow" ${current.glow ? 'checked' : ''} /> ${t('settings.glow')}</label>
+            <label class="setting-check"><input type="checkbox" id="set-shake" ${current.shake ? 'checked' : ''} /> ${t('settings.shake')}</label>
+            <label class="setting-check"><input type="checkbox" id="set-showfps" ${current.showFps ? 'checked' : ''} /> ${t('settings.showFps')}</label>
+            <label class="setting-check"><input type="checkbox" id="set-music" ${current.music ? 'checked' : ''} /> ${t('settings.music')}</label>
+            <label class="setting-check"><input type="checkbox" id="set-sound" ${audio.enabled ? 'checked' : ''} /> ${t('settings.sound')}</label>
+            <label class="setting-field"><span>${t('settings.language')}</span>
+              <select id="set-locale">${LOCALES.map((locale) =>
+                toOption(locale, t(locale === 'zh-CN' ? 'settings.languageZh' : 'settings.languageEn'), currentLocale)
+              ).join('')}</select>
+            </label>
           </div>
           <div class="settings-presets">
-            <button class="btn small" id="preset-low">恢复低配</button>
-            <button class="btn small" id="preset-high">恢复高配</button>
-            <span class="muted" id="preset-label">当前：${presetLabel}</span>
+            <button class="btn small" id="preset-low">${t('settings.presetLow')}</button>
+            <button class="btn small" id="preset-high">${t('settings.presetHigh')}</button>
+            <span class="muted" id="preset-label">${t('settings.currentPreset', { preset: presetLabel(detectPreset(current)) })}</span>
           </div>
           <div class="modal-actions">
-            <button class="btn primary" id="settings-apply">应用</button>
-            <button class="btn ghost" id="settings-cancel">取消</button>
+            <button class="btn primary" id="settings-apply">${t('common.apply')}</button>
+            <button class="btn ghost" id="settings-cancel">${t('common.cancel')}</button>
           </div>
         </div>
       `,
@@ -963,6 +1024,7 @@ class UI {
       glow: modal.querySelector('#set-glow').checked,
       shake: modal.querySelector('#set-shake').checked,
       showFps: modal.querySelector('#set-showfps').checked,
+      music: modal.querySelector('#set-music').checked,
     });
 
     const fill = (values) => {
@@ -974,22 +1036,37 @@ class UI {
       modal.querySelector('#set-glow').checked = next.glow;
       modal.querySelector('#set-shake').checked = next.shake;
       modal.querySelector('#set-showfps').checked = next.showFps;
+      modal.querySelector('#set-music').checked = next.music;
+      modal.querySelector('#set-sound').checked = audio.enabled;
       updateLabel();
     };
 
     const updateLabel = () => {
       const detected = detectPreset(read());
       modal.querySelector('#preset-label').textContent =
-        `当前：${detected === 'custom' ? '自定义' : detected === 'low' ? '低配预设' : '高配预设'}`;
+        t('settings.currentPreset', { preset: presetLabel(detected) });
     };
 
     modal.querySelectorAll('select, input').forEach((input) => {
       input.addEventListener('change', updateLabel);
     });
-    modal.querySelector('#preset-low').onclick = () => fill(presetSettings('low'));
-    modal.querySelector('#preset-high').onclick = () => fill(presetSettings('high'));
+    // 语言即时生效：保留未提交的画质改动并重建面板，让面板自身也切换文案。
+    modal.querySelector('#set-locale').addEventListener('change', (event) => {
+      const next = read();
+      setLocale(event.target.value);
+      this.showSettings({ settings: next, inGame, onApply, onCancel });
+    });
+    // 画质预设不覆盖用户单独选择的音乐开关。
+    const applyPreset = (name) => {
+      fill({ ...presetSettings(name), music: modal.querySelector('#set-music').checked });
+    };
+    modal.querySelector('#preset-low').onclick = () => applyPreset('low');
+    modal.querySelector('#preset-high').onclick = () => applyPreset('high');
     modal.querySelector('#settings-apply').onclick = () => {
       const next = read();
+      audio.setEnabled(modal.querySelector('#set-sound').checked);
+      audio.setMusicEnabled(next.music);
+      this.updateSoundIcon();
       this._modalOnClose = null;
       this.closeModal();
       onApply?.(next);
@@ -998,6 +1075,7 @@ class UI {
   }
 
   showResult({ stats, res, mode, dailyLeft }) {
+    audio.stopMusic();
     const victory = res?.victory ?? stats.victory ?? false;
     const difficulty = res?.difficulty || stats.difficulty || 'standard';
     const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
@@ -1007,31 +1085,35 @@ class UI {
     const personalBest = res?.personalBest;
     const extra =
       mode === 'daily' && dailyLeft != null
-        ? `<p class="muted">今日剩余挑战次数：${dailyLeft}</p>`
+        ? `<p class="muted">${t('result.dailyLeft', { n: dailyLeft })}</p>`
         : '';
+
+    const diffTag = victory
+      ? t('result.clearedTag', { name: diffName(diff) })
+      : t('result.difficultyTag', { name: diffName(diff) });
 
     const modal = this.openModal(
       `
         <div class="result ${victory ? 'victory' : ''}">
-          <p class="eyebrow">${victory ? 'VICTORY' : 'EXPEDITION OVER'}</p>
-          <h2>${victory ? '深渊已被肃清' : `抵达第 ${stats.wave} 波`}</h2>
-          <p class="diff-tag" style="color:${diff.color}">${diff.name}难度${victory ? ' · 通关' : ''}</p>
+          <p class="eyebrow">${t(victory ? 'result.victoryTag' : 'result.overTag')}</p>
+          <h2>${victory ? t('result.victoryTitle') : t('result.reached', { wave: stats.wave })}</h2>
+          <p class="diff-tag" style="color:${diff.color}">${diffTag}</p>
           <div class="score-big">${fmt(score)}</div>
-          <p class="muted">最终得分</p>
+          <p class="muted">${t('result.finalScore')}</p>
           <div class="result-grid">
-            <div><span>已清波次</span><b>${stats.clearedWave ?? stats.wave}</b></div>
-            <div><span>击杀</span><b>${fmt(stats.kills)}</b></div>
-            <div><span>剩余金币</span><b>◆ ${fmt(Math.floor(stats.gold))}</b></div>
-            <div><span>基地生命</span><b>${Math.max(0, Math.ceil(stats.baseHp))}</b></div>
-            <div><span>获得星核</span><b>◈ ${fmt(cores)}</b></div>
-            ${rank ? `<div><span>排行榜</span><b>#${rank}</b></div>` : ''}
-            <div><span>个人纪录</span><b>${personalBest ? '新纪录！' : '—'}</b></div>
+            <div><span>${t('result.clearedWaves')}</span><b>${stats.clearedWave ?? stats.wave}</b></div>
+            <div><span>${t('result.kills')}</span><b>${fmt(stats.kills)}</b></div>
+            <div><span>${t('result.goldLeft')}</span><b>◆ ${fmt(Math.floor(stats.gold))}</b></div>
+            <div><span>${t('result.baseHp')}</span><b>${Math.max(0, Math.ceil(stats.baseHp))}</b></div>
+            <div><span>${t('result.cores')}</span><b>◈ ${fmt(cores)}</b></div>
+            ${rank ? `<div><span>${t('result.leaderboard')}</span><b>#${rank}</b></div>` : ''}
+            <div><span>${t('result.personalBest')}</span><b>${personalBest ? t('result.newRecord') : t('result.none')}</b></div>
           </div>
           ${extra}
-          ${res ? '' : '<p class="muted warn">结算未上传（服务器不可用），本局奖励未入库。</p>'}
+          ${res ? '' : `<p class="muted warn">${t('result.uploadFailed')}</p>`}
           <div class="modal-actions">
-            <button class="btn primary" id="btn-again">再来一局</button>
-            <button class="btn ghost" id="btn-home">返回大厅</button>
+            <button class="btn primary" id="btn-again">${t('result.again')}</button>
+            <button class="btn ghost" id="btn-home">${t('result.home')}</button>
           </div>
         </div>
       `,
@@ -1052,28 +1134,28 @@ class UI {
                 <span class="rank ${index < 3 ? 'top' : ''}">${index + 1}</span>
                 <span class="board-name">
                   ${escapeHtml(entry.name)}
-                  ${entry.victory ? '<em class="win-mark" title="已通关">★</em>' : ''}
-                  <span class="board-diff" style="color:${diff.color}">${diff.name}</span>
+                  ${entry.victory ? `<em class="win-mark" title="${t('board.cleared')}">★</em>` : ''}
+                  <span class="board-diff" style="color:${diff.color}">${diffName(diff)}</span>
                 </span>
-                <span class="board-wave">第 ${entry.wave} 波</span>
+                <span class="board-wave">${t('board.wave', { n: entry.wave })}</span>
                 <span class="board-score">${fmt(entry.score)}</span>
               </div>`;
           })
           .join('')
-      : '<p class="empty">还没有记录，去拿下第一名。</p>';
+      : `<p class="empty">${t('board.empty')}</p>`;
 
     const modal = this.openModal(
       `
         <div class="board">
-          <p class="eyebrow">名人堂</p>
-          <h2>排行榜</h2>
+          <p class="eyebrow">${t('board.eyebrow')}</p>
+          <h2>${t('board.title')}</h2>
           <div class="tabs">
-            <button class="tab ${mode === 'normal' ? 'active' : ''}" data-mode="normal">无尽远征</button>
-            <button class="tab ${mode === 'daily' ? 'active' : ''}" data-mode="daily">每日挑战${day ? ` · ${day.slice(5)}` : ''}</button>
+            <button class="tab ${mode === 'normal' ? 'active' : ''}" data-mode="normal">${t('board.normal')}</button>
+            <button class="tab ${mode === 'daily' ? 'active' : ''}" data-mode="daily">${t('board.daily')}${day ? ` · ${day.slice(5)}` : ''}</button>
           </div>
           <div class="board-list">${rows}</div>
           <div class="modal-actions">
-            <button class="btn ghost" id="btn-close-board">关闭</button>
+            <button class="btn ghost" id="btn-close-board">${t('common.close')}</button>
           </div>
         </div>
       `,
@@ -1101,7 +1183,7 @@ class UI {
           </div>
           <button class="btn small ${isOwned ? 'ghost' : 'primary'}" data-id="${unlock.id}"
             ${isOwned || !affordable ? 'disabled' : ''}>
-            ${isOwned ? '已拥有' : `◈ ${unlock.cost}`}
+            ${isOwned ? t('unlocks.owned') : `◈ ${unlock.cost}`}
           </button>
         </div>`;
     }).join('');
@@ -1109,12 +1191,12 @@ class UI {
     const modal = this.openModal(
       `
         <div class="unlocks">
-          <p class="eyebrow">永久成长</p>
-          <h2>星核商店 <span class="cores-inline">◈ ${fmt(cores)}</span></h2>
-          <p class="muted">星核通过远征结算获得，解锁内容永久生效。</p>
+          <p class="eyebrow">${t('unlocks.eyebrow')}</p>
+          <h2>${t('unlocks.title')} <span class="cores-inline">◈ ${fmt(cores)}</span></h2>
+          <p class="muted">${t('unlocks.note')}</p>
           <div class="unlock-list">${rows}</div>
           <div class="modal-actions">
-            <button class="btn ghost" id="btn-close-unlocks">关闭</button>
+            <button class="btn ghost" id="btn-close-unlocks">${t('common.close')}</button>
           </div>
         </div>
       `,
@@ -1145,18 +1227,18 @@ class UI {
               </div>`;
           })
           .join('')
-      : '<p class="empty">本局还没有遗物。</p>';
+      : `<p class="empty">${t('relicsModal.none')}</p>`;
 
     const waveBlock = preview
       ? `
-          <p class="eyebrow">NEXT WAVE</p>
-          <h2>下一波 <span class="cores-inline">${preview.totalCount} 敌</span></h2>
+          <p class="eyebrow">${t('relicsModal.nextWave')}</p>
+          <h2>${t('hud.nextWave')} <span class="cores-inline">${t('relicsModal.enemies', { n: preview.totalCount })}</span></h2>
           <div class="relic-modal-list">
             ${[...preview.enemies]
               .sort((a, b) => b.count - a.count)
               .map(({ type, count }) => {
-                const def = ENEMIES[type] || { name: type, color: '#9fb0c3' };
-                return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${def.name}<b>×${count}</b></div>`;
+                const def = ENEMIES[type] || { id: type, name: type, color: '#9fb0c3' };
+                return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${enemyName(def)}<b>×${count}</b></div>`;
               })
               .join('')}
           </div>`
@@ -1167,10 +1249,10 @@ class UI {
         <div class="relics-modal">
           ${waveBlock}
           <p class="eyebrow">RELICS</p>
-          <h2>遗物 <span class="cores-inline">${relics.length}</span></h2>
+          <h2>${t('relicsModal.title')} <span class="cores-inline">${relics.length}</span></h2>
           <div class="relic-modal-list">${rows}</div>
           <div class="modal-actions">
-            <button class="btn ghost" id="btn-close-relics">关闭</button>
+            <button class="btn ghost" id="btn-close-relics">${t('common.close')}</button>
           </div>
         </div>
       `,
@@ -1183,30 +1265,30 @@ class UI {
     this.openModal(
       `
         <div class="help">
-          <p class="eyebrow">作战手册</p>
-          <h2>玩法说明</h2>
+          <p class="eyebrow">${t('help.eyebrow')}</p>
+          <h2>${t('help.title')}</h2>
           <div class="help-section">
-            <h3>核心循环</h3>
-            <p>在空地建造防御塔，阻止敌人从紫色传送门抵达基地水晶。每清空一波，可从三件遗物中选择一件强化本局。每 5 波会出现首领。</p>
+            <h3>${t('help.coreTitle')}</h3>
+            <p>${t('help.coreBody')}</p>
           </div>
           <div class="help-section">
-            <h3>资源</h3>
-            <p>击杀与清波获得金币，用于建造/升级/出售（返还 70%）。基地生命归零则远征结束。结算获得的星核可在星核商店永久解锁内容。</p>
+            <h3>${t('help.resourceTitle')}</h3>
+            <p>${t('help.resourceBody')}</p>
           </div>
           <div class="help-section">
-            <h3>战术要点</h3>
-            <p>炮台无法锁定空中单位；电弧与毒素无视护甲；霜塔减速能为全场争取输出时间。敌人越接近基地，越优先被塔锁定。</p>
+            <h3>${t('help.tacticTitle')}</h3>
+            <p>${t('help.tacticBody')}</p>
           </div>
           <div class="help-section">
-            <h3>快捷键</h3>
-            <p><kbd>1</kbd>–<kbd>5</kbd> 选择塔 · <kbd>Q</kbd> 主动技能 · <kbd>U</kbd> 升级 · <kbd>S</kbd> 出售 · <kbd>空格</kbd> 暂停 · <kbd>Esc</kbd> 取消</p>
+            <h3>${t('help.keysTitle')}</h3>
+            <p>${t('help.keysBody')}</p>
           </div>
           <div class="help-section">
-            <h3>每日挑战</h3>
-            <p>所有人使用同一套地图与波次种子，每天最多结算 3 次，取最高分上榜。</p>
+            <h3>${t('help.dailyTitle')}</h3>
+            <p>${t('help.dailyBody')}</p>
           </div>
           <div class="modal-actions">
-            <button class="btn ghost" id="btn-close-help">知道了</button>
+            <button class="btn ghost" id="btn-close-help">${t('help.close')}</button>
           </div>
         </div>
       `,
@@ -1215,15 +1297,15 @@ class UI {
     this.el.modalRoot.querySelector('#btn-close-help').onclick = () => this.closeModal();
   }
 
-  showConfirm({ title, text, confirmText = '确认', danger = false, onConfirm }) {
+  showConfirm({ title, text, confirmText = null, danger = false, onConfirm }) {
     const modal = this.openModal(
       `
         <div class="confirm">
           <h2>${title}</h2>
           <p>${text}</p>
           <div class="modal-actions">
-            <button class="btn ${danger ? 'danger' : 'primary'}" id="btn-confirm-yes">${confirmText}</button>
-            <button class="btn ghost" id="btn-confirm-no">取消</button>
+            <button class="btn ${danger ? 'danger' : 'primary'}" id="btn-confirm-yes">${confirmText ?? t('common.confirm')}</button>
+            <button class="btn ghost" id="btn-confirm-no">${t('common.cancel')}</button>
           </div>
         </div>
       `,
@@ -1240,12 +1322,12 @@ class UI {
     const modal = this.openModal(
       `
         <div class="confirm">
-          <h2>修改昵称</h2>
-          <p class="muted">最多 16 个字符，会显示在排行榜上。</p>
+          <h2>${t('prompt.title')}</h2>
+          <p class="muted">${t('prompt.note')}</p>
           <input id="name-input" class="text-input" maxlength="16" value="${escapeHtml(current || '')}" />
           <div class="modal-actions">
-            <button class="btn primary" id="btn-name-save">保存</button>
-            <button class="btn ghost" id="btn-name-cancel">取消</button>
+            <button class="btn primary" id="btn-name-save">${t('common.save')}</button>
+            <button class="btn ghost" id="btn-name-cancel">${t('common.cancel')}</button>
           </div>
         </div>
       `,
@@ -1303,7 +1385,7 @@ function mapPreviewSvg(map) {
     )
     .join('');
   const base = `<circle cx="${(pad + map.base.x * sx).toFixed(1)}" cy="${(pad + map.base.y * sy).toFixed(1)}" r="5" fill="#4fd8c8" stroke="#d8fff9" stroke-width="1.5" />`;
-  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="地图预览">
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="${t('mapSelect.preview')}">
     <rect width="${w}" height="${h}" rx="10" fill="#0a1319" />
     <g opacity="0.12" stroke="#6fa78a" stroke-width="0.5">
       ${Array.from({ length: map.cols + 1 }, (_, i) => `<line x1="${pad + i * sx}" y1="${pad}" x2="${pad + i * sx}" y2="${h - pad}" />`).join('')}
