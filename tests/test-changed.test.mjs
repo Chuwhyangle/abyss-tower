@@ -1,10 +1,18 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { formatReport, listTestFiles, selectTests, TEST_MAP } from '../scripts/test-changed.mjs';
+import {
+  auditCoverage,
+  formatReport,
+  listSourceFiles,
+  listTestFiles,
+  selectTests,
+  TEST_MAP,
+} from '../scripts/test-changed.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SCRIPT = path.join(ROOT, 'scripts', 'test-changed.mjs');
@@ -92,6 +100,58 @@ test('映射集中在一处且目标测试真实存在', () => {
       assert.ok(fs.existsSync(path.join(ROOT, target)), `${target} 不存在`);
     }
   }
+});
+
+test('审计覆盖当前仓库全部源文件', () => {
+  const { checked, uncovered } = auditCoverage({ files: listSourceFiles(ROOT) });
+  assert.ok(checked > 0, '应扫描到源文件');
+  assert.deepEqual(uncovered, [], `存在未覆盖源文件：${uncovered.join(', ')}`);
+});
+
+test('审计把共享规则算作覆盖', () => {
+  const { uncovered } = auditCoverage({
+    files: ['public/js/sim.js', 'public/js/shared/rng.js', 'server/index.mjs', 'package.json'],
+  });
+  assert.deepEqual(uncovered, []);
+});
+
+test('auditCoverage 逐条报告未覆盖文件', () => {
+  const { uncovered } = auditCoverage({
+    files: ['public/js/brand-new.js', 'public/js/sim.js', 'server/unknown/thing.mjs'],
+  });
+  assert.deepEqual(uncovered, ['public/js/brand-new.js', 'server/unknown/thing.mjs']);
+});
+
+function tempRepo(t, files) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'test-changed-audit-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const relative of files) {
+    const full = path.join(root, relative);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, 'export const value = 1;\n');
+  }
+  return root;
+}
+
+const runAudit = (root) =>
+  spawnSync(process.execPath, ['--no-warnings', SCRIPT, '--audit', '--root', root], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  });
+
+test('审计模式在存在未覆盖文件时退出码 1 并逐条打印', (t) => {
+  const root = tempRepo(t, ['public/js/brand-new.js', 'public/js/sim.js']);
+  const result = runAudit(root);
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /✗ public\/js\/brand-new\.js/);
+  assert.doesNotMatch(result.stdout, /✗ public\/js\/sim\.js/);
+});
+
+test('审计模式在覆盖齐全时退出码 0', (t) => {
+  const root = tempRepo(t, ['public/js/sim.js', 'public/js/settings.js']);
+  const result = runAudit(root);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /审计通过/);
 });
 
 test('CLI 在基准分支不存在时以非零码退出并给出提示', () => {
