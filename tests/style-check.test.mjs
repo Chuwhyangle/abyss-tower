@@ -34,12 +34,121 @@ const rulesOf = (source, options) => checkContent(source, options).map((item) =>
 test('规则集合集中定义，可增删', () => {
   assert.deepEqual(
     RULES.map((rule) => rule.id),
-    ['trailing-whitespace', 'tab', 'max-width', 'final-newline'],
+    ['trailing-whitespace', 'tab', 'max-width', 'final-newline', 'import-order', 'console-log'],
   );
   assert.deepEqual(
     RULES.filter((rule) => rule.fixable).map((rule) => rule.id),
     ['trailing-whitespace', 'final-newline'],
   );
+});
+
+test('import 分组顺序：内建 → 第三方 → 本地', () => {
+  const good = [
+    "import fs from 'node:fs';",
+    "import { join } from 'path';",
+    "import pkg from 'some-pkg';",
+    "import local from './local.js';",
+    '',
+  ].join('\n');
+  assert.deepEqual(rulesOf(good), []);
+
+  const bad = [
+    "import local from './local.js';",
+    "import fs from 'node:fs';",
+    '',
+  ].join('\n');
+  const violations = checkContent(bad);
+  assert.deepEqual(violations.map((item) => item.rule), ['import-order']);
+  assert.equal(violations[0].line, 2);
+});
+
+test('import 分组支持跨行与副作用 import，动态 import 不计', () => {
+  const good = [
+    'import {',
+    '  readFile,',
+    "} from 'node:fs';",
+    "import './setup.js';",
+    "const mod = await import('./lazy.js');",
+    '',
+  ].join('\n');
+  assert.deepEqual(rulesOf(good), []);
+
+  const bad = [
+    "import './setup.js';",
+    'import {',
+    '  readFile,',
+    "} from 'node:fs';",
+    '',
+  ].join('\n');
+  const violations = checkContent(bad);
+  assert.deepEqual(violations.map((item) => item.rule), ['import-order']);
+  assert.equal(violations[0].line, 2);
+});
+
+test('console-log 命中 console.log，允许 warn/error/info', () => {
+  const browser = { file: 'public/js/a.js' };
+  assert.deepEqual(rulesOf('console.log(a);\n', browser), ['console-log']);
+  assert.deepEqual(rulesOf('console.error(a);\nconsole.warn(a);\nconsole.info(a);\n', browser), []);
+  assert.deepEqual(rulesOf("const s = 'console.log(x)';\n// console.log(y)\n/* console.log(z) */\n", browser), []);
+  assert.deepEqual(rulesOf('console.logger(a);\n', browser), []);
+  assert.deepEqual(rulesOf("const s = `console.log(${value})`;\n", browser), []);
+});
+
+test('console-log 只作用于浏览器代码（public/js）', () => {
+  assert.deepEqual(rulesOf('console.log(a);\n', { file: 'scripts/a.mjs' }), []);
+  assert.deepEqual(rulesOf('console.log(a);\n', { file: 'server/a.mjs' }), []);
+});
+
+test('// style-allow 行内豁免：整行或指定规则', () => {
+  const browser = { file: 'public/js/a.js' };
+  assert.deepEqual(rulesOf('console.log(a); // style-allow\n', browser), []);
+  assert.deepEqual(rulesOf('console.log(a); // style-allow console-log\n', browser), []);
+  assert.deepEqual(rulesOf('console.log(a); // style-allow import-order\n', browser), ['console-log']);
+  assert.deepEqual(rulesOf('console.log(a); // style-allow\nconsole.log(b);\n', browser), ['console-log']);
+  assert.deepEqual(rulesOf("const s = '// style-allow';\nconsole.log(a);\n", browser), ['console-log']);
+  assert.deepEqual(rulesOf('\tconst a = 1; // style-allow\n'), []);
+
+  const bad = [
+    "import local from './local.js';",
+    "import fs from 'node:fs'; // style-allow import-order",
+    '',
+  ].join('\n');
+  assert.deepEqual(rulesOf(bad), []);
+});
+
+test('规则可单独开关', () => {
+  const browser = { file: 'public/js/a.js' };
+  assert.deepEqual(rulesOf('console.log(a);\n', { ...browser, enabledRules: ['import-order'] }), []);
+  assert.deepEqual(rulesOf('console.log(a);\n', { ...browser, enabledRules: ['console-log'] }), ['console-log']);
+
+  const bad = [
+    "import local from './local.js';",
+    "import fs from 'node:fs';",
+    '',
+  ].join('\n');
+  assert.deepEqual(rulesOf(bad, { enabledRules: ['console-log'] }), []);
+});
+
+test('CLI --enable / --disable 切换规则', (t) => {
+  const root = tempRoot(t);
+  write(root, 'public/js/a.js', 'console.log(1);\n');
+
+  const disabled = spawnSync(process.execPath, ['--no-warnings', SCRIPT, '--root', root, '--disable', 'console-log'], {
+    encoding: 'utf8',
+  });
+  assert.equal(disabled.status, 0, disabled.stderr);
+
+  const only = spawnSync(process.execPath, ['--no-warnings', SCRIPT, '--root', root, '--enable', 'console-log'], {
+    encoding: 'utf8',
+  });
+  assert.equal(only.status, 1);
+  assert.match(only.stderr, /public\/js\/a\.js:1:\d+ \[console-log\]/);
+
+  const unknown = spawnSync(process.execPath, ['--no-warnings', SCRIPT, '--root', root, '--enable', 'nope'], {
+    encoding: 'utf8',
+  });
+  assert.equal(unknown.status, 2);
+  assert.match(unknown.stderr, /未知规则/);
 });
 
 test('尾随空格命中，--fix 修复且幂等', (t) => {

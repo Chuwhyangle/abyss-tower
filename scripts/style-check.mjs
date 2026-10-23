@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// 轻量风格检查：尾随空格、Tab、代码行宽、文件末尾换行。零依赖，只拦截明显问题。
-// 行宽只统计「代码字符」——字符串、模板字面量、正则里的内容属于数据，不计入宽度。
+// 轻量风格检查：尾随空格、Tab、代码行宽、文件末尾换行、import 分组顺序、console.log。
+// 零依赖，只拦截明显问题。行宽只统计「代码字符」——字符串、模板字面量、正则里的内容属于数据。
 import fs from 'node:fs';
+import { builtinModules } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +13,50 @@ export const DEFAULT_OPTIONS = {
   maxWidth: 160,
   maxFileBytes: 1024 * 1024,
 };
+
+const BUILTIN_MODULES = new Set(builtinModules);
+const IMPORT_GROUPS = ['内建', '第三方', '本地'];
+
+// import 分组：node: 前缀或 Node 内建模块 → 内建；./ 或 / 开头 → 本地；其余 → 第三方。
+export function classifySpecifier(specifier) {
+  if (specifier.startsWith('node:') || BUILTIN_MODULES.has(specifier)) return 0;
+  if (specifier.startsWith('.') || specifier.startsWith('/')) return 2;
+  return 1;
+}
+
+// 收集静态 import 声明（支持跨行与副作用 import），返回 { line, specifier }。
+// 动态 import() 与 import.meta 不属于分组顺序的讨论范围。
+export function findImports(source) {
+  const lines = source.split('\n');
+  const imports = [];
+  for (let i = 0; i < lines.length; i += 1) {
+    const start = /^[ \t]*import\b/.exec(lines[i]);
+    if (!start) continue;
+    let text = lines[i].slice(start[0].length);
+    if (/^[ \t]*[.(]/.test(text)) continue;
+    let end = i;
+    let specifier = null;
+    for (let guard = 0; guard < 50; guard += 1) {
+      const sideEffect = /^[ \t]*['"]([^'"]+)['"][ \t]*;?[ \t]*$/.exec(text);
+      if (sideEffect) {
+        specifier = sideEffect[1];
+        break;
+      }
+      const from = /\bfrom[ \t]*['"]([^'"]+)['"]/.exec(text);
+      if (from) {
+        specifier = from[1];
+        break;
+      }
+      if ((guard > 0 && /;[ \t]*$/.test(text)) || end + 1 >= lines.length) break;
+      end += 1;
+      text += `\n${lines[end]}`;
+    }
+    if (specifier === null) continue;
+    imports.push({ line: i + 1, specifier });
+    i = end;
+  }
+  return imports;
+}
 
 export const RULES = [
   {
@@ -54,6 +99,41 @@ export const RULES = [
     },
     fixSource(source) {
       return source.endsWith('\n') ? source : `${source}\n`;
+    },
+  },
+  {
+    id: 'import-order',
+    fixable: false,
+    message: 'import 分组顺序应为：内建 → 第三方 → 本地',
+    checkFile(context) {
+      const violations = [];
+      let highest = -1;
+      let highestLabel = '';
+      for (const item of findImports(context.source)) {
+        const group = classifySpecifier(item.specifier);
+        if (group < highest) {
+          violations.push({
+            line: item.line,
+            column: 1,
+            message: `${this.message}（「${item.specifier}」属于「${IMPORT_GROUPS[group]}」，却排在「${highestLabel}」之后）`,
+          });
+        } else {
+          highest = group;
+          highestLabel = IMPORT_GROUPS[group];
+        }
+      }
+      return violations;
+    },
+  },
+  {
+    id: 'console-log',
+    fixable: false,
+    scope: ['public/js'],
+    message: '禁止 console.log（可用 console.warn / console.error，或加 // style-allow）',
+    check(line, context) {
+      const masked = context.masked[line.number - 1] ?? '';
+      const match = /\bconsole\s*\.\s*log\s*\(/.exec(masked);
+      return match ? { column: match.index + 1 } : null;
     },
   },
 ];
@@ -206,6 +286,201 @@ export function measureCodeWidths(source) {
   return widths;
 }
 
+// 与 measureCodeWidths 使用同一套状态机，额外返回两份等长掩码行：
+// code —— 只保留代码（字符串、模板、正则、注释都抹成空格）；
+// withComments —— 抹掉字符串等内容但保留注释，用来识别 // style-allow。
+export function maskSource(source) {
+  const code = [''];
+  const withComments = [''];
+  const braces = [];
+  let mode = 'code';
+  let regexClass = false;
+  let lastSignificant = '';
+  let index = 0;
+
+  const blank = () => {
+    code[code.length - 1] += ' ';
+    withComments[withComments.length - 1] += ' ';
+  };
+  const comment = (char) => {
+    code[code.length - 1] += ' ';
+    withComments[withComments.length - 1] += char;
+  };
+  const emit = (char) => {
+    code[code.length - 1] += char;
+    withComments[withComments.length - 1] += char;
+  };
+  const skipEscape = () => {
+    blank();
+    index += 1;
+    if (index < source.length && source[index] !== '\n') {
+      blank();
+      index += 1;
+    }
+  };
+
+  while (index < source.length) {
+    const char = source[index];
+
+    if (char === '\n') {
+      if (mode === 'line-comment') mode = 'code';
+      code.push('');
+      withComments.push('');
+      index += 1;
+      continue;
+    }
+
+    if (mode === 'line-comment' || mode === 'block-comment') {
+      comment(char);
+      if (mode === 'block-comment' && char === '*' && source[index + 1] === '/') {
+        comment('/');
+        mode = 'code';
+        index += 2;
+        continue;
+      }
+      index += 1;
+      continue;
+    }
+
+    if (mode === 'single' || mode === 'double') {
+      if (char === '\\') {
+        skipEscape();
+        continue;
+      }
+      blank();
+      if (char === (mode === 'single' ? "'" : '"')) {
+        lastSignificant = char;
+        mode = 'code';
+      }
+      index += 1;
+      continue;
+    }
+
+    if (mode === 'template') {
+      if (char === '\\') {
+        skipEscape();
+        continue;
+      }
+      if (char === '`') {
+        blank();
+        lastSignificant = '`';
+        mode = 'code';
+        index += 1;
+        continue;
+      }
+      if (char === '$' && source[index + 1] === '{') {
+        braces.push(0);
+        blank();
+        blank();
+        mode = 'code';
+        index += 2;
+        continue;
+      }
+      blank();
+      index += 1;
+      continue;
+    }
+
+    if (mode === 'regex') {
+      if (char === '\\') {
+        skipEscape();
+        continue;
+      }
+      if (char === '[') regexClass = true;
+      if (char === ']') regexClass = false;
+      if (char === '/' && !regexClass) {
+        blank();
+        lastSignificant = '/';
+        mode = 'code';
+        index += 1;
+        continue;
+      }
+      blank();
+      index += 1;
+      continue;
+    }
+
+    // mode === 'code'
+    if (braces.length && char === '}') {
+      if (braces[braces.length - 1] === 0) {
+        braces.pop();
+        blank();
+        mode = 'template';
+        index += 1;
+        continue;
+      }
+      braces[braces.length - 1] -= 1;
+    } else if (braces.length && char === '{') {
+      braces[braces.length - 1] += 1;
+    }
+
+    if (char === "'") {
+      blank();
+      mode = 'single';
+      index += 1;
+      continue;
+    }
+    if (char === '"') {
+      blank();
+      mode = 'double';
+      index += 1;
+      continue;
+    }
+    if (char === '`') {
+      blank();
+      mode = 'template';
+      index += 1;
+      continue;
+    }
+    if (char === '/' && source[index + 1] === '/') {
+      comment('/');
+      comment('/');
+      mode = 'line-comment';
+      index += 2;
+      continue;
+    }
+    if (char === '/' && source[index + 1] === '*') {
+      comment('/');
+      comment('*');
+      mode = 'block-comment';
+      index += 2;
+      continue;
+    }
+    if (char === '/' && REGEX_PRECEDERS.has(lastSignificant)) {
+      blank();
+      mode = 'regex';
+      regexClass = false;
+      index += 1;
+      continue;
+    }
+
+    if (!/\s/.test(char)) lastSignificant = char;
+    emit(char);
+    index += 1;
+  }
+
+  return { code, withComments };
+}
+
+// 行内豁免：`// style-allow` 豁免该行全部规则，`// style-allow <规则 id,...>` 只豁免指定规则。
+const STYLE_ALLOW = /\/\/[ \t]*style-allow\b([^\n]*)/;
+
+export function parseStyleAllow(commentVisibleLine) {
+  const match = STYLE_ALLOW.exec(commentVisibleLine);
+  if (!match) return null;
+  const rest = match[1].trim();
+  if (!rest) return new Set(['*']);
+  const ids = rest.toLowerCase().split(/[\s,]+/).filter((token) => RULES.some((rule) => rule.id === token));
+  return ids.length > 0 ? new Set(ids) : new Set(['*']);
+}
+
+function isRuleEnabled(rule, options) {
+  if (Array.isArray(options.enabledRules) && !options.enabledRules.includes(rule.id)) return false;
+  if (!rule.scope || !options.file) return true;
+  const file = options.file.split(path.sep).join('/');
+  return rule.scope.some((prefix) => file === prefix || file.startsWith(`${prefix}/`));
+}
+
 export function analyzeLines(source, options = DEFAULT_OPTIONS) {
   const codeWidths = measureCodeWidths(source);
   return source.split('\n').map((text, index) => ({
@@ -216,19 +491,32 @@ export function analyzeLines(source, options = DEFAULT_OPTIONS) {
 }
 
 export function checkContent(source, options = DEFAULT_OPTIONS) {
+  const masks = maskSource(source);
   const context = {
     source,
+    file: options.file ?? '',
     maxWidth: options.maxWidth ?? DEFAULT_OPTIONS.maxWidth,
+    masked: masks.code,
     lines: analyzeLines(source, options),
   };
+  const allowed = context.lines.map((line) => parseStyleAllow(masks.withComments[line.number - 1] ?? ''));
   const violations = [];
+  const push = (rule, hit) => {
+    const allow = allowed[hit.line - 1];
+    if (allow && (allow.has('*') || allow.has(rule.id))) return;
+    violations.push({ line: hit.line, column: hit.column, rule: rule.id, message: hit.message ?? rule.message });
+  };
+
   for (const line of context.lines) {
     for (const rule of RULES) {
+      if (!rule.check || !isRuleEnabled(rule, options)) continue;
       const hit = rule.check(line, context);
-      if (hit) {
-        violations.push({ line: line.number, column: hit.column, rule: rule.id, message: rule.message });
-      }
+      if (hit) push(rule, { line: line.number, ...hit });
     }
+  }
+  for (const rule of RULES) {
+    if (!rule.checkFile || !isRuleEnabled(rule, options)) continue;
+    for (const hit of rule.checkFile(context)) push(rule, hit);
   }
   return violations;
 }
@@ -308,14 +596,24 @@ export function run(options = {}) {
         source = next;
       }
     }
-    for (const violation of checkContent(source, settings)) violations.push({ file, ...violation });
+    const relativeFile = path.relative(root, file).split(path.sep).join('/');
+    for (const violation of checkContent(source, { ...settings, file: relativeFile })) {
+      violations.push({ file, ...violation });
+    }
   }
 
   return { root, files, violations, fixed, skipped };
 }
 
+function parseRuleIds(value, flag) {
+  const ids = value.split(',').map((id) => id.trim()).filter(Boolean);
+  if (ids.length === 0) return { error: `${flag} 需要规则 id（逗号分隔）` };
+  const unknown = ids.filter((id) => !RULES.some((rule) => rule.id === id));
+  return unknown.length > 0 ? { error: `未知规则：${unknown.join('、')}` } : { ids };
+}
+
 function parseArgs(argv) {
-  const options = { fix: false };
+  const options = { fix: false, enable: [], disable: [] };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--fix') {
@@ -328,19 +626,32 @@ function parseArgs(argv) {
       const value = Number(argv[++i]);
       if (!Number.isFinite(value) || value <= 0) return { error: '--max-width 需要一个正整数' };
       options.maxWidth = Math.floor(value);
+    } else if (arg === '--enable' || arg === '--disable') {
+      const value = argv[++i];
+      if (!value) return { error: `${arg} 需要规则 id（逗号分隔）` };
+      const parsed = parseRuleIds(value, arg);
+      if (parsed.error) return parsed;
+      options[arg === '--enable' ? 'enable' : 'disable'].push(...parsed.ids);
     } else if (arg === '--help' || arg === '-h') {
       options.help = true;
     } else {
       return { error: `未知参数：${arg}` };
     }
   }
+  const { enable, disable } = options;
+  if (enable.length > 0 || disable.length > 0) {
+    const base = enable.length > 0 ? enable : RULES.map((rule) => rule.id);
+    options.enabledRules = base.filter((id) => !disable.includes(id));
+  }
+  delete options.enable;
+  delete options.disable;
   return options;
 }
 
 function main(argv) {
   const options = parseArgs(argv);
   if (options.help) {
-    console.log('用法：node scripts/style-check.mjs [--fix] [--root <目录>] [--max-width <列数>]');
+    console.log('用法：node scripts/style-check.mjs [--fix] [--root <目录>] [--max-width <列数>] [--enable <规则>] [--disable <规则>]');
     console.log('规则：', RULES.map((rule) => `${rule.id}${rule.fixable ? '(可自动修复)' : ''}`).join('、'));
     return 0;
   }

@@ -182,7 +182,20 @@ test('startMusic 支持 menu / battle / boss 三套音轨', () => {
 });
 
 test('音乐调用点覆盖大厅、战斗与首领波', () => {
-  const ui = read('public/js/ui.js');
+  // UI 已拆分为门面 + 面板模块，按整体读取。
+  const ui = [
+    'public/js/ui.js',
+    'public/js/ui/shared.js',
+    'public/js/ui/title.js',
+    'public/js/ui/hud.js',
+    'public/js/ui/shop.js',
+    'public/js/ui/modals.js',
+    'public/js/ui/result.js',
+    'public/js/ui/settings-panel.js',
+    'public/js/ui/panels.js',
+  ]
+    .map(read)
+    .join('\n');
   assert.match(ui, /audio\.startMusic\('menu'\)/, '大厅未使用 menu 音乐');
 
   const app = read('public/js/game-app.js');

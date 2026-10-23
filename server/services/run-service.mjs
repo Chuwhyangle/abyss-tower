@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 
 import { hydrateRun, normalizeStats, transaction, updateProfile } from '../db.mjs';
-import { REPLAY_LIMIT, insertReplay, trimReplays } from '../db/replays.mjs';
+import { REPLAY_LIMIT, archiveOld, insertReplay } from '../db/replays.mjs';
 import {
   abandonActiveRuns,
   countFinishedDailyRuns,
@@ -710,8 +710,15 @@ export class RunService {
         createdAt: run.createdAt,
         finishedAt: now,
       });
-      trimReplays(token, REPLAY_LIMIT);
     });
+
+    // 归档发生在结算事务之外：失败只影响历史聚合，绝不影响本局结算。
+    // 明细删除与聚合写入同事务，下次结算会整体重试。
+    try {
+      archiveOld(token, REPLAY_LIMIT);
+    } catch {
+      /* 归档失败不影响结算 */
+    }
 
     // 首通授予必须在更新战绩之前：skillUnlocked 会从历史首通派生，
     // 先写 wins 会让本次授予误判为「已解锁」而返回 null。

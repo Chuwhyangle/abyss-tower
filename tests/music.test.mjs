@@ -78,7 +78,20 @@ test('settings.js 持久化 music 开关并回退默认值', () => {
 });
 
 test('ui.js 设置面板有独立的音乐与音效开关', () => {
-  const src = readSource('public/js/ui.js');
+  // UI 已拆分为门面 + 面板模块，按整体读取。
+  const src = [
+    'public/js/ui.js',
+    'public/js/ui/shared.js',
+    'public/js/ui/title.js',
+    'public/js/ui/hud.js',
+    'public/js/ui/shop.js',
+    'public/js/ui/modals.js',
+    'public/js/ui/result.js',
+    'public/js/ui/settings-panel.js',
+    'public/js/ui/panels.js',
+  ]
+    .map(readSource)
+    .join('\n');
   assert.match(src, /id="set-music"/, '设置面板缺少音乐开关');
   assert.match(src, /id="set-sound"/, '设置面板缺少音效开关');
   assert.match(src, /audio\.setMusicEnabled/, '音乐开关未驱动音频层');

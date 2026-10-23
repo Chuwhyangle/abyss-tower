@@ -80,6 +80,18 @@ export function enemyAnimVariant(decorations) {
   return ENEMY_ANIM_VARIANTS[decorations] || ENEMY_ANIM_VARIANTS.light;
 }
 
+// 皮肤渲染预算：皮肤只改颜色与描边，不新增粒子/光晕。
+// 低配把皮肤轮廓并进本体已有的主描边（零新增绘制调用），高配才单独描一圈皮肤环。
+export const SKIN_OUTLINE_BUDGET = Object.freeze({
+  off: 'none',
+  light: 'merged',
+  full: 'ring',
+});
+
+export function skinOutlineBudget(decorations) {
+  return SKIN_OUTLINE_BUDGET[decorations] || SKIN_OUTLINE_BUDGET.light;
+}
+
 // 受击闪白只在前 0.08s 可见：hitFlash 由模拟以 decay/秒线性衰减，
 // 这里把剩余量映射成该窗口内的亮度，窗口外的尾段不再闪白。
 export function hitFlashAlpha(flash, variant = ENEMY_ANIM_VARIANTS.full) {
@@ -104,7 +116,9 @@ export class EnemyRenderer {
     const anim = enemyAnimVariant(settings.decorations);
     const walk = anim.walk;
     const skin = activeSkin('enemy');
-    const outline = skin.outline;
+    const budget = skinOutlineBudget(settings.decorations);
+    const outline = budget === 'none' ? null : skin.outline;
+    const mergeOutline = budget === 'merged' && !!outline;
 
     for (const enemy of game.enemies) {
       if (enemy.dead) continue;
@@ -166,11 +180,13 @@ export class EnemyRenderer {
         walk.enabled,
         variantDef
           ? Palette.presentColor(variantDef.color, settings)
-          : skinColorFor(skin, Palette.enemyColor(enemy.type, settings))
+          : skinColorFor(skin, Palette.enemyColor(enemy.type, settings)),
+        outline,
+        mergeOutline
       );
 
-      // 皮肤轮廓：始终绘制的外圈，低配/关闭装饰时仍保留皮肤辨识度。
-      if (outline) {
+      // 皮肤轮廓：高配单独描环；低配已并进本体主描边，不再新增绘制调用。
+      if (outline && !mergeOutline) {
         g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
         g.lineWidth = outline.width;
         g.beginPath();
@@ -452,17 +468,36 @@ export class EnemyRenderer {
     }
   }
 
-  drawEnemyBody(g, time, enemy, def, r, animated = true, color = def.color) {
+  drawEnemyBody(
+    g,
+    time,
+    enemy,
+    def,
+    r,
+    animated = true,
+    color = def.color,
+    outline = null,
+    mergeOutline = false
+  ) {
     const t = time;
     const body = color;
     const dark = Palette.shade(body, -0.45);
     const light = Palette.shade(body, 0.28);
+    // 低配：皮肤轮廓并进本体主描边，不再额外描一圈外环。
+    const primaryStroke = (width) => {
+      if (mergeOutline && outline) {
+        g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
+        g.lineWidth = outline.width;
+      } else {
+        g.strokeStyle = dark;
+        g.lineWidth = width;
+      }
+    };
 
     if (def.shape === 'blob') {
       // 兜帽游魂
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 2;
+      primaryStroke(2);
       g.beginPath();
       g.moveTo(0, -r * 1.18);
       g.bezierCurveTo(r * 0.95, -r * 0.85, r * 1.0, r * 0.3, r * 0.78, r * 0.96);
@@ -487,8 +522,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'dart') {
       // 疾影猎犬
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 1.8;
+      primaryStroke(1.8);
       g.beginPath();
       g.ellipse(-r * 0.1, 0, r * 1.05, r * 0.62, 0, 0, Math.PI * 2);
       g.fill();
@@ -532,8 +566,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'bug') {
       // 噬虫
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 1.4;
+      primaryStroke(1.4);
       g.beginPath();
       g.ellipse(0, 0, r * 0.9, r * 1.05, 0, 0, Math.PI * 2);
       g.fill();
@@ -566,8 +599,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'hex') {
       // 石卫
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 2.2;
+      primaryStroke(2.2);
       g.beginPath();
       for (let i = 0; i < 6; i++) {
         const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
@@ -609,8 +641,7 @@ export class EnemyRenderer {
       // 翼魔
       const flap = animated ? Math.sin(t * 16 + enemy.id) * 0.45 : 0;
       g.fillStyle = Palette.shade(body, -0.22);
-      g.strokeStyle = dark;
-      g.lineWidth = 1.4;
+      primaryStroke(1.4);
       g.beginPath();
       g.ellipse(-r * 0.62, -flap * r * 0.5, r * 0.72, r * 0.28, -0.55 - flap, 0, Math.PI * 2);
       g.fill();
@@ -644,8 +675,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'priest') {
       // 祭司
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 1.8;
+      primaryStroke(1.8);
       g.beginPath();
       g.moveTo(0, -r * 1.05);
       g.quadraticCurveTo(r * 0.95, -r * 0.4, r * 0.82, r * 1.0);
@@ -683,8 +713,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'shield') {
       // 石盾：厚重躯干 + 正面盾牌
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 2;
+      primaryStroke(2);
       g.beginPath();
       g.ellipse(0, 0, r * 0.92, r * 0.95, 0, 0, Math.PI * 2);
       g.fill();
@@ -716,8 +745,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'split') {
       // 裂魂：两瓣身体 + 中央裂缝
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 1.8;
+      primaryStroke(1.8);
       g.beginPath();
       g.ellipse(-r * 0.34, 0, r * 0.6, r * 0.92, -0.16, 0, Math.PI * 2);
       g.fill();
@@ -744,8 +772,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'drum') {
       // 战鼓魔：圆鼓身躯 + 鼓棒与声波
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 2;
+      primaryStroke(2);
       g.beginPath();
       g.ellipse(0, 0, r * 0.8, r * 0.95, 0, 0, Math.PI * 2);
       g.fill();
@@ -783,8 +810,7 @@ export class EnemyRenderer {
     } else if (def.shape === 'caster') {
       // 咒术师：尖帽长袍 + 悬浮法球
       g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 1.8;
+      primaryStroke(1.8);
       g.beginPath();
       g.moveTo(0, -r * 0.55);
       g.lineTo(r * 0.85, r * 1.0);
@@ -824,8 +850,7 @@ export class EnemyRenderer {
       if (enemy.variant === 'armored') {
         // 磐岩渊主：八边重甲壳 + 双层护板 + 横条面甲。
         g.fillStyle = body;
-        g.strokeStyle = dark;
-        g.lineWidth = 3;
+        primaryStroke(3);
         g.beginPath();
         for (let i = 0; i < 8; i++) {
           const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
@@ -869,8 +894,7 @@ export class EnemyRenderer {
       } else if (enemy.variant === 'summoner') {
         // 裂隙亲王：长袍轮廓 + 兜帽 + 头顶悬浮裂隙宝珠。
         g.fillStyle = body;
-        g.strokeStyle = dark;
-        g.lineWidth = 2.4;
+        primaryStroke(2.4);
         g.beginPath();
         g.moveTo(0, -r * 1.0);
         g.bezierCurveTo(r * 0.85, -r * 0.6, r * 1.05, r * 0.5, r * 0.92, r * 1.05);
@@ -904,8 +928,7 @@ export class EnemyRenderer {
         // 血怒渊主：更多更长的尖刺 + 三叉角 + 灼目。
         const spikes = 22;
         g.fillStyle = body;
-        g.strokeStyle = dark;
-        g.lineWidth = 2.4;
+        primaryStroke(2.4);
         g.beginPath();
         for (let i = 0; i < spikes; i++) {
           const a = (i / spikes) * Math.PI * 2;
@@ -942,8 +965,7 @@ export class EnemyRenderer {
       } else {
         const spikes = 16;
         g.fillStyle = body;
-        g.strokeStyle = dark;
-        g.lineWidth = 2.2;
+        primaryStroke(2.2);
         g.beginPath();
         for (let i = 0; i < spikes; i++) {
           const a = (i / spikes) * Math.PI * 2;

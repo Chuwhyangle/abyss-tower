@@ -1,5 +1,11 @@
 // 最近对局回放接口：只读摘要。未登录由登录门禁回 401；非本人回放与不存在一样回 404。
-import { REPLAY_LIMIT, findReplay, listReplays } from '../db/replays.mjs';
+import {
+  REPLAY_LIMIT,
+  WEEKLY_ARCHIVE_LIMIT,
+  findReplay,
+  listReplays,
+  listWeeklyArchives,
+} from '../db/replays.mjs';
 
 // 列表只需要足够定位一局的信息，时间线细节留给详情接口。
 function listEntry(replay) {
@@ -28,8 +34,10 @@ export class ReplayHistoryRoutes {
   }
 
   list(ctx) {
-    const replays = listReplays(ctx.token, REPLAY_LIMIT).map(listEntry);
-    return ctx.json(200, { replays, limit: REPLAY_LIMIT });
+    const entries = listReplays(ctx.token, REPLAY_LIMIT).map(listEntry);
+    const weekly = listWeeklyArchives(ctx.token, WEEKLY_ARCHIVE_LIMIT);
+    // replays 保留旧字段名，既有结算页与客户端无需同步改动。
+    return ctx.json(200, { entries, weekly, replays: entries, limit: REPLAY_LIMIT });
   }
 
   detail(ctx, id) {
