@@ -4,11 +4,14 @@ import {
   SESSION_TTL_MS,
 } from '../config.mjs';
 import {
+  cancelAccountDeletion,
   claimAccount,
   findAccountByAlias,
   findAccountByUsername,
+  getAccountDeletion,
   hashAlias,
   publicAccount,
+  purgeDueDeletions,
   registerAccount,
   setAccountPassword,
   setAccountRecovery,
@@ -172,10 +175,46 @@ export async function handleAuthRoute(req, res, url, { json, fail, readJson }) {
     const limit = loginRateLimited({ usernameNorm, ipHash });
     if (limit.limited) return tooMany(json, res, limit.retryAfterSeconds);
 
-    if (!account || account.status !== 'active' || !verifyPassword(password, account.password_hash)) {
+    // 先校验凭据，再披露账号状态，避免未认证的账号枚举。
+    if (!account || !verifyPassword(password, account.password_hash)) {
       recordAuthEvent({
         accountId: account?.id || null,
         usernameNorm,
+        event: 'login_fail',
+        ipHash,
+        userAgent: req.headers['user-agent'],
+      });
+      return failWith(json, res, 401, '用户名或密码错误', 'INVALID_CREDENTIALS');
+    }
+
+    if (account.status === 'deleted') {
+      const deletion = getAccountDeletion(account.id);
+      const now = Date.now();
+      if (deletion && deletion.dueAt > now) {
+        recordAuthEvent({
+          accountId: account.id,
+          usernameNorm: account.username_norm,
+          event: 'login_deleted',
+          ipHash,
+          userAgent: req.headers['user-agent'],
+          detail: { dueAt: deletion.dueAt },
+        });
+        return json(res, 403, {
+          error: '账号已申请删除，可在冷却期内取消',
+          code: 'DELETION_PENDING',
+          deletionDueAt: deletion.dueAt,
+        });
+      }
+      for (const purgedId of purgeDueDeletions(now)) {
+        recordAuthEvent({ accountId: purgedId, event: 'deletion_purged' });
+      }
+      return failWith(json, res, 403, '账号已删除', 'ACCOUNT_DELETED');
+    }
+
+    if (account.status !== 'active') {
+      recordAuthEvent({
+        accountId: account.id,
+        usernameNorm: account.username_norm,
         event: 'login_fail',
         ipHash,
         userAgent: req.headers['user-agent'],
@@ -365,6 +404,61 @@ export async function handleAuthRoute(req, res, url, { json, fail, readJson }) {
       userAgent: req.headers['user-agent'],
     });
     return json(res, 200, { ok: true, recoveryCode: newRecoveryCode });
+  }
+
+  // 冷却期内取消删除：会话已被吊销，因此用用户名+密码重新证明身份。
+  if (pathname === '/api/auth/cancel-deletion' && method === 'POST') {
+    if (!AUTH_ENABLED) return failWith(json, res, 404, '账号体系未启用', 'AUTH_DISABLED');
+    const ipHash = hashIp(req);
+    let body;
+    try {
+      body = await readJson(req);
+    } catch (error) {
+      return failWith(json, res, 400, error.message);
+    }
+    const username = String(body.username || '').trim();
+    const password = String(body.password || '');
+    const usernameNorm = username.toLowerCase();
+    const limit = loginRateLimited({ usernameNorm, ipHash });
+    if (limit.limited) return tooMany(json, res, limit.retryAfterSeconds);
+
+    const account = findAccountByUsername(username);
+    if (!account || !verifyPassword(password, account.password_hash)) {
+      recordAuthEvent({
+        accountId: account?.id || null,
+        usernameNorm,
+        event: 'login_fail',
+        ipHash,
+        userAgent: req.headers['user-agent'],
+        detail: { action: 'cancel_deletion' },
+      });
+      return failWith(json, res, 401, '用户名或密码错误', 'INVALID_CREDENTIALS');
+    }
+    if (account.status !== 'deleted') {
+      return failWith(json, res, 409, '该账号没有待取消的删除申请', 'NO_DELETION_PENDING');
+    }
+
+    const deletion = getAccountDeletion(account.id);
+    const now = Date.now();
+    const restored =
+      deletion && deletion.dueAt > now ? cancelAccountDeletion(account.id, now) : null;
+    if (!restored) {
+      for (const purgedId of purgeDueDeletions(now)) {
+        recordAuthEvent({ accountId: purgedId, event: 'deletion_purged' });
+      }
+      return failWith(json, res, 410, '账号删除已生效，无法取消', 'ACCOUNT_DELETED');
+    }
+
+    recordPlayerEvent(restored.id, 'account_deletion_cancelled', {});
+    recordAuthEvent({
+      accountId: restored.id,
+      usernameNorm: restored.username_norm,
+      event: 'deletion_cancel',
+      ipHash,
+      userAgent: req.headers['user-agent'],
+    });
+    startSession(req, res, restored);
+    return json(res, 200, payloadFor(restored));
   }
 
   return fail(res, 404, '接口不存在');

@@ -18,6 +18,7 @@ import {
   skillUnlockText,
   isSkillUnlocked,
 } from './shared/data.js';
+import { canAffordEventOption } from './shared/events.js';
 import { normalizeSettings, detectPreset, presetSettings } from './settings.js';
 import { audio } from './audio.js';
 import { t, tData, tOr, initI18n, getLocale, setLocale, LOCALES } from './i18n.js';
@@ -966,6 +967,57 @@ class UI {
     };
     window.addEventListener('keydown', onKey);
     this._modalCleanup = () => window.removeEventListener('keydown', onKey);
+  }
+
+  // 局内事件节点：祭坛/商队/赌局三选一，与遗物三选一用不同标题与卡片样式区分。
+  showEventModal({ wave, event, gold, baseHp, maxHp, onChoose }) {
+    if (!event) return;
+    const options = event.options || [];
+    const cards = options
+      .map((option, index) => {
+        const affordable = canAffordEventOption(option, { gold, baseHp, maxHp });
+        return `
+          <button class="relic-card event-card ${affordable ? '' : 'locked'}" data-index="${index}"
+            ${affordable ? '' : 'disabled'} style="--rarity:#c9a227">
+            <span class="rarity">事件 · ${index + 1}</span>
+            <h3>${escapeHtml(option.name)}</h3>
+            <p class="relic-flavor">${escapeHtml(option.desc)}</p>
+            <span class="pick">${affordable ? '选择' : '资源不足'}</span>
+          </button>
+        `;
+      })
+      .join('');
+
+    const modal = this.openModal(
+      `
+        <div class="event-node">
+          <p class="eyebrow">第 ${wave} 波 · 事件节点</p>
+          <h2>${escapeHtml(event.name)}</h2>
+          <p class="muted">${escapeHtml(event.desc)}</p>
+          <div class="draft-cards">${cards}</div>
+          <div class="draft-actions">
+            <span class="muted">键盘 1–${options.length} 选择</span>
+          </div>
+        </div>
+      `,
+      { className: 'event-modal', closable: false }
+    );
+
+    modal.querySelectorAll('.event-card').forEach((card) => {
+      if (card.disabled) return;
+      card.onclick = () => onChoose?.(Number(card.dataset.index));
+    });
+
+    const onKey = (event) => {
+      const index = Number(event.key);
+      if (!Number.isInteger(index) || index < 1 || index > options.length) return;
+      if (!canAffordEventOption(options[index - 1], { gold, baseHp, maxHp })) return;
+      event.preventDefault();
+      onChoose?.(index - 1);
+    };
+    window.addEventListener('keydown', onKey);
+    this._modalCleanup = () => window.removeEventListener('keydown', onKey);
+    audio.play('draft');
   }
 
   // ---------- 弹窗 ----------

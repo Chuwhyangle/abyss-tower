@@ -1,6 +1,7 @@
 // 中英双语基础设施：键对称、插值、未知键回退、默认语言解析与持久化。
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   DEFAULT_LOCALE,
   DICTIONARIES,
@@ -19,6 +20,38 @@ import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
 import { SKILL_ORDER } from '../public/js/shared/data/skills.js';
 import { ACHIEVEMENTS } from '../public/js/shared/achievements.js';
+
+const GLOSSARY_PATH = new URL('../docs/GLOSSARY.md', import.meta.url);
+const REQUIRED_GLOSSARY_TERMS = ['塔', '遗物', '技能', '难度', '星核', '波次'];
+
+function parseGlossary(markdown) {
+  const rows = [];
+  for (const line of markdown.split('\n')) {
+    if (!line.startsWith('|')) continue;
+    const cells = line
+      .split('|')
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    if (cells.length < 3) continue;
+    if (cells[0] === '中文' || /^-{3,}$/.test(cells[0])) continue;
+    rows.push({
+      zh: cells[0],
+      en: cells[1],
+      aliases:
+        cells[2] === '—' || cells[2] === ''
+          ? []
+          : cells[2]
+              .split(',')
+              .map((alias) => alias.trim())
+              .filter(Boolean),
+    });
+  }
+  return rows;
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function memoryStorage(initial = {}) {
   const data = new Map(Object.entries(initial));
@@ -46,6 +79,28 @@ test('两种语言键集合一致且无空文案', () => {
       assert.ok(value.trim().length > 0, `${locale} 的键 ${key} 不能为空`);
     }
   }
+});
+
+test('术语表覆盖核心术语，英文文案零禁用别名', () => {
+  const terms = parseGlossary(readFileSync(GLOSSARY_PATH, 'utf8'));
+  assert.ok(terms.length > 0, '术语表未解析出任何条目');
+  const zhTerms = terms.map((row) => row.zh);
+  for (const required of REQUIRED_GLOSSARY_TERMS) {
+    assert.ok(zhTerms.includes(required), `术语表缺少「${required}」`);
+  }
+
+  const entries = Object.entries(enUS);
+  const hits = [];
+  for (const term of terms) {
+    assert.ok(term.en.length > 0, `术语「${term.zh}」缺少英文正式用词`);
+    for (const alias of term.aliases) {
+      const pattern = new RegExp(`\\b${escapeRegExp(alias)}\\b`, 'i');
+      for (const [key, value] of entries) {
+        if (pattern.test(value)) hits.push(`${alias} ← ${key}: "${value}"`);
+      }
+    }
+  }
+  assert.deepEqual(hits, [], `英文文案出现禁用别名:\n${hits.join('\n')}`);
 });
 
 test('参数插值随语言切换', () => {

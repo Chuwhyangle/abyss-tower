@@ -30,6 +30,7 @@ import {
 import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
 import { generateMapCandidates } from '../../public/js/shared/mapgen.js';
 import { generateWave } from '../../public/js/shared/waves.js';
+import { findEventOption, rollEvent } from '../../public/js/shared/events.js';
 import {
   rollRelicOffers,
   normalizeRelicStates,
@@ -82,6 +83,11 @@ export function dailyAttemptsLeft(token) {
 
 export function dailyStreakFor(token, day = dayKey()) {
   return dailyStreak(participationDays(token), day);
+}
+
+// 事件选择与遗物选择共用 offers JSON；事件槽位加前缀避免与遗物波次键冲突。
+function eventKey(wave) {
+  return `event:${wave}`;
 }
 
 function maxRerollsFor(profile) {
@@ -428,6 +434,63 @@ export class RunService {
     slot.picked = true;
     setOffers(run.id, JSON.stringify(offers));
     return { applied: offer, picked: true, relics: states };
+  }
+
+  // 局内事件节点：与遗物选择同一套幂等模型，状态寄存在 offers JSON 的 event:<wave> 槽位。
+  eventNode(run) {
+    if (run.clearedWaves !== run.wavesServed) {
+      throw new RunError(409, '当前波次尚未结算完成');
+    }
+    const wave = run.clearedWaves;
+    const event = rollEvent(run.seed, wave);
+    if (!event) throw new RunError(409, '当前波次没有事件节点');
+    const slot = (run.offers || {})[eventKey(wave)];
+    return {
+      wave,
+      event,
+      picked: !!slot?.picked,
+      choice: slot?.picked
+        ? { eventId: slot.eventId, optionId: slot.optionId, optionIndex: slot.optionIndex }
+        : null,
+    };
+  }
+
+  pickEvent(run, { index, optionId } = {}) {
+    if (run.clearedWaves !== run.wavesServed) {
+      throw new RunError(409, '当前波次尚未结算完成');
+    }
+    const wave = run.clearedWaves;
+    const event = rollEvent(run.seed, wave);
+    if (!event) throw new RunError(400, '当前波次没有事件节点');
+
+    const offers = run.offers || {};
+    const key = eventKey(wave);
+    if (offers[key]?.picked) throw new RunError(409, '本次事件已经选择');
+
+    let option = null;
+    let optionIndex = -1;
+    const parsed = Number(index);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed < event.options.length) {
+      option = event.options[parsed];
+      optionIndex = parsed;
+    } else if (optionId != null) {
+      option = findEventOption(event, optionId);
+      if (option) optionIndex = event.options.indexOf(option);
+    }
+    if (!option) throw new RunError(400, '选择不在本次事件选项中');
+
+    offers[key] = {
+      picked: true,
+      eventId: event.id,
+      optionId: option.id,
+      optionIndex,
+    };
+    setOffers(run.id, JSON.stringify(offers));
+    return {
+      wave,
+      applied: { kind: 'event', eventId: event.id, optionId: option.id, optionIndex },
+      picked: true,
+    };
   }
 
   settle(run, profile, body) {

@@ -54,6 +54,7 @@ export class GameController {
       onRequestError: (error, options) => this.handleKeyRequestError(error, options),
       onBindCanvas: (canvas) => this.input.bindCanvas(canvas),
       onShowTitle: () => this.session.showTitle(),
+      onPendingEvent: () => this.combat.resolvePendingEvent(),
     });
     this.combat = new CombatController({
       state: this.state,

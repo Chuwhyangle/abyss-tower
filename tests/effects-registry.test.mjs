@@ -142,7 +142,8 @@ test('固定种子结算哈希与重构前逐字一致', () => {
 
   const json = JSON.stringify(canonicalize(parts));
   const hash = createHash('sha256').update(json).digest('hex');
-  assert.equal(hash, 'b42393dd557a201e8abc11ab5f1812e0d5e25f145055c99e0c078bfe6c5e9526');
+  // V26-001：遗物扩容到 40 件，全遗物结算基线随内容更新。
+  assert.equal(hash, 'd7a1b7444bef09019efd6ec81c0e88efddecc88f9a526be7722c904a11cf5543');
 });
 
 function round(n) {

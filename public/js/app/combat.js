@@ -15,7 +15,13 @@ export class CombatController {
   async nextWave() {
     const { state } = this;
     const sim = state.sim;
-    if (!sim || sim.phase !== 'prep' || state.loadingWave) return;
+    if (!sim || state.loadingWave) return;
+    // 事件节点未结算时先处理事件，避免跳过局内选择直接开下一波。
+    if (sim.pendingEvent) {
+      await this.resolvePendingEvent(sim.clearedWave);
+      return;
+    }
+    if (sim.phase !== 'prep') return;
     state.loadingWave = true;
     try {
       let data = await this.api.startWave(state.run.id);
@@ -76,6 +82,10 @@ export class CombatController {
     sim.pendingDraft = true;
     // 清波未确认时不覆盖波前快照，避免刷新后重复领取奖励。
     if (clearOk) sim.save();
+
+    // 每 5 波的事件节点先于遗物三选一结算。
+    await this.resolvePendingEvent(wave);
+    if (!state.sim || state.sim.phase === 'over') return;
 
     let data;
     try {
@@ -176,6 +186,70 @@ export class CombatController {
     } catch (error) {
       this.ui.toast(error.message, 2800);
     }
+  }
+
+  // 事件节点：服务端只记录选择（幂等校验），效果由 sim 按共享纯函数本地结算。
+  async resolvePendingEvent(wave = null) {
+    const { state } = this;
+    const sim = state.sim;
+    if (!sim?.pendingEvent) return false;
+
+    state.app?.setPaused(true);
+    const event = sim.pendingEvent;
+    const targetWave = wave ?? sim.clearedWave;
+
+    await new Promise((resolve) => {
+      const present = () => {
+        this.ui.showEventModal({
+          wave: targetWave,
+          event,
+          gold: sim.gold,
+          baseHp: sim.baseHp,
+          maxHp: sim.maxBaseHp,
+          onChoose: async (index) => {
+            const option = event.options[index];
+            if (!option || !sim.pendingEvent) return;
+
+            let chosen = index;
+            try {
+              await this.api.pickEvent(state.run.id, { index, optionId: option.id });
+            } catch (error) {
+              if (error.status === 409) {
+                // 重复提交（例如另一标签页已选）：按服务端记录的选择结算。
+                try {
+                  const info = await this.api.getEvent(state.run.id);
+                  const serverIndex = event.options.findIndex(
+                    (item) => item.id === info?.choice?.optionId
+                  );
+                  if (serverIndex >= 0) chosen = serverIndex;
+                } catch {
+                  /* 网络失败时保留本地选择 */
+                }
+              } else {
+                console.warn('[event]', error);
+              }
+            }
+
+            const result = sim.applyEventOption(chosen);
+            if (!result.ok) {
+              this.ui.toast('当前资源无法承担这个选择', 2400);
+              present();
+              return;
+            }
+            this.ui.closeModal();
+            this.ui.renderRelics();
+            this.ui.updateShopState();
+            state.app?.emitHud(true);
+            if (result.gamble) {
+              this.ui.toast(result.gamble.won ? '赌局：赢了！' : '赌局：输了。', 2400);
+            }
+            resolve(true);
+          },
+        });
+      };
+      present();
+    });
+    return true;
   }
 
   async handleGameOver(stats) {

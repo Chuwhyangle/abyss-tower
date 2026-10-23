@@ -31,7 +31,8 @@ const EXPECTED_EXPORTS = [
 // 拆分前（单文件 data.js）的内容快照：数据 + 关键函数输出。
 // V21-005：TOWERS 增加纯数据 evolutions 分支，内容快照随之更新。
 // W19-009：敌人扩容到 12 种（含机制型敌人），内容快照随之更新。
-const BASELINE_HASH = 'e21f37bee514bb344b731b76cfaf84004ff40d563c6aa9de45c8d14b610b0b48';
+// V26-001：遗物扩容到 40 件，内容快照随之更新。
+const BASELINE_HASH = '31a4bd693f388faf4d9092a537756a3acff580c64bc676b678ff10aa5feec302';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -141,7 +142,7 @@ test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
   assert.equal(Object.keys(data.ENEMIES).length, 12);
-  assert.equal(data.RELICS.length, 30);
+  assert.equal(data.RELICS.length, 40);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);
 });

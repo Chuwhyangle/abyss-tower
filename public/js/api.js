@@ -305,6 +305,15 @@ export function createApi({
         body: typeof selection === 'number' ? { index: selection } : selection,
       });
     },
+    getEvent(id) {
+      return request(`/api/runs/${encodeURIComponent(id)}/events`, { method: 'POST', body: {} });
+    },
+    pickEvent(id, selection) {
+      return request(`/api/runs/${encodeURIComponent(id)}/event`, {
+        method: 'POST',
+        body: typeof selection === 'number' ? { index: selection } : selection,
+      });
+    },
     finishRun(id, payload) {
       return request(`/api/runs/${encodeURIComponent(id)}/finish`, {
         method: 'POST',

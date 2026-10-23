@@ -147,8 +147,12 @@ test('定义：旧成就 id 保留，技能成就归入构筑分组', () => {
   const skillIds = skillItems.map((item) => item.id);
   assert.deepEqual(skillIds.sort(), [
     'skill_abyss_win',
+    'skill_abyss_win_5',
+    'skill_all_max',
     'skill_all_unlocked',
+    'skill_level_3',
     'skill_level_5',
+    'skill_levels_20',
     'skill_max',
     'skill_select',
     'skill_unlock_chrono',
@@ -296,7 +300,7 @@ test('带技能通关深渊才解锁 skill_abyss_win', async () => {
   assert.equal(summary.status, 200);
   const buildGroup = summary.data.groups.find((group) => group.id === 'build');
   const skillItems = summary.data.achievements.filter((item) => item.id.startsWith('skill_'));
-  assert.equal(skillItems.length, 7);
+  assert.equal(skillItems.length, 11);
   assert.ok(skillItems.every((item) => item.group === 'build'));
   assert.ok(buildGroup && buildGroup.total >= 7);
   const abyssWin = summary.data.achievements.find((item) => item.id === 'skill_abyss_win');
@@ -334,7 +338,8 @@ test('成就落库失败时技能接口仍然成功，恢复后补发', async ()
     assert.equal(blocked.status, 200);
     assert.equal(blocked.data.upgraded.to, 5);
     assert.deepEqual(blocked.data.unlockedAchievements, []);
-    assert.deepEqual(achievementIds(accountId), []);
+    // 3 级成就已在安装触发器前落库；被拦截的 5 级成就不得写入。
+    assert.deepEqual(achievementIds(accountId), ['skill_level_3']);
   } finally {
     dbModule.db.exec('DROP TRIGGER IF EXISTS v22_block_achievements');
   }

@@ -525,6 +525,12 @@ cores = Math.round(
 - 设置（`tests/settings.test.mjs`）：默认低配、预设/自定义识别、非法值归一化、损坏/不可写存储回退。
 - 结算：分数/星核公式、难度倍率、封顶钳制、按已清波次判定通关。
 
+#### 8.1.1 本地快筛（`npm run test:changed`）
+
+- 用途：按 `git diff --name-only <base>...HEAD` 的改动文件，经 `scripts/test-changed.mjs` 里的显式映射挑选相关测试，缩短本地 / worker 内环反馈时间。
+- 映射规则集中在 `TEST_MAP`；`sim.js`、`public/js/shared/`、`server/index.mjs`、`package.json` 等共享文件直接回退全量；未覆盖映射的文件同样回退全量并打印原因。
+- **门禁永远全量**：`npm test` 与 fan-in 的 `test_command` 保持不变；`test:changed` 只是本地快筛，不参与合并前判定。
+
 ### 8.2 接口测试（`tests/api.test.mjs`）
 
 - 独立测试服务（临时 DB、随机端口）。

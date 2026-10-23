@@ -1,12 +1,52 @@
-// 玩家档案接口：会话初始化、档案读取、进度查询。
+// 玩家档案接口：会话初始化、档案读取、进度查询、数据导出与账号删除。
 import { db, updateProfile } from '../db.mjs';
+import {
+  DELETION_COOLDOWN_MS,
+  findAccountById,
+  publicAccount,
+  softDeleteAccount,
+} from '../db/accounts.mjs';
+import { recordPlayerEvent } from '../db/events.mjs';
+import { hashIp, recordAuthEvent } from '../auth/rate-limit.mjs';
+import { clearSessionCookie } from '../auth/cookies.mjs';
 import { cleanName, dailyAttemptsLeft, dailyState } from './support.mjs';
+
+function readProgress(accountId, type = null) {
+  const rows = type
+    ? db
+        .prepare(
+          'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ? AND progress_type = ?'
+        )
+        .all(accountId, type)
+    : db
+        .prepare(
+          'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ?'
+        )
+        .all(accountId);
+  return rows.map((row) => {
+    let state = {};
+    try {
+      state = JSON.parse(row.state_json) || {};
+    } catch {
+      state = {};
+    }
+    return {
+      type: row.progress_type,
+      key: row.progress_key,
+      value: row.value_num,
+      state,
+      updatedAt: row.updated_at,
+    };
+  });
+}
 
 export class ProfileRoutes {
   register(router) {
     router.add('POST', '/api/session', (ctx) => this.session(ctx));
     router.add('GET', '/api/profile', (ctx) => ctx.json(200, { profile: ctx.profile }));
     router.add('GET', '/api/profile/progress', (ctx) => this.progress(ctx));
+    router.add('GET', '/api/profile/export', (ctx) => this.exportData(ctx));
+    router.add('DELETE', '/api/profile', (ctx) => this.remove(ctx));
   }
 
   async session(ctx) {
@@ -25,40 +65,84 @@ export class ProfileRoutes {
   }
 
   progress(ctx) {
-    const token = ctx.token;
     const profile = ctx.profile;
-    const type = ctx.url.searchParams.get('type');
-    const rows = type
-      ? db
-          .prepare(
-            'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ? AND progress_type = ?'
-          )
-          .all(token, type)
-      : db
-          .prepare(
-            'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ?'
-          )
-          .all(token);
-    const progress = rows.map((row) => {
-      let state = {};
-      try {
-        state = JSON.parse(row.state_json) || {};
-      } catch {
-        state = {};
-      }
-      return {
-        type: row.progress_type,
-        key: row.progress_key,
-        value: row.value_num,
-        state,
-        updatedAt: row.updated_at,
-      };
-    });
+    const progress = readProgress(ctx.token, ctx.url.searchParams.get('type'));
     return ctx.json(200, {
       stats: profile.stats,
       unlocks: profile.unlocks,
       wallet: { cores: profile.cores },
       progress,
+    });
+  }
+
+  // 数据导出：只读取当前账号自己的档案、进度与对局摘要，绝不返回凭据哈希。
+  exportData(ctx) {
+    const account = findAccountById(ctx.token);
+    if (!account) return ctx.fail(404, '账号不存在');
+    const profile = ctx.profile;
+    const runs = db
+      .prepare(
+        `SELECT id, mode, board_key, difficulty, day, status, victory, score,
+                wave_reached, kills, duration_ms, created_at, finished_at
+           FROM runs WHERE account_id = ? ORDER BY created_at DESC`
+      )
+      .all(ctx.token);
+    return ctx.json(200, {
+      exportedAt: new Date().toISOString(),
+      account: publicAccount(account),
+      profile: {
+        name: profile.name,
+        cores: profile.cores,
+        unlocks: profile.unlocks,
+        stats: profile.stats,
+        createdAt: profile.createdAt,
+      },
+      progress: readProgress(ctx.token),
+      runs: runs.map((row) => ({
+        id: row.id,
+        mode: row.mode,
+        boardKey: row.board_key,
+        difficulty: row.difficulty,
+        day: row.day,
+        status: row.status,
+        victory: !!row.victory,
+        score: row.score,
+        waveReached: row.wave_reached,
+        kills: row.kills,
+        durationMs: row.duration_ms,
+        createdAt: row.created_at,
+        finishedAt: row.finished_at,
+      })),
+    });
+  }
+
+  // 账号删除采用软删除 + 7 天冷却期：需显式确认，立即吊销会话，冷却期内可取消。
+  async remove(ctx) {
+    const body = await ctx.readJson();
+    if (body.confirm !== 'DELETE') {
+      return ctx.fail(400, '删除账号需要 confirm 字段为 "DELETE"', 'CONFIRMATION_REQUIRED');
+    }
+    const result = softDeleteAccount(ctx.token);
+    if (!result) return ctx.fail(404, '账号不存在');
+    recordPlayerEvent(ctx.token, 'account_deletion_requested', {
+      dueAt: result.deletion.dueAt,
+    });
+    recordAuthEvent({
+      accountId: ctx.token,
+      usernameNorm: ctx.identity?.account?.username_norm || null,
+      event: 'deletion_request',
+      ipHash: hashIp(ctx.req),
+      userAgent: ctx.req.headers['user-agent'],
+      detail: { dueAt: result.deletion.dueAt },
+    });
+    clearSessionCookie(ctx.req, ctx.res);
+    return ctx.json(200, {
+      ok: true,
+      deletion: {
+        requestedAt: result.deletion.requestedAt,
+        dueAt: result.deletion.dueAt,
+        cooldownMs: DELETION_COOLDOWN_MS,
+      },
     });
   }
 }

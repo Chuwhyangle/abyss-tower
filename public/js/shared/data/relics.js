@@ -27,6 +27,11 @@ export const RELICS = [
   { id: 'steadyaim', name: '稳定瞄准', rarity: 'common', desc: '所有防御塔射程 +0.6 格', mods: { range: 0.6 } },
   { id: 'coinpurse', name: '鼓胀钱袋', rarity: 'common', desc: '每次击杀额外获得 1 金币', mods: { killGold: 1 } },
   { id: 'sandbag', name: '沙袋工事', rarity: 'common', desc: '立即恢复并提高 3 点基地生命', mods: { baseHp: 3 } },
+  { id: 'frostedge', name: '霜刃磨石', rarity: 'common', desc: '霜塔伤害 +10%，减速强度 +5%', mods: { dmg: { frost: 0.1 }, slow: 0.05 } },
+  { id: 'venomvial', name: '毒液小瓶', rarity: 'common', desc: '毒雾塔伤害 +10%，毒伤 +10%', mods: { dmg: { poison: 0.1 }, dot: 0.1 } },
+  { id: 'spareparts', name: '备用零件', rarity: 'common', desc: '建造与升级费用 -5%，每次击杀额外获得 1 金币', mods: { costMul: -0.05, killGold: 1 } },
+  { id: 'scouthorn', name: '侦察号角', rarity: 'common', desc: '所有防御塔射程 +0.4 格，攻击速度 +5%', mods: { range: 0.4, fireRate: 0.05 } },
+  { id: 'bloodpact', name: '血誓木牌', rarity: 'common', desc: '基地生命低于 40% 时全体伤害 +12%，暴击率 +5%', mods: { lowHpDmg: 0.12, crit: 0.05 } },
 
   { id: 'powder', name: '火药桶', rarity: 'rare', desc: '炮台伤害 +20%，溅射范围 +35%', mods: { dmg: { cannon: 0.2 }, splash: 0.35 } },
   { id: 'frostheart', name: '极寒之心', rarity: 'rare', desc: '减速效果 +15%，持续时间 +30%', mods: { slow: 0.15, slowDur: 0.3 } },
@@ -39,6 +44,9 @@ export const RELICS = [
   { id: 'alchemy', name: '炼金秘方', rarity: 'rare', desc: '毒雾塔伤害 +25%，毒伤 +30%', mods: { dmg: { poison: 0.25 }, dot: 0.3 } },
   { id: 'siege', name: '攻城配重', rarity: 'rare', desc: '炮台伤害 +30%，射程 +0.6 格', mods: { dmg: { cannon: 0.3 }, range: 0.6 } },
   { id: 'cartel', name: '黑市商会', rarity: 'rare', desc: '所有金币收入 +15%，建造与升级费用 -5%', mods: { goldMul: 0.15, costMul: -0.05 } },
+  { id: 'auroraveil', name: '极光帷幕', rarity: 'rare', desc: '被减速的敌人受到的所有伤害 +10%，减速持续 +20%', mods: { frostDmgBonus: 0.1, slowDur: 0.2 } },
+  { id: 'skyfall', name: '天火共鸣', rarity: 'rare', desc: '溅射范围 +25%，全体伤害 +5%', mods: { splash: 0.25, dmgAll: 0.05 } },
+  { id: 'gamblerscoin', name: '赌徒金币', rarity: 'rare', desc: '攻击有 12% 概率造成双倍伤害，每波结束额外获得当前金币 3% 的利息', mods: { crit: 0.12, interest: 0.03 } },
 
   { id: 'warlord', name: '战争领主', rarity: 'epic', desc: '所有防御塔伤害 +18%', mods: { dmgAll: 0.18 } },
   { id: 'warhorn', name: '战争号角', rarity: 'epic', desc: '所有防御塔攻击速度 +25%', mods: { fireRate: 0.25 } },
@@ -46,6 +54,8 @@ export const RELICS = [
   { id: 'laststand', name: '背水一战', rarity: 'epic', desc: '基地生命低于 40% 时，全体伤害 +35%', mods: { lowHpDmg: 0.35 } },
   { id: 'greed', name: '贪婪之神', rarity: 'epic', desc: '所有金币收入 +30%', mods: { goldMul: 0.3 } },
   { id: 'bastion', name: '钢铁壁垒', rarity: 'epic', desc: '立即恢复并提高 10 点基地生命', mods: { baseHp: 10 } },
+  { id: 'eclipsehour', name: '蚀时印记', rarity: 'epic', desc: '所有防御塔攻击速度 +18%，射程 +0.5 格', mods: { fireRate: 0.18, range: 0.5 } },
+  { id: 'bloodtide', name: '血潮契约', rarity: 'epic', desc: '基地生命低于 40% 时全体伤害 +30%，每次击杀额外获得 2 金币', mods: { lowHpDmg: 0.3, killGold: 2 } },
 ];
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));

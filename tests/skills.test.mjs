@@ -9,6 +9,7 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { dayKey } from '../public/js/shared/scoring.js';
 import { SKILLS, TOWER_ORDER, skillStats } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -372,7 +373,7 @@ test('每日挑战：固定规则集、任意技能固定 5 级、v2 榜单', as
   assert.deepEqual(active.data.run.ruleset, started.data.ruleset);
 
   const row = dbModule.db.prepare('SELECT board_key, ruleset_json FROM runs WHERE id = ?').get(runId);
-  const day = new Date().toISOString().slice(0, 10);
+  const day = dayKey();
   assert.equal(row.board_key, `daily:${day}:v2`);
   assert.deepEqual(JSON.parse(row.ruleset_json), started.data.ruleset);
 
