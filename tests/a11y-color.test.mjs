@@ -28,7 +28,20 @@ import { generateWave } from '../public/js/shared/waves.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CSS = fs.readFileSync(path.join(ROOT, 'public/styles.css'), 'utf8');
-const UI_SRC = fs.readFileSync(path.join(ROOT, 'public/js/ui.js'), 'utf8');
+// UI 已拆分为门面 + 面板模块，源码级约束按整体读取。
+const UI_SRC = [
+  'public/js/ui.js',
+  'public/js/ui/shared.js',
+  'public/js/ui/title.js',
+  'public/js/ui/hud.js',
+  'public/js/ui/shop.js',
+  'public/js/ui/modals.js',
+  'public/js/ui/result.js',
+  'public/js/ui/settings-panel.js',
+  'public/js/ui/panels.js',
+]
+  .map((relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8'))
+  .join('\n');
 
 function memoryStorage(initial = {}) {
   const data = new Map(Object.entries(initial));

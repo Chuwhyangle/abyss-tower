@@ -65,6 +65,18 @@ export function towerAnimVariant(decorations) {
   return TOWER_ANIM_VARIANTS[decorations] || TOWER_ANIM_VARIANTS.light;
 }
 
+// 皮肤渲染预算：皮肤只改颜色与描边，不新增粒子/光晕。
+// 低配把皮肤轮廓并进石台已有的外描边（零新增绘制调用），高配才单独描一圈皮肤环。
+export const SKIN_OUTLINE_BUDGET = Object.freeze({
+  off: 'none',
+  light: 'merged',
+  full: 'ring',
+});
+
+export function skinOutlineBudget(decorations) {
+  return SKIN_OUTLINE_BUDGET[decorations] || SKIN_OUTLINE_BUDGET.light;
+}
+
 // recoil 是模拟层已有的瞬时字段；渲染只读取并换算成像素位移，不回写。
 export function towerRecoilAmount(recoil, type, variant = TOWER_ANIM_VARIANTS.full) {
   if (!variant.recoil.enabled) return 0;
@@ -116,7 +128,9 @@ export class TowerRenderer {
     const glow = settings.glow;
     const anim = towerAnimVariant(settings.decorations);
     const skin = activeSkin('tower');
-    const outline = skin.outline;
+    const budget = skinOutlineBudget(settings.decorations);
+    const outline = budget === 'none' ? null : skin.outline;
+    const mergeOutline = budget === 'merged' && !!outline;
     for (const tower of game.towers) {
       const x = tower.x * T;
       const y = tower.y * T;
@@ -166,12 +180,17 @@ export class TowerRenderer {
         g.closePath();
       };
 
-      // 石台
+      // 石台：低配把皮肤轮廓并入这一圈外描边，避免额外 stroke。
       oct(22);
       g.fillStyle = '#0a1116';
       g.fill();
-      g.strokeStyle = Palette.hexToRgba(color, 0.42);
-      g.lineWidth = 2;
+      if (mergeOutline) {
+        g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
+        g.lineWidth = outline.width;
+      } else {
+        g.strokeStyle = Palette.hexToRgba(color, 0.42);
+        g.lineWidth = 2;
+      }
       g.stroke();
 
       oct(17.5);
@@ -188,8 +207,8 @@ export class TowerRenderer {
       g.arc(0, 0, 14, time * 0.4, time * 0.4 + Math.PI * 1.1);
       g.stroke();
 
-      // 皮肤轮廓：纯表现，低配下同样绘制，保证换肤后仍能一眼分辨塔位。
-      if (outline) {
+      // 皮肤轮廓：高配单独描环；低配已并进石台外描边，不再新增绘制调用。
+      if (outline && !mergeOutline) {
         g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
         g.lineWidth = outline.width;
         g.beginPath();

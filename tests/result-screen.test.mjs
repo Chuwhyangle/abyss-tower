@@ -12,7 +12,19 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
-const UI = read('public/js/ui.js');
+// UI 已拆分为门面 + 面板模块，源码级约束按整体读取。
+const UI_MODULES = [
+  'public/js/ui.js',
+  'public/js/ui/shared.js',
+  'public/js/ui/title.js',
+  'public/js/ui/hud.js',
+  'public/js/ui/shop.js',
+  'public/js/ui/modals.js',
+  'public/js/ui/result.js',
+  'public/js/ui/settings-panel.js',
+  'public/js/ui/panels.js',
+];
+const UI = UI_MODULES.map(read).join('\n');
 const CSS = read('public/styles.css');
 const ZH = read('public/js/shared/i18n/zh-CN.js');
 const EN = read('public/js/shared/i18n/en-US.js');
