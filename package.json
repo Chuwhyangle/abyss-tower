@@ -30,7 +30,8 @@
     "balance": "node tests/balance-sim.mjs 40",
     "balance:write": "node tests/balance-sim.mjs 40 --write",
     "sweep": "node tests/balance-sweep.mjs 20",
-    "backup": "node --no-warnings scripts/backup.mjs"
+    "backup": "node --no-warnings scripts/backup.mjs",
+    "docs:preview": "node --no-warnings scripts/docs-preview.mjs"
   },
   "engines": {
     "node": ">=22.5"

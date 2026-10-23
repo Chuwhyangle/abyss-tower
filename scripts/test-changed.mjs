@@ -163,12 +163,14 @@ export const TEST_MAP = [
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },
+  { match: 'scripts/docs-preview.mjs', tests: ['tests/docs-preview.test.mjs'] },
   { match: 'scripts/import-graph.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/install-hooks.mjs', tests: ['tests/hooks.test.mjs'] },
   { match: 'scripts/memory-check.mjs', tests: ['tests/memory-check.test.mjs'] },
   { match: 'scripts/ops.mjs', tests: ['tests/ops-cli.test.mjs'] },
   { match: 'scripts/perf-budget.mjs', tests: ['tests/perf-budget.test.mjs'] },
   { match: 'scripts/release.mjs', tests: ['tests/release-script.test.mjs'] },
+  { match: 'scripts/settle-seasons.mjs', tests: ['tests/settle-seasons.test.mjs'] },
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
 ];
 
