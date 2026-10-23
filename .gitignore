@@ -2,8 +2,36 @@ node_modules/
 server/data/*.db
 server/data/*.db-wal
 server/data/*.db-shm
+server/data/*.db-journal
+server/data/*.sqlite
+server/data/*.sqlite3
 *.log
 .DS_Store
 backups/
 .claude/
 server/data/backups/
+
+# 密钥 / 凭据：任何情况下都不入库
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.npmrc
+.github_token
+auth.json
+*credentials*.json
+*secret*.json
+.cloudflared/
+
+# 本地工具与产物
+.vscode/
+.idea/
+coverage/
+*.tgz
+*.bak
+*.orig
+*.rej
+*.swp

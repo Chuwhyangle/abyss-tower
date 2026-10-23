@@ -8,7 +8,9 @@ const LOGIN_FAILURES_PER_IP = 20;
 const REGISTRATIONS_PER_IP = 5;
 const CLAIMS_PER_IP = 10;
 
-const IP_SALT = process.env.AUTH_IP_SALT || 'abyss-tower-default-ip-salt';
+// 代码是公开的，不能内置默认盐：未配置时每次进程启动随机生成。
+// 代价仅是重启后限流窗口重新计数，不影响账号数据。
+const IP_SALT = process.env.AUTH_IP_SALT || crypto.randomBytes(32).toString('hex');
 
 export function clientIp(req) {
   // Cloudflare 会覆盖该头，优先使用；否则退回 X-Forwarded-For / socket。

@@ -9,6 +9,8 @@ ExecStart=/usr/bin/node --no-warnings server/index.mjs
 Environment=NODE_ENV=production
 Environment=PORT=8787
 Environment=HOST=0.0.0.0
+# 可选：AUTH_IP_SALT=<openssl rand -hex 32>（不进仓库）
+EnvironmentFile=-/etc/abyss-tower.env
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=5
@@ -20,6 +22,8 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ReadWritePaths=/home/wenjin/rogue-td/server/data
+# 运行时数据库/备份只允许服务用户读写
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

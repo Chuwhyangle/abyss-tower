@@ -154,6 +154,12 @@ sudo systemctl status rogue-td
 - 重建步骤：先恢复 `rogue-td`，再安装 `deploy/cloudflared-rogue-td.service`，确保两个服务均 active。
 - 公网访问需要注册/登录；如需再加一层访问限制，可在 Cloudflare Zero Trust 中配置 Access 策略。
 
+## 安全
+
+- 漏洞报告与安全模型见 [SECURITY.md](SECURITY.md)。
+- 运行时数据（`server/data/`）权限 `700/600`，systemd 设置 `UMask=0077`；数据库与备份永不入库。
+- 建议：通过 TLS 反向代理/隧道暴露；配置随机 `AUTH_IP_SALT`；朋友注册完成后 `REGISTRATION_MODE=closed`；SSH 仅密钥登录。
+
 数据备份（在线一致性快照，无需停服）：
 
 ```bash
