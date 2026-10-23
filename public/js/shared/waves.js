@@ -24,6 +24,13 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) 
     diff.hpMul *
     (isFinal ? BALANCE.finalBossMul : 1) *
     (modifier?.hpMul || 1);
+  // 首领使用独立血量曲线：普通敌人的 1.165 曲线到第 30 波会让首领血量失控。
+  const bossHpMul = round3(
+    Math.pow(BALANCE.bossHpGrowth, index - 1) *
+      diff.hpMul *
+      (isFinal ? BALANCE.bossFinalMul : 1) *
+      (modifier?.hpMul || 1)
+  );
   const speedMul =
     (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1);
   const isBoss = index % 5 === 0;
@@ -31,7 +38,7 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) 
 
   if (isBoss) {
     const bosses = isFinal ? 1 : 1 + Math.floor(index / 15);
-    groups.push({ type: 'boss', count: bosses, interval: 3.0, delay: 0.4 });
+    groups.push({ type: 'boss', count: bosses, interval: 3.0, delay: 0.4, hpMul: bossHpMul });
     groups.push({ type: 'grunt', count: 6 + Math.round(index * 0.8), interval: 0.5, delay: 1.6 });
     if (index >= 15) {
       groups.push({ type: 'flyer', count: 4 + Math.floor(index / 3), interval: 0.8, delay: 6 });
@@ -61,6 +68,7 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) 
         count,
         interval: entry.interval,
         delay: 0.3 + i * (1.6 + rng.float() * 1.2),
+        hpMul,
       });
     });
   }

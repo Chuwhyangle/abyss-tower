@@ -166,6 +166,13 @@ export const ENEMIES = {
   },
 };
 
+// 首领技能：名称/颜色/预警半径由服务端与渲染层共用。
+export const BOSS_SKILLS = {
+  roar: { id: 'roar', name: '深渊咆哮', color: '#ff8a6b', radiusKey: 'bossRoarRadius', unlockWave: 5 },
+  summon: { id: 'summon', name: '裂隙召唤', color: '#e2609e', unlockWave: 10 },
+  slam: { id: 'slam', name: '地脉震击', color: '#ffb066', radiusKey: 'bossSlamRadius', unlockWave: 15 },
+};
+
 export const RARITY = {
   common: { id: 'common', name: '普通', color: '#9fb0c3', weight: 58 },
   rare: { id: 'rare', name: '稀有', color: '#5bc8ff', weight: 30 },

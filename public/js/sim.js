@@ -2,6 +2,7 @@
 import {
   TOWERS,
   ENEMIES,
+  BOSS_SKILLS,
   MAX_WAVE,
   RELIC_BY_ID,
   RELIC_MAX_LEVEL,
@@ -202,6 +203,7 @@ export class Simulation {
           type: group.type,
           time: group.delay + i * group.interval,
           portal,
+          hpMul: group.hpMul,
         });
       }
     }
@@ -219,17 +221,18 @@ export class Simulation {
       this.spawnQueue[this.spawnIndex].time <= this.waveTime
     ) {
       const item = this.spawnQueue[this.spawnIndex++];
-      this.spawnEnemy(item.type, item.portal || 0);
+      this.spawnEnemy(item.type, item.portal || 0, item.hpMul ?? null);
     }
   }
 
-  spawnEnemy(type, laneIndex = 0) {
+  // hpMul 允许按群组覆盖（首领使用独立血量曲线）；progress 用于首领召唤。
+  spawnEnemy(type, laneIndex = 0, hpMulOverride = null, progress = 0) {
     const base = ENEMIES[type];
-    const hpMul = this.waveDef?.hpMul || 1;
+    const hpMul = hpMulOverride ?? this.waveDef?.hpMul ?? 1;
     const speedMul = this.waveDef?.speedMul || 1;
     const hp = Math.max(1, Math.round(base.hp * hpMul));
     const lane = Math.max(0, Math.min(this.lanes.length - 1, laneIndex || 0));
-    const pos = this.posAt(0, lane);
+    const pos = this.posAt(progress, lane);
     this.enemies.push({
       id: this.nextId++,
       type,
@@ -246,7 +249,7 @@ export class Simulation {
       healRange: base.healRange || 0,
       healTimer: 0,
       lane,
-      progress: 0,
+      progress,
       x: pos.x,
       y: pos.y,
       angle: pos.angle,
@@ -256,8 +259,26 @@ export class Simulation {
       poisonDps: 0,
       hitFlash: 0,
       dead: false,
+      // 首领状态机：走走停停 + 技能蓄力 + 破绽窗口 + 阶段/狂怒
+      stopped: false,
+      stopTimer: 0,
+      marchTimer: 0,
+      cast: null,
+      castIndex: 0,
+      vulnUntil: 0,
+      bossPhase: 1,
+      enraged: false,
+      cooldowns: { roar: 0, summon: 0, slam: 0 },
+      // 深渊咆哮给周围敌人施加的移速增益
+      speedBuffUntil: 0,
+      speedBuff: 0,
     });
     this.addEffect({ kind: 'spawn', x: pos.x, y: pos.y, ttl: 0.4, color: base.color });
+  }
+
+  // 在指定进度处生成敌人（首领召唤用），血量沿用普通波次曲线。
+  spawnEnemyAt(type, lane, progress) {
+    this.spawnEnemy(type, lane, null, Math.max(0, progress));
   }
 
   completeWave() {
@@ -325,7 +346,9 @@ export class Simulation {
 
       const slowed = now < enemy.slowUntil;
       if (!slowed && enemy.slowAmt) enemy.slowAmt = 0;
-      const speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0));
+      const buff = now < (enemy.speedBuffUntil || 0) ? enemy.speedBuff || 0 : 0;
+      let speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0)) * (1 + buff);
+      if (enemy.boss) speed = this.updateBoss(enemy, dt, speed, now);
       enemy.progress += speed * dt;
 
       const pos = this.posAt(enemy.progress, enemy.lane);
@@ -361,6 +384,129 @@ export class Simulation {
     }
   }
 
+  // ---------- 首领状态机 ----------
+
+  updateBoss(enemy, dt, speed, now) {
+    const ratio = enemy.hp / enemy.maxHp;
+    if (enemy.bossPhase < 2 && ratio <= 0.66) this.enterBossPhase(enemy, 2);
+    if (enemy.bossPhase < 3 && ratio <= 0.33) this.enterBossPhase(enemy, 3);
+    if (!enemy.enraged && ratio <= 0.25) {
+      enemy.enraged = true;
+      enemy.baseSpeed *= 1.2;
+      this.addFloater(enemy.x, enemy.y - 0.9, '狂怒', '#ff6b6b', true, { key: true });
+      this.addEffect({ kind: 'ring', x: enemy.x, y: enemy.y, r0: 0.2, r1: 1.8, ttl: 0.5, color: '#ff6b6b' });
+      this.shake = Math.min(12, this.shake + 6);
+      this.playSound('bossCast');
+    }
+
+    for (const key of Object.keys(enemy.cooldowns)) {
+      enemy.cooldowns[key] = Math.max(0, enemy.cooldowns[key] - dt);
+    }
+
+    if (enemy.stopped) {
+      enemy.stopTimer -= dt;
+      if (enemy.cast) {
+        enemy.cast.progress = Math.min(1, enemy.cast.progress + dt / BALANCE.bossCastWindup);
+        if (enemy.cast.progress >= 1) {
+          const kind = enemy.cast.kind;
+          enemy.cast = null;
+          this.castBossSkill(enemy, kind, now);
+        }
+      }
+      if (enemy.stopTimer <= 0) {
+        enemy.stopped = false;
+        enemy.vulnUntil = now + BALANCE.bossVulnAfter;
+        enemy.marchTimer = 0;
+      }
+      return 0;
+    }
+
+    enemy.marchTimer += dt;
+    const interval = Math.max(2.2, BALANCE.bossStopInterval - (enemy.bossPhase - 1) * 0.35);
+    if (enemy.marchTimer >= interval) {
+      enemy.marchTimer = 0;
+      enemy.stopped = true;
+      enemy.stopTimer = BALANCE.bossStopDuration;
+      enemy.vulnUntil = now + BALANCE.bossStopDuration + BALANCE.bossVulnAfter;
+      const kind = this.pickBossSkill(enemy);
+      if (kind) {
+        enemy.cast = { kind, progress: 0 };
+        this.addFloater(enemy.x, enemy.y - 1.0, BOSS_SKILLS[kind]?.name || kind, '#ffd36b', false, { key: false });
+        this.addEffect({
+          kind: 'bossCast',
+          x: enemy.x,
+          y: enemy.y,
+          skill: kind,
+          ttl: BALANCE.bossCastWindup,
+          color: '#ffd36b',
+        });
+        this.playSound('bossCast');
+      }
+      return 0;
+    }
+    return speed;
+  }
+
+  enterBossPhase(enemy, phase) {
+    enemy.bossPhase = phase;
+    enemy.baseSpeed *= 1.06;
+    this.addEffect({ kind: 'ring', x: enemy.x, y: enemy.y, r0: 0.2, r1: 1.7, ttl: 0.5, color: '#ffd36b' });
+    this.addFloater(enemy.x, enemy.y - 0.9, `第 ${phase} 阶段`, '#ffd36b', true, { key: true });
+    this.shake = Math.min(10, this.shake + 3);
+    this.playSound('bossCast');
+  }
+
+  // 按波次解锁技能，冷却好才进入候选；轮转选择，避免连续重复。
+  pickBossSkill(enemy) {
+    const wave = this.waveDef?.index || this.wave || 1;
+    const options = [];
+    if (wave >= 5 && enemy.cooldowns.roar <= 0) options.push('roar');
+    if (wave >= 10 && enemy.cooldowns.summon <= 0) options.push('summon');
+    if (wave >= 15 && enemy.cooldowns.slam <= 0) options.push('slam');
+    if (!options.length) return null;
+    const kind = options[enemy.castIndex % options.length];
+    enemy.castIndex += 1;
+    return kind;
+  }
+
+  castBossSkill(enemy, kind, now) {
+    if (kind === 'roar') {
+      enemy.cooldowns.roar = BALANCE.bossRoarCd;
+      for (const other of this.enemies) {
+        if (other.dead || other === enemy) continue;
+        if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= BALANCE.bossRoarRadius) {
+          other.speedBuffUntil = now + BALANCE.bossRoarDur;
+          other.speedBuff = BALANCE.bossRoarSpeed;
+        }
+      }
+      this.addEffect({ kind: 'bossRoar', x: enemy.x, y: enemy.y, r: BALANCE.bossRoarRadius, ttl: 0.6, color: '#ff8a6b' });
+      this.shake = Math.min(12, this.shake + 4);
+      this.playSound('bossRoar');
+    } else if (kind === 'summon') {
+      enemy.cooldowns.summon = BALANCE.bossSummonCd;
+      const wave = this.waveDef?.index || this.wave || 1;
+      const count = Math.min(
+        BALANCE.bossSummonMax,
+        Math.round(BALANCE.bossSummonBase + wave * BALANCE.bossSummonPerWave)
+      );
+      for (let i = 0; i < count; i++) {
+        this.spawnEnemyAt('swarm', enemy.lane, enemy.progress - 0.25 - i * 0.12);
+      }
+      this.addEffect({ kind: 'bossSummon', x: enemy.x, y: enemy.y, ttl: 0.7, color: '#e2609e' });
+      this.playSound('bossSummon');
+    } else if (kind === 'slam') {
+      enemy.cooldowns.slam = BALANCE.bossSlamCd;
+      for (const tower of this.towers) {
+        if (Math.hypot(tower.x - enemy.x, tower.y - enemy.y) > BALANCE.bossSlamRadius) continue;
+        tower.disabledUntil = now + BALANCE.bossSlamDisable;
+        this.addEffect({ kind: 'towerDisable', x: tower.x, y: tower.y, ttl: BALANCE.bossSlamDisable, color: '#ff8a6b' });
+      }
+      this.addEffect({ kind: 'bossSlam', x: enemy.x, y: enemy.y, r: BALANCE.bossSlamRadius, ttl: 0.6, color: '#ffb066' });
+      this.shake = Math.min(14, this.shake + 5);
+      this.playSound('bossSlam');
+    }
+  }
+
   leak(enemy) {
     if (enemy.dead) return;
     enemy.dead = true;
@@ -377,6 +523,8 @@ export class Simulation {
     for (const tower of this.towers) {
       tower.cd = Math.max(0, tower.cd - dt);
       tower.recoil = Math.max(0, (tower.recoil || 0) - dt * 5);
+      // 被首领震击停摆：不索敌、不开火，冷却照常流逝。
+      if (this.time < (tower.disabledUntil || 0)) continue;
       // 稳定属性缓存在建造/升级/遗物变化时刷新，不在每个模拟步重建对象。
       const stats = tower.stats || this.refreshTowerStats(tower);
 
@@ -602,6 +750,10 @@ export class Simulation {
     if (this.mods.frostDmgBonus && this.time < enemy.slowUntil) {
       final *= 1 + this.mods.frostDmgBonus;
     }
+    // 首领停顿/蓄力时是破绽窗口，鼓励集火。
+    if (enemy.boss && this.time < (enemy.vulnUntil || 0)) {
+      final *= BALANCE.bossVulnMul;
+    }
     enemy.hp -= final;
     if (!opts.dot) enemy.hitFlash = 1;
 
@@ -689,6 +841,7 @@ export class Simulation {
       angle: -Math.PI / 2,
       target: null,
       recoil: 0,
+      disabledUntil: 0,
       stats: null,
     };
   }
