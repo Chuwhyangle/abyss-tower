@@ -5,7 +5,7 @@ import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { SKILLS, skillStats } from '../public/js/shared/data.js';
-import { normalizeSnapshot, SNAPSHOT_VERSION } from '../public/js/shared/save.js';
+import { normalizeSnapshot } from '../public/js/shared/save.js';
 
 const EPS = 1e-6;
 const near = (actual, expected, message, eps = EPS) =>
@@ -137,7 +137,8 @@ test('castSkill 通过 onSkillCast 立刻给出含冷却的快照', () => {
   enterWave(sim);
   assert.equal(sim.castSkill(), true);
   assert.ok(captured, 'onSkillCast 应被调用');
-  assert.equal(captured.version, SNAPSHOT_VERSION);
+  // 无连锁的技能局仍写 v4；v5 只在存在事件连锁时启用。
+  assert.equal(captured.version, 4);
   assert.deepEqual(captured.skill, {
     id: 'meteor',
     level: 3,
@@ -478,7 +479,7 @@ test('终章 L7：星痕时长 9s（数据已包含里程碑）', () => {
 
 // ---------- 快照 ----------
 
-test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4', () => {
+test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4/v5', () => {
   const sim = makeSim({ skill: { id: 'meteor', level: 5 } });
   enterWave(sim);
   const snapshot = sim.toSnapshot();
@@ -490,7 +491,7 @@ test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4', (
   assert.equal(plain.skill, null);
 
   const v2 = normalizeSnapshot({ version: 2, wave: 4, relics: ['sharp'] });
-  assert.equal(v2.version, 4);
+  assert.equal(v2.version, 5);
   assert.equal(v2.skill, null);
   assert.deepEqual(v2.relics, [{ id: 'sharp', level: 1 }]);
 
@@ -500,7 +501,7 @@ test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4', (
     relics: [],
     skill: { id: 'meteor', level: 99, cooldown: 9999 },
   });
-  assert.equal(v3.version, 4);
+  assert.equal(v3.version, 5);
   assert.equal(v3.skill.level, 10, '等级钳到 1..10');
   assert.ok(v3.skill.cooldown <= SKILLS.meteor.levels[9].cd, '冷却钳到 ≤ 冷却上限');
 

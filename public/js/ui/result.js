@@ -7,6 +7,18 @@ import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { fmt, diffName, skillName, escapeHtml } from './shared.js';
 
+// 结算分数滚动时长；与结算入场动效一起保持在 600ms 以内。
+const RESULT_SCORE_DURATION = 600;
+
+// 结算音效走 sfx 总线，静音由音频层统一判断；音频异常时只跳过声音，不阻塞结算展示。
+function playResultSound(victory) {
+  try {
+    audio.play(victory ? 'resultVictory' : 'resultDefeat');
+  } catch {
+    /* 音效失败不影响结算 */
+  }
+}
+
 export const resultMethods = {
   showResult({ stats, res, mode, dailyLeft }) {
     audio.stopMusic();
@@ -112,6 +124,7 @@ export const resultMethods = {
     );
 
     modal.classList.add('result-fade');
+    playResultSound(victory);
     this._animateResultScore(modal, Number(score) || 0);
 
     modal.querySelector('#btn-again').onclick = () => this.handlers.onRestart?.(mode, difficulty);
@@ -137,7 +150,7 @@ export const resultMethods = {
       node.textContent = fmt(target);
       return;
     }
-    const duration = 900;
+    const duration = RESULT_SCORE_DURATION;
     const start = performance.now();
     node.textContent = fmt(0);
     const step = (now) => {

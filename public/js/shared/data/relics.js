@@ -12,7 +12,8 @@ export const RARITY = {
 // mods 键说明：
 // dmg:{towerId: 加成}  dmgAll  fireRate  range  splash  slow  slowDur
 // chain  dot  goldMul  killGold  interest  crit  armorPierce  costMul
-// frostDmgBonus  lowHpDmg  projSpeed  bossDmg  baseHp
+// frostDmgBonus  lowHpDmg  richDmg  emptySlotDmg  projSpeed  bossDmg  baseHp
+// 条件型键（lowHpDmg / richDmg / emptySlotDmg）在 effects.js 中读取本局状态快照判定。
 // set：可选套装标签，取值见 effects.js 的 RELIC_SET_BONUSES；同套装按不同遗物计件。
 export const RELICS = [
   { id: 'sharp', name: '锐利箭簇', rarity: 'common', set: 'hunter', desc: '弩塔伤害 +25%', mods: { dmg: { arrow: 0.25 } } },
@@ -37,6 +38,9 @@ export const RELICS = [
   { id: 'highroller', name: '孤注一掷', rarity: 'common', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +6%，每次击杀额外获得 1 金币', mods: { lowHpDmg: 0.06, killGold: 1 } },
   { id: 'moonwell', name: '月井之泉', rarity: 'common', set: 'synergy', desc: '减速强度 +4%，减速持续 +10%', mods: { slow: 0.04, slowDur: 0.1 } },
   { id: 'embertrace', name: '余烬星痕', rarity: 'common', set: 'synergy', desc: '毒伤 +10%，溅射范围 +5%', mods: { dot: 0.1, splash: 0.05 } },
+  { id: 'desperado', name: '亡命之徒', rarity: 'common', set: 'reserve', desc: '基地生命低于 40% 时全体伤害 +10%', mods: { lowHpDmg: 0.1 } },
+  { id: 'goldencoffer', name: '黄金宝库', rarity: 'common', set: 'reserve', desc: '金币 ≥ 400 时全体伤害 +7%', mods: { richDmg: 0.07 } },
+  { id: 'openfield', name: '旷野火力', rarity: 'common', set: 'reserve', desc: '可建造空位 ≥ 8 时全体伤害 +8%', mods: { emptySlotDmg: 0.08 } },
 
   { id: 'powder', name: '火药桶', rarity: 'rare', desc: '炮台伤害 +20%，溅射范围 +35%', mods: { dmg: { cannon: 0.2 }, splash: 0.35 } },
   { id: 'frostheart', name: '极寒之心', rarity: 'rare', set: 'frost', desc: '减速效果 +15%，持续时间 +30%', mods: { slow: 0.15, slowDur: 0.3 } },
@@ -55,6 +59,11 @@ export const RELICS = [
   { id: 'adrenaline', name: '肾上腺素', rarity: 'rare', set: 'gambit', desc: '攻击速度 +10%，基地生命低于 40% 时全体伤害 +10%', mods: { fireRate: 0.1, lowHpDmg: 0.1 } },
   { id: 'martyr', name: '殉道誓约', rarity: 'rare', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +12%，暴击率 +6%', mods: { lowHpDmg: 0.12, crit: 0.06 } },
   { id: 'cometcore', name: '彗星核心', rarity: 'rare', set: 'synergy', desc: '毒伤 +20%，溅射范围 +12%', mods: { dot: 0.2, splash: 0.12 } },
+  { id: 'warchest', name: '战争金库', rarity: 'rare', set: 'reserve', desc: '金币 ≥ 400 时全体伤害 +13%', mods: { richDmg: 0.13 } },
+  { id: 'lastbreath', name: '残喘之息', rarity: 'rare', desc: '基地生命低于 40% 时全体伤害 +16%', mods: { lowHpDmg: 0.16 } },
+  { id: 'bloodybanner', name: '血色战旗', rarity: 'rare', desc: '基地生命低于 40% 时全体伤害 +17%', mods: { lowHpDmg: 0.17 } },
+  { id: 'lightsentry', name: '轻装哨戒', rarity: 'rare', desc: '可建造空位 ≥ 8 时全体伤害 +14%', mods: { emptySlotDmg: 0.14 } },
+  { id: 'bloodmoney', name: '血色财富', rarity: 'rare', desc: '基地生命低于 40% 时全体伤害 +10%，金币 ≥ 400 时全体伤害 +10%', mods: { lowHpDmg: 0.1, richDmg: 0.1 } },
 
   { id: 'warlord', name: '战争领主', rarity: 'epic', desc: '所有防御塔伤害 +18%', mods: { dmgAll: 0.18 } },
   { id: 'warhorn', name: '战争号角', rarity: 'epic', desc: '所有防御塔攻击速度 +25%', mods: { fireRate: 0.25 } },
@@ -67,6 +76,8 @@ export const RELICS = [
   { id: 'doomclock', name: '末日时钟', rarity: 'epic', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +20%，暴击率 +10%', mods: { lowHpDmg: 0.2, crit: 0.1 } },
   { id: 'stasislens', name: '凝时棱镜', rarity: 'epic', set: 'synergy', desc: '攻击速度 +12%，射程 +0.4 格，减速持续 +15%', mods: { fireRate: 0.12, range: 0.4, slowDur: 0.15 } },
   { id: 'starforge', name: '星铸炉心', rarity: 'epic', set: 'synergy', desc: '全体伤害 +8%，毒伤 +12%，减速强度 +3%', mods: { dmgAll: 0.08, dot: 0.12, slow: 0.03 } },
+  { id: 'midasthrone', name: '迈达斯王座', rarity: 'epic', set: 'reserve', desc: '金币 ≥ 400 时全体伤害 +22%', mods: { richDmg: 0.22 } },
+  { id: 'palaceguard', name: '空庭守卫', rarity: 'epic', desc: '可建造空位 ≥ 8 时全体伤害 +24%', mods: { emptySlotDmg: 0.24 } },
 ];
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));

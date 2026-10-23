@@ -156,6 +156,6 @@ test('版本入口保持单一：save.js 与 snapshot.js 共享同一常量与�
   assert.equal(SNAPSHOT_VERSION, SAVE_VERSION);
   assert.equal(MIN_SNAPSHOT_VERSION, MIN_SAVE_VERSION);
   assert.equal(validateSave, validateSnapshot);
-  assert.equal(SAVE_VERSION, 4);
+  assert.equal(SAVE_VERSION, 5);
   assert.equal(MIN_SAVE_VERSION, 2);
 });

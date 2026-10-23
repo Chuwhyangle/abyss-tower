@@ -14,6 +14,7 @@ import {
   evaluateAchievements,
 } from '../../public/js/shared/achievements.js';
 import { SKILL_ORDER } from '../../public/js/shared/data.js';
+import { notify } from './notifications.mjs';
 
 const COSMETIC_NAMESPACE = 'cosmetics';
 const SELECTED_COSMETIC_KEY = 'selected';
@@ -336,6 +337,18 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
   const now = Date.now();
   for (const id of added) insert.run(accountId, id, now);
   writeCosmeticUnlocks(accountId, added, now);
+  for (const id of added) {
+    const achievement = ACHIEVEMENT_BY_ID[id];
+    notify(accountId, {
+      kind: 'achievement',
+      dedupeKey: `achievement:${id}`,
+      payload: {
+        achievementId: id,
+        title: achievement?.title || id,
+        rarity: achievement?.rarity || null,
+      },
+    }, now);
+  }
   return added;
 }
 

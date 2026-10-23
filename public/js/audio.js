@@ -591,6 +591,23 @@ class AudioFX {
         this.tone(220, 0.4, 'sine', 0.05, -100, t + 0.25);
         this.tone(150, 0.6, 'sine', 0.05, -60, t + 0.5);
         break;
+      case 'resultVictory':
+        // 结算页胜利：上行大调号角 + 高频泛音，让情绪落在结算展示的瞬间。
+        this.tone(523.25, 0.16, 'triangle', 0.05, 0, t);
+        this.tone(659.25, 0.16, 'triangle', 0.05, 0, t + 0.1);
+        this.tone(783.99, 0.2, 'triangle', 0.048, 0, t + 0.2);
+        this.tone(1046.5, 0.5, 'sine', 0.04, 0, t + 0.3);
+        this.tone(1567.98, 0.36, 'triangle', 0.016, 0, t + 0.34);
+        this.noise(0.28, 0.016, 4200, t + 0.3);
+        break;
+      case 'resultDefeat':
+        // 结算页失败：下行小调短句 + 低音尾坠，收束克制、不刺耳。
+        this.tone(392, 0.22, 'triangle', 0.045, 0, t);
+        this.tone(311.13, 0.24, 'triangle', 0.045, 0, t + 0.16);
+        this.tone(233.08, 0.5, 'sine', 0.05, -40, t + 0.34);
+        this.tone(116.54, 0.6, 'sine', 0.04, -20, t + 0.4);
+        this.noise(0.24, 0.018, 700, t + 0.2);
+        break;
       case 'draft':
         this.tone(660, 0.12, 'triangle', 0.035, 120, t);
         this.tone(990, 0.16, 'triangle', 0.03, 140, t + 0.1);

@@ -1,6 +1,7 @@
 // 快照的单一来源：序列化（toSnapshot）、校验（validateSnapshot）与迁移（migrateSnapshot）。
 // 战斗模拟与存档加载都走这里，版本号只在本文件定义一次。
-// v2 只有遗物 ID，v3 使用 {id, level}，v4 增加 skill:{id, level, cooldown}；旧档一律按 Ⅰ 级恢复。
+// v2 只有遗物 ID，v3 使用 {id, level}，v4 增加 skill:{id, level, cooldown}，
+// v5 增加事件连锁排期 chains:[{chainId, wave}]；旧档一律按 Ⅰ 级 / 无连锁恢复。
 // 损坏输入统一由 validateSnapshot 判定：不抛异常，返回 { ok:false, reason } 交给调用方决定重开。
 // 字段级异常（类型错误、越界数值、非法难度/地图）属于可恢复损坏，会收敛到安全默认值。
 import {
@@ -14,12 +15,13 @@ import {
   skillStats,
 } from './data.js';
 import { ARCHETYPES, MODIFIER_BY_ID } from './mapgen.js';
-import { normalizeEventHistory } from './events.js';
+import { normalizeChains, normalizeEventHistory } from './events.js';
 import { ENDLESS } from './waves.js';
 
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 export const MIN_SAVE_VERSION = 2;
-// 无技能的旧局仍写 v3，字段与旧版一致，避免旧客户端/旧测试误读。
+// 没有连锁时沿用旧版本号，避免旧客户端/旧测试误读：有技能写 v4，无技能仍写 v3。
+export const SKILL_SAVE_VERSION = 4;
 export const BASE_SAVE_VERSION = 3;
 
 const DEFAULT_DIFFICULTY = 'standard';
@@ -109,6 +111,7 @@ function collectWarnings(snap) {
     warnings.push('invalid-skill');
   }
   if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
+  if ('chains' in snap && !Array.isArray(snap.chains)) warnings.push('invalid-chains');
   const rawWave = finiteNumber(snap.clearedWave ?? snap.wave);
   const maxWave = snap.mode === 'endless' ? ENDLESS.maxIndex : MAX_WAVE;
   if (rawWave !== null && (rawWave < 0 || rawWave > maxWave)) warnings.push('wave-clamped');
@@ -122,8 +125,9 @@ function collectWarnings(snap) {
  */
 export function toSnapshot(state) {
   const skill = normalizeSkill(state.skill);
+  const chains = normalizeChains(state.chains);
   const snapshot = {
-    version: skill ? SAVE_VERSION : BASE_SAVE_VERSION,
+    version: chains.length ? SAVE_VERSION : skill ? SKILL_SAVE_VERSION : BASE_SAVE_VERSION,
     runId: state.runId,
     seed: state.seed,
     mode: state.mode,
@@ -146,6 +150,8 @@ export function toSnapshot(state) {
   // 事件历史是可选字段：没有事件时保持旧存档字节不变。
   const events = normalizeEventHistory(state.events);
   if (events.length) snapshot.events = events;
+  // 连锁排期同理：没有连锁时不写该字段，v3/v4 存档结构保持不变。
+  if (chains.length) snapshot.chains = chains;
   return snapshot;
 }
 
@@ -175,8 +181,9 @@ export function migrateSnapshot(snap) {
     if ('baseHp' in out) out.maxBaseHp = Math.max(out.maxBaseHp, out.baseHp);
   }
   if ('towers' in snap) out.towers = normalizeTowers(snap.towers);
-  // 旧存档没有 events：保持缺省（读取方按“无事件”处理）。
+  // 旧存档没有 events/chains：保持缺省（读取方按“无事件、无连锁”处理）。
   if ('events' in snap) out.events = normalizeEventHistory(snap.events);
+  if ('chains' in snap) out.chains = normalizeChains(snap.chains);
   if ('preWave' in snap) out.preWave = snap.preWave === true;
 
   if ('mapId' in snap) {

@@ -1,6 +1,6 @@
 // 通用弹窗：遮罩生命周期、遗物三选一、事件节点、选图、确认框与提示。
 import { RELIC_BY_ID, RARITY, RELIC_LEVEL_LABELS, relicEffectText } from '../shared/data.js';
-import { canAffordEventOption } from '../shared/events.js';
+import { canAffordEventOption, findEventChain } from '../shared/events.js';
 import { t } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
@@ -178,12 +178,14 @@ export const modalMethods = {
     const cards = options
       .map((option, index) => {
         const affordable = canAffordEventOption(option, { gold, baseHp, maxHp });
+        const chain = findEventChain(event.id, option.id);
         return `
           <button class="relic-card event-card ${affordable ? '' : 'locked'}" data-index="${index}"
             ${affordable ? '' : 'disabled'} style="--rarity:${accent}">
             <span class="rarity">${event.rare ? '稀有事件' : '事件'} · ${index + 1}</span>
             <h3>${escapeHtml(option.name)}</h3>
             <p class="relic-flavor">${escapeHtml(option.desc)}</p>
+            ${chain ? `<span class="muted chain-hint">连锁 · ${chain.delayWaves} 波后</span>` : ''}
             <span class="pick">${affordable ? '选择' : '资源不足'}</span>
           </button>
         `;
