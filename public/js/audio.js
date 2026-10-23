@@ -80,6 +80,33 @@ class AudioFX {
         this.noise(0.5, 0.09, 500, t);
         this.tone(90, 0.5, 'sine', 0.06, -40, t);
         break;
+      case 'bossCast':
+        // 蓄力：低频上扬 + 逐渐收紧的噪声，提示即将出招。
+        this.tone(56, 0.75, 'sawtooth', 0.05, 46, t);
+        this.tone(84, 0.7, 'triangle', 0.03, 62, t + 0.05);
+        this.noise(0.62, 0.028, 320, t + 0.08);
+        break;
+      case 'bossRoar':
+        // 咆哮：双低音下滑叠加中频噪声，冲击感强。
+        this.tone(72, 0.55, 'sawtooth', 0.085, -34, t);
+        this.tone(43, 0.62, 'sine', 0.06, -12, t);
+        this.tone(104, 0.42, 'square', 0.04, -44, t + 0.03);
+        this.noise(0.45, 0.075, 900, t);
+        break;
+      case 'bossSummon':
+        // 召唤：三连低音爬升 + 高频嘶声，像裂隙打开。
+        this.tone(196, 0.45, 'triangle', 0.035, 70, t);
+        this.tone(262, 0.42, 'triangle', 0.03, 96, t + 0.09);
+        this.tone(349, 0.4, 'sine', 0.024, 120, t + 0.18);
+        this.noise(0.36, 0.022, 1800, t + 0.04);
+        break;
+      case 'bossSlam':
+        // 震击：极低频下坠 + 两段噪声冲击。
+        this.tone(54, 0.5, 'sine', 0.1, -24, t);
+        this.tone(96, 0.28, 'square', 0.045, -48, t);
+        this.noise(0.28, 0.1, 380, t);
+        this.noise(0.5, 0.05, 140, t + 0.05);
+        break;
       case 'gameover':
         this.tone(300, 0.35, 'sine', 0.05, -120, t);
         this.tone(220, 0.4, 'sine', 0.05, -100, t + 0.25);

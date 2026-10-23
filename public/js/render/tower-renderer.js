@@ -1,5 +1,6 @@
 // 塔绘制：射程圈、塔身、炮塔造型与放置预览。依赖显式传入的光晕渲染器。
 import { TILE, TOWERS } from '../shared/data.js';
+import { BALANCE } from '../shared/config.js';
 import { Palette } from './palette.js';
 import { CanvasShapes } from './canvas-shapes.js';
 
@@ -42,13 +43,15 @@ export class TowerRenderer {
       const def = TOWERS[tower.type];
       const level = tower.level;
       const color = def.color;
+      const disableLeft = (tower.disabledUntil || 0) - game.time;
+      const disabled = disableLeft > 0;
 
       g.fillStyle = 'rgba(0,0,0,0.38)';
       g.beginPath();
       g.ellipse(x, y + 12, 21, 9, 0, 0, Math.PI * 2);
       g.fill();
 
-      if (glow) this.glow.draw(g, color, x, y, 30, level >= 2 ? 0.2 : 0.12);
+      if (glow && !disabled) this.glow.draw(g, color, x, y, 30, level >= 2 ? 0.2 : 0.12);
 
       g.save();
       g.translate(x, y);
@@ -122,6 +125,9 @@ export class TowerRenderer {
       this.drawTowerShape(g, time, tower.type, 0, 1, level, glow);
       g.restore();
 
+      // 被首领震击停摆：变暗 + 电弧 + 剩余时间弧线。
+      if (disabled) this.drawDisabled(g, time, disableLeft);
+
       if (game.selectedTower === tower) {
         g.strokeStyle = 'rgba(255, 211, 107, 0.95)';
         g.lineWidth = 2;
@@ -131,6 +137,47 @@ export class TowerRenderer {
       }
       g.restore();
     }
+  }
+
+  // 停摆表现：压暗塔身、环绕电弧、外圈剩余时间弧（调用时已平移到塔心）。
+  drawDisabled(g, time, disableLeft) {
+    const max = BALANCE.bossSlamDisable || 1;
+    const frac = Math.max(0, Math.min(1, disableLeft / max));
+    const flick = 0.5 + 0.5 * Math.sin(time * 24);
+
+    g.save();
+    g.fillStyle = 'rgba(6, 9, 12, 0.66)';
+    g.beginPath();
+    g.arc(0, 0, 23, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+
+    g.save();
+    g.strokeStyle = `rgba(255, 138, 107, ${0.5 + flick * 0.4})`;
+    g.lineWidth = 1.6;
+    g.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const a0 = time * 2.6 + (i / 3) * Math.PI * 2;
+      const jitter = Math.sin(time * 15 + i * 2.3) * 2.5;
+      g.beginPath();
+      g.moveTo(Math.cos(a0) * 16, Math.sin(a0) * 16);
+      g.lineTo(Math.cos(a0 + 0.3) * 24 + jitter, Math.sin(a0 + 0.3) * 24);
+      g.lineTo(Math.cos(a0 + 0.6) * 18, Math.sin(a0 + 0.6) * 18 - jitter);
+      g.stroke();
+    }
+    g.restore();
+
+    g.save();
+    g.strokeStyle = 'rgba(255, 138, 107, 0.3)';
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(0, 0, 26, 0, Math.PI * 2);
+    g.stroke();
+    g.strokeStyle = `rgba(255, 168, 120, ${0.7 + flick * 0.25})`;
+    g.beginPath();
+    g.arc(0, 0, 26, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * frac);
+    g.stroke();
+    g.restore();
   }
 
   drawTowerShape(g, time, type, recoil, alpha, level = 0, glowOn = false) {
