@@ -11,9 +11,22 @@ import { recordPlayerEvent } from '../db/events.mjs';
 import { hashIp, recordAuthEvent } from '../auth/rate-limit.mjs';
 import { clearSessionCookie } from '../auth/cookies.mjs';
 import { recentDailyChallenges } from '../../public/js/shared/scoring.js';
+import {
+  DEFAULT_SKIN_BY_TARGET,
+  SKINS,
+  SKIN_TARGETS,
+  isSkinUnlocked,
+  normalizeSkinSelection,
+  resolveSkin,
+  skinCatalog,
+} from '../../public/js/shared/skins.js';
 import { cleanName, dailyAttemptsLeft, dailyState, today } from './support.mjs';
 
 const HISTORY_DAYS = 14;
+
+// 皮肤选择与称号/头像框共用 cosmetics 命名空间；解锁仍由成就表派生。
+const COSMETICS_NAMESPACE = 'cosmetics';
+const SELECTED_SKIN_KEY = 'selected_skin';
 
 // 设置云同步：存于 player_kv，逐账号一份；与 public/js/settings.js 的默认值/选项保持一致。
 export const SETTINGS_MAX_BYTES = 4096;
@@ -123,6 +136,57 @@ function readProgress(accountId, type = null) {
   });
 }
 
+function readUnlockedAchievementIds(accountId) {
+  const rows = db
+    .prepare('SELECT achievement_id FROM account_achievements WHERE account_id = ?')
+    .all(accountId);
+  return new Set(rows.map((row) => row.achievement_id));
+}
+
+function readSkinSelection(accountId) {
+  const row = db
+    .prepare(
+      'SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?'
+    )
+    .get(accountId, COSMETICS_NAMESPACE, SELECTED_SKIN_KEY);
+  if (!row) return normalizeSkinSelection(null);
+  try {
+    return normalizeSkinSelection(JSON.parse(row.value_json));
+  } catch {
+    return normalizeSkinSelection(null);
+  }
+}
+
+function selectedSkins(accountId, unlocked) {
+  const stored = readSkinSelection(accountId);
+  const selected = {};
+  for (const target of SKIN_TARGETS) {
+    selected[target] = resolveSkin(target, stored[target], unlocked).id;
+  }
+  return selected;
+}
+
+function skinSummary(accountId) {
+  const unlocked = readUnlockedAchievementIds(accountId);
+  return { selected: selectedSkins(accountId, unlocked), skins: skinCatalog(unlocked) };
+}
+
+function writeSkinSelection(accountId, selection) {
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json,
+       updated_at = excluded.updated_at`
+  ).run(
+    accountId,
+    COSMETICS_NAMESPACE,
+    SELECTED_SKIN_KEY,
+    JSON.stringify(normalizeSkinSelection(selection)),
+    Date.now()
+  );
+}
+
 export class ProfileRoutes {
   register(router) {
     router.add('POST', '/api/session', (ctx) => this.session(ctx));
@@ -134,6 +198,8 @@ export class ProfileRoutes {
       ctx.json(200, cosmeticSummary(ctx.token))
     );
     router.add('PUT', '/api/profile/cosmetics', (ctx) => this.selectCosmetics(ctx));
+    router.add('GET', '/api/profile/skins', (ctx) => ctx.json(200, skinSummary(ctx.token)));
+    router.add('PUT', '/api/profile/skins', (ctx) => this.selectSkins(ctx));
     router.add('GET', '/api/profile/export', (ctx) => this.exportData(ctx));
     router.add('GET', '/api/daily/history', (ctx) => this.dailyHistory(ctx));
     router.add('DELETE', '/api/profile', (ctx) => this.remove(ctx));
@@ -227,6 +293,42 @@ export class ProfileRoutes {
       return ctx.fail(status, message, code);
     }
     return ctx.json(200, cosmeticSummary(ctx.token));
+  }
+
+  // 皮肤选择：塔/敌人各自一份，未给出的目标保持不变；null 或空串表示回到默认皮肤。
+  async selectSkins(ctx) {
+    const body = await ctx.readJson();
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return ctx.fail(400, '皮肤参数无效', 'INVALID_SKIN');
+    }
+    const unlocked = readUnlockedAchievementIds(ctx.token);
+    const selection = readSkinSelection(ctx.token);
+    let changed = false;
+    for (const target of SKIN_TARGETS) {
+      if (!(target in body)) continue;
+      const value = body[target];
+      if (value === null || value === '') {
+        selection[target] = DEFAULT_SKIN_BY_TARGET[target];
+        changed = true;
+        continue;
+      }
+      if (typeof value !== 'string') {
+        return ctx.fail(400, '皮肤参数无效', 'INVALID_SKIN');
+      }
+      const skin = SKINS[value];
+      if (!skin) return ctx.fail(400, '未知皮肤', 'UNKNOWN_SKIN');
+      if (skin.target !== target) {
+        return ctx.fail(400, '皮肤适用对象不匹配', 'SKIN_TARGET_MISMATCH');
+      }
+      if (!isSkinUnlocked(skin, unlocked)) {
+        return ctx.fail(403, '皮肤尚未解锁', 'SKIN_LOCKED');
+      }
+      selection[target] = value;
+      changed = true;
+    }
+    if (!changed) return ctx.fail(400, '没有需要更新的皮肤', 'NO_SKIN_CHANGES');
+    writeSkinSelection(ctx.token, selection);
+    return ctx.json(200, skinSummary(ctx.token));
   }
 
   // 每日挑战历史：派生最近 N 天的种子与词缀，只合并当前账号自己的每日最佳。

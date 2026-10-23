@@ -3,6 +3,7 @@ import { TILE, TOWERS } from '../shared/data.js';
 import { BALANCE } from '../shared/config.js';
 import { Palette } from './palette.js';
 import { CanvasShapes } from './canvas-shapes.js';
+import { activeSkin, skinColorFor } from '../shared/skins.js';
 
 const T = TILE;
 
@@ -92,7 +93,8 @@ export class TowerRenderer {
     const tower = game.selectedTower;
     if (tower) {
       const stats = game.statsFor(tower);
-      this.drawRangeCircle(g, tower.x, tower.y, stats.range, Palette.towerColor(tower.type, settings), 0.55);
+      const color = skinColorFor(activeSkin('tower'), Palette.towerColor(tower.type, settings));
+      this.drawRangeCircle(g, tower.x, tower.y, stats.range, color, 0.55);
     }
   }
 
@@ -113,12 +115,14 @@ export class TowerRenderer {
     const game = this.game;
     const glow = settings.glow;
     const anim = towerAnimVariant(settings.decorations);
+    const skin = activeSkin('tower');
+    const outline = skin.outline;
     for (const tower of game.towers) {
       const x = tower.x * T;
       const y = tower.y * T;
       const def = TOWERS[tower.type];
       const level = tower.level;
-      const color = Palette.towerColor(tower.type, settings);
+      const color = skinColorFor(skin, Palette.towerColor(tower.type, settings));
       // 进化分支的专属配色；未进化时退回塔的默认色。
       const evolution = tower.evolution
         ? def.evolutions?.find((entry) => entry.id === tower.evolution) || null
@@ -183,6 +187,15 @@ export class TowerRenderer {
       g.beginPath();
       g.arc(0, 0, 14, time * 0.4, time * 0.4 + Math.PI * 1.1);
       g.stroke();
+
+      // 皮肤轮廓：纯表现，低配下同样绘制，保证换肤后仍能一眼分辨塔位。
+      if (outline) {
+        g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
+        g.lineWidth = outline.width;
+        g.beginPath();
+        g.arc(0, 0, 24, 0, Math.PI * 2);
+        g.stroke();
+      }
 
       // 铆钉
       g.fillStyle = '#1c2a33';
@@ -761,7 +774,7 @@ export class TowerRenderer {
       1,
       0,
       glowOn,
-      Palette.towerColor(game.placementType, settings)
+      skinColorFor(activeSkin('tower'), Palette.towerColor(game.placementType, settings))
     );
     g.restore();
     g.globalAlpha = 1;
