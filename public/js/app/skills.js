@@ -54,9 +54,10 @@ export const skillApi = {
     return request('/api/skills/select', { method: 'POST', body: { skillId } });
   },
   // 建局时携带 skillId；服务端忽略客户端等级，只按账号数据冻结规则集。
-  startRun(mode, difficulty, skillId) {
+  startRun(mode, difficulty, skillId, mutations = null) {
     const body = { mode, difficulty };
     if (skillId) body.skillId = skillId;
+    if (mutations?.length) body.mutations = mutations;
     return request('/api/runs', { method: 'POST', body });
   },
 };

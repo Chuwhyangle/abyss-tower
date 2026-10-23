@@ -1,6 +1,12 @@
 // 排行榜接口：分页、难度筛选与当前账号排名。
 import { AUTH_ENABLED } from '../config.mjs';
 import { DIFFICULTIES } from '../../public/js/shared/data.js';
+import {
+  mutationKey,
+  mutationScoreMul,
+  mutationSummary,
+  validateMutationSelection,
+} from '../../public/js/shared/mutations.js';
 import { dayKey, isWeekKey, weekKey } from '../../public/js/shared/scoring.js';
 import {
   MAX_BOARD_PAGE_SIZE,
@@ -35,13 +41,24 @@ export class LeaderboardRoutes {
             ? 'weekly'
             : requestedMode === 'endless'
               ? 'endless'
-              : 'normal';
-      // 周榜的 day 维度是 ISO 周键；非法或缺失时回退本周。
+              : requestedMode === 'mutated'
+                ? 'mutated'
+                : 'normal';
+      // 变异榜：组合非法直接拒绝，不做静默回退，避免查到错误的榜。
+      let mutationIds = null;
+      if (mode === 'mutated') {
+        const selection = validateMutationSelection(params.get('mutations'));
+        if (!selection.ok) return ctx.fail(400, selection.error, 'INVALID_MUTATION_COMBO');
+        mutationIds = selection.ids;
+      }
+      // 周榜的 day 维度是 ISO 周键；变异榜是规范化组合；非法或缺失时回退当前维度。
       const requestedDay = params.get('day');
       const day =
-        mode === 'weekly'
-          ? (isWeekKey(requestedDay) ? requestedDay : weekKey())
-          : requestedDay || today();
+        mode === 'mutated'
+          ? mutationKey(mutationIds)
+          : mode === 'weekly'
+            ? (isWeekKey(requestedDay) ? requestedDay : weekKey())
+            : requestedDay || today();
       const page = boundedInt(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
       const size = boundedInt(params.get('size'), DEFAULT_SIZE, MAX_BOARD_PAGE_SIZE);
       const requested = params.get('difficulty');
@@ -78,6 +95,8 @@ export class LeaderboardRoutes {
         mode,
         day,
         week: mode === 'weekly' ? day : null,
+        mutations: mutationIds ? mutationSummary(mutationIds) : null,
+        mutationScoreMul: mutationIds ? mutationScoreMul(mutationIds) : null,
         page,
         size,
         difficulty,

@@ -74,16 +74,18 @@ export class RunController {
     }
   }
 
-  async startRun(mode, difficulty) {
+  async startRun(mode, difficulty, mutations = null) {
     if (this.state.starting) return;
     this.state.starting = true;
     try {
+      // 变异组合随建局一起提交；普通/每日/本周/无尽模式保持原有请求体。
+      this.state.lastMutations = mutations;
       // 建局时携带本局技能；服务端按账号数据冻结等级并写入 ruleset_json。
       // 旧服务端若忽略该字段，后续会自动降级为“无技能局”。
       const skillId = this.state.selectedSkill || null;
       const data = skillId
-        ? await skillApi.startRun(mode, difficulty, skillId)
-        : await this.api.startRun(mode, difficulty);
+        ? await skillApi.startRun(mode, difficulty, skillId, mutations)
+        : await this.api.startRun(mode, difficulty, mutations);
       this.store.clearSnapshot();
       this.state.mapChoosing = false;
       if (data.candidates?.length) {
@@ -96,7 +98,7 @@ export class RunController {
     } catch (error) {
       this.onRequestError(error, {
         title: '开始远征',
-        onRetry: () => this.startRun(mode, difficulty),
+        onRetry: () => this.startRun(mode, difficulty, mutations),
       });
     } finally {
       this.state.starting = false;
@@ -145,6 +147,8 @@ export class RunController {
 
     // 技能：等级以服务端 ruleset（开局冻结）为准；续玩时用快照的剩余冷却恢复。
     const ruleset = data.ruleset || snapshot?.ruleset || null;
+    // 刷新恢复的变异局也要能在结算后原组合再来一局。
+    this.state.lastMutations = ruleset?.mutations?.ids || null;
     const skillBase = ruleset?.skill || data.skill || snapshot?.skill || null;
     let skill = null;
     if (skillBase?.id) {

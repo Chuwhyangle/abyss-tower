@@ -1,5 +1,6 @@
 // 敌人绘制：阴影、光晕、形体、受击闪白、减速/中毒状态、血条与首领标签。
 import { TILE, ENEMIES, BOSS_SKILLS } from '../shared/data.js';
+import { BOSS_VARIANTS } from '../shared/data/enemies.js';
 import { BALANCE } from '../shared/config.js';
 import { Palette } from './palette.js';
 import { CanvasShapes } from './canvas-shapes.js';
@@ -111,6 +112,7 @@ export class EnemyRenderer {
       const lift = enemy.flying ? 12 : 0;
       const vr = r * 1.12;
       const walkProfile = enemyWalkProfile(def.shape);
+      const variantDef = enemy.variant ? BOSS_VARIANTS[enemy.variant] : null;
       const phase = t * (enemy.flying ? walk.flyingSpeed : walk.speed) + enemy.id;
       const stride = walk.enabled ? Math.sin(phase) : 0;
       const bob = stride * walkProfile.bob;
@@ -140,7 +142,7 @@ export class EnemyRenderer {
       }
 
       if (enemy.boss && glow) {
-        this.glow.draw(g, '#e25096', x, y - lift, vr * 2.3, 0.3);
+        this.glow.draw(g, variantDef?.color || '#e25096', x, y - lift, vr * 2.3, 0.3);
       } else if (enemy.heal > 0 && glow) {
         this.glow.draw(g, '#5af0aa', x, y - lift, vr * 2, 0.18);
       } else if (enemy.aura && glow) {
@@ -159,7 +161,9 @@ export class EnemyRenderer {
         def,
         vr,
         walk.enabled,
-        Palette.enemyColor(enemy.type, settings)
+        variantDef
+          ? Palette.presentColor(variantDef.color, settings)
+          : Palette.enemyColor(enemy.type, settings)
       );
 
       const flash = hitFlashAlpha(enemy.hitFlash, anim);
@@ -265,7 +269,12 @@ export class EnemyRenderer {
           g.fillText(text, x, atY);
         };
         const headY = y - lift - vr - 22;
-        label('渊主', '#ffb3d9', '700 10px "Noto Sans SC", "DejaVu Sans", sans-serif', headY);
+        label(
+          variantDef?.name || '渊主',
+          variantDef?.color || '#ffb3d9',
+          '700 10px "Noto Sans SC", "DejaVu Sans", sans-serif',
+          headY
+        );
 
         // 蓄力中优先显示技能名；否则破绽期间显示金色标记。
         if (enemy.cast) {
@@ -800,47 +809,167 @@ export class EnemyRenderer {
       g.arc(r * 0.78, r * 0.1, orb * 1.8, 0, Math.PI * 2);
       g.stroke();
     } else if (def.shape === 'boss') {
-      const spikes = 16;
-      g.fillStyle = body;
-      g.strokeStyle = dark;
-      g.lineWidth = 2.2;
-      g.beginPath();
-      for (let i = 0; i < spikes; i++) {
-        const a = (i / spikes) * Math.PI * 2;
-        const rad = i % 2 === 0 ? r * 1.1 : r * 0.76;
-        const px = Math.cos(a) * rad;
-        const py = Math.sin(a) * rad;
-        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      if (enemy.variant === 'armored') {
+        // 磐岩渊主：八边重甲壳 + 双层护板 + 横条面甲。
+        g.fillStyle = body;
+        g.strokeStyle = dark;
+        g.lineWidth = 3;
+        g.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+          const px = Math.cos(a) * r * 1.08;
+          const py = Math.sin(a) * r * 1.08;
+          i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+        }
+        g.closePath();
+        g.fill();
+        g.stroke();
+
+        g.strokeStyle = light;
+        g.lineWidth = 1.6;
+        g.beginPath();
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+          const px = Math.cos(a) * r * 0.82;
+          const py = Math.sin(a) * r * 0.82;
+          i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+        }
+        g.closePath();
+        g.stroke();
+
+        g.fillStyle = '#1b2330';
+        g.beginPath();
+        CanvasShapes.roundRect(g, -r * 0.5, -r * 0.28, r * 1.0, r * 0.34, r * 0.1);
+        g.fill();
+        g.fillStyle = '#dff0ff';
+        g.beginPath();
+        g.arc(-r * 0.22, -r * 0.11, r * 0.08, 0, Math.PI * 2);
+        g.arc(r * 0.22, -r * 0.11, r * 0.08, 0, Math.PI * 2);
+        g.fill();
+
+        g.fillStyle = '#ffd36b';
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          g.beginPath();
+          g.arc(Math.cos(a) * r * 0.66, Math.sin(a) * r * 0.66, r * 0.055, 0, Math.PI * 2);
+          g.fill();
+        }
+      } else if (enemy.variant === 'summoner') {
+        // 裂隙亲王：长袍轮廓 + 兜帽 + 头顶悬浮裂隙宝珠。
+        g.fillStyle = body;
+        g.strokeStyle = dark;
+        g.lineWidth = 2.4;
+        g.beginPath();
+        g.moveTo(0, -r * 1.0);
+        g.bezierCurveTo(r * 0.85, -r * 0.6, r * 1.05, r * 0.5, r * 0.92, r * 1.05);
+        g.lineTo(-r * 0.92, r * 1.05);
+        g.bezierCurveTo(-r * 1.05, r * 0.5, -r * 0.85, -r * 0.6, 0, -r * 1.0);
+        g.closePath();
+        g.fill();
+        g.stroke();
+
+        g.fillStyle = 'rgba(24, 8, 28, 0.72)';
+        g.beginPath();
+        g.ellipse(0, -r * 0.32, r * 0.48, r * 0.56, 0, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffe0ff';
+        g.beginPath();
+        g.arc(-r * 0.2, -r * 0.35, r * 0.08, 0, Math.PI * 2);
+        g.arc(r * 0.2, -r * 0.35, r * 0.08, 0, Math.PI * 2);
+        g.fill();
+
+        const orbit = animated ? Math.sin(t * 2 + enemy.id) * r * 0.06 : 0;
+        g.fillStyle = '#ffd6ff';
+        g.beginPath();
+        g.arc(0, -r * 1.5 + orbit, r * 0.17, 0, Math.PI * 2);
+        g.fill();
+        g.strokeStyle = Palette.hexToRgba('#ffd6ff', 0.55);
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.ellipse(0, -r * 1.5 + orbit, r * 0.36, r * 0.12, 0, 0, Math.PI * 2);
+        g.stroke();
+      } else if (enemy.variant === 'berserk') {
+        // 血怒渊主：更多更长的尖刺 + 三叉角 + 灼目。
+        const spikes = 22;
+        g.fillStyle = body;
+        g.strokeStyle = dark;
+        g.lineWidth = 2.4;
+        g.beginPath();
+        for (let i = 0; i < spikes; i++) {
+          const a = (i / spikes) * Math.PI * 2;
+          const rad = i % 2 === 0 ? r * 1.18 : r * 0.7;
+          const px = Math.cos(a) * rad;
+          const py = Math.sin(a) * rad;
+          i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+        }
+        g.closePath();
+        g.fill();
+        g.stroke();
+
+        g.fillStyle = dark;
+        g.beginPath();
+        g.moveTo(-r * 0.5, -r * 0.9);
+        g.lineTo(-r * 0.72, -r * 1.65);
+        g.lineTo(-r * 0.18, -r * 1.08);
+        g.closePath();
+        g.moveTo(r * 0.5, -r * 0.9);
+        g.lineTo(r * 0.72, -r * 1.65);
+        g.lineTo(r * 0.18, -r * 1.08);
+        g.closePath();
+        g.fill();
+
+        g.fillStyle = '#2a0505';
+        g.beginPath();
+        g.arc(0, 0, r * 0.46, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffec8a';
+        g.beginPath();
+        g.arc(-r * 0.29, -r * 0.1, r * 0.08, 0, Math.PI * 2);
+        g.arc(r * 0.29, -r * 0.1, r * 0.08, 0, Math.PI * 2);
+        g.fill();
+      } else {
+        const spikes = 16;
+        g.fillStyle = body;
+        g.strokeStyle = dark;
+        g.lineWidth = 2.2;
+        g.beginPath();
+        for (let i = 0; i < spikes; i++) {
+          const a = (i / spikes) * Math.PI * 2;
+          const rad = i % 2 === 0 ? r * 1.1 : r * 0.76;
+          const px = Math.cos(a) * rad;
+          const py = Math.sin(a) * rad;
+          i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+        }
+        g.closePath();
+        g.fill();
+        g.stroke();
+
+        // 王冠
+        g.fillStyle = '#ffd36b';
+        g.beginPath();
+        g.moveTo(0, -r * 1.05);
+        g.lineTo(r * 0.55, -r * 1.45);
+        g.lineTo(r * 0.28, -r * 1.12);
+        g.lineTo(0, -r * 1.55);
+        g.lineTo(-r * 0.28, -r * 1.12);
+        g.lineTo(-r * 0.55, -r * 1.45);
+        g.closePath();
+        g.fill();
+
+        g.fillStyle = '#260d1a';
+        g.beginPath();
+        g.arc(0, 0, r * 0.5, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffb3d9';
+        g.beginPath();
+        g.arc(0, 0, r * 0.23, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = '#ffe9a8';
+        g.beginPath();
+        g.arc(-r * 0.28, -r * 0.16, r * 0.09, 0, Math.PI * 2);
+        g.arc(r * 0.28, -r * 0.16, r * 0.09, 0, Math.PI * 2);
+        g.fill();
       }
-      g.closePath();
-      g.fill();
-      g.stroke();
-
-      // 王冠
-      g.fillStyle = '#ffd36b';
-      g.beginPath();
-      g.moveTo(0, -r * 1.05);
-      g.lineTo(r * 0.55, -r * 1.45);
-      g.lineTo(r * 0.28, -r * 1.12);
-      g.lineTo(0, -r * 1.55);
-      g.lineTo(-r * 0.28, -r * 1.12);
-      g.lineTo(-r * 0.55, -r * 1.45);
-      g.closePath();
-      g.fill();
-
-      g.fillStyle = '#260d1a';
-      g.beginPath();
-      g.arc(0, 0, r * 0.5, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#ffb3d9';
-      g.beginPath();
-      g.arc(0, 0, r * 0.23, 0, Math.PI * 2);
-      g.fill();
-      g.fillStyle = '#ffe9a8';
-      g.beginPath();
-      g.arc(-r * 0.28, -r * 0.16, r * 0.09, 0, Math.PI * 2);
-      g.arc(r * 0.28, -r * 0.16, r * 0.09, 0, Math.PI * 2);
-      g.fill();
     }
   }
 }

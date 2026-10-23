@@ -13,6 +13,8 @@ export function boardKeyFor(mode, day) {
   if (mode === 'daily') return `daily:${day}:v2`;
   if (mode === 'endless') return 'endless';
   if (mode === 'weekly') return `weekly:${day}`;
+  // 变异榜按规范化后的变异组合隔离：不同组合各自独立，互不混榜。
+  if (mode === 'mutated') return `mutated:${day}`;
   return 'normal';
 }
 
@@ -81,7 +83,8 @@ function toCount(value) {
 }
 
 // 入榜前校验：先拦截明显不可能的成绩，再钳制越界击杀并标记可疑分。
-export function validateLeaderboardEntry(entry = {}) {
+// scoreMul 为模式额外倍率（变异挑战），同时放宽理论上限与下限，避免合法成绩被误判。
+export function validateLeaderboardEntry(entry = {}, { scoreMul = 1 } = {}) {
   const wave = toCount(entry.wave);
   const kills = toCount(entry.kills);
   const durationMs = Math.max(0, Number(entry.durationMs) || 0);
@@ -120,8 +123,9 @@ export function validateLeaderboardEntry(entry = {}) {
     baseHp: 0,
     victory: false,
   });
-  const scoreCeiling = Math.ceil(rawCeiling * rules.maxScoreMul);
-  const scoreFloor = Math.floor(rawFloor * rules.minScoreMul);
+  const extraMul = Number.isFinite(scoreMul) && scoreMul > 0 ? scoreMul : 1;
+  const scoreCeiling = Math.ceil(rawCeiling * rules.maxScoreMul * extraMul);
+  const scoreFloor = Math.floor(rawFloor * rules.minScoreMul * extraMul);
   if (score > scoreCeiling) flags.push('score_too_high');
   else if (score < scoreFloor) flags.push('score_too_low');
 
@@ -388,7 +392,7 @@ export function seasonRewardForRank(rank) {
 }
 
 // 赛季名次：注册账号在赛季区间内所有榜单的最高分（同分比时长，再比记录先后）。
-// 无尽榜独立于三档难度，不参与赛季排名，避免高波次分数压过普通/每日榜。
+// 无尽榜与变异榜各自独立，不参与赛季排名：前者防止高波次压榜，后者按组合分榜。
 function seasonStandings(season) {
   const bounds = seasonBounds(season);
   if (!bounds) return [];
@@ -404,6 +408,7 @@ function seasonStandings(season) {
            JOIN accounts a ON a.id = e.account_id
           WHERE a.kind = 'registered'
             AND e.board_key <> 'endless'
+            AND e.board_key NOT LIKE 'mutated:%'
             AND e.created_at >= ? AND e.created_at < ?
        ) WHERE rn = 1
        ORDER BY score DESC, duration_ms ASC, created_at ASC, id ASC

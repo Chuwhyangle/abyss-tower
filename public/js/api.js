@@ -272,8 +272,10 @@ export function createApi({
     activeRun() {
       return request('/api/runs/active');
     },
-    startRun(mode, difficulty = 'standard') {
-      return request('/api/runs', { method: 'POST', body: { mode, difficulty } });
+    startRun(mode, difficulty = 'standard', mutations = null) {
+      const body = { mode, difficulty };
+      if (mutations?.length) body.mutations = mutations;
+      return request('/api/runs', { method: 'POST', body });
     },
     getRun(id) {
       return request(`/api/runs/${encodeURIComponent(id)}`);

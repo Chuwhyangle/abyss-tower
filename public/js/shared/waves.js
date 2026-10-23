@@ -1,7 +1,14 @@
 // 波次生成：由服务端下发，种子 + 波数决定，客户端无法挑波。
 import { RNG } from './rng.js';
 import { MAX_WAVE, getDifficulty } from './data.js';
+import { BOSS_VARIANT_ROTATION } from './data/enemies.js';
 import { BALANCE } from './config.js';
+
+// 首领变体：每 5 波轮换一次；波次本身就是种子的一部分，所以同种子必然同变体。
+export function selectBossVariant(wave) {
+  const bossIndex = Math.max(1, Math.floor(Math.max(1, Math.floor(wave)) / 5));
+  return BOSS_VARIANT_ROTATION[(bossIndex - 1) % BOSS_VARIANT_ROTATION.length];
+}
 
 const POOL = [
   { type: 'grunt', weight: 5.0, countMult: 1.0, minWave: 1, interval: 0.62 },
@@ -55,6 +62,8 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
     (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1);
   const speedMul = endless ? Math.min(ENDLESS.speedCap, rawSpeedMul) : rawSpeedMul;
   const isBoss = index % 5 === 0;
+  // 最终波固定狂暴型，其余首领波按每 5 波轮换。
+  const bossVariant = isBoss ? (isFinal ? 'berserk' : selectBossVariant(index)) : null;
   const groups = [];
 
   if (isBoss) {
@@ -147,6 +156,7 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
     countMul: diff.countMul,
     reward,
     boss: isBoss,
+    bossVariant,
     finalBoss: isFinal,
     totalCount,
     portals: activePortals,
