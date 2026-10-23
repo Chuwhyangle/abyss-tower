@@ -40,6 +40,7 @@ export const TEST_MAP = [
     'tests/skill-audio.test.mjs',
   ] },
   { match: 'public/js/auth-ui.js', tests: ['tests/controller-wiring.test.mjs'] },
+  { match: 'public/js/bounties-ui.js', tests: ['tests/bounties.test.mjs'] },
   { match: 'public/js/cosmetics-ui.js', tests: ['tests/cosmetics.test.mjs'] },
   { match: 'public/js/daily-history-ui.js', tests: [
     'tests/daily-history.test.mjs',
@@ -54,6 +55,7 @@ export const TEST_MAP = [
     'tests/i18n.test.mjs',
     'tests/relic-codex.test.mjs',
   ] },
+  { match: 'public/js/replay-ui.js', tests: ['tests/replays.test.mjs'] },
   { match: 'public/js/season-ui.js', tests: [
     'tests/i18n.test.mjs',
     'tests/icon-system.test.mjs',
@@ -171,6 +173,7 @@ export const TEST_MAP = [
   { match: 'scripts/perf-budget.mjs', tests: ['tests/perf-budget.test.mjs'] },
   { match: 'scripts/release.mjs', tests: ['tests/release-script.test.mjs'] },
   { match: 'scripts/settle-seasons.mjs', tests: ['tests/settle-seasons.test.mjs'] },
+  { match: 'scripts/style-check.mjs', tests: ['tests/style-check.test.mjs'] },
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
 ];
 

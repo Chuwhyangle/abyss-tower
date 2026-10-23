@@ -1,8 +1,11 @@
-// 大厅外观面板：展示已解锁的称号与头像框，选择结果由服务端持久化。
+// 大厅外观面板：展示已解锁的称号、头像框与塔/敌人皮肤，选择结果由服务端持久化。
 // 未解锁的外观只作为目标提示，不能点击选择；本模块不参与任何战斗数值。
 import { tOr } from './i18n.js';
+import { setActiveSkins } from './shared/skins.js';
 
 const ENDPOINT = '/api/profile/cosmetics';
+const SKINS_ENDPOINT = '/api/profile/skins';
+const SKIN_TARGETS = ['tower', 'enemy'];
 
 const STYLE_ID = 'cosmetics-style';
 const STYLE = `
@@ -28,6 +31,7 @@ const STYLE = `
 `;
 
 let current = null;
+let currentSkins = null;
 let panel = null;
 let body = null;
 
@@ -48,8 +52,8 @@ function ensureStyles() {
   document.head.appendChild(style);
 }
 
-async function request(method = 'GET', payload = null) {
-  const response = await fetch(ENDPOINT, {
+async function request(method = 'GET', payload = null, pathname = ENDPOINT) {
+  const response = await fetch(pathname, {
     method,
     credentials: 'same-origin',
     headers: payload ? { 'content-type': 'application/json' } : {},
@@ -104,10 +108,61 @@ function section(kind, label, items) {
     </section>`;
 }
 
+function skinChip(target, item) {
+  const selected = currentSkins?.selected?.[target] === item.id;
+  const classes = ['cosmetic-chip'];
+  if (selected) classes.push('active');
+  const color = item.outline?.color || '#7a8794';
+  return `
+    <button type="button" class="${classes.join(' ')}" data-kind="skin-${target}" data-value="${escapeHtml(item.id)}"
+      aria-pressed="${selected ? 'true' : 'false'}" ${item.unlocked ? '' : 'disabled'}
+      title="${escapeHtml(`${item.name} · ${sourceLabel(item)}`)}">
+      <span class="cosmetic-chip-head"><span class="cosmetic-chip-dot" style="--cosmetic-color:${escapeHtml(color)}" aria-hidden="true"></span>${escapeHtml(item.name)}</span>
+      <span class="cosmetic-chip-source">${escapeHtml(sourceLabel(item))}</span>
+    </button>`;
+}
+
+function skinSection(target, label, items) {
+  return `
+    <section class="cosmetic-section" data-section="skin-${target}">
+      <h3>${escapeHtml(label)}</h3>
+      <div class="cosmetic-grid">
+        ${items.length ? items.map((item) => skinChip(target, item)).join('') : `<p class="cosmetic-preview-note">${escapeHtml(tOr('cosmetics.empty', '暂无可用外观'))}</p>`}
+      </div>
+      <button type="button" class="btn small" data-kind="skin-${target}" data-value="">${escapeHtml(tOr('cosmetics.skinDefault', '恢复默认'))}</button>
+    </section>`;
+}
+
+function skinsSection(skins) {
+  if (!skins?.skins?.length) return '';
+  const labels = {
+    tower: tOr('cosmetics.skinTower', '塔皮肤'),
+    enemy: tOr('cosmetics.skinEnemy', '敌人皮肤'),
+  };
+  return SKIN_TARGETS.map((target) =>
+    skinSection(
+      target,
+      labels[target],
+      skins.skins.filter((item) => item.target === target)
+    )
+  ).join('');
+}
+
+function selectedSkinName(skins, target) {
+  const id = skins?.selected?.[target];
+  return skins?.skins?.find((item) => item.target === target && item.id === id)?.name || null;
+}
+
 function preview() {
   const title = current?.titles?.find((item) => item.id === current.selected?.title && item.unlocked);
   const frame = current?.frames?.find((item) => item.id === current.selected?.frame && item.unlocked);
   const frameStyle = frame ? ` style="--cosmetic-frame:${escapeHtml(frame.color)}"` : '';
+  const skinNote = SKIN_TARGETS.map((target) => {
+    const name = selectedSkinName(currentSkins, target);
+    if (!name) return '';
+    const label = target === 'tower' ? tOr('cosmetics.skinTower', '塔皮肤') : tOr('cosmetics.skinEnemy', '敌人皮肤');
+    return `${label} · ${name}`;
+  }).filter(Boolean).join(' / ');
   return `
     <div class="cosmetic-preview">
       <div class="cosmetic-preview-card"${frameStyle}>
@@ -115,16 +170,25 @@ function preview() {
         <span class="cosmetic-preview-title">${escapeHtml(title ? tOr('cosmetics.equippedTitle', '当前称号') : tOr('cosmetics.noTitle', '未佩戴称号'))}</span>
       </div>
       <span class="cosmetic-preview-note">${escapeHtml(frame ? `${tOr('cosmetics.equippedFrame', '当前头像框')} · ${frame.name}` : tOr('cosmetics.noFrame', '未佩戴头像框'))}</span>
+      ${skinNote ? `<span class="cosmetic-preview-note">${escapeHtml(skinNote)}</span>` : ''}
     </div>`;
 }
 
-function render(data) {
+function applyActiveSkins(skins) {
+  if (!skins?.selected) return;
+  setActiveSkins(skins.selected);
+}
+
+function render(data, skins = currentSkins) {
   current = data;
+  currentSkins = skins;
+  applyActiveSkins(skins);
   if (!body) return;
   body.innerHTML = `
     ${preview()}
     ${section('title', tOr('cosmetics.titles', '称号'), data.titles || [])}
     ${section('frame', tOr('cosmetics.frames', '头像框'), data.frames || [])}
+    ${skinsSection(skins)}
     <p class="cosmetic-status" role="status" aria-live="polite"></p>`;
   updateHallBadge(data);
 }
@@ -167,7 +231,9 @@ async function load() {
   if (!body) return;
   body.innerHTML = `<p class="cosmetic-preview-note">${escapeHtml(tOr('cosmetics.loading', '正在读取外观…'))}</p>`;
   try {
-    render(await request('GET'));
+    const data = await request('GET');
+    const skins = await request('GET', null, SKINS_ENDPOINT).catch(() => null);
+    render(data, skins);
   } catch (error) {
     if (error.status === 401) {
       emptyState(tOr('cosmetics.login', '登录后可查看称号与头像框'));
@@ -177,15 +243,31 @@ async function load() {
   }
 }
 
+async function chooseSkin(target, value) {
+  if (!currentSkins) return;
+  setStatus(tOr('cosmetics.saving', '正在保存…'));
+  try {
+    const data = await request('PUT', { [target]: value || null }, SKINS_ENDPOINT);
+    render(current, data);
+    setStatus(tOr('cosmetics.saved', '已保存'));
+  } catch (error) {
+    render(current, currentSkins);
+    setStatus(error.message || tOr('cosmetics.error', '外观加载失败'));
+  }
+}
+
 async function choose(kind, value) {
+  if (kind === 'skin-tower' || kind === 'skin-enemy') {
+    return chooseSkin(kind.slice('skin-'.length), value);
+  }
   if (!current) return;
   setStatus(tOr('cosmetics.saving', '正在保存…'));
   try {
     const data = await request('PUT', { [kind]: value });
-    render(data);
+    render(data, currentSkins);
     setStatus(tOr('cosmetics.saved', '已保存'));
   } catch (error) {
-    render(current);
+    render(current, currentSkins);
     setStatus(error.message || tOr('cosmetics.error', '外观加载失败'));
   }
 }
@@ -198,6 +280,18 @@ async function refreshBadge() {
   }
 }
 
+// 大厅进入即同步已选皮肤，避免必须打开面板才生效。
+async function refreshSkins() {
+  try {
+    const data = await request('GET', null, SKINS_ENDPOINT);
+    currentSkins = data;
+    applyActiveSkins(data);
+    if (!panel?.hidden && current) render(current, data);
+  } catch {
+    /* 未登录或接口不可用时保持默认皮肤 */
+  }
+}
+
 function install() {
   panel = document.getElementById('cosmetics-panel');
   body = document.getElementById('cosmetics-body');
@@ -205,6 +299,7 @@ function install() {
   if (!panel || !body || !trigger) return;
   ensureStyles();
   refreshBadge();
+  refreshSkins();
 
   const close = document.getElementById('btn-cosmetics-close');
   const setOpen = (open) => {

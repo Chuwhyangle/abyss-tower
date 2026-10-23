@@ -4,6 +4,7 @@ import { BOSS_VARIANTS } from '../shared/data/enemies.js';
 import { BALANCE } from '../shared/config.js';
 import { Palette } from './palette.js';
 import { CanvasShapes } from './canvas-shapes.js';
+import { activeSkin, skinColorFor } from '../shared/skins.js';
 
 const T = TILE;
 
@@ -102,6 +103,8 @@ export class EnemyRenderer {
     const glow = settings.glow;
     const anim = enemyAnimVariant(settings.decorations);
     const walk = anim.walk;
+    const skin = activeSkin('enemy');
+    const outline = skin.outline;
 
     for (const enemy of game.enemies) {
       if (enemy.dead) continue;
@@ -163,8 +166,17 @@ export class EnemyRenderer {
         walk.enabled,
         variantDef
           ? Palette.presentColor(variantDef.color, settings)
-          : Palette.enemyColor(enemy.type, settings)
+          : skinColorFor(skin, Palette.enemyColor(enemy.type, settings))
       );
+
+      // 皮肤轮廓：始终绘制的外圈，低配/关闭装饰时仍保留皮肤辨识度。
+      if (outline) {
+        g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
+        g.lineWidth = outline.width;
+        g.beginPath();
+        g.arc(0, 0, vr + 1.5, 0, Math.PI * 2);
+        g.stroke();
+      }
 
       const flash = hitFlashAlpha(enemy.hitFlash, anim);
       if (flash > 0) {

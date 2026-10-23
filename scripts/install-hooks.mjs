@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 安装 git pre-push 分级门禁：默认语法 + 版本一致性，HOOK_FULL=1 时加跑完整测试与性能预算。
+// 安装 git pre-push 分级门禁：默认语法 + 版本一致性 + 风格检查，HOOK_FULL=1 时加跑完整测试与性能预算。
 // 零依赖、幂等；不覆盖非本工具写入的已有钩子。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -29,6 +29,7 @@ run_check() {
 
 run_check "语法检查" npm run check:syntax
 run_check "版本一致性检查" node scripts/check-version.mjs
+run_check "风格检查" npm run check:style
 
 if [ "\${HOOK_FULL:-0}" = "1" ]; then
   run_check "完整测试" npm test

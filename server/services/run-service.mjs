@@ -1,7 +1,8 @@
 // 远征领域服务：状态迁移规则、结算编排与响应序列化；SQL 全部委托给仓储层。
 import crypto from 'node:crypto';
 
-import { hydrateRun, normalizeStats, updateProfile } from '../db.mjs';
+import { hydrateRun, normalizeStats, transaction, updateProfile } from '../db.mjs';
+import { REPLAY_LIMIT, insertReplay, trimReplays } from '../db/replays.mjs';
 import {
   abandonActiveRuns,
   countFinishedDailyRuns,
@@ -608,6 +609,44 @@ export class RunService {
     };
   }
 
+  // 回放摘要只保留决策与结果：种子、地图、遗物、事件节点与波次/结算数据。
+  // 不包含任何模拟帧或逐帧状态。
+  replaySummary(run, payload) {
+    const chosen =
+      run.mapChoice >= 0 ? generateMapCandidates(run.seed, 3)[run.mapChoice] || null : null;
+    const events = Object.entries(run.offers || {})
+      .filter(([key]) => key.startsWith('event:'))
+      .map(([key, slot]) => {
+        const wave = Number(key.slice('event:'.length));
+        if (!slot?.picked || !Number.isInteger(wave)) return null;
+        return {
+          wave,
+          eventId: slot.eventId,
+          optionId: slot.optionId,
+          optionIndex: slot.optionIndex,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.wave - b.wave);
+    return {
+      map: {
+        choice: run.mapChoice,
+        archetype: chosen?.archetype || null,
+        archetypeName: chosen?.archetypeName || null,
+        modifier: chosen?.modifier || null,
+      },
+      skill: run.ruleset?.skill || null,
+      mutations: run.ruleset?.mutations || null,
+      relics: normalizeRelicStates(run.relics),
+      events,
+      waves: {
+        served: run.wavesServed,
+        cleared: run.clearedWaves,
+        reached: payload.waveReached,
+      },
+    };
+  }
+
   settle(run, profile, body) {
     const token = run.token;
     const payload = clampFinishPayload(body, run.clearedWaves);
@@ -627,21 +666,51 @@ export class RunService {
     const durationMs = Math.max(0, now - run.createdAt);
 
     const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day);
-
-    settleRun(run.id, {
+    const replayId = crypto.randomBytes(9).toString('base64url');
+    const replayResult = {
       victory: outcome.victory,
       score: outcome.score,
+      rawScore: outcome.rawScore,
+      coresEarned: outcome.cores,
       waveReached: payload.waveReached,
       kills: payload.kills,
+      goldLeft: payload.goldLeft,
+      baseHp: payload.baseHp,
       durationMs,
-      result: JSON.stringify({
-        rawScore: outcome.rawScore,
-        coresEarned: outcome.cores,
-        goldLeft: payload.goldLeft,
-        baseHp: payload.baseHp,
-        contentVersion: run.contentVersion,
-      }),
-      finishedAt: now,
+      contentVersion: run.contentVersion,
+    };
+
+    // 结算与回放摘要在同一事务里落地：任一步失败都不会留下半局记录。
+    transaction(() => {
+      settleRun(run.id, {
+        victory: outcome.victory,
+        score: outcome.score,
+        waveReached: payload.waveReached,
+        kills: payload.kills,
+        durationMs,
+        result: JSON.stringify({
+          rawScore: outcome.rawScore,
+          coresEarned: outcome.cores,
+          goldLeft: payload.goldLeft,
+          baseHp: payload.baseHp,
+          contentVersion: run.contentVersion,
+        }),
+        finishedAt: now,
+      });
+      insertReplay({
+        id: replayId,
+        accountId: token,
+        runId: run.id,
+        mode: run.mode,
+        difficulty: run.difficulty,
+        seed: run.seed,
+        mapChoice: run.mapChoice,
+        summary: JSON.stringify(this.replaySummary(run, payload)),
+        result: JSON.stringify(replayResult),
+        createdAt: run.createdAt,
+        finishedAt: now,
+      });
+      trimReplays(token, REPLAY_LIMIT);
     });
 
     // 首通授予必须在更新战绩之前：skillUnlocked 会从历史首通派生，
@@ -748,6 +817,7 @@ export class RunService {
     return {
       victory: outcome.victory,
       difficulty: run.difficulty,
+      replayId,
       waveReached: payload.waveReached,
       rawScore: outcome.rawScore,
       score: outcome.score,
