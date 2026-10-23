@@ -20,7 +20,7 @@ import {
 } from './shared/data.js';
 import { normalizeSettings, detectPreset, presetSettings } from './settings.js';
 import { audio } from './audio.js';
-import { t, tData, initI18n, getLocale, setLocale, LOCALES } from './i18n.js';
+import { t, tData, tOr, initI18n, getLocale, setLocale, LOCALES } from './i18n.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -34,17 +34,61 @@ const diffDesc = (def) => tData('difficulty', def.id, 'desc', def.desc);
 const ROMAN = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
 const ROLE_LABELS = { control: '控场', burst: '爆发', ultimate: '终极' };
 
+// 进化修正展示：mods 统一是乘法系数，转成百分比文案。
+const EVOLUTION_LABELS = {
+  dmg: '伤害',
+  rate: '攻速',
+  range: '射程',
+  splash: '溅射',
+  slow: '减速',
+  slowDur: '减速时长',
+  chain: '连锁',
+  dot: '毒伤',
+  dotDur: '毒伤时长',
+  knockback: '击退',
+  buffDmg: '光环增伤',
+  buffRate: '光环攻速',
+};
+
+function evolutionEffectText(evolution) {
+  return Object.entries(evolution.mods || {})
+    .map(([key, mul]) => {
+      const pct = Math.round((mul - 1) * 100);
+      return `${EVOLUTION_LABELS[key] || key} ${pct >= 0 ? '+' : ''}${pct}%`;
+    })
+    .join(' · ');
+}
+
+// 技能数据表只有中文；按 id 取当前语言文案，缺译名回退数据原值。
+const skillName = (entry) => tOr(`skill.${entry.id}.name`, entry.name);
+const skillDesc = (entry) => tOr(`skill.${entry.id}.desc`, entry.desc);
+const skillRole = (entry) => tOr(`skill.role.${entry.role}`, ROLE_LABELS[entry.role] || '');
+const skillUnlock = (entry) =>
+  tOr(`skill.unlock.${SKILLS[entry.id]?.unlock}`, entry.unlockHint || skillUnlockText(entry.id));
+
 // 技能卡摘要：只展示一个最能代表当前等级的数值。
 function skillSummary(id, level) {
   const stats = skillStats(id, level);
   if (!stats) return '';
   if (id === 'aurora') {
-    return `冻结 ${stats.freeze.toFixed(1)}s · 减速 ${Math.round(stats.slow * 100)}% · 冷却 ${Math.round(stats.cd)}s`;
+    return tOr(`skill.${id}.summary`, '', {
+      freeze: stats.freeze.toFixed(1),
+      slow: Math.round(stats.slow * 100),
+      cd: Math.round(stats.cd),
+    });
   }
   if (id === 'meteor') {
-    return `${stats.meteors} 颗 · 单颗 ${Math.round(stats.dmgPct * 100)}% 最大生命 · 冷却 ${Math.round(stats.cd)}s`;
+    return tOr(`skill.${id}.summary`, '', {
+      meteors: stats.meteors,
+      dmg: Math.round(stats.dmgPct * 100),
+      cd: Math.round(stats.cd),
+    });
   }
-  return `时停 ${stats.stop.toFixed(1)}s · 过载 ${stats.overdrive.toFixed(1)}s · 冷却 ${Math.round(stats.cd)}s`;
+  return tOr(`skill.${id}.summary`, '', {
+    stop: stats.stop.toFixed(1),
+    overdrive: stats.overdrive.toFixed(1),
+    cd: Math.round(stats.cd),
+  });
 }
 
 class UI {
@@ -293,7 +337,7 @@ class UI {
     host.innerHTML = `
       <div class="skill-cards-head">
         <span class="eyebrow">ACTIVE SKILL</span>
-        <span class="muted">本局携带 1 个 · 升级消耗星核</span>
+        <span class="muted">${t('skill.ui.carry')}</span>
       </div>
       <div class="skill-cards-grid">
         ${entries
@@ -303,15 +347,13 @@ class UI {
             const locked = !entry.unlocked;
             const full = entry.nextCost == null;
             const affordable = entry.nextCost != null && cores >= entry.nextCost;
-            const hint = locked
-              ? entry.unlockHint || skillUnlockText(entry.id)
-              : null;
+            const hint = locked ? skillUnlock(entry) : null;
             const action = locked
-              ? `<span class="skill-lock">🔒 ${escapeHtml(hint || '未解锁')}</span>`
+              ? `<span class="skill-lock">🔒 ${escapeHtml(hint || t('skill.ui.locked'))}</span>`
               : full
-                ? '<span class="skill-max">已满级</span>'
+                ? `<span class="skill-max">${t('skill.ui.maxed')}</span>`
                 : `<button class="btn small skill-upgrade ${affordable ? 'primary' : ''}" data-upgrade="${entry.id}"
-                     ${affordable && entry.canUpgrade !== false ? '' : 'disabled'}>升级 ◈ ${entry.nextCost}</button>`;
+                     ${affordable && entry.canUpgrade !== false ? '' : 'disabled'}>${t('skill.ui.upgrade', { cost: entry.nextCost })}</button>`;
             return `
               <div class="skill-card ${locked ? 'locked' : ''} ${isSelected ? 'selected' : ''}"
                 data-skill="${entry.id}" role="button" tabindex="${locked ? '-1' : '0'}"
@@ -319,13 +361,13 @@ class UI {
                 <div class="skill-glyph" aria-hidden="true">${locked ? '?' : '✦'}</div>
                 <div class="skill-body">
                   <div class="skill-head">
-                    <b class="skill-name">${escapeHtml(entry.name)}</b>
-                    <span class="skill-role">${ROLE_LABELS[entry.role] || ''}</span>
+                    <b class="skill-name">${escapeHtml(skillName(entry))}</b>
+                    <span class="skill-role">${skillRole(entry)}</span>
                     <span class="skill-level">${ROMAN[level - 1]}</span>
                   </div>
                   <div class="skill-pips" aria-hidden="true">${Array.from({ length: 10 }, (_, i) =>
                     `<i class="${i < level ? 'on' : ''}"></i>`).join('')}</div>
-                  <p class="skill-desc">${locked ? escapeHtml(hint || '') : escapeHtml(entry.desc || '')}</p>
+                  <p class="skill-desc">${locked ? escapeHtml(hint || '') : escapeHtml(skillDesc(entry) || '')}</p>
                   ${locked ? '' : `<span class="skill-summary">${escapeHtml(skillSummary(entry.id, level))}</span>`}
                 </div>
                 <div class="skill-actions">${action}</div>
@@ -340,7 +382,7 @@ class UI {
       const activate = () => {
         if (card.classList.contains('locked')) {
           const entry = entries.find((item) => item.id === id);
-          this.toast(`解锁条件：${entry?.unlockHint || skillUnlockText(id)}`, 2400);
+          this.toast(t('skill.ui.unlockCondition', { text: skillUnlock(entry || { id }) }), 2400);
           return;
         }
         this.handlers.onSelectSkill?.(id);
@@ -394,7 +436,7 @@ class UI {
     this.selectedSkill = current;
     return `
       <div class="diff-skill-bar">
-        <span class="diff-skill-label">${this._dailyMode ? '携带技能（固定 Ⅴ 级）' : '携带技能'}</span>
+        <span class="diff-skill-label">${t(this._dailyMode ? 'skill.ui.carryDaily' : 'skill.ui.carryLabel')}</span>
         <div class="skill-chips">
           ${entries
             .map((entry) => {
@@ -403,11 +445,11 @@ class UI {
               const on = current === entry.id;
               return `<button class="skill-chip ${on ? 'selected' : ''} ${locked ? 'locked' : ''}"
                 data-skill="${entry.id}" aria-pressed="${on}" ${locked ? 'disabled' : ''}
-                title="${escapeHtml(locked ? entry.unlockHint || '未解锁' : `${entry.name} ${ROMAN[level - 1]}`)}"
+                title="${escapeHtml(locked ? skillUnlock(entry) : `${skillName(entry)} ${ROMAN[level - 1]}`)}"
                 style="--skill:${entry.color}">
                 <span class="chip-glyph">${locked ? '🔒' : '✦'}</span>
-                <span class="chip-name">${escapeHtml(entry.name)}</span>
-                <span class="chip-level">${locked ? '未解锁' : ROMAN[level - 1]}</span>
+                <span class="chip-name">${escapeHtml(skillName(entry))}</span>
+                <span class="chip-level">${locked ? t('skill.ui.locked') : ROMAN[level - 1]}</span>
               </button>`;
             })
             .join('')}
@@ -624,7 +666,8 @@ class UI {
       btn.dataset.state = 'none';
       return;
     }
-    const def = SKILLS[skill.id] || { name: '技能', color: '#7cd4f5' };
+    const def = SKILLS[skill.id] || { id: skill.id, color: '#7cd4f5' };
+    const name = tOr(`skill.${skill.id}.name`, def.name || t('skill.ui.fallback'));
     const stats = skill.stats || skillStats(skill.id, skill.level || 1);
     const maxCd = Math.max(1, Number(stats?.cd) || 1);
     const cooldown = Math.max(0, Number(skill.cooldown ?? skill.cd ?? 0));
@@ -649,12 +692,12 @@ class UI {
           : 'paused';
     const status =
       phase !== 'wave'
-        ? '战斗中可用'
+        ? t('skill.ui.status.prep')
         : cooldown > 0
-          ? `冷却 ${Math.ceil(cooldown)} 秒`
-          : '就绪';
-    btn.title = `${def.name} · ${status} · 快捷键 Q`;
-    btn.setAttribute('aria-label', `${def.name}，${status}，快捷键 Q`);
+          ? t('skill.ui.status.cooling', { s: Math.ceil(cooldown) })
+          : t('skill.ui.status.ready');
+    btn.title = t('skill.ui.buttonTitle', { name, status });
+    btn.setAttribute('aria-label', t('skill.ui.buttonAria', { name, status }));
     if (this.el.skillCount) {
       this.el.skillCount.textContent = cooldown > 0 && phase === 'wave' ? String(Math.ceil(cooldown)) : '';
     }
@@ -801,10 +844,13 @@ class UI {
     const stats = this.game.statsFor(tower);
     const cost = this.game.upgradeCost(tower);
     const sell = this.game.sellValue(tower);
+    const evolution = this.game.towerEvolution?.(tower) || null;
+    const evolutions = this.game.evolutionOptions?.(tower) || [];
+    const title = evolution ? `${towerName(def)} · ${evolution.name}` : towerName(def);
     this.el.towerPanel.hidden = false;
     this.el.towerPanel.innerHTML = `
       <div class="tp-head">
-        <span class="tp-name" style="color:${def.color}">${towerName(def)} <em>Lv.${tower.level + 1}</em></span>
+        <span class="tp-name" style="color:${evolution?.color || def.color}">${title} <em>Lv.${tower.level + 1}</em></span>
         <button class="tp-close" title="${t('towerPanel.close')}">✕</button>
       </div>
       <div class="tp-stats">
@@ -822,10 +868,34 @@ class UI {
         </button>
         <button class="btn small danger sell">${t('towerPanel.sell', { value: sell })}</button>
       </div>
+      ${evolution
+        ? `<div class="tp-evolution" style="display:flex;gap:8px;align-items:baseline;margin-top:8px">
+             <span class="muted">进化</span>
+             <b style="color:${evolution.color || def.color}">${evolution.name}</b>
+             <em class="muted" style="font-size:11px">${evolutionEffectText(evolution)}</em>
+           </div>`
+        : ''}
+      ${evolutions.length
+        ? `<div class="tp-evolutions" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
+             <span class="muted">满级进化 · 二选一</span>
+             <div class="tp-evolution-actions" style="display:flex;gap:6px;flex-wrap:wrap">
+               ${evolutions
+                 .map(
+                   (entry, index) =>
+                     `<button class="btn small evolve" data-evolve="${entry.id}" title="${escapeHtml(entry.desc)}"
+                        style="border-color:${entry.color || def.color}"><em>${index + 1}</em> ${escapeHtml(entry.name)}</button>`
+                 )
+                 .join('')}
+             </div>
+           </div>`
+        : ''}
     `;
     this.el.towerPanel.querySelector('.tp-close').onclick = () => this.handlers.onDeselect?.();
     const upgradeBtn = this.el.towerPanel.querySelector('.upgrade');
     if (cost != null) upgradeBtn.onclick = () => this.handlers.onUpgrade?.(tower);
+    this.el.towerPanel.querySelectorAll('[data-evolve]').forEach((button) => {
+      button.onclick = () => this.handlers.onEvolve?.(tower, button.dataset.evolve);
+    });
     this.el.towerPanel.querySelector('.sell').onclick = () => this.handlers.onSell?.(tower);
     this.updateTowerPanelState(this.game.gold);
   }
@@ -844,6 +914,58 @@ class UI {
       this.el.towerPanel.hidden = true;
       this.el.towerPanel.innerHTML = '';
     }
+  }
+
+  // 满级二选一：与遗物三选一区分开，键盘 1 / 2 直接选择。
+  showEvolutionModal(tower) {
+    if (!this.game || !tower) return;
+    const def = TOWERS[tower.type];
+    const options = this.game.evolutionOptions?.(tower) || [];
+    if (!options.length) return;
+    const cards = options
+      .map(
+        (evolution, index) => `
+          <button class="relic-card evolution-card" data-evolve="${evolution.id}"
+            style="--rarity:${evolution.color || def.color}">
+            <span class="rarity">进化 · ${index + 1}</span>
+            <h3>${escapeHtml(evolution.name)}</h3>
+            <div class="relic-effect"><span>属性</span>${evolutionEffectText(evolution)}</div>
+            <p class="relic-flavor">${escapeHtml(evolution.desc)}</p>
+            <span class="pick">选择</span>
+          </button>`
+      )
+      .join('');
+    const modal = this.openModal(
+      `
+        <div class="draft evolution">
+          <p class="eyebrow">${escapeHtml(towerName(def))} · Lv.${tower.level + 1}</p>
+          <h2>选择最终形态</h2>
+          <div class="draft-cards">${cards}</div>
+          <div class="draft-actions">
+            <span class="muted">键盘 1 / 2 选择 · Esc 稍后再选</span>
+          </div>
+        </div>
+      `,
+      { className: 'evolution-modal' }
+    );
+
+    const pick = (evolutionId) => {
+      this.closeModal();
+      this.handlers.onEvolve?.(tower, evolutionId);
+    };
+    modal.querySelectorAll('[data-evolve]').forEach((card) => {
+      card.onclick = () => pick(card.dataset.evolve);
+    });
+
+    const onKey = (event) => {
+      if (event.key !== '1' && event.key !== '2') return;
+      const evolution = options[Number(event.key) - 1];
+      if (!evolution) return;
+      event.preventDefault();
+      pick(evolution.id);
+    };
+    window.addEventListener('keydown', onKey);
+    this._modalCleanup = () => window.removeEventListener('keydown', onKey);
   }
 
   // ---------- 弹窗 ----------
@@ -865,9 +987,12 @@ class UI {
 
   closeModal() {
     const onClose = this._modalOnClose;
+    const cleanup = this._modalCleanup;
     this._modalOnClose = null;
+    this._modalCleanup = null;
     if (this.el?.modalRoot) this.el.modalRoot.innerHTML = '';
     this.modalClosable = false;
+    if (cleanup) cleanup();
     if (onClose) onClose();
   }
 

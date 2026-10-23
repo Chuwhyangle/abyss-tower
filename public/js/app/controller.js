@@ -127,6 +127,7 @@ export class GameController {
       },
       onSelectShop: (type) => this.input.selectShop(type),
       onUpgrade: (tower) => this.input.upgradeTower(tower),
+      onEvolve: (tower, evolutionId) => this.input.evolveTower(tower, evolutionId),
       onSell: (tower) => this.input.sellTower(tower),
       onDeselect: () => this.input.selectTower(null),
       onPickOffer: (index) => this.combat.pickOffer(index),

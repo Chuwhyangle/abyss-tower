@@ -1,4 +1,4 @@
-// 地图生成：多入口/汇流路径图、6 种原型、地图词缀与三候选。
+// 地图生成：多入口/汇流路径图、7 种原型、10 种地图词缀与三候选。
 import { RNG } from './rng.js';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -29,6 +29,10 @@ export const ARCHETYPES = {
   switchback: {
     id: 'switchback', name: '折返长廊', spawns: 1, wind: 0.52, scoreMul: 1.0,
     desc: '单入口反复折返，直线火力难以覆盖全程，需要沿路分段布防。',
+  },
+  doubleRing: {
+    id: 'doubleRing', name: '双环回廊', spawns: 2, wind: 0.62, scoreMul: 1.05,
+    desc: '两条回廊各自绕行半圈后汇合，塔位被拉得很开，需要双线兼顾并及时转火。',
   },
 };
 
@@ -72,6 +76,16 @@ export const MAP_MODIFIERS = [
     id: 'surge', name: '涌潮', color: '#6fa8ff',
     desc: '敌人移速 +22%，击杀金币 +15%',
     hpMul: 1, speedMul: 1.22, goldMul: 1.15, rangeMul: 1, scoreMul: 1.07, extraPortal: 0,
+  },
+  {
+    id: 'dusk', name: '暮色', color: '#9b8ec4',
+    desc: '视野收缩：防御塔射程 -3%，敌人生命 +8%，最终分数 +3%',
+    hpMul: 1.08, speedMul: 1, goldMul: 1, rangeMul: 0.97, scoreMul: 1.03, extraPortal: 0,
+  },
+  {
+    id: 'starlit', name: '星辉', color: '#8fe0ff',
+    desc: '星光照明：防御塔射程 +8%，敌人生命 +6%，最终分数 +2%',
+    hpMul: 1.06, speedMul: 1, goldMul: 1, rangeMul: 1.08, scoreMul: 1.02, extraPortal: 0,
   },
 ];
 

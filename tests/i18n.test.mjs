@@ -13,9 +13,12 @@ import {
   setLocale,
   t,
   tData,
+  tOr,
 } from '../public/js/i18n.js';
 import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
+import { SKILL_ORDER } from '../public/js/shared/data/skills.js';
+import { ACHIEVEMENTS } from '../public/js/shared/achievements.js';
 
 function memoryStorage(initial = {}) {
   const data = new Map(Object.entries(initial));
@@ -73,6 +76,59 @@ test('未知键回退到 key 本身，缺失参数保留占位符', () => {
   assert.equal(tData('tower', 'not-a-tower', 'name', 'Fallback'), 'Fallback');
   assert.equal(tData('tower', 'arrow', 'name', '弩塔'), 'Bolt Tower');
   assert.equal(tData('difficulty', 'standard', 'name', '远征'), 'Expedition');
+  setLocale('zh-CN', { silent: true });
+});
+
+test('技能与成就的数据文案中英齐全', () => {
+  const missing = [];
+  const requireKey = (key) => {
+    for (const locale of LOCALES) {
+      if (!DICTIONARIES[locale][key]) missing.push(`${locale}:${key}`);
+    }
+  };
+
+  for (const id of SKILL_ORDER) {
+    for (const field of ['name', 'desc', 'summary']) requireKey(`skill.${id}.${field}`);
+  }
+  for (const role of ['control', 'burst', 'ultimate']) requireKey(`skill.role.${role}`);
+  for (const unlock of ['default', 'win_roam', 'win_standard']) requireKey(`skill.unlock.${unlock}`);
+  for (const field of ['carry', 'carryDaily', 'carryLabel', 'locked', 'maxed', 'upgrade']) {
+    requireKey(`skill.ui.${field}`);
+  }
+
+  for (const item of ACHIEVEMENTS) {
+    for (const field of ['title', 'desc', 'condition']) requireKey(`achievement.${item.id}.${field}`);
+  }
+  for (const group of ['clear', 'build', 'challenge', 'collect']) {
+    requireKey(`achievement.group.${group}.name`);
+  }
+  for (const rarity of ['common', 'rare', 'epic']) requireKey(`achievement.rarity.${rarity}.name`);
+
+  assert.deepEqual(missing, [], `缺少键: ${missing.join(', ')}`);
+});
+
+test('技能/成就文案随语言切换，缺键回退原值', () => {
+  setLocale('zh-CN', { silent: true });
+  assert.equal(tOr('skill.aurora.name', '原值'), '霜月·极光');
+  assert.equal(tOr('achievement.first_run.title', '原值'), '首次远征');
+  assert.equal(
+    tOr('skill.aurora.summary', '', { freeze: '0.7', slow: 25, cd: 55 }),
+    '冻结 0.7s · 减速 25% · 冷却 55s'
+  );
+
+  setLocale('en-US', { silent: true });
+  assert.equal(tOr('skill.aurora.name', '原值'), 'Frostmoon · Aurora');
+  assert.equal(
+    tOr('skill.aurora.desc', '原值'),
+    'An aurora curtain sweeps the battlefield, freezing and slowing all enemies.'
+  );
+  assert.equal(tOr('achievement.first_run.title', '原值'), 'First Expedition');
+  assert.equal(tOr('achievement.first_run.condition', '原值'), 'Complete 1 expedition');
+  assert.equal(tOr('achievement.rarity.epic.name', '原值'), 'Epic');
+
+  // 数据表新增了未翻译的条目时，界面回退数据表原值，而不是显示 key。
+  assert.equal(tOr('skill.not-a-skill.name', '数据原名'), '数据原名');
+  assert.equal(tOr('achievement.not-a-real-achievement.title', 'Data title'), 'Data title');
   setLocale('zh-CN', { silent: true });
 });
 

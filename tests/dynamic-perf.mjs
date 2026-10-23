@@ -30,6 +30,19 @@ const RELICS_LATE = [
   ['static', 3], ['toxin', 3], ['crit', 3], ['bosslayer', 3], ['pierce', 3],
 ];
 
+// 技能场景统一用 Lv.7：同时覆盖 L4/L7 里程碑（霜纹、流火、迟滞/回声）。
+const SKILL_IDS = ['aurora', 'meteor', 'chrono'];
+const SKILL_LEVEL = 7;
+const SKILL_SCENARIO = {
+  wave: 20,
+  towerCount: 14,
+  towerLevel: 2,
+  relicLevels: RELICS_LATE,
+  extraEnemies: 80,
+  skills: SKILL_IDS,
+  skillLevel: SKILL_LEVEL,
+};
+
 function scenario(name, options) {
   return { name, ...options };
 }
@@ -42,10 +55,23 @@ const SCENARIOS = [
   scenario('stress-3x-low', { wave: 29, towerCount: 18, towerLevel: 2, relicLevels: RELICS_LATE, extraEnemies: 250, speed: 3, quality: LOW }),
   scenario('stress-3x-high', { wave: 29, towerCount: 18, towerLevel: 2, relicLevels: RELICS_LATE, extraEnemies: 250, speed: 3, quality: HIGH }),
   scenario('custom-1x-stress', { wave: 20, towerCount: 14, towerLevel: 2, relicLevels: RELICS_LATE, extraEnemies: 120, speed: 1, quality: CUSTOM }),
+  // 技能释放：三个技能各释放一次（极光冻结 → 流星落点 → 星海时停/过载叠加）。
+  scenario('skills-1x-low', { ...SKILL_SCENARIO, speed: 1, quality: LOW }),
+  scenario('skills-1x-high', { ...SKILL_SCENARIO, speed: 1, quality: HIGH }),
+  scenario('skills-3x-high', { ...SKILL_SCENARIO, wave: 25, towerCount: 18, extraEnemies: 120, speed: 3, quality: HIGH }),
+  // 连续释放：按模拟时间轮换技能（缩短实战冷却以制造持续特效负载）。
+  scenario('skills-auto-3x-low', { ...SKILL_SCENARIO, wave: 25, towerCount: 18, extraEnemies: 120, speed: 3, quality: LOW, autoCast: true }),
+  scenario('skills-auto-3x-high', { ...SKILL_SCENARIO, wave: 25, towerCount: 18, extraEnemies: 120, speed: 3, quality: HIGH, autoCast: true }),
 ];
 
-// quick 模式只跑三条代表场景：正常低配、中后期高配、压力高配。
-const QUICK_SCENARIOS = new Set(['normal-1x-low', 'late-3x-high', 'stress-3x-high']);
+// quick 模式只跑代表场景：正常低配、中后期高配、压力高配，外加技能单次/连续释放。
+const QUICK_SCENARIOS = new Set([
+  'normal-1x-low',
+  'late-3x-high',
+  'stress-3x-high',
+  'skills-1x-high',
+  'skills-auto-3x-high',
+]);
 
 // 投射物渲染优化前的完整记录（2026-10-23），用于 docs/PERFORMANCE.md 的前后对比。
 const BASELINE = {
@@ -102,8 +128,32 @@ async function main() {
 
     // 页面内固定场景构造器
     await browser.evaluate(`
+      // 战斗状态哈希的组成：技能/时停/过载都参与，画质不得影响其中任何一项。
+      const perfSkillState = (sim) =>
+        sim.skill
+          ? [sim.skill.id, sim.skill.level, Number(sim.skill.cooldown.toFixed(4))]
+          : null;
+      const perfEnemyState = (sim) =>
+        sim.enemies.map((e) => [
+          e.type,
+          Number(e.hp.toFixed(3)),
+          Number(e.progress.toFixed(3)),
+          Number((e.freezeUntil || 0).toFixed(4)),
+          Number((e.burnUntil || 0).toFixed(4)),
+          Number((e.skillVulnUntil || 0).toFixed(4)),
+          Number((e.slowUntil || 0).toFixed(4)),
+        ]);
+      const perfTowerState = (sim) =>
+        sim.towers.map((t) => [
+          t.type,
+          t.level,
+          Number(t.stats.dmg.toFixed(3)),
+          Number((t.skillOverdriveUntil || 0).toFixed(4)),
+        ]);
+
       window.__perfSetup = async (options) => {
         const { generateWave } = await import('/js/shared/waves.js');
+        const { skillStats } = await import('/js/shared/data.js');
         const sim = window.__rtd.state.sim;
         const app = window.__rtd.state.app;
         app.setPaused(true);
@@ -129,6 +179,41 @@ async function main() {
         sim.opts.onWaveClear = null;
         sim.opts.onGameOver = null;
         sim.opts.onSave = null;
+        sim.opts.onSkillCast = null;
+        // 技能状态必须逐场景重置，避免上一场景的时停/过载/事件泄漏。
+        sim.skill = null;
+        sim.skillFx = [];
+        sim.skillPending = [];
+        sim.stasis = null;
+        sim.towerOverdrive = null;
+        sim.skillCastCount = 0;
+        sim.skillRng = null;
+        sim.skillCastState = null;
+        sim.__perfAutoSkills = null;
+        sim.__perfAutoIndex = 0;
+        sim.__perfAutoNext = 0;
+
+        // 连续释放：在模拟步内按固定节奏轮换技能，保证负载可复现（不依赖真实时间定时器）。
+        if (!sim.__perfSkillPatched) {
+          sim.__perfSkillPatched = true;
+          const originalUpdateSkill = sim.updateSkill.bind(sim);
+          sim.updateSkill = function (dt) {
+            originalUpdateSkill(dt);
+            const list = this.__perfAutoSkills;
+            if (!list || !list.length || this.phase !== 'wave' || this.paused) return;
+            if (this.time < (this.__perfAutoNext || 0)) return;
+            const next = list[this.__perfAutoIndex % list.length];
+            this.__perfAutoIndex++;
+            this.__perfAutoNext = this.time + (this.__perfAutoInterval || 2.5);
+            this.skill = {
+              id: next.id,
+              level: next.level,
+              stats: skillStats(next.id, next.level),
+              cooldown: 0,
+            };
+            this.castSkill();
+          };
+        }
 
         const map = sim.map;
         const cells = [];
@@ -158,6 +243,40 @@ async function main() {
             i % sim.lanes.length
           );
         }
+
+        // 技能场景：贴图/粒子状态在敌人就位后建立。
+        let skill = null;
+        let skillAuto = false;
+        if (Array.isArray(options.skills) && options.skills.length) {
+          const list = options.skills.map((id) => ({ id, level: options.skillLevel || 1 }));
+          skill = list[0].id;
+          if (options.autoCast) {
+            sim.skill = {
+              id: list[0].id,
+              level: list[0].level,
+              stats: skillStats(list[0].id, list[0].level),
+              cooldown: 0,
+            };
+            sim.__perfAutoSkills = list;
+            sim.__perfAutoIndex = 0;
+            sim.__perfAutoNext = 0;
+            sim.__perfAutoInterval = options.skillInterval || 2.5;
+            skillAuto = true;
+          } else {
+            // 每个技能各释放一次；后释放的技能不会覆盖已生效的冻结/灼烧/时停状态。
+            for (const entry of list) {
+              sim.skill = {
+                id: entry.id,
+                level: entry.level,
+                stats: skillStats(entry.id, entry.level),
+                cooldown: 0,
+              };
+              sim.paused = false;
+              sim.castSkill();
+            }
+          }
+        }
+
         app.applySettings(options.quality);
         app.speed = options.speed;
         app.paused = !options.run;
@@ -172,6 +291,8 @@ async function main() {
           activePortals: sim.activePortals.length,
           dpr: app.renderer.dpr,
           targetFps: app.settings.fps,
+          skill,
+          skillAuto,
         };
       };
 
@@ -188,8 +309,49 @@ async function main() {
           kills: sim.kills,
           gold: Number(sim.gold.toFixed(4)),
           hp: Number(sim.baseHp.toFixed(4)),
-          enemies: sim.enemies.map((e) => [e.type, Number(e.hp.toFixed(3)), Number(e.progress.toFixed(3))]),
-          towers: sim.towers.map((t) => [t.type, t.level, Number(t.stats.dmg.toFixed(3))]),
+          enemies: perfEnemyState(sim),
+          towers: perfTowerState(sim),
+          skill: perfSkillState(sim),
+          stasis: sim.stasis ? Number(sim.stasis.until.toFixed(4)) : null,
+          pending: sim.skillPending.map((ev) => [ev.type, Number(ev.at.toFixed(4)), Number((ev.x || 0).toFixed(4)), Number((ev.y || 0).toFixed(4))]),
+          projectiles: sim.projectiles.length,
+        });
+      };
+
+      // 技能画质一致性：同样本步数、同一释放计划（按模拟步触发），只换画质。
+      window.__perfSkillHash = async (steps, casts) => {
+        const { skillStats } = await import('/js/shared/data.js');
+        const sim = window.__rtd.state.sim;
+        const app = window.__rtd.state.app;
+        app.paused = true;
+        const plan = new Map((casts || []).map((cast) => [cast.at, cast]));
+        for (let i = 0; i < steps && sim.phase === 'wave'; i++) {
+          const cast = plan.get(i);
+          if (cast) {
+            sim.skill = {
+              id: cast.id,
+              level: cast.level,
+              stats: skillStats(cast.id, cast.level),
+              cooldown: 0,
+            };
+            sim.paused = false;
+            sim.castSkill();
+          }
+          sim.update(1 / 60);
+        }
+        return JSON.stringify({
+          phase: sim.phase,
+          time: Number(sim.time.toFixed(4)),
+          wave: sim.wave,
+          cleared: sim.clearedWave,
+          kills: sim.kills,
+          gold: Number(sim.gold.toFixed(4)),
+          hp: Number(sim.baseHp.toFixed(4)),
+          enemies: perfEnemyState(sim),
+          towers: perfTowerState(sim),
+          skill: perfSkillState(sim),
+          stasis: sim.stasis ? Number(sim.stasis.until.toFixed(4)) : null,
+          pending: sim.skillPending.map((ev) => [ev.type, Number(ev.at.toFixed(4)), Number((ev.x || 0).toFixed(4)), Number((ev.y || 0).toFixed(4))]),
           projectiles: sim.projectiles.length,
         });
       };
@@ -250,6 +412,7 @@ async function main() {
       );
       await sleep(MEASURE_MS);
       const metrics = await browser.evaluate(`window.__rtd.state.app.getMetricsSummary()`);
+      const castCount = await browser.evaluate(`window.__rtd.state.sim.skillCastCount || 0`);
       await browser.evaluate(`window.__rtd.state.app.setPaused(true)`);
       let shot = null;
       if (!QUICK) {
@@ -260,7 +423,7 @@ async function main() {
         `window.__rtd.state.sim.effects.every(e => ['bolt','ring','leak'].includes(e.kind))`
       );
       console.log(`[perf] ${item.name}: ${metrics.renderFps} FPS · render ${metrics.avgRenderMs} ms/frame`);
-      results.push({ name: item.name, setup, metrics, allowedEffects, screenshot: shot });
+      results.push({ name: item.name, setup, metrics, skillCasts: castCount, allowedEffects, screenshot: shot });
     }
 
     // 同场景、同模拟步数下，不同画质战斗结果必须一致
@@ -282,6 +445,35 @@ async function main() {
     }
     if (!(hashes.low === hashes.high && hashes.high === hashes.custom)) {
       throw new Error('不同画质下的战斗结果不一致');
+    }
+
+    // 技能画质一致性：同种子、同释放计划与步数，三档画质的技能战斗状态必须一致。
+    // 释放顺序固定：流星(0) → 星海(120) → 极光(300)，让碎晶/解冻在极光仍为当前技能时结算。
+    const skillCasts = [
+      { at: 0, id: 'meteor', level: SKILL_LEVEL },
+      { at: 120, id: 'chrono', level: SKILL_LEVEL },
+      { at: 300, id: 'aurora', level: SKILL_LEVEL },
+    ];
+    const skillHashes = {};
+    for (const [name, quality] of [['low', LOW], ['high', HIGH], ['custom', CUSTOM]]) {
+      await browser.evaluate(`
+        window.__perfSetup(${JSON.stringify({
+          wave: 25,
+          towerCount: 14,
+          towerLevel: 2,
+          relicLevels: RELICS_LATE,
+          extraEnemies: 90,
+          speed: 1,
+          quality,
+          run: false,
+        })})
+      `);
+      skillHashes[name] = await browser.evaluate(
+        `window.__perfSkillHash(${HASH_STEPS}, ${JSON.stringify(skillCasts)})`
+      );
+    }
+    if (!(skillHashes.low === skillHashes.high && skillHashes.high === skillHashes.custom)) {
+      throw new Error('不同画质下的技能战斗结果不一致');
     }
 
     // 内存趋势：一次完整 30 波模拟 + 重复场景构造（quick 模式跳过）
@@ -389,16 +581,24 @@ async function main() {
       if (m.settings.floaters === 'off' && m.entities.floaters !== 0) {
         throw new Error(`${row.name} 关闭飘字后仍在生成飘字`);
       }
-      // 压力场景只要求如实记录（AC），不设帧率下限；正常/中后期场景仍受预算约束。
-      const stress = row.name.startsWith('stress');
+      // 技能场景必须真的释放过技能；连续释放场景要释放多次。
+      if (row.name.startsWith('skills')) {
+        if (!row.setup.skill) throw new Error(`${row.name} 未启用技能`);
+        if (row.skillCasts < 1) throw new Error(`${row.name} 没有释放技能`);
+        if (row.name.includes('auto') && (row.skillCasts < 2 || !row.setup.skillAuto)) {
+          throw new Error(`${row.name} 连续释放无效：${row.skillCasts} 次`);
+        }
+      }
+      // 压力/技能场景只要求如实记录（AC），不设帧率下限；正常/中后期场景仍受预算约束。
+      const recordedOnly = row.name.startsWith('stress') || row.name.startsWith('skills');
       if (row.setup.targetFps === 30) {
-        if (!stress && (m.renderFps > 38 || m.renderFps < 20)) {
+        if (!recordedOnly && (m.renderFps > 38 || m.renderFps < 20)) {
           throw new Error(`${row.name} 低配帧率异常：${m.renderFps}`);
         }
         if (m.simSteps <= m.renders * 1.4) {
           throw new Error(`${row.name} 30FPS 限帧影响到了模拟步数`);
         }
-      } else if (!stress && m.renderFps < 35) {
+      } else if (!recordedOnly && m.renderFps < 35) {
         throw new Error(`${row.name} 高配帧率过低：${m.renderFps}`);
       }
       if (m.slowFrames > m.frames * 0.35) {
@@ -421,6 +621,12 @@ async function main() {
       },
       results,
       qualityEquality: true,
+      skillQuality: {
+        equal: true,
+        casts: skillCasts,
+        steps: HASH_STEPS,
+        scenarios: ['low', 'high', 'custom'],
+      },
       memory,
       backgroundPause,
     };
@@ -448,6 +654,7 @@ function writeDoc(report) {
     `- 浏览器模式：${report.environment.mode}`,
     `- 单场景采样：${report.environment.measureMs} ms；固定种子、固定塔布局与遗物配置`,
     '- 压力场景通过直接注入额外敌人构造，超出正常单波规模；不代表正常难度。',
+    '- 技能场景：`skills-*` 为极光/流星/星海各释放一次（Lv.7）；`skills-auto-*` 为按模拟时间每 2.5s 轮换连续释放（缩短实战冷却以制造持续特效负载）。',
     '',
     '## 场景结果',
     '',
@@ -495,6 +702,14 @@ function writeDoc(report) {
     `- 同种子、同塔布局、同 900 个固定模拟步下，低配/高配/自定义的战斗状态哈希一致：**${report.qualityEquality ? '通过' : '失败'}**。`,
     '- 画质只改变绘制频率、DPR、装饰/飘字/光晕/震动与效果生成，不改变伤害、攻速、敌人数、掉落或计分。',
     '',
+    '## 技能画面与预算',
+    '',
+    `- 技能释放场景（极光帘幕 / 流星落点 / 星海时停与塔过载）：见上表 \`skills-*\` 与 \`skills-auto-*\` 行。`,
+    `- 同种子、同释放计划（流星@步 0 / 星海@步 120 / 极光@步 300）、同 ${report.skillQuality.steps} 个固定模拟步下，低配/高配/自定义的技能战斗状态哈希一致：**${report.skillQuality.equal ? '通过' : '失败'}**。`,
+    '- 哈希覆盖技能冷却、时停、塔过载、冻结/灼烧/易伤/减速计时与待落陨星；画质不改变任何一项。',
+    '- 技能粒子按画质封顶：full 180 / standard 120 / minimal 48；事件粒子数与降档裁剪由 `tests/render-budget.test.mjs` 单元测试守住。',
+    '- 全屏色层、极光帘幕、星空、光柱、焦痕全部预烘焙，绘制时只 drawImage，不使用 shadowBlur / getImageData / 每帧渐变。',
+    '',
     '## 内存趋势',
     '',
     `- 基线（GC 后）：${report.memory.beforeMB} MB`,
@@ -513,6 +728,7 @@ function writeDoc(report) {
     '',
     '- 无头 Chrome 关闭 GPU，使用软件渲染，不等同真实显卡；数据用于相对比较与回归。',
     '- 压力场景通过额外注入敌人实现，只用于观察上限，不作为平衡依据；未达目标 FPS 时如实记录，不修饰数据。',
+    '- 技能场景同样在无头软件渲染下取得；粒子上限/分层预烘焙属于渲染层预算，绝对帧率随宿主与浏览器版本变化，只用于同机同版本的前后对比。',
     '- 未覆盖移动端、Safari/Firefox 以及真实玩家网络/存档数据。',
     '',
   ];

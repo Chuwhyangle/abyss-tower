@@ -20,6 +20,8 @@ export class GameApp {
     this.last = 0;
     this.lastRenderAt = 0;
     this._hudTimer = 0;
+    this._lastSkillCast = sim.skillCastCount || 0;
+    this._lastMood = null;
     this._resetMetrics();
 
     sim.setVisualQuality({
@@ -118,6 +120,7 @@ export class GameApp {
     this._hudTimer += raw;
     if (this._hudTimer >= 0.1) {
       this._hudTimer = 0;
+      this.syncAudio();
       const hudStarted = performance.now();
       this.emitHud();
       m.hudMs += performance.now() - hudStarted;
@@ -125,6 +128,22 @@ export class GameApp {
     }
 
     this.raf = requestAnimationFrame((next) => this.tick(next));
+  }
+
+  // 音乐随战斗阶段切换（首领波 → boss，其余 → battle），技能释放补一发音效。
+  // 与 HUD 共用 0.1s 节流，避免每帧查询模拟状态。
+  syncAudio() {
+    const sim = this.sim;
+    if (sim.skillCastCount !== this._lastSkillCast) {
+      this._lastSkillCast = sim.skillCastCount;
+      if (sim.skill) audio.play(`skill_${sim.skill.id}`);
+    }
+    const waveDef = sim.phase === 'wave' ? sim.waveDef : null;
+    const mood = waveDef && (waveDef.boss || waveDef.finalBoss) ? 'boss' : 'battle';
+    if (mood !== this._lastMood) {
+      this._lastMood = mood;
+      audio.startMusic(mood);
+    }
   }
 
   applySettings(settings) {

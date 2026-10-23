@@ -10,6 +10,10 @@ const POOL = [
   { type: 'tank', weight: 2.1, countMult: 0.5, minWave: 4, interval: 1.15 },
   { type: 'flyer', weight: 2.3, countMult: 0.8, minWave: 6, interval: 0.7 },
   { type: 'healer', weight: 1.2, countMult: 0.38, minWave: 8, interval: 1.5 },
+  { type: 'shielder', weight: 1.5, countMult: 0.45, minWave: 7, interval: 1.25 },
+  { type: 'splitter', weight: 1.5, countMult: 0.55, minWave: 9, interval: 1.0 },
+  { type: 'herald', weight: 0.9, countMult: 0.3, minWave: 11, interval: 1.5 },
+  { type: 'caster', weight: 1.1, countMult: 0.4, minWave: 13, interval: 1.3 },
 ];
 
 export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) {
@@ -45,6 +49,13 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}) 
     }
     if (index >= 25) {
       groups.push({ type: 'tank', count: 2 + Math.floor(index / 10), interval: 1.6, delay: 9 });
+    }
+    // 后期首领波固定混入机制型敌人，避免只靠数量堆叠。
+    if (index >= 20) {
+      groups.push({ type: 'shielder', count: 2, interval: 1.5, delay: 11 });
+    }
+    if (index >= 24) {
+      groups.push({ type: 'caster', count: 1, interval: 1.7, delay: 13 });
     }
   } else {
     const pool = POOL.filter((e) => index >= e.minWave);

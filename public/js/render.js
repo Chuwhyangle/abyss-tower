@@ -131,7 +131,9 @@ export class Renderer {
 
     this.portals.render(g, this.time, this.settings.glow);
     this.towers.renderRanges(g);
-    // L1：塔之前的地面层（落点预警 / 焦痕 / 霜裂 / 时间刻度）
+    // 前摇预警：射程圈之上、塔与敌人之下，保持路径信息可读。
+    this.skillRenderer.renderWarnings(g, this.time, this.settings);
+    // L1：塔之前的地面层（焦痕 / 霜裂 / 时间刻度）
     this.skillRenderer.renderL1(g, this.time, this.settings);
     this.towers.render(g, this.time, this.settings);
     this.enemies.render(g, this.time, this.settings);

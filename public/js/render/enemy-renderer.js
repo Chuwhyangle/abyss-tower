@@ -37,10 +37,26 @@ export class EnemyRenderer {
       // 首领地面表现层（狂怒光环 / 停顿符文 / 蓄力预警 / 破绽环）。
       if (enemy.boss) this.drawBossGround(g, t, enemy, x, y, vr, lift, settings);
 
+      // 加速光环：地面虚线范围提示，关闭装饰时省略。
+      if (enemy.aura && settings.decorations !== 'off') {
+        g.save();
+        g.strokeStyle = 'rgba(224, 139, 60, 0.16)';
+        g.lineWidth = 1.2;
+        g.setLineDash([5, 7]);
+        g.lineDashOffset = -t * 9;
+        g.beginPath();
+        g.arc(x, y, enemy.aura.range * T, 0, Math.PI * 2);
+        g.stroke();
+        g.setLineDash([]);
+        g.restore();
+      }
+
       if (enemy.boss && glow) {
         this.glow.draw(g, '#e25096', x, y - lift, vr * 2.3, 0.3);
       } else if (enemy.heal > 0 && glow) {
         this.glow.draw(g, '#5af0aa', x, y - lift, vr * 2, 0.18);
+      } else if (enemy.aura && glow) {
+        this.glow.draw(g, '#e08b3c', x, y - lift, vr * 1.8, 0.14);
       }
 
       g.save();
@@ -56,6 +72,21 @@ export class EnemyRenderer {
         g.arc(0, 0, vr * 1.08, 0, Math.PI * 2);
         g.fill();
         g.globalAlpha = 1;
+      }
+
+      // 护盾：剩余护盾越多，前向护盾弧越亮。
+      if (enemy.shield > 0) {
+        const shieldRatio = enemy.maxShield > 0 ? Math.max(0, enemy.shield / enemy.maxShield) : 0;
+        g.strokeStyle = `rgba(150, 214, 255, ${0.35 + shieldRatio * 0.55})`;
+        g.lineWidth = 2.4;
+        g.beginPath();
+        g.arc(0, 0, vr + 6, -Math.PI * 0.8, Math.PI * 0.8);
+        g.stroke();
+        g.strokeStyle = `rgba(220, 245, 255, ${0.2 + shieldRatio * 0.35})`;
+        g.lineWidth = 1;
+        g.beginPath();
+        g.arc(0, 0, vr + 8, -Math.PI * 0.55, Math.PI * 0.55);
+        g.stroke();
       }
 
       // 减速：冰晶与光环。
@@ -530,6 +561,146 @@ export class EnemyRenderer {
       g.beginPath();
       g.arc(r * 0.9, -r * 0.82, r * 0.16, 0, Math.PI * 2);
       g.fill();
+    } else if (def.shape === 'shield') {
+      // 石盾：厚重躯干 + 正面盾牌
+      g.fillStyle = body;
+      g.strokeStyle = dark;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(0, 0, r * 0.92, r * 0.95, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      g.fillStyle = light;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(-r * 0.8, -r * 0.7);
+      g.quadraticCurveTo(0, -r * 1.1, r * 0.8, -r * 0.7);
+      g.lineTo(r * 0.72, r * 0.4);
+      g.quadraticCurveTo(0, r * 1.15, -r * 0.72, r * 0.4);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      g.strokeStyle = '#3d4f5f';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(0, -r * 0.95);
+      g.lineTo(0, r * 0.95);
+      g.moveTo(-r * 0.55, -r * 0.2);
+      g.lineTo(r * 0.55, -r * 0.2);
+      g.stroke();
+      g.fillStyle = '#ffd36b';
+      g.beginPath();
+      g.arc(0, -r * 0.42, r * 0.1, 0, Math.PI * 2);
+      g.fill();
+    } else if (def.shape === 'split') {
+      // 裂魂：两瓣身体 + 中央裂缝
+      g.fillStyle = body;
+      g.strokeStyle = dark;
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.ellipse(-r * 0.34, 0, r * 0.6, r * 0.92, -0.16, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.ellipse(r * 0.34, 0, r * 0.6, r * 0.92, 0.16, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      g.strokeStyle = '#3a1a4a';
+      g.lineWidth = 2.2;
+      g.beginPath();
+      g.moveTo(-r * 0.08, -r * 0.88);
+      g.lineTo(r * 0.1, -r * 0.3);
+      g.lineTo(-r * 0.1, r * 0.2);
+      g.lineTo(r * 0.06, r * 0.9);
+      g.stroke();
+
+      g.fillStyle = '#ffe9a8';
+      g.beginPath();
+      g.arc(-r * 0.4, -r * 0.28, r * 0.1, 0, Math.PI * 2);
+      g.arc(r * 0.4, -r * 0.28, r * 0.1, 0, Math.PI * 2);
+      g.fill();
+    } else if (def.shape === 'drum') {
+      // 战鼓魔：圆鼓身躯 + 鼓棒与声波
+      g.fillStyle = body;
+      g.strokeStyle = dark;
+      g.lineWidth = 2;
+      g.beginPath();
+      g.ellipse(0, 0, r * 0.8, r * 0.95, 0, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+
+      g.fillStyle = light;
+      g.beginPath();
+      g.ellipse(0, -r * 0.12, r * 0.6, r * 0.5, 0, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = dark;
+      g.lineWidth = 1.2;
+      g.stroke();
+
+      g.strokeStyle = '#6b4a20';
+      g.lineWidth = Math.max(1.2, r * 0.12);
+      g.beginPath();
+      g.moveTo(-r * 0.85, -r * 0.95);
+      g.lineTo(-r * 0.15, -r * 0.25);
+      g.moveTo(r * 0.85, -r * 0.95);
+      g.lineTo(r * 0.15, -r * 0.25);
+      g.stroke();
+
+      const pulse = (Math.sin(t * 6 + enemy.id) + 1) * 0.5;
+      g.strokeStyle = Palette.hexToRgba(body, 0.55);
+      g.lineWidth = 1.4;
+      for (let i = 0; i < 2; i++) {
+        const rr = r * (1.25 + i * 0.28 + pulse * 0.08);
+        g.beginPath();
+        g.arc(0, 0, rr, -Math.PI * 0.42, Math.PI * 0.42);
+        g.stroke();
+        g.beginPath();
+        g.arc(0, 0, rr, Math.PI * 0.58, Math.PI * 1.42);
+        g.stroke();
+      }
+    } else if (def.shape === 'caster') {
+      // 咒术师：尖帽长袍 + 悬浮法球
+      g.fillStyle = body;
+      g.strokeStyle = dark;
+      g.lineWidth = 1.8;
+      g.beginPath();
+      g.moveTo(0, -r * 0.55);
+      g.lineTo(r * 0.85, r * 1.0);
+      g.lineTo(-r * 0.85, r * 1.0);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.moveTo(0, -r * 1.55);
+      g.lineTo(r * 0.5, -r * 0.5);
+      g.lineTo(-r * 0.5, -r * 0.5);
+      g.closePath();
+      g.fill();
+      g.stroke();
+
+      g.fillStyle = 'rgba(10, 20, 14, 0.6)';
+      g.beginPath();
+      g.arc(0, -r * 0.42, r * 0.3, 0, Math.PI * 2);
+      g.fill();
+      g.fillStyle = '#f4ffb0';
+      g.beginPath();
+      g.arc(-r * 0.1, -r * 0.45, r * 0.07, 0, Math.PI * 2);
+      g.arc(r * 0.13, -r * 0.45, r * 0.07, 0, Math.PI * 2);
+      g.fill();
+
+      const orb = r * 0.18 + Math.sin(t * 5 + enemy.id) * r * 0.04;
+      g.fillStyle = '#f4ffb0';
+      g.beginPath();
+      g.arc(r * 0.78, r * 0.1, orb, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = Palette.hexToRgba('#f4ffb0', 0.5);
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.arc(r * 0.78, r * 0.1, orb * 1.8, 0, Math.PI * 2);
+      g.stroke();
     } else if (def.shape === 'boss') {
       const spikes = 16;
       g.fillStyle = body;

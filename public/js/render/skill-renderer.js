@@ -14,7 +14,54 @@ import { RNG } from '../shared/rng.js';
 
 const T = TILE;
 
-const QUALITY_CAPS = { minimal: 48, standard: 120, full: 180 };
+// 粒子上限显式声明；画质档位在此之上决定各表现层开关。
+export const QUALITY_CAPS = { minimal: 48, standard: 120, full: 180 };
+
+// 画质档位：粒子预算与表现开关。低配只保留预警与命中闪光（玩法信息），
+// 光晕、余韵、氛围粒子、横幅一律关闭。
+export const SKILL_QUALITY_PROFILES = {
+  minimal: { particles: QUALITY_CAPS.minimal, glow: false, afterglow: false, ambient: false, banner: false, tint: 0.34 },
+  standard: { particles: QUALITY_CAPS.standard, glow: true, afterglow: true, ambient: true, banner: true, tint: 0.5 },
+  full: { particles: QUALITY_CAPS.full, glow: true, afterglow: true, ambient: true, banner: true, tint: 0.62 },
+};
+
+const DEFAULT_QUALITY_PROFILE = SKILL_QUALITY_PROFILES.standard;
+
+export function qualityProfile(tier) {
+  return SKILL_QUALITY_PROFILES[tier] || DEFAULT_QUALITY_PROFILE;
+}
+
+// 前摇预警：地面标记 + 倒计时环。cast = 渲染层在释放瞬间起搏；
+// event = 沿用模拟层的 meteorWarn 事件（逐落点、位置精确）。
+export const SKILL_WARNING_PROFILES = {
+  aurora: { source: 'cast', shape: 'hex', ttl: 0.85, radius: 3.2, dash: [8, 6], fill: 0.1, spin: 0.5, ring: true },
+  meteor: { source: 'event', shape: 'ring', ttl: 0.55, radius: 1.8, dash: [6, 5], fill: 0.12, spin: 0, ring: true },
+  chrono: { source: 'cast', shape: 'star', ttl: 1, radius: 4.4, dash: [10, 8], fill: 0.08, spin: -0.4, ring: true },
+};
+
+const DEFAULT_WARNING_PROFILE = {
+  source: 'cast',
+  shape: 'ring',
+  ttl: 0.7,
+  radius: 2.2,
+  dash: [6, 6],
+  fill: 0.08,
+  spin: 0,
+  ring: true,
+};
+
+export function warningProfile(id) {
+  return SKILL_WARNING_PROFILES[id] || DEFAULT_WARNING_PROFILE;
+}
+
+// 倒计时环比例：剩余时间 / 总时长，1 → 0；非法输入回退 0（不画环）。
+export function warningCountdown(remaining, duration) {
+  const total = Number(duration);
+  const left = Number(remaining);
+  if (!Number.isFinite(total) || total <= 0 || !Number.isFinite(left)) return 0;
+  return clamp01(left / total);
+}
+
 // 演出最短真实时长：不受 3× 模拟速度影响。
 const MIN_REAL_SECONDS = { aurora: 2.4, meteor: 1.8, chrono: 2.8 };
 
@@ -68,10 +115,13 @@ export class SkillRenderer {
     this._prevCooldown = null;
     this._seenFx = new WeakSet();
     this.quality = this._tier(settings);
-    this.cap = QUALITY_CAPS[this.quality];
+    this.profile = qualityProfile(this.quality);
+    this.cap = this.profile.particles;
 
     // 氛围演出：age/ttl 使用真实秒；id 记录本次演出的技能。
     this._amb = { id: null, age: 0, ttl: 0, maxTtl: 0 };
+    // 前摇预警：原地复用，避免每帧新建对象。
+    this._warn = { id: null, x: 0, y: 0, age: 0, ttl: 0, maxTtl: 0, profile: null };
     this._castBannerShown = 0;
 
     this.particles = [];
@@ -106,7 +156,8 @@ export class SkillRenderer {
     const nextQuality = this._tier(this.settings);
     if (nextQuality !== this.quality) {
       this.quality = nextQuality;
-      this.cap = QUALITY_CAPS[nextQuality];
+      this.profile = qualityProfile(nextQuality);
+      this.cap = this.profile.particles;
       this._trimParticles();
       dirty = true;
     }
@@ -130,6 +181,12 @@ export class SkillRenderer {
     if (id === 'aurora') this._drawAuroraL0(g, time, intensity);
     else if (id === 'meteor') this._drawMeteorL0(g, time, intensity);
     else if (id === 'chrono') this._drawChronoStarL0(g, time, intensity);
+  }
+
+  // 前摇预警入口：在射程圈之后、塔与敌人之前绘制（地面信息，不遮挡 HUD）。
+  renderWarnings(g, time, settings) {
+    this._sync(time, settings);
+    this._drawTelegraph(g, time);
   }
 
   renderL1(g, time, settings) {
@@ -186,12 +243,12 @@ export class SkillRenderer {
     const tint = this._textures.tints?.[id];
     if (tint) {
       g.save();
-      g.globalAlpha = (this.quality === 'minimal' ? 0.34 : 0.5) * Math.min(1, 0.35 + intensity * 0.65);
+      g.globalAlpha = this.profile.tint * Math.min(1, 0.35 + intensity * 0.65);
       g.drawImage(tint, 0, 0, this.W, this.H);
       g.restore();
     }
 
-    if (this.quality !== 'minimal' && id === 'chrono') {
+    if (this.profile.glow && id === 'chrono') {
       this._drawChronoScreenRing(g, time, intensity);
     }
     this._drawBanner(g);
@@ -229,7 +286,8 @@ export class SkillRenderer {
     const tier = this._tier(this.settings);
     if (tier !== this.quality) {
       this.quality = tier;
-      this.cap = QUALITY_CAPS[tier];
+      this.profile = qualityProfile(tier);
+      this.cap = this.profile.particles;
       this._trimParticles();
       this._buildTextures();
     }
@@ -269,6 +327,10 @@ export class SkillRenderer {
       this._amb.age += dt;
       this._amb.ttl = Math.max(0, this._amb.ttl - dt);
     }
+    if (this._warn.ttl > 0) {
+      this._warn.age += dt;
+      this._warn.ttl = Math.max(0, this._warn.ttl - dt);
+    }
     this._updateParticles(dt);
     this._spawnAmbient(dt);
   }
@@ -280,6 +342,23 @@ export class SkillRenderer {
     this._amb.age = 0;
     this._amb.ttl = minReal;
     this._amb.maxTtl = minReal;
+    this._armWarning(id);
+  }
+
+  // 起搏前摇预警。流星有模拟层的逐落点预警，这里不重复起搏。
+  _armWarning(id) {
+    const profile = warningProfile(id);
+    if (profile.source !== 'cast') return;
+    const map = this.game.map || {};
+    const base = map.base;
+    const warn = this._warn;
+    warn.id = id;
+    warn.profile = profile;
+    warn.x = (base?.x ?? (Number(map.cols) || 22) / 2) * T;
+    warn.y = (base?.y ?? (Number(map.rows) || 12) / 2) * T;
+    warn.age = 0;
+    warn.ttl = profile.ttl;
+    warn.maxTtl = profile.ttl;
   }
 
   // 演出强度：释放后 1 → 0，同时保留状态期的最低可见度。
@@ -363,6 +442,7 @@ export class SkillRenderer {
     this._textures.stars = this._buildStars(scale);
     this._textures.scorch = this._buildScorch();
     this._textures.frost = this._buildFrostPatch();
+    this._textures.flash = this._buildFlash();
     this._textures.beams = {};
     for (const id of SKILL_ORDER) this._textures.beams[id] = this._buildBeam(id);
 
@@ -492,6 +572,18 @@ export class SkillRenderer {
     return canvas;
   }
 
+  // 命中高光：预烘焙一次，命中帧只做一次 drawImage（替代每帧渐变/滤镜）。
+  _buildFlash() {
+    const { canvas, g } = this._makeCanvas(128, 128);
+    const grad = g.createRadialGradient(64, 64, 2, 64, 64, 62);
+    grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+    grad.addColorStop(0.25, 'rgba(255, 244, 214, 0.55)');
+    grad.addColorStop(1, 'rgba(255, 220, 170, 0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, 128, 128);
+    return canvas;
+  }
+
   _buildBeam(id) {
     const { canvas, g } = this._makeCanvas(48, 220);
     const color = this.colors[id] || this.colors.chrono;
@@ -519,7 +611,7 @@ export class SkillRenderer {
       g.drawImage(tint, 0, 0, this.W, this.H);
       g.restore();
     }
-    if (this.quality === 'minimal') return;
+    if (!this.profile.glow) return;
     const curtain = this._textures.curtain;
     if (!curtain) return;
     const drift = Math.sin(time * 0.12) * this.W * 0.04;
@@ -549,7 +641,7 @@ export class SkillRenderer {
       g.drawImage(tint, 0, 0, this.W, this.H);
       g.restore();
     }
-    if (this.quality === 'minimal') return;
+    if (!this.profile.glow) return;
     const stars = this._textures.stars;
     if (!stars) return;
     const offset = (time * 7) % this.W;
@@ -577,7 +669,7 @@ export class SkillRenderer {
   }
 
   _drawChronoGround(g, time) {
-    if (this.quality === 'minimal') return;
+    if (!this.profile.glow) return;
     const game = this.game;
     const cx = ((game.map?.base?.x ?? game.map?.cols / 2) || 0) * T;
     const cy = ((game.map?.base?.y ?? game.map?.rows / 2) || 0) * T;
@@ -607,6 +699,75 @@ export class SkillRenderer {
     g.restore();
   }
 
+  // 前摇地面标记 + 倒计时环：只描边与低透明填充，不遮挡路径信息。
+  _drawTelegraph(g, time) {
+    const warn = this._warn;
+    if (!warn.id || warn.ttl <= 0) return;
+    const profile = warn.profile || warningProfile(warn.id);
+    const color = this.colors[warn.id] || this.colors.aurora;
+    const left = warningCountdown(warn.ttl, warn.maxTtl);
+    if (left <= 0) return;
+    const r = profile.radius * T;
+    const alpha = 0.35 + 0.5 * left;
+
+    g.save();
+    g.translate(warn.x, warn.y);
+    g.globalAlpha = alpha;
+    g.strokeStyle = rgba(color, 0.6);
+    g.fillStyle = rgba(color, profile.fill);
+    g.lineWidth = 1.8;
+    g.setLineDash(profile.dash);
+    g.lineDashOffset = -time * 14;
+    this._traceWarningShape(g, profile.shape, r, time * profile.spin);
+    g.fill();
+    g.stroke();
+    g.setLineDash([]);
+
+    // 倒计时环：剩余比例收缩，越接近命中越短。
+    const start = -Math.PI / 2;
+    g.strokeStyle = rgba('#f4fbff', 0.72);
+    g.lineWidth = 2.4;
+    g.beginPath();
+    g.arc(0, 0, r * 0.82, start, start + Math.PI * 2 * left);
+    g.stroke();
+
+    if (this.profile.glow) {
+      // 高配才画内圈刻度；低配只保留预警与命中闪光。
+      g.strokeStyle = rgba(color, 0.35);
+      g.lineWidth = 1;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + time * 0.8;
+        g.beginPath();
+        g.moveTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62);
+        g.lineTo(Math.cos(a) * r * 0.74, Math.sin(a) * r * 0.74);
+        g.stroke();
+      }
+    }
+    g.restore();
+  }
+
+  _traceWarningShape(g, shape, r, spin) {
+    g.beginPath();
+    if (shape === 'hex') {
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + spin;
+        if (i === 0) g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        else g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+    } else if (shape === 'star') {
+      for (let i = 0; i < 16; i++) {
+        const a = (i / 16) * Math.PI * 2 + spin;
+        const radius = i % 2 === 0 ? r : r * 0.58;
+        if (i === 0) g.moveTo(Math.cos(a) * radius, Math.sin(a) * radius);
+        else g.lineTo(Math.cos(a) * radius, Math.sin(a) * radius);
+      }
+    } else {
+      g.arc(0, 0, r, 0, Math.PI * 2);
+      return;
+    }
+    g.closePath();
+  }
+
   _drawGroundFx(g, time, event) {
     const id = this._classify(event) || this._activeId();
     if (!id) return;
@@ -615,8 +776,10 @@ export class SkillRenderer {
     const r = Math.max(6, (event.r ?? event.radius ?? 1) * T);
 
     if (id === 'meteor') {
-      // 落点预警：`meteorWarn` 期间地面圈 + 进度填充。玩法信息，minimal 也保留。
+      // 落点预警：`meteorWarn` 期间地面圈 + 倒计时环。玩法信息，minimal 也保留。
       if (/warn|telegraph|mark/.test(kind)) {
+        const profile = warningProfile('meteor');
+        const left = warningCountdown(event.ttl, event.maxTtl ?? profile.ttl);
         const warnAlpha = 0.16 + fade * 0.22;
         g.save();
         g.fillStyle = rgba(this.colors.meteor, warnAlpha * progress);
@@ -625,16 +788,23 @@ export class SkillRenderer {
         g.fill();
         g.strokeStyle = rgba(this.colors.meteor, 0.55 + fade * 0.3);
         g.lineWidth = 1.6;
-        g.setLineDash([6, 5]);
+        g.setLineDash(profile.dash);
         g.lineDashOffset = -time * 18;
         g.beginPath();
         g.arc(x, y, r, 0, Math.PI * 2);
         g.stroke();
         g.setLineDash([]);
+        // 倒计时环：剩余时间越少弧越短，落点更可读。
+        const start = -Math.PI / 2;
+        g.strokeStyle = rgba('#fff0d8', 0.78);
+        g.lineWidth = 2.6;
+        g.beginPath();
+        g.arc(x, y, r * 0.86, start, start + Math.PI * 2 * left);
+        g.stroke();
         g.restore();
       }
-      // 落点后的焦痕（余韵）。
-      if (kind === 'meteor' || /scorch/.test(kind)) {
+      // 落点后的焦痕：余韵，低配关闭。
+      if (this.profile.afterglow && (kind === 'meteor' || /scorch/.test(kind))) {
         const scorch = this._textures.scorch;
         if (scorch) {
           g.save();
@@ -645,7 +815,7 @@ export class SkillRenderer {
       }
     }
 
-    if (id === 'aurora' && /shatter|crystal|frost|ice/.test(kind) && this.quality !== 'minimal') {
+    if (id === 'aurora' && /shatter|crystal|frost|ice/.test(kind) && this.profile.afterglow) {
       const frost = this._textures.frost;
       if (frost) {
         g.save();
@@ -669,7 +839,7 @@ export class SkillRenderer {
 
     g.save();
     g.translate(x, y);
-    if (this.quality === 'minimal') {
+    if (!this.profile.glow) {
       g.strokeStyle = chrono ? rgba(color, 0.8) : 'rgba(170, 235, 255, 0.85)';
       g.lineWidth = 2;
       g.beginPath();
@@ -753,7 +923,7 @@ export class SkillRenderer {
     g.arc(x, y, 18 + pulse * 3, 0, Math.PI * 2);
     g.stroke();
 
-    if (beam && this.quality !== 'minimal') {
+    if (beam && this.profile.glow) {
       g.globalCompositeOperation = 'lighter';
       g.globalAlpha = 0.55 + pulse * 0.2;
       g.drawImage(beam, x - 26, y - 150, 52, 150);
@@ -785,6 +955,18 @@ export class SkillRenderer {
     };
   }
 
+  // 命中高光：所有画质都保留（玩法反馈），余韵才随档位裁剪。
+  _drawHitFlash(g, x, y, r, alpha) {
+    const flash = this._textures.flash;
+    if (!flash || alpha <= 0.01) return;
+    const d = Math.max(16, r * 2.6);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = Math.min(0.9, alpha);
+    g.drawImage(flash, x - d / 2, y - d / 2, d, d);
+    g.restore();
+  }
+
   _drawWorldFx(g, time, event, activeId) {
     const id = this._classify(event) || activeId;
     if (!id) return;
@@ -792,6 +974,11 @@ export class SkillRenderer {
     const { x, y, progress, fade } = this._fxBasics(event);
     const r = Math.max(8, (event.r ?? event.radius ?? 1) * T);
     const color = this.colors[id] || this.colors.aurora;
+
+    // 命中瞬间高光与余韵分离：预警/持续型事件不闪，命中事件在生命周期前 45% 闪一次。
+    if (!/warn|telegraph|mark|stasis/.test(kind) && progress < 0.45) {
+      this._drawHitFlash(g, x, y, r, 1 - progress / 0.45);
+    }
 
     if (id === 'meteor') {
       // 预警阶段：流星本体向落点下坠 + 拖尾（meteorWarn 的 ttl 正好是预警时长）。
@@ -844,7 +1031,7 @@ export class SkillRenderer {
       g.beginPath();
       g.arc(x, y, Math.max(3, radius), 0, Math.PI * 2);
       g.stroke();
-      if (this.quality !== 'minimal') {
+      if (this.profile.afterglow) {
         g.fillStyle = rgba('#d8f6ff', fade * 0.85);
         for (let i = 0; i < 7; i++) {
           const a = (i / 7) * Math.PI * 2 + progress * 1.4;
@@ -892,7 +1079,7 @@ export class SkillRenderer {
       g.beginPath();
       g.arc(x, y, Math.max(3, radius), 0, Math.PI * 2);
       g.stroke();
-      if (this.quality !== 'minimal') {
+      if (this.profile.afterglow) {
         g.strokeStyle = rgba('#efe8ff', fade * 0.45);
         g.lineWidth = 1;
         g.beginPath();
@@ -949,7 +1136,7 @@ export class SkillRenderer {
   }
 
   _drawBanner(g) {
-    if (this.quality === 'minimal') return;
+    if (!this.profile.banner) return;
     const amb = this._amb;
     if (!amb.id || amb.age > 1.7) return;
     const def = SKILLS[amb.id];
@@ -1082,7 +1269,7 @@ export class SkillRenderer {
 
   _spawnAmbient(dt) {
     const id = this._activeId();
-    if (!id || this.quality === 'minimal' || !dt) return;
+    if (!id || !this.profile.ambient || !dt) return;
     const intensity = this._intensity(id);
     if (intensity <= 0.02) return;
     const rate = this.quality === 'full' ? 16 : 9;
@@ -1128,7 +1315,7 @@ export class SkillRenderer {
   }
 
   _spawnFromEvent(id, event) {
-    if (this.quality === 'minimal' || this.particles.length >= this.cap) return;
+    if (!this.profile.afterglow || this.particles.length >= this.cap) return;
     const kind = String(event.kind || '').toLowerCase();
     const x = event.x ?? this.game.map?.base?.x ?? 0;
     const y = event.y ?? this.game.map?.base?.y ?? 0;
