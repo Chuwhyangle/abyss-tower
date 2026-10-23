@@ -19,11 +19,21 @@ import {
   isSkillUnlocked,
 } from './shared/data.js';
 import { canAffordEventOption } from './shared/events.js';
+import { weekKey, weeklyChallenge } from './shared/scoring.js';
 import { normalizeSettings, detectPreset, presetSettings } from './settings.js';
 import { audio } from './audio.js';
 import { t, tData, tOr, initI18n, getLocale, setLocale, LOCALES } from './i18n.js';
+import { iconSvg, relicIconName } from './render/canvas-shapes.js';
 
 const $ = (id) => document.getElementById(id);
+
+// 静态页面用 data-icon 占位，初始化时统一注入程序化图标，避免在 HTML 里散落字符图标。
+function hydrateIcons(root = document) {
+  root.querySelectorAll('[data-icon]').forEach((node) => {
+    const markup = iconSvg(node.dataset.icon);
+    if (markup) node.innerHTML = markup;
+  });
+}
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
@@ -157,8 +167,11 @@ class UI {
       hpStat: $('hud-hp')?.closest('.stat'),
     };
 
+    hydrateIcons();
+
     this.el.play.onclick = () => this.handlers.onPlay?.();
     this.el.daily.onclick = () => this.handlers.onDaily?.();
+    this.buildWeeklyEntry();
     if (this.el.endless) this.el.endless.onclick = () => this.handlers.onEndless?.();
     this.el.resume.onclick = () => this.handlers.onResume?.();
     this.el.rename.onclick = () => this.handlers.onRename?.();
@@ -183,6 +196,33 @@ class UI {
     this.bindTooltips();
     this.bindClickSound();
     this.updateSoundIcon();
+  }
+
+  // 本周挑战入口动态插入，避免改动静态标题页结构（与 HUD 提示同一做法）。
+  buildWeeklyEntry() {
+    if (this.el.weekly || !this.el.daily?.parentElement) return;
+    const button = document.createElement('button');
+    button.id = 'btn-weekly';
+    button.type = 'button';
+    button.className = 'btn ghost';
+    button.innerHTML = '<span data-weekly-title></span> <span id="weekly-label"></span>';
+    button.onclick = () => {
+      if (this.handlers.onWeekly) return this.handlers.onWeekly();
+      this.showWeeklySelect();
+    };
+    this.el.daily.insertAdjacentElement('afterend', button);
+    this.el.weekly = button;
+    this.el.weeklyTitle = button.querySelector('[data-weekly-title]');
+    this.el.weeklyLabel = button.querySelector('#weekly-label');
+  }
+
+  // 周规则来自共享派生函数：同一周键与服务端派生同一套种子和词缀。
+  showWeeklySelect() {
+    this.showDifficultySelect('weekly', {
+      weekly: weeklyChallenge(),
+      skillState: this._titleExtras?.skillState,
+      selectedSkill: this.selectedSkill,
+    });
   }
 
   // HUD 入口提示：动态插入，避免改动静态页面结构；仅多入口地图显示。
@@ -236,7 +276,7 @@ class UI {
 
   updateSoundIcon() {
     if (!this.el?.sound) return;
-    this.el.sound.textContent = audio.enabled ? '🔊' : '🔇';
+    this.el.sound.innerHTML = iconSvg(audio.enabled ? 'sound' : 'muted');
     this.el.sound.title = t(audio.enabled ? 'hud.soundOn' : 'hud.soundOff');
   }
 
@@ -277,6 +317,8 @@ class UI {
     if (left != null) parts.push(t('title.daily.left', { n: left }));
     if (streak > 0) parts.push(t('title.daily.streak', { n: streak }));
     this.el.dailyLabel.textContent = parts.join(' · ');
+    if (this.el.weeklyTitle) this.el.weeklyTitle.textContent = t('title.weekly');
+    if (this.el.weeklyLabel) this.el.weeklyLabel.textContent = weekKey();
     this.setResumeAvailable(!!extras.hasSnapshot);
     this.renderTitleSkills(profile, extras);
   }
@@ -352,7 +394,7 @@ class UI {
             const affordable = entry.nextCost != null && cores >= entry.nextCost;
             const hint = locked ? skillUnlock(entry) : null;
             const action = locked
-              ? `<span class="skill-lock">🔒 ${escapeHtml(hint || t('skill.ui.locked'))}</span>`
+              ? `<span class="skill-lock">${iconSvg('lock', 'icon-inline')}${escapeHtml(hint || t('skill.ui.locked'))}</span>`
               : full
                 ? `<span class="skill-max">${t('skill.ui.maxed')}</span>`
                 : `<button class="btn small skill-upgrade ${affordable ? 'primary' : ''}" data-upgrade="${entry.id}"
@@ -361,7 +403,7 @@ class UI {
               <div class="skill-card ${locked ? 'locked' : ''} ${isSelected ? 'selected' : ''}"
                 data-skill="${entry.id}" role="button" tabindex="${locked ? '-1' : '0'}"
                 aria-pressed="${isSelected}" style="--skill:${entry.color}">
-                <div class="skill-glyph" aria-hidden="true">${locked ? '?' : '✦'}</div>
+                <div class="skill-glyph" aria-hidden="true">${locked ? iconSvg('lock') : iconSvg('skill')}</div>
                 <div class="skill-body">
                   <div class="skill-head">
                     <b class="skill-name">${escapeHtml(skillName(entry))}</b>
@@ -431,15 +473,15 @@ class UI {
   skillBarHtml(state, selected) {
     this._skillState = state || this._skillState;
     let entries = this.skillEntries(this.profile, this._skillState);
-    // 每日挑战使用固定规则集：全技能可选、固定 Ⅴ 级。
-    if (this._dailyMode) {
+    // 每日/本周挑战使用固定规则集：全技能可选、固定 Ⅴ 级。
+    if (this._fixedMode) {
       entries = entries.map((entry) => ({ ...entry, unlocked: true, level: 5 }));
     }
     const current = this.resolveSelectedSkill(entries, selected);
     this.selectedSkill = current;
     return `
       <div class="diff-skill-bar">
-        <span class="diff-skill-label">${t(this._dailyMode ? 'skill.ui.carryDaily' : 'skill.ui.carryLabel')}</span>
+        <span class="diff-skill-label">${t(this._fixedMode ? 'skill.ui.carryDaily' : 'skill.ui.carryLabel')}</span>
         <div class="skill-chips">
           ${entries
             .map((entry) => {
@@ -450,7 +492,7 @@ class UI {
                 data-skill="${entry.id}" aria-pressed="${on}" ${locked ? 'disabled' : ''}
                 title="${escapeHtml(locked ? skillUnlock(entry) : `${skillName(entry)} ${ROMAN[level - 1]}`)}"
                 style="--skill:${entry.color}">
-                <span class="chip-glyph">${locked ? '🔒' : '✦'}</span>
+                <span class="chip-glyph">${locked ? iconSvg('lock') : iconSvg('skill')}</span>
                 <span class="chip-name">${escapeHtml(skillName(entry))}</span>
                 <span class="chip-level">${locked ? t('skill.ui.locked') : ROMAN[level - 1]}</span>
               </button>`;
@@ -471,8 +513,11 @@ class UI {
     });
   }
 
-  showDifficultySelect(mode = 'normal', { dailyLeft = null, daily = null, skillState = null, selectedSkill = null } = {}) {
-    this._dailyMode = mode === 'daily';
+  showDifficultySelect(
+    mode = 'normal',
+    { dailyLeft = null, daily = null, weekly = null, skillState = null, selectedSkill = null } = {}
+  ) {
+    this._fixedMode = mode === 'daily' || mode === 'weekly';
     const stats = this.profile?.stats?.byDifficulty || {};
     const cards = DIFFICULTY_ORDER.map((id) => {
       const diff = DIFFICULTIES[id];
@@ -491,27 +536,34 @@ class UI {
     }).join('');
 
     const endless = mode === 'endless';
-    const title = mode === 'daily'
-      ? t('difficulty.dailyTitle')
-      : endless
-        ? t('difficulty.endlessTitle')
-        : t('difficulty.startTitle');
-    const affixes = (daily?.modifiers || [])
+    const weeklyMode = mode === 'weekly';
+    const title = weeklyMode
+      ? t('difficulty.weeklyTitle')
+      : mode === 'daily'
+        ? t('difficulty.dailyTitle')
+        : endless
+          ? t('difficulty.endlessTitle')
+          : t('difficulty.startTitle');
+    const affixes = ((weeklyMode ? weekly?.modifiers : daily?.modifiers) || [])
       .map((modifier) => `<span style="color:${modifier.color}">${modifier.name}</span>`)
       .join(' · ');
     const streakNote = daily?.streak > 0 ? t('difficulty.streak', { n: daily.streak }) : '';
-    const note =
-      mode === 'daily'
+    const note = weeklyMode
+      ? `<p class="muted">${t('difficulty.weeklyNote', { week: weekly?.week || weekKey() })}</p>
+         ${affixes ? `<p class="muted">${t('difficulty.weeklyAffixes', { affixes })}</p>` : ''}`
+      : mode === 'daily'
         ? `<p class="muted">${t('difficulty.dailyNote', { n: dailyLeft ?? 0 })}</p>
            ${affixes ? `<p class="muted">${t('difficulty.dailyAffixes', { affixes })}${streakNote}</p>` : ''}`
         : endless
           ? `<p class="muted">${t('difficulty.endlessNote')}</p>`
           : `<p class="muted">${t('difficulty.note')}</p>`;
-    const eyebrow = mode === 'daily'
-      ? t('difficulty.eyebrowDaily')
-      : endless
-        ? t('difficulty.eyebrowEndless')
-        : t('difficulty.eyebrowNormal');
+    const eyebrow = weeklyMode
+      ? t('difficulty.eyebrowWeekly')
+      : mode === 'daily'
+        ? t('difficulty.eyebrowDaily')
+        : endless
+          ? t('difficulty.eyebrowEndless')
+          : t('difficulty.eyebrowNormal');
 
     const modal = this.openModal(
       `<div class="difficulty">
@@ -627,11 +679,18 @@ class UI {
 
     if (hud.phase === 'wave') {
       audio.startMusic(hud.waveDef?.boss || hud.waveDef?.finalBoss ? 'boss' : 'battle');
-      this.el.waveState.textContent = hud.waveDef?.finalBoss
-        ? t('hud.state.finalBoss')
+      const bossKey = hud.waveDef?.finalBoss
+        ? 'hud.state.finalBoss'
         : hud.waveDef?.boss
-          ? t('hud.state.boss')
-          : t('hud.state.fighting');
+          ? 'hud.state.boss'
+          : null;
+      if (bossKey) {
+        this.el.waveState.innerHTML = `${iconSvg('warning', 'icon-inline')}${escapeHtml(
+          t(bossKey).replace(/^[^\p{L}\p{N}]+/u, '')
+        )}`;
+      } else {
+        this.el.waveState.textContent = t('hud.state.fighting');
+      }
       this.el.waveState.classList.add('live');
       this.el.nextWave.disabled = true;
       this.el.nextWave.textContent = t('hud.fightingEnemies', { count: hud.enemies });
@@ -642,13 +701,18 @@ class UI {
     } else {
       audio.startMusic('battle');
       const next = hud.nextWave;
-      this.el.waveState.textContent = next
-        ? t('hud.state.incoming', {
-            phase: t(hud.wave === 0 ? 'hud.phase.prepare' : 'hud.phase.rally'),
-            count: next.totalCount,
-            boss: next.boss ? ' ⚠' : '',
-          })
-        : t(hud.wave === 0 ? 'hud.phase.ready' : 'hud.phase.rallyStage');
+      if (next) {
+        const label = t('hud.state.incoming', {
+          phase: t(hud.wave === 0 ? 'hud.phase.prepare' : 'hud.phase.rally'),
+          count: next.totalCount,
+          boss: '',
+        });
+        this.el.waveState.innerHTML = `${escapeHtml(label)}${
+          next.boss ? ` ${iconSvg('warning')}` : ''
+        }`;
+      } else {
+        this.el.waveState.textContent = t(hud.wave === 0 ? 'hud.phase.ready' : 'hud.phase.rallyStage');
+      }
       this.el.waveState.classList.remove('live');
       // 无尽模式没有“最终波次”：第 30 波后仍可继续放行。
       const atFinalWave = hud.mode !== 'endless' && hud.wave >= MAX_WAVE;
@@ -805,9 +869,9 @@ class UI {
         <p class="tip-stats">${t('shop.cost')} ${this.game.towerCost(id)} · ${statsText}</p>`;
       button.innerHTML = `
         <span class="key">${index + 1}</span>
-        <span class="glyph" style="color:${def.color}">${def.glyph}</span>
+        <span class="glyph" style="color:${def.color}">${iconSvg('tower')}</span>
         <span class="name">${towerName(def)}</span>
-        <span class="cost">◆ ${this.game.towerCost(id)}</span>
+        <span class="cost">${iconSvg('gold', 'icon-inline')}${this.game.towerCost(id)}</span>
         ${locked ? `<span class="lock">${t('shop.locked')}</span>` : ''}
       `;
       button.onclick = () => this.handlers.onSelectShop?.(id);
@@ -868,7 +932,7 @@ class UI {
     this.el.towerPanel.innerHTML = `
       <div class="tp-head">
         <span class="tp-name" style="color:${evolution?.color || def.color}">${title} <em>Lv.${tower.level + 1}</em></span>
-        <button class="tp-close" title="${t('towerPanel.close')}">✕</button>
+        <button class="tp-close" title="${t('towerPanel.close')}">${iconSvg('close')}</button>
       </div>
       <div class="tp-stats">
         ${def.support
@@ -1093,7 +1157,7 @@ class UI {
             : `<div class="relic-effect"><span>${t('draft.effect')}</span>${relicEffectText(offer.id, toLevel)}</div>`;
           return `
             <button class="relic-card ${isUpgrade ? 'upgrade' : ''}" data-index="${index}" style="--rarity:${rarity.color}">
-              <span class="rarity">${rarity.name} · ${levelLabel}</span>
+              <span class="rarity">${rarity.name} ${iconSvg(relicIconName(relic.rarity), 'icon-inline')}· ${levelLabel}</span>
               <h3>${relic.name}</h3>
               ${effect}
               <p class="relic-flavor">${relic.desc}</p>
@@ -1298,9 +1362,9 @@ class UI {
           <div class="result-grid">
             <div><span>${t('result.clearedWaves')}</span><b>${stats.clearedWave ?? stats.wave}</b></div>
             <div><span>${t('result.kills')}</span><b>${fmt(stats.kills)}</b></div>
-            <div><span>${t('result.goldLeft')}</span><b>◆ ${fmt(Math.floor(stats.gold))}</b></div>
+            <div><span>${t('result.goldLeft')}</span><b>${iconSvg('gold', 'icon-inline')}${fmt(Math.floor(stats.gold))}</b></div>
             <div><span>${t('result.baseHp')}</span><b>${Math.max(0, Math.ceil(stats.baseHp))}</b></div>
-            <div><span>${t('result.cores')}</span><b>◈ ${fmt(cores)}</b></div>
+            <div><span>${t('result.cores')}</span><b>${iconSvg('cores', 'icon-inline')}${fmt(cores)}</b></div>
             ${rank ? `<div><span>${t('result.leaderboard')}</span><b>#${rank}</b></div>` : ''}
             <div><span>${t('result.personalBest')}</span><b>${personalBest ? t('result.newRecord') : t('result.none')}</b></div>
           </div>
@@ -1329,7 +1393,7 @@ class UI {
                 <span class="rank ${index < 3 ? 'top' : ''}">${index + 1}</span>
                 <span class="board-name">
                   ${escapeHtml(entry.name)}
-                  ${entry.victory ? `<em class="win-mark" title="${t('board.cleared')}">★</em>` : ''}
+                  ${entry.victory ? `<em class="win-mark" title="${t('board.cleared')}">${iconSvg('victory')}</em>` : ''}
                   <span class="board-diff" style="color:${diff.color}">${diffName(diff)}</span>
                 </span>
                 <span class="board-wave">${t('board.wave', { n: entry.wave })}</span>
@@ -1379,7 +1443,7 @@ class UI {
           </div>
           <button class="btn small ${isOwned ? 'ghost' : 'primary'}" data-id="${unlock.id}"
             ${isOwned || !affordable ? 'disabled' : ''}>
-            ${isOwned ? t('unlocks.owned') : `◈ ${unlock.cost}`}
+            ${isOwned ? t('unlocks.owned') : `${iconSvg('cores', 'icon-inline')}${unlock.cost}`}
           </button>
         </div>`;
     }).join('');
@@ -1388,7 +1452,7 @@ class UI {
       `
         <div class="unlocks">
           <p class="eyebrow">${t('unlocks.eyebrow')}</p>
-          <h2>${t('unlocks.title')} <span class="cores-inline">◈ ${fmt(cores)}</span></h2>
+          <h2>${t('unlocks.title')} <span class="cores-inline">${iconSvg('cores', 'icon-inline')}${fmt(cores)}</span></h2>
           <p class="muted">${t('unlocks.note')}</p>
           <div class="unlock-list">${rows}</div>
           <div class="modal-actions">

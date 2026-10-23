@@ -108,6 +108,69 @@ export function dailyChallenge(day = dayKey()) {
   return { day, seed, modifiers };
 }
 
+// ---------- 本周挑战：ISO 周键、种子与周词缀 ----------
+
+export const WEEKLY_MODIFIER_COUNT = 1;
+export const WEEKLY_SKILL_LEVEL = 5;
+
+const WEEK_KEY_RE = /^\d{4}-W\d{2}$/;
+
+// ISO 8601 周：周一为一周开始，周四决定所属年份；日期按本地日历取日。
+function isoWeekOf(year, month, day) {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const weekday = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - weekday);
+  const isoYear = date.getUTCFullYear();
+  const yearStart = Date.UTC(isoYear, 0, 1);
+  const week = Math.ceil(((date.getTime() - yearStart) / 86400000 + 1) / 7);
+  return { isoYear, week };
+}
+
+function isoWeeksInYear(year) {
+  // 12-28 必然落在该年最后一个 ISO 周内。
+  return isoWeekOf(year, 12, 28).week;
+}
+
+// 服务器本地时区的 ISO 周键（YYYY-Www）；周挑战的种子、榜单与次数统一使用。
+export function weekKey(date = new Date()) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    throw new TypeError(`非法日期：${date}`);
+  }
+  const { isoYear, week } = isoWeekOf(date.getFullYear(), date.getMonth() + 1, date.getDate());
+  return `${String(isoYear).padStart(4, '0')}-W${String(week).padStart(2, '0')}`;
+}
+
+export function isWeekKey(value) {
+  if (typeof value !== 'string' || !WEEK_KEY_RE.test(value)) return false;
+  const [yearPart, weekPart] = value.split('-W');
+  const week = Number(weekPart);
+  return week >= 1 && week <= isoWeeksInYear(Number(yearPart));
+}
+
+export function weeklySeed(week) {
+  if (!isWeekKey(week)) throw new TypeError(`非法周：${week}`);
+  return `weekly-${week}`;
+}
+
+// 每周固定规则集：周词缀取候选计划首张地图的词缀，与开局候选保持一致。
+export function weeklyChallenge(date = new Date()) {
+  const week = weekKey(date);
+  const seed = weeklySeed(week);
+  const { modifierPool } = candidatePlan(seed, 3);
+  const modifiers = modifierPool.slice(0, WEEKLY_MODIFIER_COUNT).map((modifier) => ({
+    id: modifier.id,
+    name: modifier.name,
+    desc: modifier.desc,
+    color: modifier.color,
+  }));
+  return {
+    week,
+    seed,
+    modifiers,
+    rules: { towers: 'all', skillLevel: WEEKLY_SKILL_LEVEL, maxRerolls: 1 },
+  };
+}
+
 // 最近若干天的每日挑战派生：按日期从新到旧排列，词缀只保留 id，便于历史面板复用。
 export function recentDailyChallenges(today = dayKey(), days = 14) {
   if (!isDayKey(today)) throw new TypeError(`非法日期：${today}`);

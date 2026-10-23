@@ -32,7 +32,8 @@ const EXPECTED_EXPORTS = [
 // V21-005：TOWERS 增加纯数据 evolutions 分支，内容快照随之更新。
 // W19-009：敌人扩容到 12 种（含机制型敌人），内容快照随之更新。
 // V26-001：遗物扩容到 40 件，内容快照随之更新。
-const BASELINE_HASH = '31a4bd693f388faf4d9092a537756a3acff580c64bc676b678ff10aa5feec302';
+// V30-002：遗物新增 set 套装标签，内容快照随之更新（单件 mods 未改动）。
+const BASELINE_HASH = '6ebeaf21eab68e43134ea752e5e1584f5ae987192870f52bed8a5c73cbd66622';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);

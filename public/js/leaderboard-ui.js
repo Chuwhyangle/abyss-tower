@@ -1,5 +1,6 @@
 // 排行榜面板：服务端分页 / 难度筛选 / 个人排名，只消费接口聚合结果。
 import { DIFFICULTIES, DIFFICULTY_ORDER } from './shared/data.js';
+import { iconSvg } from './render/canvas-shapes.js';
 
 const PANEL_ID = 'leaderboard-panel';
 const PAGE_SIZE = 10;
@@ -168,12 +169,13 @@ function renderShell(panel) {
     <div class="lb-head">
       <h2>排行榜</h2>
       <span id="lb-summary" class="lb-summary"></span>
-      <button id="lb-close" class="icon-btn" title="关闭排行榜">✕</button>
+      <button id="lb-close" class="icon-btn" title="关闭排行榜">${iconSvg('close')}</button>
     </div>
     <div class="lb-controls">
       <div class="lb-tabs">
         <button class="lb-checks active" data-mode="normal">无尽远征</button>
         <button class="lb-checks" data-mode="daily">每日挑战</button>
+        <button class="lb-checks" data-mode="weekly">本周挑战</button>
       </div>
       <div class="lb-diffs">${difficultyButtons}</div>
     </div>
@@ -254,7 +256,7 @@ function renderRows(panel, data) {
             <span class="lb-rank ${rank > 0 && rank <= 3 ? 'top' : ''}">${rank || '—'}</span>
             <span class="lb-name">
               ${escapeHtml(entry.name)}
-              ${entry.victory ? '<em class="win-mark" title="已通关">★</em>' : ''}
+              ${entry.victory ? `<em class="win-mark" title="已通关">${iconSvg('victory')}</em>` : ''}
               ${entry.isMe ? '<em class="me-mark">我</em>' : ''}
               <span class="lb-diff" style="color:${difficultyColor(entry.difficulty)}">${escapeHtml(
                 difficultyName(entry.difficulty)

@@ -82,6 +82,15 @@
   --text-2xl: 26px;
   --text-3xl: 30px;
 
+  /* 图标：与 canvas-shapes.js 的程序化图标配套，尺寸只在这里定义 */
+  --icon-size-xs: 12px;
+  --icon-size-sm: 14px;
+  --icon-size-md: 16px;
+  --icon-size-lg: 20px;
+  --icon-size-xl: 24px;
+  --icon-stroke: 1.75px;
+  --icon-gap: 4px;
+
   /* 动效 */
   --duration-fast: 120ms;
   --duration-base: 160ms;
@@ -355,6 +364,72 @@ button {
 .icon-btn:hover:not(:disabled) {
   color: var(--text);
   background: rgba(255, 255, 255, 0.05);
+}
+
+/* 程序化图标：路径来自 canvas-shapes.js，尺寸/描边集中走令牌。
+   non-scaling-stroke 让 12–24px 的小图标保持同样的像素描边，避免缩小后变虚。 */
+.icon {
+  --icon-size: 1em;
+  display: inline-block;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  flex: 0 0 auto;
+  vertical-align: -0.125em;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+.icon path {
+  vector-effect: non-scaling-stroke;
+}
+
+.icon-inline {
+  margin-right: var(--icon-gap);
+}
+
+.icon-btn .icon {
+  --icon-size: var(--icon-size-sm);
+}
+
+.speed-btn .icon {
+  --icon-size: var(--icon-size-xs);
+}
+
+.cores-badge .icon,
+.cores-inline .icon,
+.skill-lock .icon,
+.result-grid .icon {
+  --icon-size: var(--icon-size-xs);
+}
+
+.tower-card .glyph .icon {
+  --icon-size: var(--icon-size-lg);
+}
+
+.tower-card .cost .icon,
+.skill-chip .chip-glyph .icon {
+  --icon-size: var(--icon-size-xs);
+}
+
+.skill-card .skill-glyph .icon {
+  --icon-size: var(--icon-size-md);
+}
+
+.btn-skill .skill-glyph .icon {
+  --icon-size: var(--icon-size-lg);
+}
+
+.panel-empty-glyph .icon {
+  --icon-size: var(--icon-size-xl);
+}
+
+.board-name .win-mark .icon,
+.tp-close .icon {
+  --icon-size: var(--icon-size-sm);
 }
 
 /* 统一键盘焦点：键盘用户始终能看到焦点位置。 */

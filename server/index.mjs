@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { fail } from './http/respond.mjs';
+import { installProcessErrorHandlers, recordRequestError } from './http/error-log.mjs';
 import { RouteContext } from './http/context.mjs';
 import { StaticFiles } from './http/static.mjs';
 import { createApiRouter } from './routes/index.mjs';
@@ -49,16 +50,25 @@ const server = http.createServer(async (req, res) => {
     }
     staticFiles.serve(req, res, url.pathname);
   } catch (error) {
+    const status = Number.isInteger(error?.status) ? error.status : 500;
+    recordRequestError({
+      req,
+      pathname: url?.pathname || req.url,
+      status,
+      code: error?.code || (status >= 500 ? 'INTERNAL_ERROR' : 'REQUEST_FAILED'),
+      message: error?.message || error,
+    });
     console.error('[request]', req.method, url?.pathname || req.url, error);
     if (res.headersSent) {
       res.destroy();
       return;
     }
-    const status = Number.isInteger(error?.status) ? error.status : 500;
     // 5xx 只回固定文案：堆栈与文件系统路径只进服务端日志。
     fail(res, status, status >= 500 ? '服务器内部错误' : error.message || '请求有误');
   }
 });
+
+installProcessErrorHandlers();
 
 server.listen(PORT, HOST, () => {
   console.log(`[渊塔守卫] http://${HOST}:${PORT}`);

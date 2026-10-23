@@ -1,5 +1,6 @@
 // 每日挑战历史面板：回看最近 14 天的日期、种子摘要、词缀与本人最佳成绩。
 import { MODIFIER_BY_ID } from './shared/mapgen.js';
+import { iconSvg } from './render/canvas-shapes.js';
 
 const PANEL_ID = 'daily-history-panel';
 const TRIGGER_ID = 'btn-daily-history';
@@ -92,7 +93,7 @@ function renderShell(panel) {
     <div class="dh-head">
       <h2>每日挑战 · 历史</h2>
       <span id="dh-summary" class="dh-summary"></span>
-      <button id="dh-close" class="icon-btn" type="button" title="关闭每日历史">✕</button>
+      <button id="dh-close" class="icon-btn" type="button" title="关闭每日历史">${iconSvg('close')}</button>
     </div>
     <div id="dh-list" class="dh-list"><p class="dh-hint">正在读取每日历史…</p></div>
   `;

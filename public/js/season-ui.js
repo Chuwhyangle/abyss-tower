@@ -1,6 +1,7 @@
 // 赛季面板：展示上赛季结算结果（名次 / 发放星核）与当前赛季个人进度、剩余时间。
 // 数据全部来自排行榜接口聚合结果，客户端不做排名计算；无结算时展示明确占位。
 import { t } from './i18n.js';
+import { iconSvg } from './render/canvas-shapes.js';
 
 const PANEL_ID = 'season-panel';
 const BODY_ID = 'season-body';
@@ -156,11 +157,11 @@ export function formatSettledAt(timestamp) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
 }
 
-function cell(label, value) {
+function cell(label, value, raw = false) {
   return `
     <div class="season-cell">
       <span>${escapeHtml(label)}</span>
-      <b>${escapeHtml(value)}</b>
+      <b>${raw ? value : escapeHtml(value)}</b>
     </div>`;
 }
 
@@ -182,7 +183,7 @@ function lastResultBlock(result) {
       ${heading}
       <div class="season-cells">
         ${cell(t('season.rankLabel'), rankText(result.rank))}
-        ${cell(t('season.coresLabel'), `◈ ${fmt(result.cores)}`)}
+        ${cell(t('season.coresLabel'), `${iconSvg('cores', 'icon-inline')}${fmt(result.cores)}`, true)}
         ${cell(t('season.settledAtLabel'), formatSettledAt(result.settledAt))}
       </div>
     </div>`;
@@ -221,7 +222,7 @@ function renderShell(panel) {
       <span class="season-tag">${escapeHtml(t('season.current'))}</span>
       <button id="btn-season-close" class="icon-btn" type="button" title="${escapeHtml(
         t('season.close')
-      )}" aria-label="${escapeHtml(t('season.close'))}">✕</button>
+      )}" aria-label="${escapeHtml(t('season.close'))}">${iconSvg('close')}</button>
     </div>
     <div id="${BODY_ID}"></div>
   `;

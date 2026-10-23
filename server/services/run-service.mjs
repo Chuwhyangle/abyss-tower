@@ -5,6 +5,7 @@ import { hydrateRun, normalizeStats, updateProfile } from '../db.mjs';
 import {
   abandonActiveRuns,
   countFinishedDailyRuns,
+  countFinishedWeeklyRuns,
   findActiveRun,
   findRun,
   insertRun,
@@ -18,7 +19,12 @@ import {
   setWavesServed,
   settleRun,
 } from '../db/runs.mjs';
-import { personalBest, rankFor, recordLeaderboardEntry } from '../db/leaderboard.mjs';
+import {
+  boardKeyFor,
+  personalBest,
+  rankFor,
+  recordLeaderboardEntry,
+} from '../db/leaderboard.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import { unlockAchievements } from '../db/achievements.mjs';
 import {
@@ -49,6 +55,9 @@ import {
   dailyChallenge,
   dailyStreak,
   dayKey,
+  WEEKLY_SKILL_LEVEL,
+  weekKey,
+  weeklyChallenge,
 } from '../../public/js/shared/scoring.js';
 
 const START_GOLD = 260;
@@ -62,6 +71,10 @@ const DAILY_START_GOLD = 260;
 const DAILY_START_HP = 20;
 
 export const DAILY_ATTEMPTS = 3;
+
+// 本周挑战：固定规则集、每周独立榜单与每周次数上限。
+export const WEEKLY_RULESET = 'weekly-v1';
+export const WEEKLY_ATTEMPTS = 3;
 
 // 预期内的领域/请求错误：路由层据此选择状态码，其余异常继续上抛。
 export class RunError extends Error {
@@ -83,6 +96,19 @@ export function dailyAttemptsLeft(token) {
 
 export function dailyStreakFor(token, day = dayKey()) {
   return dailyStreak(participationDays(token), day);
+}
+
+export function finishedWeeklyThisWeek(token, week = weekKey()) {
+  return countFinishedWeeklyRuns(token, week);
+}
+
+export function weeklyAttemptsLeft(token, week = weekKey()) {
+  return Math.max(0, WEEKLY_ATTEMPTS - finishedWeeklyThisWeek(token, week));
+}
+
+// 每日与本周挑战共用固定规则：全塔、全技能可选、固定技能等级与固定资源。
+function isFixedRulesMode(mode) {
+  return mode === 'daily' || mode === 'weekly';
 }
 
 // 事件选择与遗物选择共用 offers JSON；事件槽位加前缀避免与遗物波次键冲突。
@@ -124,10 +150,11 @@ export class RunService {
       status: run.status,
     };
     if (withVictory) payload.victory = !!run.victory;
-    payload.maxRerolls = run.mode === 'daily' ? 1 : maxRerollsFor(profile);
+    payload.maxRerolls = isFixedRulesMode(run.mode) ? 1 : maxRerollsFor(profile);
     payload.rerollsUsed = run.rerollsUsed;
-    payload.towersUnlocked =
-      run.mode === 'daily' ? [...TOWER_ORDER] : unlockedTowerIds(profile.unlocks);
+    payload.towersUnlocked = isFixedRulesMode(run.mode)
+      ? [...TOWER_ORDER]
+      : unlockedTowerIds(profile.unlocks);
     payload.createdAt = run.createdAt;
     return payload;
   }
@@ -147,62 +174,79 @@ export class RunService {
 
   create({ token, profile, body, testSeed }) {
     const mode =
-      body.mode === 'daily' ? 'daily' : body.mode === 'endless' ? 'endless' : 'normal';
+      body.mode === 'daily'
+        ? 'daily'
+        : body.mode === 'weekly'
+          ? 'weekly'
+          : body.mode === 'endless'
+            ? 'endless'
+            : 'normal';
     const difficulty = DIFFICULTIES[body.difficulty] ? body.difficulty : 'standard';
     const diff = DIFFICULTIES[difficulty];
-    const day = dayKey();
-    const challenge = mode === 'daily' ? dailyChallenge(day) : null;
+    const daily = mode === 'daily' ? dailyChallenge(dayKey()) : null;
+    const weekly = mode === 'weekly' ? weeklyChallenge() : null;
+    // 每日以日期为维度，本周挑战以 ISO 周为维度；day 列对 weekly 存周键。
+    const day = daily ? daily.day : weekly ? weekly.week : dayKey();
+    const fixedRules = isFixedRulesMode(mode);
 
-    // 技能选择：每日允许任意技能且固定 5 级；普通局必须已解锁，等级只从 DB 读。
+    // 技能选择：每日/本周挑战允许任意技能且固定等级；普通局必须已解锁，等级只从 DB 读。
     let skillId = null;
     if (body.skillId != null && body.skillId !== '') {
       skillId = String(body.skillId);
       if (!SKILLS[skillId]) throw new RunError(400, '未知技能', 'INVALID_SKILL');
-      if (mode !== 'daily' && !skillUnlocked(token, skillId)) {
+      if (!fixedRules && !skillUnlocked(token, skillId)) {
         throw new RunError(403, '技能尚未解锁', 'SKILL_LOCKED');
       }
     }
     if (!skillId) {
       const selected = readSelectedSkill(token);
-      skillId =
-        selected && (mode === 'daily' || skillUnlocked(token, selected)) ? selected : 'aurora';
+      skillId = selected && (fixedRules || skillUnlocked(token, selected)) ? selected : 'aurora';
     }
-    const skillLevel = mode === 'daily' ? DAILY_SKILL_LEVEL : readSkillLevel(token, skillId);
+    const skillLevel =
+      mode === 'weekly'
+        ? WEEKLY_SKILL_LEVEL
+        : mode === 'daily'
+          ? DAILY_SKILL_LEVEL
+          : readSkillLevel(token, skillId);
     if (mode === 'daily' && finishedDailyToday(token) >= DAILY_ATTEMPTS) {
       throw new RunError(429, '今日挑战次数已用完');
+    }
+    if (mode === 'weekly' && finishedWeeklyThisWeek(token, weekly.week) >= WEEKLY_ATTEMPTS) {
+      throw new RunError(429, '本周挑战次数已用完');
     }
 
     const seed = testSeed
       ? `test-${testSeed}`
-      : challenge
-        ? challenge.seed
-        : crypto.randomBytes(8).toString('hex');
+      : daily
+        ? daily.seed
+        : weekly
+          ? weekly.seed
+          : crypto.randomBytes(8).toString('hex');
     const unlocks = profile.unlocks;
-    // 每日使用固定开局资源，忽略难度加成与账号 meta 加成，保证榜单公平。
-    const startingGold =
-      mode === 'daily'
-        ? DAILY_START_GOLD
-        : Math.max(100, START_GOLD + (unlocks.includes('start_gold') ? META_GOLD : 0) + diff.goldBonus);
-    const baseHp =
-      mode === 'daily'
-        ? DAILY_START_HP
-        : Math.max(8, START_HP + (unlocks.includes('start_hp') ? META_HP : 0) + diff.hpBonus);
-    const maxRerolls = mode === 'daily' ? 1 : maxRerollsFor(profile);
+    // 每日/本周挑战使用固定开局资源，忽略难度加成与账号 meta 加成，保证榜单公平。
+    const startingGold = fixedRules
+      ? DAILY_START_GOLD
+      : Math.max(100, START_GOLD + (unlocks.includes('start_gold') ? META_GOLD : 0) + diff.goldBonus);
+    const baseHp = fixedRules
+      ? DAILY_START_HP
+      : Math.max(8, START_HP + (unlocks.includes('start_hp') ? META_HP : 0) + diff.hpBonus);
+    const maxRerolls = fixedRules ? 1 : maxRerollsFor(profile);
     const ruleset = {
       v: 1,
       contentVersion: CONTENT_VERSION,
       skill: { id: skillId, level: skillLevel },
       meta: { startGold: startingGold, baseHp, maxRerolls },
     };
-    if (mode === 'daily') ruleset.daily = { date: day, ruleset: DAILY_RULESET };
+    if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
+    if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
     const startRelics = unlocks.includes('start_relic')
       ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1)
           .filter((offer) => offer.kind === 'relic')
           .map((offer) => ({ id: offer.id, level: offer.toLevel }))
       : [];
-    const candidates = generateMapCandidates(seed, challenge ? DAILY_MODIFIER_COUNT : 3);
-    // 当日词缀即三张候选地图的词缀；校验种子派生结果与实际地图一致。
-    const dailyModifiers = candidates
+    const candidates = generateMapCandidates(seed, (daily || weekly) ? DAILY_MODIFIER_COUNT : 3);
+    // 词缀即候选地图的词缀；校验种子派生结果与实际地图一致。
+    const mapModifiers = candidates
       .map((candidate) => candidate.modifier)
       .filter(Boolean)
       .map(({ id: modifierId, name, desc, color }) => ({
@@ -211,15 +255,22 @@ export class RunService {
         desc,
         color,
       }));
-    if (challenge && !testSeed) {
-      const expected = challenge.modifiers.map((modifier) => modifier.id).join(',');
-      const actual = dailyModifiers.map((modifier) => modifier.id).join(',');
+    if (daily && !testSeed) {
+      const expected = daily.modifiers.map((modifier) => modifier.id).join(',');
+      const actual = mapModifiers.map((modifier) => modifier.id).join(',');
       if (actual !== expected) throw new RunError(500, '每日挑战词缀派生不一致');
+    }
+    if (weekly && !testSeed) {
+      const expected = weekly.modifiers.map((modifier) => modifier.id).join(',');
+      const actual = mapModifiers
+        .slice(0, weekly.modifiers.length)
+        .map((modifier) => modifier.id)
+        .join(',');
+      if (actual !== expected) throw new RunError(500, '本周挑战词缀派生不一致');
     }
 
     const id = crypto.randomBytes(9).toString('base64url');
-    const boardKey =
-      mode === 'daily' ? `daily:${day}:v2` : mode === 'endless' ? 'endless' : 'normal';
+    const boardKey = boardKeyFor(mode, day);
     abandonActiveRuns(token, Date.now());
     insertRun({
       id,
@@ -235,12 +286,20 @@ export class RunService {
       createdAt: Date.now(),
     });
 
-    const daily = challenge
+    const dailyInfo = daily
       ? {
           day,
           seed,
-          modifiers: dailyModifiers,
+          modifiers: mapModifiers,
           streak: dailyStreakFor(token, day),
+        }
+      : null;
+    const weeklyInfo = weekly
+      ? {
+          week: weekly.week,
+          seed,
+          modifiers: mapModifiers.slice(0, weekly.modifiers.length),
+          rules: weekly.rules,
         }
       : null;
 
@@ -255,15 +314,17 @@ export class RunService {
       startingGold,
       baseHp,
       relics: startRelics,
-      // 每日挑战开放全部塔，保证同一规则集下的榜单公平。
-      towersUnlocked: mode === 'daily' ? [...TOWER_ORDER] : unlockedTowerIds(unlocks),
+      // 每日/本周挑战开放全部塔，保证同一规则集下的榜单公平。
+      towersUnlocked: fixedRules ? [...TOWER_ORDER] : unlockedTowerIds(unlocks),
       skill: ruleset.skill,
       ruleset,
       maxRerolls,
       clearedWaves: 0,
       wavesServed: 0,
       dailyAttemptsLeft: mode === 'daily' ? dailyAttemptsLeft(token) : null,
-      daily,
+      weeklyAttemptsLeft: mode === 'weekly' ? weeklyAttemptsLeft(token, weekly.week) : null,
+      daily: dailyInfo,
+      weekly: weeklyInfo,
     };
   }
 
@@ -615,6 +676,8 @@ export class RunService {
       unlockedSkill: unlockedSkillId || null,
       unlockedSkills,
       dailyAttemptsLeft: run.mode === 'daily' ? dailyAttemptsLeft(token) : null,
+      weeklyAttemptsLeft:
+        run.mode === 'weekly' ? weeklyAttemptsLeft(token, run.day) : null,
       unlockedAchievements,
     };
   }

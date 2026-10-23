@@ -2,10 +2,11 @@ import { db, transaction } from './index.mjs';
 import { dayKey } from '../../public/js/shared/scoring.js';
 
 // v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
-// 无尽模式使用独立榜单，不与普通榜的三档难度合并。
+// 无尽与本周挑战各自使用独立榜单，不与普通/每日榜合并；day 为周键时按周隔离。
 export function boardKeyFor(mode, day) {
   if (mode === 'daily') return `daily:${day}:v2`;
   if (mode === 'endless') return 'endless';
+  if (mode === 'weekly') return `weekly:${day}`;
   return 'normal';
 }
 

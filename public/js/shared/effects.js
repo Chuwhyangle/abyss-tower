@@ -140,6 +140,56 @@ export const EFFECT_REGISTRY = {
   },
 };
 
+// 遗物套装：按“不同遗物”计件（重复获得同一遗物只提升等级，不重复计数），
+// 达到 2/4 件阈值时追加一组效果。加成只引用已注册的 mod 键，
+// 因此自动沿用该键的单件上限、全局上限与文案。
+export const RELIC_SET_BONUSES = {
+  hunter: {
+    name: '猎手同盟',
+    tiers: [
+      { pieces: 2, mods: { fireRate: 0.06 } },
+      { pieces: 4, mods: { crit: 0.08 } },
+    ],
+  },
+  frost: {
+    name: '霜寒契约',
+    tiers: [
+      { pieces: 2, mods: { slow: 0.05 } },
+      { pieces: 4, mods: { frostDmgBonus: 0.1 } },
+    ],
+  },
+  guild: {
+    name: '商道同盟',
+    tiers: [
+      { pieces: 2, mods: { killGold: 1 } },
+      { pieces: 4, mods: { goldMul: 0.1 } },
+    ],
+  },
+};
+
+function getRelicSet(setId) {
+  const set = RELIC_SET_BONUSES[setId];
+  if (!set) throw new Error(`未注册的遗物套装: ${setId}（请先在 RELIC_SET_BONUSES 中声明）`);
+  return set;
+}
+
+// 已生效的套装档位（按阈值升序）；件数不足 2 时返回空数组。
+export function relicSetTierBonuses(setId, pieces) {
+  const count = Math.max(0, Math.floor(Number(pieces) || 0));
+  return getRelicSet(setId).tiers.filter((tier) => count >= tier.pieces);
+}
+
+// 套装加成文案，例如「猎手同盟 2 件：攻击速度 +6%」；多档用；分隔。
+export function relicSetBonusText(setId, pieces) {
+  const set = getRelicSet(setId);
+  return relicSetTierBonuses(setId, pieces)
+    .map((tier) => {
+      const parts = Object.entries(tier.mods).map(([key, value]) => effectText(key, value));
+      return `${set.name} ${tier.pieces} 件：${parts.join('，')}`;
+    })
+    .join('；');
+}
+
 // 命中条件按注册表顺序应用：bossDmg 在 lowHpDmg 之前，与重构前的乘法顺序一致。
 export function getEffect(key) {
   const entry = EFFECT_REGISTRY[key];
