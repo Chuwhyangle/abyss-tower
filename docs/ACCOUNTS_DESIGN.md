@@ -515,7 +515,7 @@ public/auth.css          # 认证界面样式（不改 styles.css）
 修改点：
 
 - `api.js`：统一 `request()`，默认 `credentials:'same-origin'`；删除自动生成 token 的主路径，仅在 `/api/auth/legacy` 与 `/api/auth/claim` 请求中附带旧 `x-player-token`。
-- `main.js` `boot()`：先 `GET /api/auth/me`；401 则**只渲染登录/注册页**，不初始化大厅、不加载战斗。若本地存在旧令牌，额外调用 `/api/auth/legacy`，显示「检测到老进度，绑定账号继续」。
+- `app/controller.js` `GameController.boot()`：先 `GET /api/auth/me`；401 则**只渲染登录/注册页**，不初始化大厅、不加载战斗。若本地存在旧令牌，额外调用 `/api/auth/legacy`，显示「检测到老进度，绑定账号继续」。
 - 未登录状态没有任何「开始游戏」按钮；注册/登录成功后才进入大厅。
 - 大厅显示昵称与登出；登出后回到登录页，并清理本地快照。
 - 换设备续玩：登录后先查 `/api/runs/active`，有则提示「继续上一局」，不依赖 localStorage 快照。
@@ -646,7 +646,7 @@ server/
 - 迁移：`server/db/migrations/0001_accounts.mjs` 将「建表 + 旧数据导入」合并为一个事务迁移；迁移执行器在 `server/db/index.mjs`，带 checksum 校验与迁移前 `VACUUM INTO` 备份。
 - 兼容层：`server/db.mjs` 对上层保持旧 `getProfile/updateProfile/getRun/hydrateRun` 形状，底层读写 `player_*`、`runs(account_id)`、`leaderboard_entries(board_key)`。
 - 认证：`server/auth/*`（scrypt、Cookie 会话、限流、Origin 校验、注册/登录/登出/me/legacy/claim/password/recovery）。
-- 前端：`public/js/auth-ui.js` + `public/auth.css`；`main.js` 启动先过 `ensureAuthGate()`，未登录不初始化大厅/战斗。
+- 前端：`public/js/auth-ui.js` + `public/auth.css`；入口启动先过 `ensureAuthGate()`，未登录不初始化大厅/战斗。
 - 测试：`tests/auth.test.mjs`（8 项接口/迁移测试）、`tests/browser-auth.mjs`（注册→恢复码→大厅→退出→登录）；`tests/harness.mjs` 增加 `registerAndLogin()`，所有浏览器测试先登录。
 - 开关：默认 `AUTH_ENABLED=1`；`AUTH_ENABLED=0` 回退旧 `x-player-token` 匿名模式，旧接口测试走该路径。
 - 未做（按 P0 范围）：OAuth/Passkey、云同步设置、管理 CLI、游客进度合并；schema 已预留。

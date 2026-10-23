@@ -31,21 +31,26 @@
 
 ```
 ┌──────────────────────────── 浏览器 ────────────────────────────┐
-│  main.js（编排/输入/存档）                                      │
+│  main.js（入口）→ app/GameController（编排/状态）               │
+│    ├─ app/RunController      开局、选图、续玩、开局装配         │
+│    ├─ app/CombatController   开波、清波、遗物、结算             │
+│    ├─ app/InputController    画布/键盘输入                      │
+│    ├─ app/SessionController  资料、认证、商店、排行榜           │
 │    ├─ ui.js         DOM：HUD、商店、弹窗、排行榜                │
 │    ├─ game-app.js   rAF 循环、渲染、音效、HUD 节流              │
 │    ├─ sim.js        纯战斗模拟（无 DOM）                        │
-│    ├─ render.js     Canvas 绘制（只读 sim 状态）                │
+│    ├─ render.js     渲染门面 → render/ 分层渲染器               │
 │    ├─ audio.js      WebAudio 合成音效                           │
 │    └─ shared/       RNG、地图、波次、数值、难度、遗物           │
 └───────────────┬─────────────────────────────────────────────────┘
-                │ REST（JSON + x-player-token）
+                │ REST（JSON + 会话 Cookie）
 ┌───────────────▼─────────────────────────────────────────────────┐
-│  Node http server                                               │
-│    ├─ 路由/鉴权/输入校验                                        │
+│  Node http server（index.mjs：引导/静态/路由装配）              │
+│    ├─ http/         响应原语、RouteContext、静态文件            │
+│    ├─ routes/       路由类：system/auth/profile/board/runs      │
 │    ├─ 规则：地图生成、波次生成、遗物抽取、结算校验              │
 │    ├─ shared/ 同一份纯逻辑（与浏览器完全一致）                  │
-│    └─ SQLite：profiles / runs / leaderboard                     │
+│    └─ SQLite：accounts / sessions / runs / leaderboard          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -73,18 +78,21 @@ rogue-td/
 │  ├─ PRD.md
 │  └─ TECH_DESIGN.md
 ├─ server/
-│  ├─ index.mjs          # HTTP 服务、路由、静态资源
-│  ├─ api.mjs            # 业务接口（可选拆分）
+│  ├─ index.mjs          # 引导：监听、来源校验、静态资源、路由装配
+│  ├─ http/              # respond / context / static
+│  ├─ routes/            # router、system、auth、profile、leaderboard、runs、unlock
 │  ├─ db.mjs             # SQLite 连接、建表/迁移、查询封装
 │  └─ data/game.db       # 运行时生成
 ├─ public/
 │  ├─ index.html
 │  ├─ styles.css
 │  └─ js/
-│     ├─ main.js         # 页面编排、事件、存档/续玩
+│     ├─ main.js         # 入口：错误收集 + GameController.boot()
+│     ├─ app/            # 控制器：game/run/combat/session/input/store
 │     ├─ game-app.js     # 固定步长循环、渲染调度、HUD 节流
 │     ├─ sim.js          # 纯战斗模拟：敌人/塔/投射物/遗物效果
-│     ├─ render.js       # Canvas：地图预渲染、单位、特效
+│     ├─ render.js       # 渲染门面：画质/DPR/分层编排
+│     ├─ render/         # 分层渲染器：背景/塔/敌人/弹道/特效/光晕/覆盖层
 │     ├─ ui.js           # DOM：标题页、HUD、商店、弹窗
 │     ├─ api.js          # fetch 封装
 │     ├─ audio.js        # WebAudio 合成

@@ -78,17 +78,21 @@ npm start
 public/
   index.html / styles.css
   js/
-    main.js       页面编排、输入、存档续玩
+    main.js       入口：安装错误收集并启动 GameController
+    app/          页面编排：控制器（会话/开局/战斗/输入/存档）
     game-app.js   rAF 循环、渲染调度、音效
     sim.js        纯战斗模拟（Node 可直接运行）
-    render.js     Canvas 绘制
+    render.js     渲染门面（画质/DPR/分层编排）
+    render/       分层渲染器（背景/塔/敌人/弹道/特效/光晕/覆盖层）
     ui.js         HUD / 商店 / 弹窗 / 画质设置
     api.js        接口封装
     audio.js      合成音效
     settings.js   画质预设、持久化与回退
     shared/       前后端共享：RNG / 地图 / 波次 / 数值 / 难度 / 遗物等级 / 计分 / 存档兼容
 server/
-  index.mjs       HTTP 服务与业务接口
+  index.mjs       引导：监听、来源校验、静态资源与路由装配
+  http/           响应原语、路由上下文、静态文件服务
+  routes/         路由类（system/auth/profile/leaderboard/runs/unlock）
   config.mjs      账号开关、注册策略、内容版本
   db.mjs          玩家档案/对局兼容读写层
   db/
