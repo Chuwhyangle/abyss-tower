@@ -107,6 +107,12 @@ class AudioFX {
         this.noise(0.28, 0.1, 380, t);
         this.noise(0.5, 0.05, 140, t + 0.05);
         break;
+      case 'victory':
+        this.tone(523.25, 0.14, 'triangle', 0.05, 0, t);
+        this.tone(659.25, 0.14, 'triangle', 0.05, 0, t + 0.12);
+        this.tone(783.99, 0.16, 'triangle', 0.05, 0, t + 0.24);
+        this.tone(1046.5, 0.4, 'triangle', 0.048, 0, t + 0.36);
+        break;
       case 'gameover':
         this.tone(300, 0.35, 'sine', 0.05, -120, t);
         this.tone(220, 0.4, 'sine', 0.05, -100, t + 0.25);
