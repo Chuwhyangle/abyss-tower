@@ -42,6 +42,10 @@ const towerName = (def) => tData('tower', def.id, 'name', def.name);
 const enemyName = (def) => tData('enemy', def.id, 'name', def.name);
 const diffName = (def) => tData('difficulty', def.id, 'name', def.name);
 const diffDesc = (def) => tData('difficulty', def.id, 'desc', def.desc);
+const modifierName = (modifier) =>
+  modifier ? tData('modifier', modifier.id, 'name', modifier.name) : null;
+const modifierDesc = (modifier) =>
+  modifier ? tData('modifier', modifier.id, 'desc', modifier.desc) : null;
 const ROMAN = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
 const ROLE_LABELS = { control: '控场', burst: '爆发', ultimate: '终极' };
 
@@ -545,7 +549,7 @@ class UI {
           ? t('difficulty.endlessTitle')
           : t('difficulty.startTitle');
     const affixes = ((weeklyMode ? weekly?.modifiers : daily?.modifiers) || [])
-      .map((modifier) => `<span style="color:${modifier.color}">${modifier.name}</span>`)
+      .map((modifier) => `<span style="color:${modifier.color}">${modifierName(modifier)}</span>`)
       .join(' · ');
     const streakNote = daily?.streak > 0 ? t('difficulty.streak', { n: daily.streak }) : '';
     const note = weeklyMode
@@ -609,8 +613,8 @@ class UI {
             </div>
             <p class="map-desc">${desc}</p>
             <div class="map-mod" style="color:${color}">
-              <b>${modifier?.name || t('mapSelect.noModifier')}</b>
-              <span>${modifier?.desc || t('mapSelect.standard')}</span>
+              <b>${modifierName(modifier) || t('mapSelect.noModifier')}</b>
+              <span>${modifierDesc(modifier) || t('mapSelect.standard')}</span>
             </div>
             <div class="map-foot">
               <span>${t('mapSelect.score', { mul: candidate.meta?.scoreMul?.toFixed(2) || '1.00' })}</span>

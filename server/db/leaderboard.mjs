@@ -1,5 +1,11 @@
 import { db, transaction } from './index.mjs';
-import { dayKey } from '../../public/js/shared/scoring.js';
+import {
+  CAPS,
+  ENDLESS_SCORE_MUL,
+  computeRawScore,
+  dayKey,
+} from '../../public/js/shared/scoring.js';
+import { DIFFICULTIES } from '../../public/js/shared/data.js';
 
 // v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
 // 无尽与本周挑战各自使用独立榜单，不与普通/每日榜合并；day 为周键时按周隔离。
@@ -44,6 +50,92 @@ export function listSeasons() {
   return rows.map((row) => row.season).filter(isSeasonKey);
 }
 
+// ---------- 排行榜基线反作弊 ----------
+
+// 规则集中定义，按运营数据调整即可；不追求强反作弊，只拦明显异常。
+const MIN_DIFFICULTY_SCORE_MUL = Math.min(
+  ...Object.values(DIFFICULTIES).map((item) => item.scoreMul)
+);
+const MAX_DIFFICULTY_SCORE_MUL = Math.max(
+  ...Object.values(DIFFICULTIES).map((item) => item.scoreMul)
+);
+// 地图倍率由 mapgen 钳制在 [0.9, 1.25]；无尽模式额外乘 ENDLESS_SCORE_MUL。
+const MIN_MAP_SCORE_MUL = 0.9;
+const MAX_MAP_SCORE_MUL = 1.25;
+
+export const LEADERBOARD_GUARD = {
+  // 3 分钟内打到 20 波以上：正常对局不可能，直接拒绝入榜。
+  highWave: 20,
+  minDurationMsForHighWave: 3 * 60 * 1000,
+  // 单波击杀理论上限，与结算钳制共用同一组常量。
+  killsPerWave: CAPS.killsPerWave,
+  killsFlat: CAPS.killsFlat,
+  // 理论分数上下界：由计分公式乘以可能的难度/地图/模式倍率推导。
+  minScoreMul: MIN_DIFFICULTY_SCORE_MUL * MIN_MAP_SCORE_MUL,
+  maxScoreMul: MAX_DIFFICULTY_SCORE_MUL * MAX_MAP_SCORE_MUL * ENDLESS_SCORE_MUL,
+};
+
+function toCount(value) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+// 入榜前校验：先拦截明显不可能的成绩，再钳制越界击杀并标记可疑分。
+export function validateLeaderboardEntry(entry = {}) {
+  const wave = toCount(entry.wave);
+  const kills = toCount(entry.kills);
+  const durationMs = Math.max(0, Number(entry.durationMs) || 0);
+  const score = Math.max(0, Number(entry.score) || 0);
+  const rules = LEADERBOARD_GUARD;
+
+  if (wave >= rules.highWave && durationMs < rules.minDurationMsForHighWave) {
+    return {
+      accepted: false,
+      suspect: false,
+      flags: ['duration_too_short'],
+      reason: 'duration_too_short',
+      wave,
+      kills,
+      score,
+    };
+  }
+
+  const flags = [];
+  const maxKills = wave * rules.killsPerWave + rules.killsFlat;
+  const clampedKills = Math.min(kills, maxKills);
+  if (kills > maxKills) flags.push('kills_clamped');
+
+  const maxGold = wave * CAPS.goldPerWave + CAPS.goldFlat;
+  const rawCeiling = computeRawScore({
+    waveReached: wave,
+    kills: clampedKills,
+    goldLeft: maxGold,
+    baseHp: CAPS.baseHp,
+    victory: true,
+  });
+  const rawFloor = computeRawScore({
+    waveReached: wave,
+    kills: clampedKills,
+    goldLeft: 0,
+    baseHp: 0,
+    victory: false,
+  });
+  const scoreCeiling = Math.ceil(rawCeiling * rules.maxScoreMul);
+  const scoreFloor = Math.floor(rawFloor * rules.minScoreMul);
+  if (score > scoreCeiling) flags.push('score_too_high');
+  else if (score < scoreFloor) flags.push('score_too_low');
+
+  return {
+    accepted: true,
+    suspect: flags.length > 0,
+    flags,
+    reason: flags[0] || null,
+    wave,
+    kills: clampedKills,
+    score,
+  };
+}
+
 export function recordLeaderboardEntry({
   accountId,
   displayName,
@@ -56,14 +148,18 @@ export function recordLeaderboardEntry({
   wave,
   kills,
   victory,
+  suspect = false,
   contentVersion,
   createdAt = Date.now(),
 }) {
-  const metrics = JSON.stringify({
+  const metricsPayload = {
     wave: Number(wave) || 0,
     kills: Number(kills) || 0,
     victory: victory ? 1 : 0,
-  });
+  };
+  // 只有可疑成绩才写标记，正常记录保持与改动前完全一致。
+  if (suspect) metricsPayload.suspect = true;
+  const metrics = JSON.stringify(metricsPayload);
   db.prepare(
     `INSERT INTO leaderboard_entries
        (board_key, account_id, display_name, run_id, difficulty, score, duration_ms,

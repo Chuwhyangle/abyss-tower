@@ -5,6 +5,7 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
@@ -174,6 +175,19 @@ async function clearWave(runId, wave, token = TOKEN) {
   return api(`/api/runs/${runId}/clear`, { method: 'POST', body: { wave }, token });
 }
 
+// 排行榜基线反作弊会拒绝「高波次且不足 3 分钟」的成绩；测试跑完 30 波只需毫秒级，
+// 因此把开局时间前移，模拟一局真实耗时，避免测试数据被当成速通作弊。
+function backdateRun(runId, ms = 4 * 60 * 1000) {
+  const database = new DatabaseSync(DB);
+  try {
+    database
+      .prepare('UPDATE runs SET created_at = created_at - ? WHERE id = ?')
+      .run(ms, runId);
+  } finally {
+    database.close();
+  }
+}
+
 before(async () => {
   server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
     cwd: ROOT,
@@ -242,6 +256,7 @@ test('服务端：无尽局可越过第 30 波，结算进入独立榜', async (
   assert.equal(wave31.data.replay, false);
   assert.equal((await clearWave(runId, MAX_WAVE + 1)).status, 200);
 
+  backdateRun(runId);
   const finished = await api(`/api/runs/${runId}/finish`, {
     method: 'POST',
     body: { waveReached: MAX_WAVE + 1, kills: 3100, goldLeft: 1200, baseHp: 0 },
@@ -293,6 +308,7 @@ test('普通模式规则不变：第 30 波后不能再放行，通关仍按旧�
   const afterFinal = await serveWave(runId, OTHER);
   assert.equal(afterFinal.status, 409);
 
+  backdateRun(runId);
   const finished = await api(`/api/runs/${runId}/finish`, {
     method: 'POST',
     token: OTHER,

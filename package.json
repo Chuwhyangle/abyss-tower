@@ -26,6 +26,7 @@
     "test:auth:ui": "node tests/browser-auth.mjs",
     "verify:browser": "npm run smoke && npm run flow && npm run test:relics && npm run test:settings && npm run test:mobile && npm run test:map && npm run test:auth:ui",
     "perf": "node tests/dynamic-perf.mjs",
+    "perf:budget": "node tests/dynamic-perf.mjs --quick --budget",
     "balance": "node tests/balance-sim.mjs 40",
     "balance:write": "node tests/balance-sim.mjs 40 --write",
     "sweep": "node tests/balance-sweep.mjs 20",
