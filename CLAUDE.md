@@ -28,6 +28,13 @@
 - `server/auth/`、`server/db/`：认证与持久化
 - `server/data/`、`backups/`：运行时数据，不入库
 
+## GitHub 与网络
+
+- 远端：`git@github.com:Chuwhyangle/abyss-tower.git`（SSH）
+- 本服务器 **HTTPS 访问 github.com 会超时**（api.github.com 可直连）；`gh auth login --web` 也会超时。
+- 推送/拉取一律走 SSH：`~/.ssh/config` 已绑定 `~/.ssh/id_ed25519_github`。
+- CI：`.github/workflows/ci.yml`（84 个模块语法检查 + `npm test`），push/PR 自动运行。
+
 ## 提交前检查
 
 - `npm test` 全绿；改到 UI/渲染时补跑对应浏览器测试。
