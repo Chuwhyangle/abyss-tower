@@ -3,24 +3,13 @@ import { rollRelicOffers } from '../shared/data.js';
 import { RelicOffers } from './offers.js';
 
 export class CombatController {
-  constructor(game) {
-    this.game = game;
-  }
-
-  get state() {
-    return this.game.state;
-  }
-
-  get api() {
-    return this.game.api;
-  }
-
-  get ui() {
-    return this.game.ui;
-  }
-
-  get store() {
-    return this.game.store;
+  constructor({ state, api, ui, store, onRequestError, onRefreshProfile }) {
+    this.state = state;
+    this.api = api;
+    this.ui = ui;
+    this.store = store;
+    this.onRequestError = onRequestError;
+    this.onRefreshProfile = onRefreshProfile;
   }
 
   async nextWave() {
@@ -206,12 +195,15 @@ export class CombatController {
           baseHp: Math.ceil(stats.baseHp),
         });
       } catch (error) {
-        console.error('[finish]', error);
+        this.onRequestError(error, {
+          title: '结算上传',
+          onRetry: () => this.handleGameOver(stats),
+        });
       }
     }
 
     this.store.clearSnapshot();
-    await this.game.session.refreshProfile({ silent: true });
+    await this.onRefreshProfile({ silent: true });
     this.ui.showResult({
       stats,
       res,

@@ -1,0 +1,3 @@
+# files every worktree needs (gitignored in the primary checkout)
+/.quay/config.yml
+/.quay/profiles.yml

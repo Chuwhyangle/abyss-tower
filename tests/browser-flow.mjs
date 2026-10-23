@@ -8,6 +8,7 @@ import {
   chooseFirstMap,
   registerAndLogin,
 } from './harness.mjs';
+import { UNLOCKS } from '../public/js/shared/data.js';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
@@ -253,20 +254,34 @@ async function main() {
 
     // 排行榜与商店
     await browser.evaluate(`document.querySelector('#btn-board').click()`);
-    await browser.waitFor(`!!document.querySelector('.board-modal')`, '排行榜弹窗');
+    await browser.waitFor(
+      `(() => { const panel = document.querySelector('#leaderboard-panel'); return !!panel && !panel.hidden; })()`,
+      '排行榜面板'
+    );
+    await browser.waitFor(
+      `!!document.querySelector('#lb-list .lb-empty, #lb-list .lb-row')`,
+      '排行榜列表加载'
+    );
     const board = await browser.evaluate(`({
-      tabs: document.querySelectorAll('.board-modal .tab').length,
-      rows: document.querySelectorAll('.board-modal .board-row').length,
+      modes: document.querySelectorAll('#leaderboard-panel [data-mode]').length,
+      difficulties: document.querySelectorAll('#leaderboard-panel [data-difficulty]').length,
+      rows: document.querySelectorAll('#lb-list .lb-row').length,
+      empty: !!document.querySelector('#lb-list .lb-empty'),
     })`);
-    if (board.tabs !== 2) throw new Error('排行榜标签异常');
+    if (board.modes !== 2) throw new Error(`排行榜模式标签异常：${board.modes}`);
     await browser.screenshot(path.join(OUT_DIR, 'rtd-flow-04-board.png'));
-    await browser.evaluate(`document.querySelector('#btn-close-board').click()`);
-    await browser.waitFor(`!document.querySelector('.modal')`, '排行榜关闭');
+    await browser.evaluate(`document.querySelector('#lb-close').click()`);
+    await browser.waitFor(
+      `document.querySelector('#leaderboard-panel').hidden === true`,
+      '排行榜关闭'
+    );
 
     await browser.evaluate(`document.querySelector('#btn-shop').click()`);
     await browser.waitFor(`!!document.querySelector('.unlock-modal')`, '星核商店');
     const unlockRows = await browser.evaluate(`document.querySelectorAll('.unlock-row').length`);
-    if (unlockRows !== 6) throw new Error(`解锁项数量异常：${unlockRows}`);
+    if (unlockRows !== UNLOCKS.length) {
+      throw new Error(`解锁项数量异常：页面 ${unlockRows}，数据 ${UNLOCKS.length}`);
+    }
     await browser.screenshot(path.join(OUT_DIR, 'rtd-flow-05-shop.png'));
     await browser.evaluate(`document.querySelector('#btn-close-unlocks').click()`);
     await browser.waitFor(`!document.querySelector('.modal')`, '商店关闭');

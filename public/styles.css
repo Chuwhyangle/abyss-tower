@@ -294,11 +294,16 @@ button {
 
 .hud {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 8px 18px;
+  padding: 8px;
+  padding-top: max(8px, env(safe-area-inset-top));
+  padding-right: max(18px, env(safe-area-inset-right));
+  padding-bottom: 8px;
+  padding-left: max(18px, env(safe-area-inset-left));
   border-bottom: 1px solid rgba(120, 160, 175, 0.14);
   background: linear-gradient(180deg, rgba(13, 21, 27, 0.96), rgba(9, 15, 20, 0.9));
   backdrop-filter: blur(8px);
@@ -700,7 +705,11 @@ button {
 /* 商店 */
 
 .shop {
-  padding: 8px 16px 12px;
+  flex: 0 0 auto;
+  padding: 8px;
+  padding-right: max(16px, env(safe-area-inset-right));
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
   border-top: 1px solid rgba(120, 160, 175, 0.14);
   background: linear-gradient(180deg, rgba(9, 15, 20, 0.94), rgba(7, 11, 14, 0.98));
 }
@@ -1601,8 +1610,11 @@ kbd {
 
 @media (max-width: 900px), (max-height: 520px) {
   .hud {
-    padding: 4px 8px;
+    padding: 4px;
     padding-top: max(4px, env(safe-area-inset-top));
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: 4px;
+    padding-left: max(8px, env(safe-area-inset-left));
     gap: 6px;
   }
 
@@ -1688,10 +1700,11 @@ kbd {
     min-height: 44px;
     grid-template-columns: 26px 1fr;
     padding: 6px 8px;
+    scroll-snap-align: start;
   }
 
   .tp-actions .btn {
-    min-height: 36px;
+    min-height: 44px;
   }
 
   .tower-card .glyph {
@@ -1707,7 +1720,10 @@ kbd {
   }
 
   .shop {
-    padding: 4px 8px max(6px, env(safe-area-inset-bottom));
+    padding: 4px;
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+    padding-left: max(8px, env(safe-area-inset-left));
   }
 
   .shop-hint {
@@ -1722,6 +1738,9 @@ kbd {
     padding-bottom: 2px;
     scrollbar-width: none;
     touch-action: pan-x;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
 
   .shop-list::-webkit-scrollbar {
@@ -1741,15 +1760,58 @@ kbd {
 
   .modal {
     padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
     max-height: 92dvh;
+    -webkit-overflow-scrolling: touch;
   }
 
   .toast {
-    bottom: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
     font-size: 11.5px;
     max-width: 90vw;
     white-space: normal;
     text-align: center;
+  }
+}
+
+/* 触屏关键按钮 ≥44px：只作用于触屏设备，不撑开桌面紧凑布局 */
+body.is-touch .btn,
+body.is-touch .icon-btn,
+body.is-touch .speed-btn,
+body.is-touch .tower-card {
+  min-height: 44px;
+}
+
+body.is-touch .icon-btn,
+body.is-touch .speed-btn {
+  min-width: 44px;
+}
+
+/* 横屏：战场左右让出刘海安全区，HUD 与商店在文档流内不覆盖战场 */
+@media (orientation: landscape) and (max-height: 520px) {
+  .stage-wrap {
+    padding-right: max(8px, env(safe-area-inset-right));
+    padding-left: max(8px, env(safe-area-inset-left));
+  }
+}
+
+/* 小屏遗物弹窗：收敛行距，长文案可换行 */
+@media (max-width: 760px) {
+  .relic-modal-list {
+    gap: 6px;
+  }
+
+  .relic-modal-row {
+    padding: 8px 10px;
+  }
+
+  .relic-modal-row b {
+    font-size: 12.5px;
+  }
+
+  .relic-modal-row span {
+    font-size: 11px;
+    word-break: break-word;
   }
 }
 

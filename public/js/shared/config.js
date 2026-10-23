@@ -37,3 +37,11 @@ export const BALANCE = {
   // 容量
   maxCount: 80,            // 单波敌人数量上限
 };
+
+// 三档目标通关率（全解锁、机器人 40 种子 × 3 候选口径）。
+// 平衡报告据此判定达标；调整目标时同步 docs/BALANCE.md 的结论。
+export const BALANCE_TARGETS = {
+  roam: [0.70, 0.85],
+  standard: [0.25, 0.40],
+  abyss: [0.05, 0.12],
+};

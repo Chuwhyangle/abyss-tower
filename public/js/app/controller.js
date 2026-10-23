@@ -1,5 +1,6 @@
 // 页面编排根控制器：持有实例状态，装配各子控制器并注册 UI 回调。
-import { api } from '../api.js';
+import { api, errorMessage, isRetryableError } from '../api.js';
+import { clearRetryableError, reportRetryableError } from './boot-errors.js';
 import { ui } from '../ui.js';
 import { audio } from '../audio.js';
 import { loadSettings, saveSettings } from '../settings.js';
@@ -21,6 +22,7 @@ export class GameController {
     this.state = {
       profile: null,
       dailyLeft: null,
+      daily: null,
       // 技能养成：服务端快照 + 本次携带技能（localStorage 记住上次选择）。
       skills: null,
       selectedSkill: null,
@@ -35,13 +37,45 @@ export class GameController {
       mapCandidates: null,
     };
 
-    this.session = new SessionController(this);
-    this.run = new RunController(this);
-    this.combat = new CombatController(this);
-    this.input = new InputController(this);
+    // 子控制器只拿到自己需要的依赖与回调；GameController 是唯一的装配点与跨控制器调度者。
+    this.session = new SessionController({
+      state: this.state,
+      api: this.api,
+      ui: this.ui,
+      store: this.store,
+    });
+    this.run = new RunController({
+      state: this.state,
+      api: this.api,
+      ui: this.ui,
+      store: this.store,
+      onWaveClear: (wave, info) => this.combat.handleWaveClear(wave, info),
+      onGameOver: (stats) => this.combat.handleGameOver(stats),
+      onRequestError: (error, options) => this.handleKeyRequestError(error, options),
+      onBindCanvas: (canvas) => this.input.bindCanvas(canvas),
+      onShowTitle: () => this.session.showTitle(),
+    });
+    this.combat = new CombatController({
+      state: this.state,
+      api: this.api,
+      ui: this.ui,
+      store: this.store,
+      onRequestError: (error, options) => this.handleKeyRequestError(error, options),
+      onRefreshProfile: (options) => this.session.refreshProfile(options),
+    });
+    this.input = new InputController({ state: this.state, ui: this.ui });
   }
 
   async boot() {
+    try {
+      await this.bootInternal();
+      clearRetryableError();
+    } catch (error) {
+      this.handleKeyRequestError(error, { title: '启动失败', onRetry: () => this.boot() });
+    }
+  }
+
+  async bootInternal() {
     document.body.classList.toggle(
       'is-touch',
       navigator.maxTouchPoints > 0 || window.matchMedia('(pointer: coarse)').matches
@@ -62,6 +96,7 @@ export class GameController {
         if (this.state.dailyLeft === 0) return this.ui.toast('今日挑战次数已用完');
         this.ui.showDifficultySelect('daily', {
           dailyLeft: this.state.dailyLeft,
+          daily: this.state.daily,
           skillState: this.state.skills,
           selectedSkill: this.state.selectedSkill,
         });
@@ -120,6 +155,18 @@ export class GameController {
     // 选图阶段刷新：恢复服务端尚未选定地图的远征与同一组候选。
     await this.run.restorePendingMap();
     document.body.dataset.boot = 'ok';
+  }
+
+  // 关键请求（启动/开局/续玩/结算）失败：网络类错误给顶部可重试提示，业务错误用 toast。
+  // 完整错误始终写入控制台，界面文案不包含堆栈。
+  handleKeyRequestError(error, { title = '请求失败', onRetry = null } = {}) {
+    console.error(`[${title}]`, error);
+    const message = errorMessage(error);
+    if (isRetryableError(error) && typeof onRetry === 'function') {
+      reportRetryableError(message, onRetry);
+      return;
+    }
+    this.ui.toast(message, 3000);
   }
 
   // ---------- 大厅外壳：设置、全屏、退出、回主页 ----------

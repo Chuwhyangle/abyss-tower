@@ -5,7 +5,7 @@ import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { BALANCE } from '../public/js/shared/config.js';
-import { ENEMIES } from '../public/js/shared/data.js';
+import { DIFFICULTIES, ENEMIES } from '../public/js/shared/data.js';
 
 const STEP = 1 / 60;
 
@@ -21,7 +21,7 @@ function makeSim(waveIndex = 10) {
   });
   sim.waveDef = {
     index: waveIndex,
-    hpMul: BALANCE.bossHpGrowth ** (waveIndex - 1) * 1.1,
+    hpMul: BALANCE.bossHpGrowth ** (waveIndex - 1) * DIFFICULTIES.standard.hpMul,
     speedMul: 1,
     reward: 0,
     groups: [],
@@ -47,12 +47,12 @@ function advance(sim, seconds) {
 test('首领使用独立血量曲线，最终首领不再失控', () => {
   const wave5 = generateWave('boss-curve', 5, 'standard');
   const boss5 = wave5.groups.find((group) => group.type === 'boss');
-  const expect5 = BALANCE.bossHpGrowth ** 4 * 1.1;
+  const expect5 = BALANCE.bossHpGrowth ** 4 * DIFFICULTIES.standard.hpMul;
   assert.ok(Math.abs(boss5.hpMul - expect5) < 0.01, '第 5 波首领倍率');
 
   const wave30 = generateWave('boss-curve', 30, 'standard');
   const boss30 = wave30.groups.find((group) => group.type === 'boss');
-  const expect30 = BALANCE.bossHpGrowth ** 29 * 1.1 * BALANCE.bossFinalMul;
+  const expect30 = BALANCE.bossHpGrowth ** 29 * DIFFICULTIES.standard.hpMul * BALANCE.bossFinalMul;
   assert.ok(Math.abs(boss30.hpMul - expect30) < 0.1, '第 30 波首领倍率');
   // 旧曲线（1.165^29）约为 8.3 万；新曲线应显著低于此。
   assert.ok(boss30.hpMul * ENEMIES.boss.hp < 50000, '最终首领血量上限');

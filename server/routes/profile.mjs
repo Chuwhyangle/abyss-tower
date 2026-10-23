@@ -1,6 +1,6 @@
 // 玩家档案接口：会话初始化、档案读取、进度查询。
 import { db, updateProfile } from '../db.mjs';
-import { cleanName, dailyAttemptsLeft } from './support.mjs';
+import { cleanName, dailyAttemptsLeft, dailyState } from './support.mjs';
 
 export class ProfileRoutes {
   register(router) {
@@ -17,7 +17,11 @@ export class ProfileRoutes {
       if (!name) return ctx.fail(400, '昵称不能为空');
       profile = ctx.setProfile(updateProfile(ctx.token, { name }));
     }
-    return ctx.json(200, { profile, dailyAttemptsLeft: dailyAttemptsLeft(ctx.token) });
+    return ctx.json(200, {
+      profile,
+      dailyAttemptsLeft: dailyAttemptsLeft(ctx.token),
+      daily: dailyState(ctx.token),
+    });
   }
 
   progress(ctx) {

@@ -19,8 +19,9 @@ const staticFiles = new StaticFiles(PUBLIC_DIR);
 // ---------- server ----------
 
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  let url;
   try {
+    url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
     const mutating = req.method !== 'GET' && req.method !== 'HEAD';
     if (url.pathname.startsWith('/api/') && mutating) {
       const origin = req.headers.origin;
@@ -48,8 +49,14 @@ const server = http.createServer(async (req, res) => {
     }
     staticFiles.serve(req, res, url.pathname);
   } catch (error) {
-    console.error('[request]', req.method, url.pathname, error);
-    if (!res.headersSent) fail(res, 500, error.message || '服务器内部错误');
+    console.error('[request]', req.method, url?.pathname || req.url, error);
+    if (res.headersSent) {
+      res.destroy();
+      return;
+    }
+    const status = Number.isInteger(error?.status) ? error.status : 500;
+    // 5xx 只回固定文案：堆栈与文件系统路径只进服务端日志。
+    fail(res, status, status >= 500 ? '服务器内部错误' : error.message || '请求有误');
   }
 });
 

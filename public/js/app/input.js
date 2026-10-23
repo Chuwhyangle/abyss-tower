@@ -1,40 +1,150 @@
 // 输入层：Canvas 指针命中、建造/选择、塔面板操作与键盘快捷键。
 import { TOWER_ORDER } from '../shared/data.js';
 
+// 触屏吸附与点击判定参数；纯函数与运行时共用同一份配置。
+export const DEFAULT_TOUCH_SETTINGS = Object.freeze({
+  snapRadius: 1,
+  towerSnapRadius: 1.2,
+  tapSlopPx: 12,
+});
+
+// 与 styles.css 的移动端断点保持一致（宽 900 / 高 520）。
+export const VIEWPORT_BREAKPOINTS = Object.freeze({
+  compactWidth: 900,
+  compactHeight: 520,
+});
+
+// 手指位移不超过 slop 才算点击，超过即视为拖动/滚动，不触发建造。
+export function isTapGesture(start, end, slopPx = DEFAULT_TOUCH_SETTINGS.tapSlopPx) {
+  if (!start || !end) return true;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  return dx * dx + dy * dy <= slopPx * slopPx;
+}
+
+export function layoutForViewport(width, height) {
+  return {
+    orientation: width >= height ? 'landscape' : 'portrait',
+    compact:
+      width <= VIEWPORT_BREAKPOINTS.compactWidth || height <= VIEWPORT_BREAKPOINTS.compactHeight,
+  };
+}
+
+export function nearestBuildable(sim, c, r, radius = DEFAULT_TOUCH_SETTINGS.snapRadius) {
+  let best = null;
+  let bestDist = Infinity;
+  for (let dr = -radius; dr <= radius; dr++) {
+    for (let dc = -radius; dc <= radius; dc++) {
+      const nc = c + dc;
+      const nr = r + dr;
+      if (!sim.canBuild(nc, nr)) continue;
+      const dist = dc * dc + dr * dr;
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { c: nc, r: nr };
+      }
+    }
+  }
+  return best;
+}
+
+export function nearestTower(sim, c, r, radius = DEFAULT_TOUCH_SETTINGS.towerSnapRadius) {
+  let best = null;
+  let bestDist = radius * radius;
+  for (const tower of sim.towers) {
+    const dc = tower.c - c;
+    const dr = tower.r - r;
+    const dist = dc * dc + dr * dr;
+    if (dist <= bestDist) {
+      bestDist = dist;
+      best = tower;
+    }
+  }
+  return best;
+}
+
+// 触屏落点吸附：已命中的塔优先，其次吸附到附近可建格；边界外只认 sim.canBuild 的格子。
+export function resolveTouchTile(sim, tile, settings = DEFAULT_TOUCH_SETTINGS) {
+  if (!sim || !tile) return tile;
+  if (sim.towerAt(tile.c, tile.r)) return tile;
+  if (sim.placementType) {
+    return sim.canBuild(tile.c, tile.r)
+      ? tile
+      : nearestBuildable(sim, tile.c, tile.r, settings.snapRadius) || tile;
+  }
+  const tower = nearestTower(sim, tile.c, tile.r, settings.towerSnapRadius);
+  return tower ? { c: tower.c, r: tower.r } : tile;
+}
+
+// 鼠标与触控共用同一条落点解析路径：鼠标不吸附，触控才吸附。
+export function resolvePointerTile(
+  sim,
+  tile,
+  pointerType,
+  settings = DEFAULT_TOUCH_SETTINGS
+) {
+  if (!tile) return tile;
+  return pointerType === 'touch' ? resolveTouchTile(sim, tile, settings) : tile;
+}
+
 export class InputController {
-  constructor(game) {
-    this.game = game;
+  constructor({ state, ui }, touchSettings = DEFAULT_TOUCH_SETTINGS) {
+    this.state = state;
+    this.ui = ui;
     this.lastPointerType = 'mouse';
-  }
-
-  get state() {
-    return this.game.state;
-  }
-
-  get ui() {
-    return this.game.ui;
+    this.touchSettings = touchSettings;
+    this.gestureStart = null;
+    this.gestureDragged = false;
   }
 
   bindCanvas(canvas) {
     const updateHover = (event) => {
       const sim = this.state.sim;
       if (!sim) return;
-      let tile = this.state.app.renderer.screenToTile(event);
-      if (event.pointerType === 'touch') tile = this.resolveTouchTile(sim, tile);
+      const tile = resolvePointerTile(
+        sim,
+        this.state.app.renderer.screenToTile(event),
+        event.pointerType || this.lastPointerType,
+        this.touchSettings
+      );
       sim.hover = tile;
       const overTower = sim.towerAt(tile.c, tile.r);
       canvas.style.cursor = sim.placementType || overTower ? 'pointer' : 'default';
     };
 
+    const trackGesture = (event) => {
+      this.lastPointerType = event.pointerType || 'mouse';
+      this.gestureStart =
+        this.lastPointerType === 'touch' ? { x: event.clientX, y: event.clientY } : null;
+      this.gestureDragged = false;
+    };
+    // 手指移动超过点击阈值后标记为拖动：抬起产生的 click 不再建造，避免滚动误触。
+    const finishGesture = (event) => {
+      if (this.lastPointerType !== 'touch' || !this.gestureStart) return;
+      const end = { x: event.clientX, y: event.clientY };
+      if (!isTapGesture(this.gestureStart, end, this.touchSettings.tapSlopPx)) {
+        this.gestureDragged = true;
+      }
+    };
+
     canvas.onpointermove = (event) => {
       this.lastPointerType = event.pointerType || 'mouse';
-      if (event.pointerType === 'touch') return;
+      if (event.pointerType === 'touch') {
+        finishGesture(event);
+        return;
+      }
+      this.gestureStart = null;
       updateHover(event);
     };
     // 触屏没有 hover：按下时先给出射程/合法性预览，抬起后的 click 完成建造。
     canvas.onpointerdown = (event) => {
-      this.lastPointerType = event.pointerType || 'mouse';
+      trackGesture(event);
       if (event.pointerType === 'touch') updateHover(event);
+    };
+    canvas.onpointerup = (event) => finishGesture(event);
+    canvas.onpointercancel = () => {
+      this.gestureStart = null;
+      this.gestureDragged = false;
     };
     canvas.onpointerleave = () => {
       if (this.state.sim) this.state.sim.hover = null;
@@ -50,8 +160,17 @@ export class InputController {
   handleCanvasClick(event) {
     const sim = this.state.sim;
     if (!sim || sim.phase === 'over' || this.ui.hasModal()) return;
-    let tile = this.state.app.renderer.screenToTile(event);
-    if (this.lastPointerType === 'touch') tile = this.resolveTouchTile(sim, tile);
+    // 本次触屏手势是拖动/滚动：吞掉 click，既不建造也不改选中。
+    if (this.lastPointerType === 'touch' && this.gestureDragged) {
+      this.gestureDragged = false;
+      return;
+    }
+    const tile = resolvePointerTile(
+      sim,
+      this.state.app.renderer.screenToTile(event),
+      this.lastPointerType,
+      this.touchSettings
+    );
     const tower = sim.towerAt(tile.c, tile.r);
 
     if (sim.placementType && !tower) {
@@ -188,47 +307,15 @@ export class InputController {
     return ok;
   }
 
-  nearestBuildable(sim, c, r, radius = 1) {
-    let best = null;
-    let bestDist = Infinity;
-    for (let dr = -radius; dr <= radius; dr++) {
-      for (let dc = -radius; dc <= radius; dc++) {
-        const nc = c + dc;
-        const nr = r + dr;
-        if (!sim.canBuild(nc, nr)) continue;
-        const dist = dc * dc + dr * dr;
-        if (dist < bestDist) {
-          bestDist = dist;
-          best = { c: nc, r: nr };
-        }
-      }
-    }
-    return best;
+  nearestBuildable(sim, c, r, radius = this.touchSettings.snapRadius) {
+    return nearestBuildable(sim, c, r, radius);
   }
 
-  nearestTower(sim, c, r, radius = 1.2) {
-    let best = null;
-    let bestDist = radius * radius;
-    for (const tower of sim.towers) {
-      const dc = tower.c - c;
-      const dr = tower.r - r;
-      const dist = dc * dc + dr * dr;
-      if (dist <= bestDist) {
-        bestDist = dist;
-        best = tower;
-      }
-    }
-    return best;
+  nearestTower(sim, c, r, radius = this.touchSettings.towerSnapRadius) {
+    return nearestTower(sim, c, r, radius);
   }
 
   resolveTouchTile(sim, tile) {
-    if (sim.towerAt(tile.c, tile.r)) return tile;
-    if (sim.placementType) {
-      return sim.canBuild(tile.c, tile.r)
-        ? tile
-        : this.nearestBuildable(sim, tile.c, tile.r, 1) || tile;
-    }
-    const tower = this.nearestTower(sim, tile.c, tile.r, 1.2);
-    return tower ? { c: tower.c, r: tower.r } : tile;
+    return resolveTouchTile(sim, tile, this.touchSettings);
   }
 }

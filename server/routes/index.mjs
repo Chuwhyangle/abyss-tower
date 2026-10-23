@@ -10,6 +10,8 @@ import { LeaderboardRoutes } from './leaderboard.mjs';
 import { RunRoutes } from './runs.mjs';
 import { SkillRoutes } from './skills.mjs';
 import { UnlockRoutes } from './unlock.mjs';
+import { AchievementRoutes } from './achievements.mjs';
+import { StatsRoutes } from './stats.mjs';
 
 // 门禁：解析会话/旧令牌，确保玩家档案存在；失败时直接回 401。
 export function createGameGate() {
@@ -34,5 +36,7 @@ export function createApiRouter() {
     .addProtected(new LeaderboardRoutes())
     .addProtected(new RunRoutes())
     .addProtected(new SkillRoutes())
-    .addProtected(new UnlockRoutes());
+    .addProtected(new UnlockRoutes())
+    .addProtected(new AchievementRoutes())
+    .addProtected(new StatsRoutes());
 }
