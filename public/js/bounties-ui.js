@@ -38,7 +38,7 @@ function card(item) {
     <article class="achievement-card rarity-common${item.claimed ? ' unlocked' : ''}">
       <h3>
         <span>${escapeHtml(item.title)}</span>
-        <span class="achievement-rarity">${escapeHtml(state)}</span>
+        <span class="achievement-rarity">${escapeHtml(item.tierLabel || '普通')} · ${escapeHtml(state)}</span>
         <span class="achievement-state">${Number(item.reward) || 0} 星核</span>
       </h3>
       <p>${escapeHtml(item.desc)}</p>
@@ -47,7 +47,16 @@ function card(item) {
     </article>`;
 }
 
-function periodSection(period) {
+function refreshButton(period, refresh) {
+  if (period?.period !== 'weekly') return '';
+  const remaining = Math.max(0, Number(refresh?.remaining) || 0);
+  if (!remaining) {
+    return '<button class="btn small" type="button" disabled>本周已刷新</button>';
+  }
+  return `<button class="btn small" type="button" data-refresh="1">刷新本周悬赏（剩 ${remaining} 次）</button>`;
+}
+
+function periodSection(period, refresh) {
   const bounties = Array.isArray(period?.bounties) ? period.bounties : [];
   if (!bounties.length) return '';
   const label = PERIOD_LABELS[period.period] || period.label || period.period;
@@ -57,6 +66,7 @@ function periodSection(period) {
         <h3 class="achievement-group-title">${escapeHtml(label)}悬赏
           <span class="achievement-group-count">${Number(period.claimedCount) || 0} / ${bounties.length}</span>
         </h3>
+        ${refreshButton(period, refresh)}
       </div>
       <div class="achievement-group-grid">${bounties.map(card).join('')}</div>
     </section>`;
@@ -69,9 +79,12 @@ function render(panel, data) {
     list.innerHTML = '<p class="achievement-hint">暂无悬赏</p>';
     return;
   }
-  list.innerHTML = periods.map(periodSection).join('');
+  list.innerHTML = periods.map((period) => periodSection(period, data?.refresh)).join('');
   for (const button of list.querySelectorAll('[data-claim]')) {
     button.addEventListener('click', () => claim(panel, button.dataset.claim));
+  }
+  for (const button of list.querySelectorAll('[data-refresh]')) {
+    button.addEventListener('click', () => refreshBoard(panel));
   }
 }
 
@@ -91,6 +104,25 @@ async function claim(panel, bountyId) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
     note.textContent = escapeHtml(error.message || '领取失败');
+    list.prepend(note);
+  }
+}
+
+async function refreshBoard(panel) {
+  if (!window.confirm('刷新会更换本周悬赏目标，每周仅限一次，确认刷新？')) return;
+  const list = panel.querySelector('#bounties-list');
+  try {
+    const response = await fetch('/api/bounties/refresh', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || '刷新失败');
+    await load(panel);
+  } catch (error) {
+    const note = document.createElement('p');
+    note.className = 'achievement-hint';
+    note.textContent = escapeHtml(error.message || '刷新失败');
     list.prepend(note);
   }
 }

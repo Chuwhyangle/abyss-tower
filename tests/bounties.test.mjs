@@ -16,6 +16,7 @@ import {
   bountyPeriodBounds,
   bountyPeriodKey,
   bountyProgress,
+  bountyReward,
   deriveBounties,
 } from '../public/js/shared/bounties.js';
 import { weekKey } from '../public/js/shared/scoring.js';
@@ -121,6 +122,8 @@ before(async () => {
 
   // 三局完整通关：runs / wins / maxKills / maxWave / maxScore / flawless 等指标均达成。
   for (let i = 0; i < 3; i++) insertFinishedRun({ id: `run-${i}` });
+  // 再加一局深渊通关：让「通关深渊」类目标也能完成，避免每日目标随派生结果不可领取。
+  insertFinishedRun({ id: 'run-abyss', difficulty: 'abyss' });
 
   server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
     cwd: ROOT,
@@ -179,7 +182,8 @@ test('同一周期派生稳定，且目标数、目标池与奖励集中定义',
       assert.ok(BOUNTY_BY_ID[bounty.id], `未知目标：${bounty.id}`);
       assert.equal(bounty.period, period);
       assert.equal(bounty.periodKey, key);
-      assert.equal(bounty.reward, BOUNTY_REWARDS[period]);
+      assert.equal(bounty.reward, bountyReward(period, bounty.tier));
+      assert.ok(bounty.reward >= BOUNTY_REWARDS[period]);
       assert.ok(bounty.target > 0);
       assert.ok(bounty.desc.includes(String(bounty.target)));
     }
@@ -246,7 +250,7 @@ test('汇总返回三个周期，每个周期三个目标并落库进度', () =>
     assert.equal(period.key, bountyPeriodKey(period.period));
     assert.equal(period.bounties.length, BOUNTIES_PER_PERIOD);
     for (const bounty of period.bounties) {
-      assert.equal(bounty.reward, BOUNTY_REWARDS[period.period]);
+      assert.equal(bounty.reward, bountyReward(period.period, bounty.tier));
       assert.equal(bounty.claimed, false);
       const row = db
         .prepare(

@@ -374,6 +374,8 @@ leaderboard(
 |---|---|---|---|
 | POST | `/api/session` | `{name?}` | `{profile, dailyAttemptsLeft, daily}`（`daily = {day, seed, modifiers[], streak}`） |
 | GET | `/api/profile` | — | `{profile}` |
+| GET | `/api/profile/skins` | — | `{selected, skins[], sets[]}`；`sets` 为套装画廊（成员解锁态与收集进度，纯表现） |
+| PUT | `/api/profile/skins` | `{tower?, enemy?}` | 同 GET；未解锁/错对象 403/400 |
 | POST | `/api/runs` | `{mode, difficulty}` | 见下 |
 | GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls） |
 | POST | `/api/runs/:id/map` | `{index}` | `{map, mapMeta, mapChoice}`；开局前选择三张候选之一 |

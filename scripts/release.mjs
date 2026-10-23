@@ -2,6 +2,7 @@
 // 发布自动化：prepare / build / verify。
 // 默认 dry-run，写操作必须显式 --yes；只依赖 Node 内置模块。
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,7 @@ const CONTENT_VERSION_PATTERN =
 const CHANGELOG_HEADING_LINE = /^##\s+(v?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)\b/;
 
 // 发布树只保留代码与文档；任务板属于本地工作流，不进发布产物。
+// 仓库骨架（.gitignore、CI 配置等）必须保留：不跟着被排除。
 export const RELEASE_EXCLUDED_PATHS = Object.freeze(['tasks', 'goals', '.quay']);
 
 const normalizeVersion = (version) => version.replace(/^v/, '');
@@ -51,12 +53,28 @@ function errorSummary(error) {
   return text.split('\n')[0] || '未知错误';
 }
 
-function runGit(root, args) {
+function runGit(root, args, env = {}) {
   return execFileSync('git', ['-C', root, ...args], {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     maxBuffer: 10 * 1024 * 1024,
+    env: { ...process.env, ...env },
   }).trim();
+}
+
+// 把来源 ref 物化成独立目录：临时 index + read-tree/checkout-index。
+// 不注册 git worktree，也不改源仓库自己的 index —— 发布树生成失败时源仓库无残留。
+function materializeRefTree(root, refCommit, outDir) {
+  const indexDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-release-index-'));
+  const indexFile = path.join(indexDir, 'index');
+  try {
+    runGit(root, ['read-tree', refCommit], { GIT_INDEX_FILE: indexFile });
+    runGit(root, ['checkout-index', '-a', '-f', `--prefix=${outDir}${path.sep}`], {
+      GIT_INDEX_FILE: indexFile,
+    });
+  } finally {
+    fs.rmSync(indexDir, { recursive: true, force: true });
+  }
 }
 
 function isGitRepository(root) {
@@ -407,28 +425,23 @@ export function buildRelease(
     return { ok: true, dryRun: true, errors, info, outDir, ref, refCommit };
   }
 
-  fs.mkdirSync(path.dirname(outDir), { recursive: true });
+  const existedBefore = fs.existsSync(outDir);
+  fs.mkdirSync(outDir, { recursive: true });
   try {
-    runGit(root, ['worktree', 'add', '--detach', outDir, refCommit]);
+    materializeRefTree(root, refCommit, outDir);
+    for (const entry of RELEASE_EXCLUDED_PATHS) {
+      fs.rmSync(path.join(outDir, entry), { recursive: true, force: true });
+    }
   } catch (error) {
+    fs.rmSync(outDir, { recursive: true, force: true });
+    if (existedBefore) fs.mkdirSync(outDir, { recursive: true });
     return {
       ok: false,
-      errors: [`git: 创建发布树失败（${errorSummary(error)}）`],
+      errors: [`git: 物化发布树失败（${errorSummary(error)}）`],
       info,
       outDir,
       ref,
     };
-  }
-
-  for (const entry of RELEASE_EXCLUDED_PATHS) {
-    fs.rmSync(path.join(outDir, entry), { recursive: true, force: true });
-  }
-  // 发布树是独立产物，不保留指向源仓库的 .git 文件。
-  fs.rmSync(path.join(outDir, '.git'), { force: true });
-  try {
-    runGit(root, ['worktree', 'prune']);
-  } catch {
-    // 清理元数据失败不影响发布树本身。
   }
 
   info.push(`发布树已生成：${outDir}`);
