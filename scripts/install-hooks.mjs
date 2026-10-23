@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 安装 git pre-push 钩子：推送前跑语法检查，HOOK_FULL=1 时加跑完整测试。
+// 安装 git pre-push 分级门禁：默认语法 + 版本一致性，HOOK_FULL=1 时加跑完整测试与性能预算。
 // 零依赖、幂等；不覆盖非本工具写入的已有钩子。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,14 +17,24 @@ ${MARKER}
 
 set -e
 
-echo "[pre-push] 语法检查…"
-npm run check:syntax
+run_check() {
+  label=$1
+  shift
+  echo "[pre-push] \${label}…"
+  if ! "$@"; then
+    echo "[pre-push] ✗ \${label}未通过" >&2
+    exit 1
+  fi
+}
+
+run_check "语法检查" npm run check:syntax
+run_check "版本一致性检查" node scripts/check-version.mjs
 
 if [ "\${HOOK_FULL:-0}" = "1" ]; then
-  echo "[pre-push] HOOK_FULL=1：运行完整测试…"
-  npm test
+  run_check "完整测试" npm test
+  run_check "性能预算快速集" npm run perf:budget
 else
-  echo "[pre-push] 已跳过完整测试（HOOK_FULL=1 可启用）"
+  echo "[pre-push] 已跳过完整测试与性能预算（HOOK_FULL=1 可启用）"
 fi
 `;
 
@@ -109,7 +119,7 @@ function install(plan) {
   fs.writeFileSync(plan.target, plan.content, { mode: 0o755 });
   fs.chmodSync(plan.target, 0o755);
   console.log(`已安装 pre-push 钩子：${plan.target}`);
-  console.log('默认只跑语法检查；设置 HOOK_FULL=1 可在推送前跑完整测试。');
+  console.log('默认跑语法检查与版本一致性；设置 HOOK_FULL=1 可加跑完整测试与性能预算。');
   return 0;
 }
 

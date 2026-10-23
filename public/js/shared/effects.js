@@ -165,6 +165,20 @@ export const RELIC_SET_BONUSES = {
       { pieces: 4, mods: { goldMul: 0.1 } },
     ],
   },
+  gambit: {
+    name: '孤注同盟',
+    tiers: [
+      { pieces: 2, mods: { lowHpDmg: 0.06 } },
+      { pieces: 4, mods: { crit: 0.06 } },
+    ],
+  },
+  synergy: {
+    name: '星轨共鸣',
+    tiers: [
+      { pieces: 2, mods: { fireRate: 0.05 } },
+      { pieces: 4, mods: { dot: 0.12 } },
+    ],
+  },
 };
 
 function getRelicSet(setId) {

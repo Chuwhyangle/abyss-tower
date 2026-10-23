@@ -33,6 +33,10 @@ export const RELICS = [
   { id: 'spareparts', name: '备用零件', rarity: 'common', set: 'guild', desc: '建造与升级费用 -5%，每次击杀额外获得 1 金币', mods: { costMul: -0.05, killGold: 1 } },
   { id: 'scouthorn', name: '侦察号角', rarity: 'common', desc: '所有防御塔射程 +0.4 格，攻击速度 +5%', mods: { range: 0.4, fireRate: 0.05 } },
   { id: 'bloodpact', name: '血誓木牌', rarity: 'common', desc: '基地生命低于 40% 时全体伤害 +12%，暴击率 +5%', mods: { lowHpDmg: 0.12, crit: 0.05 } },
+  { id: 'bloodstake', name: '血脉赌注', rarity: 'common', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +8%', mods: { lowHpDmg: 0.08 } },
+  { id: 'highroller', name: '孤注一掷', rarity: 'common', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +6%，每次击杀额外获得 1 金币', mods: { lowHpDmg: 0.06, killGold: 1 } },
+  { id: 'moonwell', name: '月井之泉', rarity: 'common', set: 'synergy', desc: '减速强度 +4%，减速持续 +10%', mods: { slow: 0.04, slowDur: 0.1 } },
+  { id: 'embertrace', name: '余烬星痕', rarity: 'common', set: 'synergy', desc: '毒伤 +10%，溅射范围 +5%', mods: { dot: 0.1, splash: 0.05 } },
 
   { id: 'powder', name: '火药桶', rarity: 'rare', desc: '炮台伤害 +20%，溅射范围 +35%', mods: { dmg: { cannon: 0.2 }, splash: 0.35 } },
   { id: 'frostheart', name: '极寒之心', rarity: 'rare', set: 'frost', desc: '减速效果 +15%，持续时间 +30%', mods: { slow: 0.15, slowDur: 0.3 } },
@@ -48,6 +52,9 @@ export const RELICS = [
   { id: 'auroraveil', name: '极光帷幕', rarity: 'rare', set: 'frost', desc: '被减速的敌人受到的所有伤害 +10%，减速持续 +20%', mods: { frostDmgBonus: 0.1, slowDur: 0.2 } },
   { id: 'skyfall', name: '天火共鸣', rarity: 'rare', desc: '溅射范围 +25%，全体伤害 +5%', mods: { splash: 0.25, dmgAll: 0.05 } },
   { id: 'gamblerscoin', name: '赌徒金币', rarity: 'rare', desc: '攻击有 12% 概率造成双倍伤害，每波结束额外获得当前金币 3% 的利息', mods: { crit: 0.12, interest: 0.03 } },
+  { id: 'adrenaline', name: '肾上腺素', rarity: 'rare', set: 'gambit', desc: '攻击速度 +10%，基地生命低于 40% 时全体伤害 +10%', mods: { fireRate: 0.1, lowHpDmg: 0.1 } },
+  { id: 'martyr', name: '殉道誓约', rarity: 'rare', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +12%，暴击率 +6%', mods: { lowHpDmg: 0.12, crit: 0.06 } },
+  { id: 'cometcore', name: '彗星核心', rarity: 'rare', set: 'synergy', desc: '毒伤 +20%，溅射范围 +12%', mods: { dot: 0.2, splash: 0.12 } },
 
   { id: 'warlord', name: '战争领主', rarity: 'epic', desc: '所有防御塔伤害 +18%', mods: { dmgAll: 0.18 } },
   { id: 'warhorn', name: '战争号角', rarity: 'epic', desc: '所有防御塔攻击速度 +25%', mods: { fireRate: 0.25 } },
@@ -57,6 +64,9 @@ export const RELICS = [
   { id: 'bastion', name: '钢铁壁垒', rarity: 'epic', desc: '立即恢复并提高 10 点基地生命', mods: { baseHp: 10 } },
   { id: 'eclipsehour', name: '蚀时印记', rarity: 'epic', desc: '所有防御塔攻击速度 +18%，射程 +0.5 格', mods: { fireRate: 0.18, range: 0.5 } },
   { id: 'bloodtide', name: '血潮契约', rarity: 'epic', desc: '基地生命低于 40% 时全体伤害 +30%，每次击杀额外获得 2 金币', mods: { lowHpDmg: 0.3, killGold: 2 } },
+  { id: 'doomclock', name: '末日时钟', rarity: 'epic', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +20%，暴击率 +10%', mods: { lowHpDmg: 0.2, crit: 0.1 } },
+  { id: 'stasislens', name: '凝时棱镜', rarity: 'epic', set: 'synergy', desc: '攻击速度 +12%，射程 +0.4 格，减速持续 +15%', mods: { fireRate: 0.12, range: 0.4, slowDur: 0.15 } },
+  { id: 'starforge', name: '星铸炉心', rarity: 'epic', set: 'synergy', desc: '全体伤害 +8%，毒伤 +12%，减速强度 +3%', mods: { dmgAll: 0.08, dot: 0.12, slow: 0.03 } },
 ];
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));
