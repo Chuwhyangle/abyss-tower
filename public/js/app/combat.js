@@ -93,7 +93,13 @@ export class CombatController {
     } catch (error) {
       console.warn('[relics] 回退到本地抽取', error);
       data = {
-        offers: rollRelicOffers(`${state.run.seed}:fallback:${wave}`, sim.relics, 3, wave),
+        offers: rollRelicOffers(
+          `${state.run.seed}:fallback:${wave}`,
+          sim.relics,
+          3,
+          wave,
+          state.run.mode
+        ),
         rerollsUsed: 0,
         maxRerolls: 0,
       };

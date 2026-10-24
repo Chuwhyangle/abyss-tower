@@ -1,7 +1,7 @@
 // 赛季通行证持久化：积分由赛季内的对局、赛季悬赏与成就三类来源派生，里程碑领取与奖励发放同事务。
 // 赛季边界直接复用排行榜的 seasonOf / seasonBounds，保证与榜单口径一致。
 import { db, grantCores, getCores, transaction } from '../db.mjs';
-import { seasonBounds, seasonOf } from './leaderboard.mjs';
+import { isSeasonKey, seasonBounds, seasonOf } from './leaderboard.mjs';
 import { ACHIEVEMENT_BY_ID } from '../../public/js/shared/achievements.js';
 import {
   SEASON_PASS_MAX_POINTS,
@@ -15,6 +15,7 @@ import {
   seasonBountyPoints,
   seasonPassMilestone,
   seasonPassProgress,
+  seasonPassTerminal,
 } from '../../public/js/shared/season-pass.js';
 
 const SHARD_CURRENCY = 'skin_shards';
@@ -293,6 +294,115 @@ export function seasonPassSummary(accountId, now = Date.now()) {
     claimableCount: milestones.filter((milestone) => milestone.claimable).length,
     wallet: wallet(accountId),
     sources: breakdown.sources,
+    milestones,
+  };
+}
+
+// 历史归档：赛季结束后把最终派生结果固化一次，之后只读，不再随新赛季数据变化。
+// 用独立标记键保证幂等：已有标记的历史赛季不会被覆盖。
+const archiveKey = (season) => `archive:${season}`;
+
+export function archiveSeasonPassSeason(accountId, season) {
+  if (!isSeasonKey(season)) return null;
+  const bounds = seasonBounds(season);
+  if (!bounds) return null;
+
+  const marker = db
+    .prepare('SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?')
+    .get(accountId, SOURCE_NAMESPACE, archiveKey(season));
+  if (marker) return { season, archived: false, points: storedPoints(accountId, season) };
+
+  const breakdown = seasonSources(accountId, season, bounds);
+  const claims = db
+    .prepare('SELECT COUNT(*) AS total FROM account_season_pass_claims WHERE account_id = ? AND season = ?')
+    .get(accountId, season);
+  if (breakdown.total === 0 && Number(claims?.total) === 0) {
+    return { season, archived: false, points: 0 };
+  }
+
+  const archivedAt = bounds.end - 1;
+  transaction(() => {
+    recordPoints(accountId, season, breakdown.total, archivedAt);
+    recordSources(accountId, season, breakdown, archivedAt);
+    db.prepare(
+      `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(account_id, namespace, key) DO NOTHING`
+    ).run(
+      accountId,
+      SOURCE_NAMESPACE,
+      archiveKey(season),
+      JSON.stringify({ season, points: breakdown.total, archivedAt }),
+      archivedAt
+    );
+  });
+  return { season, archived: true, points: breakdown.total };
+}
+
+// 历史赛季列表：只暴露当前赛季之前的已归档赛季，按时间倒序。
+export function listSeasonPassHistory(accountId, currentSeason = seasonOf()) {
+  const rows = db
+    .prepare(
+      `SELECT season FROM account_season_pass WHERE account_id = ?
+        UNION
+       SELECT season FROM account_season_pass_claims WHERE account_id = ?
+       ORDER BY season DESC`
+    )
+    .all(accountId, accountId);
+  return rows
+    .map((row) => row.season)
+    .filter((season) => isSeasonKey(season) && (!currentSeason || season < currentSeason));
+}
+
+function archivedSources(accountId, season, points) {
+  const row = db
+    .prepare('SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?')
+    .get(accountId, SOURCE_NAMESPACE, `sources:${season}`);
+  if (row) {
+    try {
+      const value = JSON.parse(row.value_json || 'null');
+      if (value && Array.isArray(value.sources)) return value.sources;
+    } catch {
+      /* 坏数据回退到纯总分 */
+    }
+  }
+  return pointsBreakdown(points).sources;
+}
+
+// 历史赛季终态：只读快照 + 领取记录，返回与当前赛季同形的轨道，但 claimable 恒为 false。
+export function seasonPassArchivedSummary(accountId, season) {
+  if (!isSeasonKey(season)) return null;
+  const bounds = seasonBounds(season);
+  if (!bounds) return null;
+
+  const snapshot = db
+    .prepare('SELECT points FROM account_season_pass WHERE account_id = ? AND season = ?')
+    .get(accountId, season);
+  const rows = claimRows(accountId, season);
+  if (!snapshot && rows.length === 0) return null;
+
+  const points = Math.max(0, Math.floor(Number(snapshot?.points) || 0));
+  const claimedAt = new Map(rows.map((row) => [row.milestone_id, Number(row.claimed_at)]));
+  const terminal = seasonPassTerminal({ points, claimed: [...claimedAt.keys()] });
+  const milestones = terminal.milestones.map((milestone) => ({
+    ...milestone,
+    claimedAt: claimedAt.get(milestone.id) ?? null,
+  }));
+
+  return {
+    season,
+    label: seasonLabel(season),
+    closed: true,
+    readOnly: true,
+    points,
+    maxPoints: SEASON_PASS_MAX_POINTS,
+    startsAt: bounds.start,
+    endsAt: bounds.end,
+    claimedCount: terminal.claimedCount,
+    claimableCount: 0,
+    missedCount: terminal.missedCount,
+    completedCount: terminal.completedCount,
+    sources: archivedSources(accountId, season, points),
     milestones,
   };
 }

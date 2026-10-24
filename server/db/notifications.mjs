@@ -14,15 +14,27 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const ARCHIVE_NAMESPACE = 'notifications';
 const ARCHIVE_KEY = 'archive';
 
-// 通知偏好：成就 / 悬赏 / 赛季三类，默认全部接收。
-export const NOTIFICATION_KINDS = ['achievement', 'bounty', 'season'];
-export const DEFAULT_NOTIFICATION_PREFS = Object.freeze({
-  achievement: true,
-  bounty: true,
-  season: true,
+// 通知类型 → 偏好键的唯一映射。新增类型只改这里，读写两侧不会各自漂移。
+// 公告偏好键用复数 announcements，避免与 kind 同名混淆。
+export const NOTIFICATION_PREF_KEYS = Object.freeze({
+  achievement: 'achievement',
+  bounty: 'bounty',
+  season: 'season',
+  announcement: 'announcements',
 });
+export const NOTIFICATION_KINDS = Object.freeze(Object.keys(NOTIFICATION_PREF_KEYS));
+export const DEFAULT_NOTIFICATION_PREFS = Object.freeze(
+  Object.fromEntries(Object.values(NOTIFICATION_PREF_KEYS).map((key) => [key, true]))
+);
+
+// 重要公告（维护、停服等）不受偏好开关影响，必须送达。
+export function isImportantAnnouncement({ kind, payload, important = false } = {}) {
+  if (kind !== 'announcement') return false;
+  return important === true || payload?.important === true;
+}
 const PREFS_NAMESPACE = 'notifications';
 const PREFS_KEY = 'prefs';
+const PREF_KEYS = Object.freeze(Object.values(NOTIFICATION_PREF_KEYS));
 
 function parsePayload(text) {
   try {
@@ -52,7 +64,7 @@ export function normalizePrefs(raw, warn = console.warn) {
   const prefs = {};
   const invalid = [];
   for (const [key, value] of Object.entries(source)) {
-    if (!NOTIFICATION_KINDS.includes(key)) {
+    if (!PREF_KEYS.includes(key)) {
       invalid.push(key);
       if (typeof warn === 'function') {
         warn(`[notifications] 忽略未知偏好 ${key}`);
@@ -118,16 +130,25 @@ export function writePrefs(accountId, patch, now = Date.now()) {
 }
 
 function isKindEnabled(accountId, kind) {
-  if (!NOTIFICATION_KINDS.includes(kind)) return true;
-  return readPrefs(accountId)[kind] !== false;
+  const prefKey = NOTIFICATION_PREF_KEYS[kind];
+  if (!prefKey) return true;
+  return readPrefs(accountId)[prefKey] !== false;
 }
 
 // 通知是附加反馈：缺表、约束冲突、锁等待等任何失败都只吞掉，返回 null。
 // 同一 (kind, dedupeKey) 重复写入保持幂等，不会新增未读。
-export function notify(accountId, { kind, dedupeKey, payload = {} }, now = Date.now()) {
+export function notify(
+  accountId,
+  { kind, dedupeKey, payload = {}, important = false },
+  now = Date.now()
+) {
   if (!accountId || !kind || !dedupeKey) return null;
-  // 关闭的类型只停止产生新的未读，历史记录保持可读。
-  if (!isKindEnabled(accountId, kind)) return null;
+  const importantAnnouncement = isImportantAnnouncement({ kind, payload, important });
+  // 关闭的类型只停止产生新的未读，历史记录保持可读；重要公告是维护信息，不受偏好影响。
+  if (!importantAnnouncement && !isKindEnabled(accountId, kind)) return null;
+  const basePayload =
+    payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : {};
+  const storedPayload = importantAnnouncement ? { ...basePayload, important: true } : payload ?? {};
   try {
     const result = db
       .prepare(
@@ -136,7 +157,7 @@ export function notify(accountId, { kind, dedupeKey, payload = {} }, now = Date.
          VALUES (?, ?, ?, ?, ?, NULL)
          ON CONFLICT(account_id, kind, dedupe_key) DO NOTHING`
       )
-      .run(accountId, kind, dedupeKey, JSON.stringify(payload ?? {}), now);
+      .run(accountId, kind, dedupeKey, JSON.stringify(storedPayload), now);
     if (result.changes !== 1) return null;
     prune(accountId);
     return { kind, dedupeKey };

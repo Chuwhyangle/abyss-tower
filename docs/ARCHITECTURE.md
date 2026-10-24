@@ -177,7 +177,7 @@ ui.js / app/controller.js
 | 层 | 命令 | 代表文件 | 守住什么 |
 |---|---|---|---|
 | 单元 / 集成 | `npm test` | `tests/*.test.mjs` | 规则、模拟、快照、服务端接口与迁移 |
-| 静态检查 | `npm run check:syntax`、`check:imports`、`check:dead-exports`、`check:version` | `scripts/` | 语法、import 图、死导出、版本一致性 |
+| 静态检查 | `npm run check:syntax`、`check:imports`、`check:dead-exports`、`check:version`、`check:docs` | `scripts/` | 语法、import 图、死导出、版本一致性、文档链接与路径 |
 | 浏览器验收 | `npm run verify:browser`（含 `smoke` / `flow` / `test:map` / `test:mobile` / `test:auth:ui` / `test:relics` / `test:settings`） | `tests/browser-*.mjs` | 页面流程、刷新续玩、移动端、可访问性交互 |
 | 平衡 | `npm run balance`、`npm run sweep` | `tests/balance-sim.mjs`、`tests/balance-sweep.mjs` | 通关率与难度曲线回归 |
 | 性能 | `npm run perf` | `tests/dynamic-perf.mjs` | 帧耗时、慢帧、实体预算、画质一致性 |

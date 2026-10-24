@@ -148,17 +148,17 @@ after(() => {
 });
 
 test('偏好默认全开，读写后按类型持久化', () => {
-  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: true, season: true });
-  assert.deepEqual(DEFAULT_NOTIFICATION_PREFS, { achievement: true, bounty: true, season: true });
+  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: true, season: true, announcements: true });
+  assert.deepEqual(DEFAULT_NOTIFICATION_PREFS, { achievement: true, bounty: true, season: true, announcements: true });
 
   const saved = writePrefs(ALICE, { season: false });
-  assert.deepEqual(saved.prefs, { achievement: true, bounty: true, season: false });
+  assert.deepEqual(saved.prefs, { achievement: true, bounty: true, season: false, announcements: true });
   assert.deepEqual(saved.invalid, []);
-  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: true, season: false });
+  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: true, season: false, announcements: true });
 
   // 只更新给出的类型，未提及的保持原值。
   writePrefs(ALICE, { bounty: false });
-  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: false, season: false });
+  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: false, season: false, announcements: true });
 });
 
 test('关闭某类型后不再产生新的未读，历史仍可读', () => {
@@ -216,7 +216,7 @@ test('非法偏好回退默认并记录警告', () => {
   assert.equal(warnings.length, 3, '每个非法字段记录一条警告');
   assert.ok(warnings.some((line) => line.includes('achievement')));
   // 只有非法字段回退默认，未提及的 season 保持此前关闭的状态。
-  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: true, season: false });
+  assert.deepEqual(readPrefs(ALICE), { achievement: true, bounty: true, season: false, announcements: true });
 
   assert.deepEqual(normalizePrefs(null), { prefs: {}, invalid: [] });
   assert.deepEqual(normalizePrefs(['nope']), { prefs: {}, invalid: [] });
@@ -231,7 +231,7 @@ test('偏好数据损坏时回退默认且不影响通知写入', () => {
   ).run(ALICE, Date.now());
 
   const { result, warnings } = captureWarnings(() => readPrefs(ALICE));
-  assert.deepEqual(result, { achievement: true, bounty: true, season: true });
+  assert.deepEqual(result, { achievement: true, bounty: true, season: true, announcements: true });
   assert.ok(warnings.some((line) => line.includes('损坏')));
 
   const written = captureWarnings(() =>
@@ -255,7 +255,7 @@ test('关闭通知偏好不影响成就解锁与奖励发放', () => {
 test('偏好接口：默认值、局部更新、非法值回退与匿名拒绝', async () => {
   const defaults = await api('/api/notifications/prefs');
   assert.equal(defaults.status, 200);
-  assert.deepEqual(defaults.data.prefs, { achievement: true, bounty: true, season: true });
+  assert.deepEqual(defaults.data.prefs, { achievement: true, bounty: true, season: true, announcements: true });
 
   const saved = await api('/api/notifications/prefs', {
     method: 'PUT',
@@ -268,7 +268,7 @@ test('偏好接口：默认值、局部更新、非法值回退与匿名拒绝',
   assert.deepEqual(saved.data.ignored.sort(), ['bounty', 'extra']);
 
   const readback = await api('/api/notifications/prefs');
-  assert.deepEqual(readback.data.prefs, { achievement: true, bounty: true, season: false });
+  assert.deepEqual(readback.data.prefs, { achievement: true, bounty: true, season: false, announcements: true });
 
   // 支持直接传偏好对象。
   const flat = await api('/api/notifications/prefs', { method: 'PUT', body: { bounty: false } });

@@ -5,6 +5,7 @@ import { MUTATIONS } from '../shared/mutations.js';
 import { t } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
+import { buildShareCardData, downloadShareCard } from '../share-card.js';
 import { fmt, diffName, skillName, escapeHtml } from './shared.js';
 
 // 结算分数滚动时长；与结算入场动效一起保持在 600ms 以内。
@@ -123,6 +124,7 @@ export const resultMethods = {
           <div class="modal-actions">
             <button class="btn primary" id="btn-again">${t('result.again')}</button>
             <button class="btn" id="btn-share-result" data-result-share>${t('result.share')}</button>
+            <button class="btn" id="btn-save-card" data-result-card>保存战绩卡片</button>
             <button class="btn ghost" id="btn-home">${t('result.home')}</button>
           </div>
         </div>
@@ -146,6 +148,20 @@ export const resultMethods = {
       trigger.click();
       modal.querySelector('[data-share-result]')?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
     };
+    // 战绩卡片使用结算数据 + 本局遗物 + 当前分享码；分享码为空时卡片仍可生成。
+    modal.querySelector('[data-result-card]').onclick = () => this.saveShareCard(modal, { stats, res, mode });
+  },
+
+  async saveShareCard(modal, { stats, res, mode }) {
+    const shareCode = modal.querySelector('[data-share-code]')?.textContent || '';
+    const relics = (this.game?.relics || []).map((relic) => ({ id: relic.id, level: relic.level }));
+    const data = buildShareCardData({ stats, res, mode, relics, shareCode });
+    const result = await downloadShareCard(data);
+    if (!result.ok) {
+      this.toast('当前浏览器无法生成战绩卡片', 2400);
+      return;
+    }
+    this.toast(`已保存 ${result.filename}`, 2400);
   },
 
   // 分数滚动：系统要求减少动效或环境不支持逐帧时直接显示终值。

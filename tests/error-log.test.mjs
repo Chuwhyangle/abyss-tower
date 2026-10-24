@@ -26,6 +26,8 @@ const SECRETS = {
   hash: 'scrypt$16384$8$1$abcdef$0123456789',
 };
 
+const DIAGNOSTICS_PATH = '/api/system/diagnostics';
+
 function routeHandler(controller) {
   const routes = [];
   controller.register({
@@ -33,8 +35,9 @@ function routeHandler(controller) {
       routes.push({ method, pattern, handler });
     },
   });
-  assert.equal(routes.length, 1);
-  return routes[0].handler;
+  const route = routes.find((entry) => entry.pattern === DIAGNOSTICS_PATH);
+  assert.ok(route, `应注册 ${DIAGNOSTICS_PATH}`);
+  return route.handler;
 }
 
 function fakeContext(req) {

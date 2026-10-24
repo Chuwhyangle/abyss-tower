@@ -1,3 +1,4 @@
+<!-- docs-consistency:ignore-file — 历史设计稿，正文描述的是提案中的文件名，不代表当前仓库结构 -->
 # 《渊塔守卫》账号、进度与数据模型设计 v0.1
 
 - 状态：**P0 已实现**（2026-10-22，分支 `worktree-feature+accounts-auth`）

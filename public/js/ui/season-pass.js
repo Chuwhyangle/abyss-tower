@@ -7,9 +7,12 @@ const BADGE_ID = 'season-pass-badge';
 const CLAIM_ALL_ID = 'season-pass-claim-all';
 const CLAIM_ALL_BUTTON_ID = 'season-pass-claim-all-btn';
 const CLAIM_ALL_NOTE_ID = 'season-pass-claim-all-note';
+const HISTORY_ID = 'season-pass-history';
 
 // 一键领取后只在新渲染的轨道上播放一次动效；减少动效时直接呈现。
 let pendingCelebration = null;
+// null 表示当前赛季；选中历史赛季时只读展示终态。
+let activeSeason = null;
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -35,9 +38,13 @@ function progressBar(item) {
     <div class="achievement-progress-label">${fmt(current)} / ${fmt(target)}</div>`;
 }
 
-function claimButton(item) {
+// 已结束赛季锁定轨道：达标的显示「已错过」，未达标的显示「未达成」，都不再提供领取按钮。
+function claimButton(item, closed = false) {
   if (item.claimed) {
     return '<button class="btn small" type="button" disabled>已领取</button>';
+  }
+  if (closed) {
+    return `<button class="btn small" type="button" disabled>${item.complete ? '已错过' : '未达成'}</button>`;
   }
   if (!item.complete) {
     return '<button class="btn small" type="button" disabled>未解锁</button>';
@@ -45,8 +52,12 @@ function claimButton(item) {
   return `<button class="btn small primary" type="button" data-claim="${escapeHtml(item.id)}">领取奖励</button>`;
 }
 
-function card(item) {
-  const state = item.claimed ? '已领取' : item.complete ? '可领取' : '进行中';
+function card(item, closed = false) {
+  const state = item.claimed
+    ? '已领取'
+    : item.complete
+      ? closed ? '已错过' : '可领取'
+      : closed ? '未达成' : '进行中';
   return `
     <article class="achievement-card rarity-common${item.claimed ? ' unlocked' : ''}" data-milestone="${escapeHtml(item.id)}">
       <h3>
@@ -56,7 +67,7 @@ function card(item) {
       </h3>
       <p>${escapeHtml(item.desc)}</p>
       ${progressBar(item)}
-      <div class="bounty-actions">${claimButton(item)}</div>
+      <div class="bounty-actions">${claimButton(item, closed)}</div>
     </article>`;
 }
 
@@ -137,7 +148,7 @@ function ensureToolbar(panel) {
   return bar;
 }
 
-function updateClaimAll(data) {
+function updateClaimAll(data, closed = false) {
   const panel = document.getElementById(PANEL_ID);
   const bar = panel && ensureToolbar(panel);
   if (!bar) return;
@@ -145,10 +156,49 @@ function updateClaimAll(data) {
   const note = bar.querySelector(`#${CLAIM_ALL_NOTE_ID}`);
   const count = Math.max(0, Math.floor(Number(data?.claimableCount) || 0));
   if (button) {
-    button.disabled = count === 0;
-    button.textContent = count > 0 ? `一键领取（${count}）` : '一键领取';
+    button.disabled = count === 0 || closed;
+    button.textContent = !closed && count > 0 ? `一键领取（${count}）` : '一键领取';
   }
-  if (note) note.textContent = count > 0 ? `${count} 个里程碑可领取` : '暂无未领取里程碑';
+  if (note) {
+    note.textContent = closed
+      ? '赛季已结束，历史赛季只读'
+      : count > 0
+        ? `${count} 个里程碑可领取`
+        : '暂无未领取里程碑';
+  }
+}
+
+// 历史赛季切换：下拉只列出当前赛季与已归档赛季，选中后按历史赛季只读加载。
+function ensureHistory(panel) {
+  let select = panel.querySelector(`#${HISTORY_ID}`);
+  if (select) return select;
+  const list = panel.querySelector(`#${LIST_ID}`);
+  if (!list) return null;
+  const bar = document.createElement('div');
+  bar.className = 'bounty-actions';
+  bar.innerHTML = `
+    <label class="achievement-hint" for="${HISTORY_ID}">赛季</label>
+    <select id="${HISTORY_ID}" aria-label="切换赛季"></select>`;
+  list.parentNode.insertBefore(bar, list);
+  select = bar.querySelector(`#${HISTORY_ID}`);
+  select.addEventListener('change', () => {
+    activeSeason = select.value || null;
+    load(panel);
+  });
+  return select;
+}
+
+function updateHistory(panel, data) {
+  const select = ensureHistory(panel);
+  if (!select) return;
+  const current = String(data?.currentSeason || data?.season || '');
+  const seasons = Array.isArray(data?.history) ? data.history.map(String) : [];
+  const currentLabel = current ? `本赛季（${escapeHtml(current)}）` : '本赛季';
+  select.innerHTML = [
+    `<option value="">${currentLabel}</option>`,
+    ...seasons.map((season) => `<option value="${escapeHtml(season)}">${escapeHtml(season)}</option>`),
+  ].join('');
+  select.value = activeSeason && seasons.includes(activeSeason) ? activeSeason : '';
 }
 
 function ensureBadge(button) {
@@ -178,22 +228,27 @@ function applyBadge(count) {
 function render(panel, data) {
   const list = panel.querySelector(`#${LIST_ID}`);
   const milestones = Array.isArray(data?.milestones) ? data.milestones : [];
+  const closed = data?.closed === true || data?.readOnly === true;
   const progress = panel.querySelector('#season-pass-progress');
   if (progress) {
+    const finals = `${data?.label || ''} · 赛季已结束 · 最终 ${fmt(data?.points)} / ${fmt(data?.maxPoints)}`;
     const endsAt = Number(data?.endsAt);
     const remain = Number.isFinite(endsAt)
       ? ` · 至 ${new Date(endsAt).toLocaleDateString('zh-CN')}`
       : '';
-    progress.textContent = `${data?.label || ''} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
+    progress.textContent = closed
+      ? finals
+      : `${data?.label || ''} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
   }
-  updateClaimAll(data);
-  applyBadge(data?.claimableCount);
+  updateHistory(panel, data);
+  updateClaimAll(data, closed);
+  applyBadge(closed ? 0 : data?.claimableCount);
 
   if (!milestones.length) {
     list.innerHTML = `${sourcesBlock(data)}<p class="achievement-hint">暂无里程碑</p>`;
     return;
   }
-  list.innerHTML = `${sourcesBlock(data)}${milestones.map(card).join('')}`;
+  list.innerHTML = `${sourcesBlock(data)}${milestones.map((item) => card(item, closed)).join('')}`;
   for (const button of list.querySelectorAll('[data-claim]')) {
     button.addEventListener('click', () => claim(panel, button.dataset.claim));
   }
@@ -255,8 +310,12 @@ async function claimAll(panel) {
 async function load(panel) {
   const list = panel.querySelector(`#${LIST_ID}`);
   list.innerHTML = '<p class="achievement-hint">加载中…</p>';
+  const season = activeSeason;
+  const url = season
+    ? `/api/season-pass?season=${encodeURIComponent(season)}`
+    : '/api/season-pass';
   try {
-    const response = await fetch('/api/season-pass', { credentials: 'same-origin' });
+    const response = await fetch(url, { credentials: 'same-origin' });
     if (response.status === 401) {
       list.innerHTML = '<p class="achievement-hint">登录后可查看赛季通行证</p>';
       return;
@@ -292,7 +351,10 @@ function install() {
 
   const setOpen = (open) => {
     panel.hidden = !open;
-    if (open) load(panel);
+    if (open) {
+      activeSeason = null;
+      load(panel);
+    }
   };
 
   button.addEventListener('click', () => setOpen(panel.hidden));

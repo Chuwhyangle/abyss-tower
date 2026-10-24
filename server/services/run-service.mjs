@@ -135,7 +135,7 @@ function eventHistory(run) {
       eventId: slot.eventId,
       optionId: slot.optionId,
     }));
-  return normalizeEventHistory(entries);
+  return normalizeEventHistory(entries, run.mode);
 }
 
 // 事件选择与遗物选择共用 offers JSON；事件槽位加前缀避免与遗物波次键冲突。
@@ -302,7 +302,7 @@ export class RunService {
     if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
     if (mutationInfo) ruleset.mutations = mutationInfo;
     const startRelics = unlocks.includes('start_relic')
-      ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1)
+      ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1, mode)
           .filter((offer) => offer.kind === 'relic')
           .map((offer) => ({ id: offer.id, level: offer.toLevel }))
       : [];
@@ -512,7 +512,8 @@ export class RunService {
           `${run.seed}:relic:${run.clearedWaves}:${rerollsUsed}`,
           relicStates,
           3,
-          run.clearedWaves
+          run.clearedWaves,
+          run.mode
         ),
         picked: false,
       };
@@ -577,7 +578,7 @@ export class RunService {
     const wave = run.clearedWaves;
     // 已选择的波次仍要回显节点：剔除本波历史后重新推导，未选择时才按“未结算”判断。
     const history = eventHistory(run).filter((entry) => entry.wave !== wave);
-    const event = resolveEventForWave(run.seed, wave, { history });
+    const event = resolveEventForWave(run.seed, wave, { history, mode: run.mode });
     if (!event) throw new RunError(409, '当前波次没有事件节点');
     const slot = (run.offers || {})[eventKey(wave)];
     return {
@@ -600,7 +601,10 @@ export class RunService {
     // 先判幂等：已选择的事件不能再解析（否则历史会让该波次看起来“没有事件节点”）。
     if (offers[key]?.picked) throw new RunError(409, '本次事件已经选择');
 
-    const event = resolveEventForWave(run.seed, wave, { history: eventHistory(run) });
+    const event = resolveEventForWave(run.seed, wave, {
+      history: eventHistory(run),
+      mode: run.mode,
+    });
     if (!event) throw new RunError(400, '当前波次没有事件节点');
 
     let option = null;

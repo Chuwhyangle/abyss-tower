@@ -5,6 +5,9 @@ import { RNG } from './rng.js';
 // 触发波次：第 5/10/15/20/25 波清除后进入事件阶段。
 export const EVENT_WAVES = Object.freeze([5, 10, 15, 20, 25]);
 
+// 无尽模式没有终点，事件按固定间隔无限排期：30 波后继续 30/35/40……
+export const ENDLESS_EVENT_INTERVAL_WAVES = 5;
+
 // 事件池：8 类常规事件 + 4 类稀有事件。weight 越大越常见，rare 仅用于展示。
 // 其中 blood-echo / smuggler-camp / void-rift 既是随机事件，也是事件连锁的后续节点。
 export const EVENT_ORDER = Object.freeze([
@@ -413,23 +416,33 @@ const CHAIN_BY_OPTION = new Map(
   EVENT_CHAINS.map((chain) => [`${chain.fromEvent}:${chain.fromOption}`, chain])
 );
 
-// 连锁可能落地的波次：事件波 + 各自延迟。历史归一化据此接受“非事件波”的连锁记录。
+// 普通模式的连锁可能落地的波次：事件波 + 各自延迟。历史归一化据此接受“非事件波”的连锁记录。
 const CHAIN_WAVES = new Set();
 for (const wave of EVENT_WAVES) {
   for (const chain of EVENT_CHAINS) CHAIN_WAVES.add(Number(wave) + chain.delayWaves);
 }
 
-export function isEventWave(wave) {
-  return EVENT_WAVES.includes(Number(wave));
+// 事件波规则只由模式决定：普通模式沿用固定表，无尽模式按间隔无限延续。
+export function isEventWave(wave, mode = 'normal') {
+  const target = Number(wave);
+  if (!Number.isInteger(target) || target <= 0) return false;
+  if (mode === 'endless') {
+    return target % ENDLESS_EVENT_INTERVAL_WAVES === 0;
+  }
+  return EVENT_WAVES.includes(target);
 }
 
 // 连锁的后续事件落在非事件波（事件波 + 延迟），同样可以进入事件阶段。
-export function isChainWave(wave) {
-  return CHAIN_WAVES.has(Number(wave));
+// 无尽模式的连锁触发波本身就是无限的，因此按“任意事件波 + 延迟”反推。
+export function isChainWave(wave, mode = 'normal') {
+  const target = Number(wave);
+  if (!Number.isInteger(target) || target <= 0) return false;
+  if (mode !== 'endless') return CHAIN_WAVES.has(target);
+  return EVENT_CHAINS.some((chain) => isEventWave(target - chain.delayWaves, mode));
 }
 
-function isEventResolvableWave(wave) {
-  return isEventWave(wave) || isChainWave(wave);
+function isEventResolvableWave(wave, mode = 'normal') {
+  return isEventWave(wave, mode) || isChainWave(wave, mode);
 }
 
 export function findEventChain(eventId, optionId) {
@@ -445,14 +458,14 @@ function chainEntryForOption(eventId, optionId, triggerWave) {
 }
 
 // 连锁排期归一化：只保留已定义的连锁与合法的连锁波次；同一波次只留一条，按波次排序。
-export function normalizeChains(raw) {
+export function normalizeChains(raw, mode = 'normal') {
   if (!Array.isArray(raw)) return [];
   const chains = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const chain = CHAIN_BY_ID.get(item.chainId);
     const wave = Number(item.wave);
-    if (!chain || !isChainWave(wave)) continue;
+    if (!chain || !isChainWave(wave, mode)) continue;
     if (chains.some((entry) => entry.wave === wave)) continue;
     chains.push({ chainId: chain.id, wave });
   }
@@ -460,7 +473,7 @@ export function normalizeChains(raw) {
 }
 
 // 由事件历史推导连锁排期：历史是连锁的唯一事实来源（服务端据此校验，客户端据此续玩）。
-export function chainsFromHistory(history) {
+export function chainsFromHistory(history, mode = 'normal') {
   const scheduled = [];
   for (const entry of Array.isArray(history) ? history : []) {
     if (!entry || typeof entry !== 'object') continue;
@@ -469,20 +482,23 @@ export function chainsFromHistory(history) {
     if (scheduled.some((item) => item.wave === next.wave)) continue;
     scheduled.push(next);
   }
-  return normalizeChains(scheduled);
+  return normalizeChains(scheduled, mode);
 }
 
 /**
  * 某个波次应当出现的事件：事件波走随机池，连锁波走固定后续事件；已结算过的波次返回 null。
  * 连锁以 history 为准（chains 只是快照里的冗余记录，合并后仍由 normalizeChains 去重）。
  */
-export function resolveEventForWave(seed, wave, { history = [], chains = [] } = {}) {
+export function resolveEventForWave(seed, wave, { history = [], chains = [], mode = 'normal' } = {}) {
   const target = Number(wave);
-  if (isEventWave(target)) {
+  if (isEventWave(target, mode)) {
     if (hasResolvedEvent(history, target)) return null;
-    return rollEvent(seed, target);
+    return rollEvent(seed, target, mode);
   }
-  const scheduled = normalizeChains([...(Array.isArray(chains) ? chains : []), ...chainsFromHistory(history)]);
+  const scheduled = normalizeChains(
+    [...(Array.isArray(chains) ? chains : []), ...chainsFromHistory(history, mode)],
+    mode
+  );
   const entry = scheduled.find((item) => item.wave === target);
   if (!entry || hasResolvedEvent(history, target)) return null;
   return EVENTS[CHAIN_BY_ID.get(entry.chainId).eventId] || null;
@@ -490,8 +506,8 @@ export function resolveEventForWave(seed, wave, { history = [], chains = [] } = 
 
 // 同一 seed + 波次永远得到同一个事件节点；用独立 RNG，不触碰战斗 RNG。
 // 权重按事件定义读取，稀有事件 weight 低，整局序列仍可复现。
-export function rollEvent(seed, wave) {
-  if (!isEventWave(wave)) return null;
+export function rollEvent(seed, wave, mode = 'normal') {
+  if (!isEventWave(wave, mode)) return null;
   const rng = new RNG(`${seed}:event:${wave}`);
   return rng.weighted(EVENT_ORDER.map((id) => EVENTS[id]));
 }
@@ -547,14 +563,14 @@ export function resolveEventOption(event, optionId, ctx = {}) {
 }
 
 // 事件历史（快照/服务端审计共用）：每波只能记一次，未知事件或选项一律丢弃。
-export function normalizeEventHistory(raw) {
+export function normalizeEventHistory(raw, mode = 'normal') {
   if (!Array.isArray(raw)) return [];
   const history = [];
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue;
     const wave = Number(item.wave);
     const event = EVENTS[item.eventId];
-    if (!Number.isInteger(wave) || !isEventResolvableWave(wave) || !event) continue;
+    if (!Number.isInteger(wave) || !isEventResolvableWave(wave, mode) || !event) continue;
     const option = findEventOption(event, item.optionId);
     if (!option) continue;
     if (history.some((entry) => entry.wave === wave)) continue;

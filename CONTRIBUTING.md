@@ -60,7 +60,7 @@ gh pr create --fill
   `quay driver start --kind worker`，再用 `quay serve` 打开任务板。配置见 `.quay/config.yml`
   的 `loop:` 段（`worktree_root`、`test_command`、`gates`）。
 
-- **任务板只在本地 `develop` 线跟踪**：`tasks/`、`goals/`、`adr/`、`meta/` 与 `.quay/` 是
+- **任务板只在本地 `develop` 线跟踪**：`tasks/`、`goals/`、`adr/`、`meta/` 与 `.quay/` 是 <!-- docs-consistency:ignore — adr/ 与 meta/ 由 quay 按需创建，干净检出中不存在 -->
   quay 的本地工作线；`main` 保持干净、只走正常发布 PR。不要从 `main` 分叉任务 worktree，
   也不要把任务板状态提交到 `main`。
 

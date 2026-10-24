@@ -47,6 +47,45 @@ export const SEASON_PASS_BY_ID = Object.freeze(
 
 export const SEASON_PASS_MAX_POINTS = SEASON_PASS_MILESTONES.at(-1).points;
 
+// 赛季键与区间：与排行榜（server/db/leaderboard.mjs）同一口径——服务器本地时区的自然月。
+// 这些是纯函数，服务端与浏览器共用；终态判定、历史赛季切换都以这一份为准。
+export const SEASON_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export function isSeasonKey(value) {
+  return typeof value === 'string' && SEASON_KEY_PATTERN.test(value);
+}
+
+export function seasonKeyOf(ts = Date.now()) {
+  const date = new Date(Number(ts));
+  if (Number.isNaN(date.getTime())) return null;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+// 返回赛季的毫秒区间 [start, end)，边界按服务器本地时区。
+export function seasonWindow(season) {
+  if (!isSeasonKey(season)) return null;
+  const [year, month] = season.split('-').map(Number);
+  return {
+    start: new Date(year, month - 1, 1).getTime(),
+    end: new Date(year, month, 1).getTime(),
+  };
+}
+
+// 结束时刻是下个自然月 1 日零点：到点后该赛季进入终态，不能再累计或领取。
+export function isSeasonClosed(season, today = Date.now()) {
+  const window = seasonWindow(season);
+  const now = Number(today);
+  if (!window || !Number.isFinite(now)) return false;
+  return now >= window.end;
+}
+
+export function previousSeasonKey(season) {
+  if (!isSeasonKey(season)) return null;
+  const [year, month] = season.split('-').map(Number);
+  const index = year * 12 + (month - 1) - 1;
+  return `${Math.floor(index / 12)}-${String((index % 12) + 1).padStart(2, '0')}`;
+}
+
 // 积分来源分类：键、顺序与文案集中定义，服务端聚合与客户端展示共用这一份。
 // ORDER 是「可派生来源」的固定顺序：对局、已领取赛季悬赏、已解锁成就。
 // 解锁加成的来源不参与派生（它由账本一次性写入），因此单独追加在明细末尾。
@@ -198,9 +237,11 @@ export function seasonPassPoints(runs = []) {
 }
 
 // 里程碑轨道：进度封顶到各自阈值，领取状态由服务端已领取集合决定。
-export function seasonPassProgress(points, claimed = []) {
+// 已结束赛季锁定轨道：达到阈值但没领取的里程碑标记为 missed，任何里程碑都不再可领取。
+export function seasonPassProgress(points, claimed = [], { closed = false } = {}) {
   const value = Math.max(0, Math.floor(Number(points) || 0));
   const claimedSet = new Set(claimed || []);
+  const locked = closed === true;
   return SEASON_PASS_MILESTONES.map((milestone) => {
     const complete = value >= milestone.points;
     const isClaimed = claimedSet.has(milestone.id);
@@ -214,7 +255,23 @@ export function seasonPassProgress(points, claimed = []) {
       rewardText: seasonPassRewardText(milestone.reward),
       complete,
       claimed: isClaimed,
-      claimable: complete && !isClaimed,
+      claimable: complete && !isClaimed && !locked,
+      missed: complete && !isClaimed && locked,
+      closed: locked,
     };
   });
+}
+
+// 终态计算：历史赛季只读，可领取数量恒为 0；其余计数供历史面板展示。
+export function seasonPassTerminal({ points = 0, claimed = [] } = {}) {
+  const milestones = seasonPassProgress(points, claimed, { closed: true });
+  return {
+    closed: true,
+    points: Math.max(0, Math.floor(Number(points) || 0)),
+    claimedCount: milestones.filter((item) => item.claimed).length,
+    claimableCount: 0,
+    missedCount: milestones.filter((item) => item.missed).length,
+    completedCount: milestones.filter((item) => item.complete).length,
+    milestones,
+  };
 }
