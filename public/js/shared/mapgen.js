@@ -1,8 +1,10 @@
-// 地图生成：多入口/汇流路径图、7 种原型、12 种地图词缀与三候选。
+// 地图：三张固定手工地图（见 shared/maps/）+ 旧随机 carve 的兼容入口。
+// 新对局一律使用固定地图；随机 carve 只保留为 legacyGenerateMap，供旧存档回退。
 import { RNG } from './rng.js';
+import { FIXED_MAP_BY_ID, FIXED_TRAITS, fixedMapCandidates } from './maps/index.js';
+import { LANE_COLORS, cloneMapData, polylineLength, simplifyCells } from './maps/rasterize.js';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-const LANE_COLORS = ['#5ce2d0', '#ffd36b', '#ff6b8a'];
 const MAX_SPAWNS = 3;
 
 export const ARCHETYPES = {
@@ -99,10 +101,14 @@ export const MAP_MODIFIERS = [
   },
 ];
 
-export const MODIFIER_BY_ID = Object.fromEntries(MAP_MODIFIERS.map((m) => [m.id, m]));
+// 固定地图的 trait 与随机词缀同 schema：统一按 id 解析，存档/历史面板/渲染都能复用。
+export const MODIFIER_BY_ID = Object.fromEntries(
+  [...MAP_MODIFIERS, ...FIXED_TRAITS].map((modifier) => [modifier.id, modifier])
+);
 
-// 候选地图的原型与词缀排列：同种子完全一致。
-// 每日挑战复用本函数派生当日词缀，RNG 调用顺序不可改动。
+// 旧随机候选池的原型/词缀排列：同种子完全一致。
+// 仅供 legacy 回退与平衡模拟复用；新对局不再经过随机 carve。
+// RNG 调用顺序不可改动（旧存档回放依赖它）。
 export function candidatePlan(seed, count = 3) {
   const rng = new RNG(`${seed}:candidates`);
   const ids = rng
@@ -115,28 +121,19 @@ export function candidatePlan(seed, count = 3) {
   return { ids, modifierPool };
 }
 
-// 三张候选地图：同种子完全一致；至少包含一张低复杂度地图。
-export function generateMapCandidates(seed, count = 3, cols = 22, rows = 12) {
-  const { ids, modifierPool } = candidatePlan(seed, count);
-  const candidates = [];
-  for (let i = 0; i < count; i++) {
-    const archetypeId = ids[i % ids.length];
-    const modifier = modifierPool[i % modifierPool.length];
-    const candidate = buildCandidate(
-      `${seed}:candidate:${i}`,
-      archetypeId,
-      modifier,
-      i,
-      cols,
-      rows
-    );
-    candidates.push(candidate);
-  }
-  return candidates;
+// 三张候选地图：固定为 canyon → twin → ring，count 截断（最多 3 张）。
+// seed 仅为兼容旧签名保留；几何与 trait 均与种子无关，同一 id 输出完全一致。
+export function generateMapCandidates(_seed, count = 3) {
+  return fixedMapCandidates(_seed).slice(0, Math.max(0, Math.min(count, 3)));
 }
 
-// 兼容旧调用：单入口峡谷地图。
-export function generateMap(seed, cols = 22, rows = 12) {
+// 兼容旧调用：单入口峡谷地图（固定 canyon）。
+export function generateMap(_seed) {
+  return cloneMapData(FIXED_MAP_BY_ID.canyon);
+}
+
+// 旧随机 carve 实现：只用于旧存档/回放回退，默认路径不再调用。
+export function legacyGenerateMap(seed, cols = 22, rows = 12) {
   return buildCandidate(`${seed}:legacy`, 'canyon', null, 0, cols, rows);
 }
 
@@ -277,7 +274,7 @@ function finalize(seed, index, archetype, modifier, layout, cols, rows) {
   }
 
   const lanes = layout.lanes.map((lane, i) => {
-    const simplified = simplify(lane.cells);
+    const simplified = simplifyCells(lane.cells);
     const polyline = simplified.map((p) => ({ x: p.c + 0.5, y: p.r + 0.5 }));
     return {
       id: i,
@@ -457,25 +454,6 @@ function serpentine(cols, rows) {
   return cells;
 }
 
-function simplify(cells) {
-  const out = [];
-  for (let i = 0; i < cells.length; i++) {
-    if (i === 0 || i === cells.length - 1) {
-      out.push(cells[i]);
-      continue;
-    }
-    const a = cells[i - 1];
-    const b = cells[i];
-    const c = cells[i + 1];
-    const d1c = Math.sign(b.c - a.c);
-    const d1r = Math.sign(b.r - a.r);
-    const d2c = Math.sign(c.c - b.c);
-    const d2r = Math.sign(c.r - b.r);
-    if (d1c !== d2c || d1r !== d2r) out.push(b);
-  }
-  return out;
-}
-
 function dedupeCells(cells) {
   const seen = new Set();
   const out = [];
@@ -486,14 +464,6 @@ function dedupeCells(cells) {
     out.push(cell);
   }
   return out;
-}
-
-function polylineLength(polyline) {
-  let length = 0;
-  for (let i = 1; i < polyline.length; i++) {
-    length += Math.hypot(polyline[i].x - polyline[i - 1].x, polyline[i].y - polyline[i - 1].y);
-  }
-  return length;
 }
 
 function cellKey(cell, rows) {

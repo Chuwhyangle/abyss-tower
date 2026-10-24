@@ -17,7 +17,8 @@ import {
   weeklyChallenge,
   weeklySeed,
 } from '../public/js/shared/scoring.js';
-import { MAP_MODIFIERS, generateMapCandidates } from '../public/js/shared/mapgen.js';
+import { generateMapCandidates } from '../public/js/shared/mapgen.js';
+import { FIXED_TRAITS } from '../public/js/shared/maps/index.js';
 import { TOWER_ORDER } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -108,7 +109,7 @@ test('ISO 周键：周一为一周开始，跨年归属 ISO 周年', () => {
   assert.throws(() => weekKey(new Date('not-a-date')), TypeError);
 });
 
-test('同一周派生结果稳定，周词缀来自现有集合并与首张候选地图一致', () => {
+test('同一周派生结果稳定，周词缀来自固定地图 trait 并与候选一致', () => {
   const challenge = weeklyChallenge(new Date(2026, 9, 21));
   // 同一 ISO 周的任意一天（周一 / 周日）派生完全一致。
   assert.deepEqual(challenge, weeklyChallenge(new Date(2026, 9, 19)));
@@ -123,7 +124,7 @@ test('同一周派生结果稳定，周词缀来自现有集合并与首张候�
   });
 
   assert.equal(challenge.modifiers.length, WEEKLY_MODIFIER_COUNT);
-  const allowed = new Map(MAP_MODIFIERS.map((modifier) => [modifier.id, modifier]));
+  const allowed = new Map(FIXED_TRAITS.map((modifier) => [modifier.id, modifier]));
   const modifier = challenge.modifiers[0];
   const source = allowed.get(modifier.id);
   assert.ok(source, `未知词缀：${modifier.id}`);
@@ -131,10 +132,10 @@ test('同一周派生结果稳定，周词缀来自现有集合并与首张候�
   assert.equal(modifier.desc, source.desc);
   assert.equal(modifier.color, source.color);
 
-  // 开局候选由同一种子派生，首图词缀即周词缀。
+  // 开局候选来自固定地图池；周词缀即首个带 trait 的候选（canyon 无 trait）。
   const candidates = generateMapCandidates(challenge.seed, 3);
   assert.equal(candidates.length, 3);
-  assert.equal(candidates[0].modifier.id, modifier.id);
+  assert.equal(candidates.find((candidate) => candidate.modifier)?.modifier.id, modifier.id);
 });
 
 test('本周挑战开局参数同周同账号可复现', async () => {
@@ -157,7 +158,10 @@ test('本周挑战开局参数同周同账号可复现', async () => {
   assert.equal(first.data.maxRerolls, 1);
   assert.deepEqual([...first.data.towersUnlocked].sort(), [...TOWER_ORDER].sort());
   assert.equal(first.data.candidates.length, 3);
-  assert.equal(first.data.candidates[0].modifier.id, challenge.modifiers[0].id);
+  assert.equal(
+    first.data.candidates.find((candidate) => candidate.modifier)?.modifier.id,
+    challenge.modifiers[0].id
+  );
   assert.equal(first.data.weeklyAttemptsLeft, 3);
   assert.equal((await finish(first.data.runId)).status, 200);
 

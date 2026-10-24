@@ -76,20 +76,20 @@ test('新词缀有中文名与说明，且只使用已实现参数', () => {
   }
 });
 
-test('每个词缀都能进入候选池', () => {
-  const seen = new Set();
-  for (let i = 0; i < 60; i++) {
-    for (const candidate of generateMapCandidates(`affixes-v2-pool-${i}`, 3)) {
-      if (candidate.modifier) seen.add(candidate.modifier.id);
-    }
-  }
-  const missing = MODIFIER_IDS.filter((id) => !seen.has(id));
-  assert.deepEqual(missing, [], `未进入候选池的词缀：${missing.join(', ')}`);
+test('固定候选只携带地图 trait，12 个随机词缀仍完整可用', () => {
+  // 新对局改为三张固定地图：候选词缀 = 地图固定 trait（canyon 无 trait）。
+  const candidates = generateMapCandidates('affixes-v2-pool-fixed', 3);
+  assert.deepEqual(
+    candidates.map((candidate) => candidate.modifier?.id ?? null),
+    [null, 'trade', 'echo']
+  );
+  // 旧随机词缀表保留给 legacy 回退与历史面板，12 个 id 都能解析。
+  for (const id of MODIFIER_IDS) assert.ok(MODIFIER_BY_ID[id], `缺少词缀 ${id}`);
 });
 
-test('每个词缀都被平衡模拟的默认种子集覆盖', () => {
-  // 平衡模拟按候选地图的 modifier 逐项汇总；默认 40 个种子的 3 张候选
-  // 必须把全部词缀都跑到，否则报告里会缺行。
+test('candidatePlan 的默认种子集仍覆盖全部词缀（legacy/平衡工具用）', () => {
+  // 每日/每周挑战已改为固定地图 trait；candidatePlan 只剩 legacy 回退与
+  // 平衡模拟的工具路径，仍需保证默认种子集能覆盖 12 个词缀。
   const covered = new Set();
   for (let i = 0; i < BALANCE_SEEDS; i++) {
     const { modifierPool } = candidatePlan(`balance-${i}`, 3);
@@ -109,10 +109,10 @@ test('同种子生成结果一致', () => {
     candidatePlan('affixes-v2-fixed-seed', 3)
   );
 
-  const modifiers = new Set(
-    generateMapCandidates('affixes-v2-fixed-seed', 3)
-      .filter((candidate) => candidate.modifier)
-      .map((candidate) => candidate.modifier.id)
+  // 固定地图的 trait 各自唯一：无 trait 的 canyon + 商路 + 回响。
+  const ids = generateMapCandidates('affixes-v2-fixed-seed', 3).map(
+    (candidate) => candidate.modifier?.id ?? null
   );
-  assert.equal(modifiers.size, 3, '同局候选不应重复词缀');
+  assert.deepEqual(ids, [null, 'trade', 'echo']);
+  assert.equal(new Set(ids.filter(Boolean)).size, ids.filter(Boolean).length);
 });

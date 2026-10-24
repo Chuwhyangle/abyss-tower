@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { generateMap } from '../public/js/shared/mapgen.js';
+import { generateMap, legacyGenerateMap } from '../public/js/shared/mapgen.js';
 
 test('地图生成：起点/终点、连续性、唯一性与可建造比例', () => {
   for (let i = 0; i < 60; i++) {
@@ -11,7 +11,11 @@ test('地图生成：起点/终点、连续性、唯一性与可建造比例', (
     assert.equal(rows, 12);
     assert.ok(pathCells.length >= 3);
     assert.equal(pathCells[0].c, 0, '起点必须在左边缘');
-    assert.equal(pathCells[pathCells.length - 1].c, cols - 1, '终点必须在右边缘');
+    assert.deepEqual(
+      { c: pathCells[pathCells.length - 1].c, r: pathCells[pathCells.length - 1].r },
+      { c: map.base.c, r: map.base.r },
+      '路径终点必须落在基地'
+    );
 
     const seen = new Set();
     for (const cell of pathCells) {
@@ -50,16 +54,25 @@ test('地图生成：起点/终点、连续性、唯一性与可建造比例', (
   }
 });
 
-test('地图生成：同种子一致，不同种子有差异', () => {
+test('地图生成：固定 map 与种子无关；legacy 入口仍保留随机变化', () => {
   const a = generateMap('determinism-seed');
   const b = generateMap('determinism-seed');
   assert.deepEqual(a.polyline, b.polyline);
   assert.deepEqual(a.buildable, b.buildable);
 
-  const signatures = new Set();
+  // 新开局：同一张固定 canyon，换种子不改变几何。
+  const fixedSignatures = new Set();
   for (let i = 0; i < 20; i++) {
     const map = generateMap(`variety-${i}`);
-    signatures.add(map.polyline.map((p) => `${p.x},${p.y}`).join('|'));
+    fixedSignatures.add(map.polyline.map((p) => `${p.x},${p.y}`).join('|'));
   }
-  assert.ok(signatures.size > 5, '地图变化不足');
+  assert.equal(fixedSignatures.size, 1, '固定地图不应随种子变化');
+
+  // 旧存档回退：legacyGenerateMap 仍按种子随机 carve。
+  const legacySignatures = new Set();
+  for (let i = 0; i < 20; i++) {
+    const map = legacyGenerateMap(`variety-${i}`);
+    legacySignatures.add(map.polyline.map((p) => `${p.x},${p.y}`).join('|'));
+  }
+  assert.ok(legacySignatures.size > 5, 'legacy 地图变化不足');
 });

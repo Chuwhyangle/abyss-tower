@@ -129,16 +129,18 @@ test('所有原型 × 词缀组合都能生成入口→基地的连通路径', (
   }
 });
 
-test('新原型与新词缀都能进入候选池', () => {
-  const archetypes = new Set();
-  const modifiers = new Set();
-  for (let i = 0; i < 60; i++) {
-    for (const candidate of generateMapCandidates(`depth-v2-pool-${i}`, 3)) {
-      archetypes.add(candidate.archetype);
-      if (candidate.modifier) modifiers.add(candidate.modifier.id);
-    }
+test('固定候选为三张手工地图；新原型/新词缀仍可经 buildCandidate 生成', () => {
+  const candidates = generateMapCandidates('depth-v2-pool-fixed', 3);
+  assert.deepEqual(candidates.map((candidate) => candidate.archetype), ['canyon', 'twin', 'ring']);
+  assert.deepEqual(
+    candidates.map((candidate) => candidate.modifier?.id ?? null),
+    [null, 'trade', 'echo']
+  );
+  // 扩展原型与词缀仍是 legacy 生成器的合法输入（旧存档/回放、平衡模拟依赖）。
+  assert.equal(buildCandidate('depth-v2-doubleRing', 'doubleRing', null, 0).archetype, 'doubleRing');
+  for (const id of ['dusk', 'starlit']) {
+    const modifier = MAP_MODIFIERS.find((item) => item.id === id);
+    assert.ok(modifier, `缺少词缀 ${id}`);
+    assert.equal(buildCandidate(`depth-v2-${id}`, 'canyon', modifier, 0).modifier?.id, id);
   }
-  assert.ok(archetypes.has('doubleRing'), '「双环回廊」从未进入候选池');
-  assert.ok(modifiers.has('dusk'), '「暮色」从未进入候选池');
-  assert.ok(modifiers.has('starlit'), '「星辉」从未进入候选池');
 });
