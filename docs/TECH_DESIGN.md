@@ -237,10 +237,11 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 十个主海克斯各自一个模块（`shared/hexes/<id>.js`），只通过钩子改模拟层，不互相争抢 `sim.js`。
 `shared/hexes/runtime.js` 的 `HexRuntime` 负责「缺失即跳过、返回值不合法即回退默认」，`sim.js` 只经 `hexCall` / `ctx` 触达。
 
-- 逐塔钩子：`modifyTowerStats`（属性重算末尾）、`buildCost`（建造原价，之后统一套遗物 `costMul` 与下限）、`towerMaxLevel`、`upgradeCost`（数据表外等级由钩子给价）、`allowedEvolutions`（可一次兼得多条进化）。
+- 逐塔钩子：`modifyTowerStats`（属性重算末尾）、`buildCost(type, base, ctx)`（建造原价，之后统一套遗物 `costMul` 与下限）、`towerMaxLevel`、`upgradeCost(tower, base, ctx)`（数据表外等级由钩子给价；返回 `null` 表示当前不能升级）、`allowedEvolutions`（可一次兼得多条进化）。`buildCost`/`upgradeCost` 额外收到的 `ctx` 供「只在某些波次生效」的海克斯读取本波状态（如赌徒之骰的造价运势与禁升级代价），既有钩子忽略该参数即可。
 - 建造/移除：`canBuild`（显式带塔型时询问）、`onTowerBuilt` / `onTowerUpgraded` / `onTowerRemoved`。
 - 对局/波次：`onRunInit`、`onWaveStart` / `onWaveEnd`（临时 mod 波末清理）。
 - 战斗事件：`onEnemyKilled` / `onLeak` / `onHit`；遗物：`onRelicGained`、`relicOfferCount`、`relicRerollCost`、`relicRerollBonus`、`sellRatio`。
+- 遗物抽取：`relicRerollBonus(base)` 在账号解锁给定的刷新次数上叠加；定义上的 `gamblerRelicMode: true` 让服务端改用 `gambler` 权重档（三档稀有度等权 = 完全随机），两者都由 `RunService.relicOffers` / `serialize` 读取。
 - `implemented: true` 的定义才会进入开局三选一候选池；未实现的桩保持 no-op，行为与无海克斯一致。
 
 ---

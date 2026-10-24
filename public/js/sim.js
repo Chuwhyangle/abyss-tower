@@ -1409,7 +1409,9 @@ export class Simulation {
   // 建造费用：海克斯可改写数据表原价（如独塔为王 ×0.70），随后统一套用遗物 costMul 与下限。
   towerCost(type) {
     const def = TOWERS[type];
-    const base = this.hexRuntime.active ? this.hexRuntime.buildCost(type, def.cost) : def.cost;
+    const base = this.hexRuntime.active
+      ? this.hexRuntime.buildCost(type, def.cost, this.hexCtx)
+      : def.cost;
     return Math.max(20, Math.round(base * (1 + (this.mods.costMul || 0))));
   }
 
@@ -1429,7 +1431,9 @@ export class Simulation {
     if (tower.level >= this.towerMaxLevel(tower) - 1) return null;
     const row = def.levels[tower.level + 1];
     const base = row ? row.cost : null;
-    const cost = this.hexRuntime.active ? this.hexRuntime.upgradeCost(tower, base) : base;
+    const cost = this.hexRuntime.active
+      ? this.hexRuntime.upgradeCost(tower, base, this.hexCtx)
+      : base;
     if (cost == null) return null;
     const parsed = Number(cost);
     if (!Number.isFinite(parsed)) return null;

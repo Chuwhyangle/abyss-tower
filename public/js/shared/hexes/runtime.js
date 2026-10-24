@@ -68,13 +68,14 @@ export class HexRuntime {
   }
 
   // 建造费用：钩子拿到数据表原价（尚未乘遗物 costMul），返回非法值即回退原价。
-  buildCost(type, base) {
-    return toFinite(this.call('buildCost', type, base), base);
+  // ctx 供「只在某些波次生效」的海克斯读取本波状态（如赌徒之骰的造价运势）。
+  buildCost(type, base, ctx) {
+    return toFinite(this.call('buildCost', type, base, ctx), base);
   }
 
-  // 返回 null 表示「不能继续升级」（例如扩展等级到顶）。
-  upgradeCost(tower, base) {
-    const next = this.call('upgradeCost', tower, base);
+  // 返回 null 表示「不能继续升级」（例如扩展等级到顶，或本波禁升级）。
+  upgradeCost(tower, base, ctx) {
+    const next = this.call('upgradeCost', tower, base, ctx);
     if (next === null) return null;
     if (next === undefined) return base;
     return toFinite(next, base);
@@ -104,6 +105,17 @@ export class HexRuntime {
   relicRerollCost(base, count) {
     const next = toFinite(this.call('relicRerollCost', base, count), base);
     return next >= 0 ? next : base;
+  }
+
+  // 刷新次数加成（在账号解锁给定的基础上叠加，如赌徒之骰 +1）。
+  relicRerollBonus(base) {
+    const next = Math.floor(toFinite(this.call('relicRerollBonus', base), base));
+    return next >= 0 ? next : base;
+  }
+
+  // 遗物稀有度权重取消（完全随机）：定义上的声明式开关，服务端据此选择抽取模式。
+  get gamblerRelicMode() {
+    return this.definition?.gamblerRelicMode === true;
   }
 
   // ---------- 波内临时 mod ----------
