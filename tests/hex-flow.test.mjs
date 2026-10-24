@@ -223,7 +223,10 @@ test('刷新恢复：不重复消耗、不换 offers，波次回传同一海克�
 test('遗物候选与刷新费用走共享海克斯钩子（默认值 3 / 25）', async () => {
   const created = await createRun(TOKEN);
   const { runId, hexOffers: offers } = created.data;
-  await api(`/api/runs/${runId}/hex`, { method: 'POST', body: { hexId: offers[0] } });
+  // 本用例只验证「不改刷新费的海克斯」走默认值 3 / 25；
+  // 黄金律法（HEX-007）把刷新费压到半价，由 tests/hex-golden-law.test.mjs 覆盖。
+  const plainHex = offers.find((id) => id !== 'golden_law') ?? offers[0];
+  await api(`/api/runs/${runId}/hex`, { method: 'POST', body: { hexId: plainHex } });
   await api(`/api/runs/${runId}/map`, { method: 'POST', body: { index: 0 } });
   await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
   await api(`/api/runs/${runId}/clear`, { method: 'POST', body: { wave: 1 } });
