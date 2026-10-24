@@ -127,26 +127,27 @@ test('所有原型 × 词缀组合都能生成入口→基地的连通路径', (
   }
 });
 
-test('每个原型都能进入候选池', () => {
-  const seen = new Set();
-  for (let i = 0; i < 40; i++) {
-    for (const candidate of generateMapCandidates(`depth-pool-${i}`, 3)) {
-      seen.add(candidate.archetype);
-    }
+test('候选池固定为三张手工地图，原型仍与 ARCHETYPES 对齐', () => {
+  const candidates = generateMapCandidates('depth-pool-fixed', 3);
+  assert.deepEqual(candidates.map((candidate) => candidate.archetype), ['canyon', 'twin', 'ring']);
+  for (const candidate of candidates) {
+    assert.ok(ARCHETYPES[candidate.archetype], `原型 ${candidate.archetype} 不在 ARCHETYPES 中`);
   }
+  // 其余原型仍可经 legacy buildCandidate 生成（旧存档回放路径）。
   for (const id of ARCHETYPE_IDS) {
-    assert.ok(seen.has(id), `原型 ${id} 从未进入候选池`);
+    assert.equal(buildCandidate(`depth-legacy-${id}`, id, null, 0).archetype, id);
   }
 });
 
-test('每个词缀都能进入候选池', () => {
-  const seen = new Set();
-  for (let i = 0; i < 40; i++) {
-    for (const candidate of generateMapCandidates(`depth-mod-pool-${i}`, 3)) {
-      if (candidate.modifier) seen.add(candidate.modifier.id);
-    }
-  }
+test('固定候选只带地图 trait，随机词缀仍可经 buildCandidate 使用', () => {
+  const candidates = generateMapCandidates('depth-mod-pool-fixed', 3);
+  assert.deepEqual(
+    candidates.map((candidate) => candidate.modifier?.id ?? null),
+    [null, 'trade', 'echo']
+  );
+  // 12 个随机词缀仍能驱动 legacy 生成器（回溯/平衡模拟用）。
   for (const modifier of MAP_MODIFIERS) {
-    assert.ok(seen.has(modifier.id), `词缀 ${modifier.id} 从未进入候选池`);
+    const candidate = buildCandidate(`depth-mod-${modifier.id}`, 'canyon', modifier, 0);
+    assert.equal(candidate.modifier?.id, modifier.id);
   }
 });

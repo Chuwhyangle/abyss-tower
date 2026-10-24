@@ -40,7 +40,11 @@ coverage/
 
 # quay workspace (local only — never commit)
 .quay/
-tasks/
+# 任务体（tasks/*.md）本身由 fan-in 跟踪并提交（flip-done 的 `git add tasks/<id>.md`）：
+# 整个目录被 ignore 时，git 连已跟踪的 tasks/<id>.md 都拒绝 add（"paths are ignored: tasks"），
+# 机械 fan-in 必然卡在 flip-done。故只忽略目录内的非 .md 运行时文件。
+tasks/*
+!tasks/*.md
 goals/
 adr/
 meta/

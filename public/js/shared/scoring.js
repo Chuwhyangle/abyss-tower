@@ -1,6 +1,6 @@
 // 结算公式与每日挑战派生：前后端共用；服务端为准，客户端只用于本地预览。
 import { MAX_WAVE, getDifficulty } from './data.js';
-import { candidatePlan } from './mapgen.js';
+import { FIXED_MAPS } from './maps/index.js';
 
 export const VICTORY_BONUS = 10000;
 export const VICTORY_CORES = 25;
@@ -95,16 +95,18 @@ export function dailySeed(day) {
   return `daily-${day}`;
 }
 
-// 当日种子固定；词缀取该种子三张候选地图的词缀排列，与地图完全一致。
+// 固定地图的 trait 列表（无 trait 的 canyon 不参与），与候选地图一一对应。
+// 每日/每周挑战的词缀即这三张固定图的固定 trait，不再按种子随机派生。
+function fixedMapModifiers() {
+  return FIXED_MAPS.map((map) => map.modifier)
+    .filter((modifier) => modifier != null)
+    .map(({ id, name, desc, color }) => ({ id, name, desc, color }));
+}
+
+// 当日种子固定；词缀为固定地图的固定 trait。
 export function dailyChallenge(day = dayKey()) {
   const seed = dailySeed(day);
-  const { modifierPool } = candidatePlan(seed, DAILY_MODIFIER_COUNT);
-  const modifiers = modifierPool.slice(0, DAILY_MODIFIER_COUNT).map((modifier) => ({
-    id: modifier.id,
-    name: modifier.name,
-    desc: modifier.desc,
-    color: modifier.color,
-  }));
+  const modifiers = fixedMapModifiers();
   return { day, seed, modifiers };
 }
 
@@ -152,17 +154,11 @@ export function weeklySeed(week) {
   return `weekly-${week}`;
 }
 
-// 每周固定规则集：周词缀取候选计划首张地图的词缀，与开局候选保持一致。
+// 每周固定规则集：周词缀取固定地图的首个 trait，与开局候选保持一致。
 export function weeklyChallenge(date = new Date()) {
   const week = weekKey(date);
   const seed = weeklySeed(week);
-  const { modifierPool } = candidatePlan(seed, 3);
-  const modifiers = modifierPool.slice(0, WEEKLY_MODIFIER_COUNT).map((modifier) => ({
-    id: modifier.id,
-    name: modifier.name,
-    desc: modifier.desc,
-    color: modifier.color,
-  }));
+  const modifiers = fixedMapModifiers().slice(0, WEEKLY_MODIFIER_COUNT);
   return {
     week,
     seed,

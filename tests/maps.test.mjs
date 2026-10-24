@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   generateMap,
   generateMapCandidates,
+  buildCandidate,
   ARCHETYPES,
   MODIFIER_BY_ID,
 } from '../public/js/shared/mapgen.js';
@@ -11,13 +12,14 @@ import { generateWave } from '../public/js/shared/waves.js';
 import { Simulation } from '../public/js/sim.js';
 import { sampleLanePoints } from './balance-sim.mjs';
 
+// 随机词缀/原型的矩形地图仍由 legacy buildCandidate 生成（旧存档与词缀生效测试用）。
 function mapWithArchetype(archetypeId, modifierId = null) {
-  const seed = `test-${archetypeId}-${modifierId || 'none'}`;
-  const candidates = generateMapCandidates(seed, 3);
-  const candidate =
-    candidates.find((item) => item.archetype === archetypeId) ||
-    generateMapCandidates(`force-${archetypeId}`, 3).find((item) => item.archetype === archetypeId);
-  return candidate || generateMap(seed);
+  return buildCandidate(
+    `test-${archetypeId}-${modifierId || 'none'}`,
+    archetypeId,
+    modifierId ? MODIFIER_BY_ID[modifierId] : null,
+    0
+  );
 }
 
 test('候选地图：同种子一致、三张、至少一张低复杂度', () => {
@@ -44,12 +46,18 @@ test('候选地图：入口数与原型/词缀匹配，路径可建造比例正�
       assert.equal(candidate.lanes.length, expected, candidate.seed);
       assert.equal(candidate.meta.portalCount, expected);
       assert.equal(candidate.spawns[0].c, 0);
-      assert.equal(candidate.base.c, candidate.cols - 1);
+      assert.ok(candidate.base.c > 0 && candidate.base.c < candidate.cols, candidate.seed);
       for (const lane of candidate.lanes) {
         assert.ok(lane.polyline.length >= 2);
         assert.ok(lane.length > 4);
         const first = lane.polyline[0];
         assert.equal(Math.floor(first.x), 0);
+        const last = lane.cells[lane.cells.length - 1];
+        assert.deepEqual(
+          { c: last.c, r: last.r },
+          { c: candidate.base.c, r: candidate.base.r },
+          `${candidate.seed} 路径未收束到基地`
+        );
       }
       const buildable = candidate.buildable.flat().filter(Boolean).length;
       assert.ok(buildable > candidate.cols * candidate.rows * 0.3, candidate.seed);
@@ -104,11 +112,9 @@ test('多入口移动：敌人沿各自 lane 前进并独立结算漏怪', () =>
 });
 
 test('平衡机器人：塔位覆盖采样遍历所有 lane（含路径终点）', () => {
-  let candidate = null;
-  for (let i = 0; i < 120 && !candidate; i++) {
-    candidate = generateMapCandidates(`coverage-${i}`, 3).find((item) => item.lanes.length >= 3);
-  }
-  assert.ok(candidate, '需要一张至少三入口的地图');
+  // 固定三图最多两入口；三入口的覆盖采样仍由 legacy 生成器提供。
+  const candidate = buildCandidate('coverage-3lane', 'triple', null, 0);
+  assert.equal(candidate.lanes.length, 3);
   const sim = new Simulation({
     map: candidate,
     seed: candidate.seed,

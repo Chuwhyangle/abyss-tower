@@ -10,7 +10,6 @@ import { fileURLToPath } from 'node:url';
 import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import {
-  DAILY_MODIFIER_COUNT,
   dailyChallenge,
   dailySeed,
   dailyStreak,
@@ -18,7 +17,7 @@ import {
   isDayKey,
   shiftDay,
 } from '../public/js/shared/scoring.js';
-import { MAP_MODIFIERS } from '../public/js/shared/mapgen.js';
+import { FIXED_TRAITS } from '../public/js/shared/maps/index.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = await allocatePort();
@@ -91,21 +90,23 @@ test('同一日期派生结果稳定', () => {
   assert.equal(dailySeed('2026-10-23'), first.seed);
 });
 
-test('不同日期派生不同种子与词缀组合', () => {
+test('不同日期派生不同种子，词缀固定为地图 trait', () => {
   const seeds = new Set(DAYS.map((day) => dailyChallenge(day).seed));
   assert.equal(seeds.size, DAYS.length);
 
+  // 固定地图后，词缀不再随日期变化：始终是 twin/ring 的固定 trait。
   const combos = new Set(
     DAYS.map((day) => dailyChallenge(day).modifiers.map((modifier) => modifier.id).join(','))
   );
-  assert.ok(combos.size > 1, '不同日期应出现不同词缀组合');
+  assert.equal(combos.size, 1, '固定地图的 trait 不随日期变化');
+  assert.equal([...combos][0], 'trade,echo');
 });
 
-test('词缀组合来自现有集合且不重复', () => {
-  const allowed = new Map(MAP_MODIFIERS.map((modifier) => [modifier.id, modifier]));
+test('词缀组合来自固定地图 trait 且不重复', () => {
+  const allowed = new Map(FIXED_TRAITS.map((modifier) => [modifier.id, modifier]));
   for (const day of DAYS) {
     const { modifiers } = dailyChallenge(day);
-    assert.equal(modifiers.length, DAILY_MODIFIER_COUNT);
+    assert.equal(modifiers.length, FIXED_TRAITS.length);
     const ids = modifiers.map((modifier) => modifier.id);
     assert.equal(new Set(ids).size, ids.length, `词缀重复：${ids.join(',')}`);
     for (const modifier of modifiers) {
@@ -183,9 +184,9 @@ test('每日挑战开局参数可复现，每日次数上限生效', async () =>
       started.data.daily.modifiers.map((modifier) => modifier.id),
       challenge.modifiers.map((modifier) => modifier.id)
     );
-    // 当日词缀与实际候选地图一致。
+    // 当日词缀与固定候选地图的 trait 一致（canyon 无 trait，不计入）。
     assert.deepEqual(
-      started.data.candidates.map((candidate) => candidate.modifier?.id),
+      started.data.candidates.map((candidate) => candidate.modifier?.id).filter(Boolean),
       challenge.modifiers.map((modifier) => modifier.id)
     );
     // 开局即计入连续参与天数。
