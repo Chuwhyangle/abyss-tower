@@ -10,6 +10,8 @@ import { modalMethods } from './ui/modals.js';
 import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
+import { MenuBackground, menuTheme, createMenuCanvas } from './render/menu-background.js';
+import { loadSettings } from './settings.js';
 
 class UI {
   constructor() {
@@ -23,6 +25,7 @@ class UI {
     this.selectedSkill = null;
     this._bossBannerWave = null;
     this._bossBannerTimer = null;
+    this._menuBackground = null;
   }
 
   init(handlers) {
@@ -165,6 +168,31 @@ class UI {
     this.closeModal();
     this.hideTowerPanel();
     this.renderTitle();
+    this.startMenuBackground();
+  }
+
+  // 大厅动态背景：标题页显示时启动；低配零粒子，进入战斗时停止以免后台耗帧。
+  startMenuBackground() {
+    if (!this.el?.title) return;
+    if (!this._menuBackground) {
+      const canvas = createMenuCanvas(this.el.title);
+      if (!canvas) return;
+      this._menuBackground = new MenuBackground({ canvas });
+    }
+    this._menuBackground.setTheme(menuTheme());
+    this.refreshMenuBackground();
+    this._menuBackground.start();
+  }
+
+  stopMenuBackground() {
+    this._menuBackground?.stop();
+  }
+
+  // 画质/音乐设置变化后就地更新预算与色调；不重建画布，也不读取模拟状态。
+  refreshMenuBackground() {
+    if (!this._menuBackground) return;
+    this._menuBackground.updateSettings(loadSettings());
+    this._menuBackground.setMusicMood(audio.musicEnabled ? audio.mood || 'menu' : null);
   }
 
   renderTitle() {
@@ -211,6 +239,7 @@ class UI {
   showGame({ game, profile }) {
     this.game = game;
     if (profile) this.profile = profile;
+    this.stopMenuBackground();
     audio.startMusic('battle');
     this.el.title.hidden = true;
     this.el.game.hidden = false;
@@ -226,6 +255,21 @@ class UI {
   }
 }
 
+// 设置面板应用后同步大厅背景：标题页里的画质/音乐改动不必等到下一次 showTitle。
+const settingsMethodsWithMenu = {
+  ...settingsPanelMethods,
+  showSettings(options = {}) {
+    const onApply = options.onApply;
+    return settingsPanelMethods.showSettings.call(this, {
+      ...options,
+      onApply: (next) => {
+        onApply?.(next);
+        this.refreshMenuBackground();
+      },
+    });
+  },
+};
+
 // 各面板以方法集合形式挂在同一原型上，对外仍是同一个 UI 实例与同一套方法签名。
 Object.assign(
   UI.prototype,
@@ -234,7 +278,7 @@ Object.assign(
   shopMethods,
   modalMethods,
   resultMethods,
-  settingsPanelMethods,
+  settingsMethodsWithMenu,
   panelMethods
 );
 

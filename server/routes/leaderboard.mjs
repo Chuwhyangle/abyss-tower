@@ -10,10 +10,12 @@ import {
 import { dayKey, isWeekKey, weekKey } from '../../public/js/shared/scoring.js';
 import {
   MAX_BOARD_PAGE_SIZE,
+  MAX_CURSOR_PAGE_SIZE,
   accountBoardSummary,
   countBoard,
   isSeasonKey,
   listBoard,
+  listEntries,
   listSeasons,
   seasonBounds,
   seasonOf,
@@ -59,13 +61,10 @@ export class LeaderboardRoutes {
           : mode === 'weekly'
             ? (isWeekKey(requestedDay) ? requestedDay : weekKey())
             : requestedDay || today();
-      const page = boundedInt(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
-      const size = boundedInt(params.get('size'), DEFAULT_SIZE, MAX_BOARD_PAGE_SIZE);
       const requested = params.get('difficulty');
       const difficulty =
         requested && Object.hasOwn(DIFFICULTIES, requested) ? requested : null;
       const includeUnclaimed = !AUTH_ENABLED;
-      const offset = (page - 1) * size;
 
       // 赛季默认当前自然月；非法参数回退当前赛季，不报错。
       // mode=endless 与普通榜共用赛季参数：赛季既是查询区间，也是榜单 key（endless:<season>）。
@@ -77,14 +76,42 @@ export class LeaderboardRoutes {
       seasonList.add(currentSeason);
       seasonList.add(season);
 
-      const entries = listBoard(mode, day, {
-        includeUnclaimed,
-        limit: size,
-        offset,
-        difficulty,
-        accountId: ctx.token,
-        season,
-      });
+      // 带 cursor 或 limit 的请求走游标分页；两者都没有时保持旧版 page/size 行为不变。
+      const cursorRaw = params.get('cursor');
+      const limitRaw = params.get('limit');
+      let entries;
+      let page;
+      let size;
+      let nextCursor = null;
+      if (cursorRaw || limitRaw != null) {
+        size = boundedInt(limitRaw, DEFAULT_SIZE, MAX_CURSOR_PAGE_SIZE);
+        const paged = listEntries({
+          mode,
+          day,
+          season,
+          difficulty,
+          includeUnclaimed,
+          cursor: cursorRaw || null,
+          limit: size,
+          accountId: ctx.token,
+        });
+        // 非法/跨榜游标直接拒绝，不回退到首页，避免看起来“翻页成功”却读错数据。
+        if (!paged) return ctx.fail(400, '非法游标', 'INVALID_CURSOR');
+        entries = paged.entries;
+        nextCursor = paged.nextCursor;
+        page = Math.floor(paged.offset / size) + 1;
+      } else {
+        page = boundedInt(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
+        size = boundedInt(params.get('size'), DEFAULT_SIZE, MAX_BOARD_PAGE_SIZE);
+        entries = listBoard(mode, day, {
+          includeUnclaimed,
+          limit: size,
+          offset: (page - 1) * size,
+          difficulty,
+          accountId: ctx.token,
+          season,
+        });
+      }
       const total = countBoard(mode, day, { includeUnclaimed, difficulty, season });
       const me = accountBoardSummary(ctx.token, mode, day, {
         includeUnclaimed,
@@ -104,6 +131,7 @@ export class LeaderboardRoutes {
         total,
         totalPages: Math.max(1, Math.ceil(total / size)),
         entries,
+        nextCursor,
         me,
         season,
         seasons: [...seasonList].sort().reverse(),

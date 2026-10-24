@@ -92,6 +92,7 @@ export class Browser {
     this.pending = new Map();
     this.pageErrors = [];
     this.onError = onError;
+    this.retried = false;
     ws.onmessage = (event) => {
       let message;
       try {
@@ -224,7 +225,35 @@ export async function registerAndLogin(base, { username, password } = {}) {
   };
 }
 
-export async function launchBrowser({
+// 环境类失败：与用例断言无关，可安全重试一次。断言失败不带这些 code，永不重试。
+export const ENV_FAILURE_CODES = Object.freeze(['cdp', 'timeout']);
+
+export class HarnessEnvError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'HarnessEnvError';
+    this.code = code;
+  }
+}
+
+export function classifyFailure(error) {
+  return ENV_FAILURE_CODES.includes(error?.code) ? error.code : 'assertion';
+}
+
+export async function withRetry(fn, { retries = 1, onlyOn = ENV_FAILURE_CODES, onRetry = null } = {}) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      const code = classifyFailure(error);
+      if (!onlyOn.includes(code) || attempt >= retries) throw error;
+      if (onRetry) onRetry({ attempt: attempt + 1, retries, code, error });
+      else console.warn(`[harness] retried:true（${code}，第 ${attempt + 1}/${retries} 次重试）：${error.message}`);
+    }
+  }
+}
+
+async function launchBrowserOnce({
   base,
   name = 'rtd-test',
   initScript = null,
@@ -252,30 +281,74 @@ export async function launchBrowser({
     ],
     { stdio: 'ignore' }
   );
+  let spawnError = null;
+  chrome.once('error', (error) => { spawnError = error; });
 
-  const target = await findPageTarget(debugPort);
-  if (!target) {
-    chrome.kill('SIGKILL');
-    throw new Error('无法连接 Chrome CDP');
+  let browser = null;
+  try {
+    const target = await findPageTarget(debugPort);
+    if (!target) {
+      const reason = spawnError ? `Chrome 启动失败：${spawnError.message}` : '无法连接 Chrome CDP';
+      throw new HarnessEnvError(reason, 'cdp');
+    }
+    const ws = new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((resolve, reject) => {
+      ws.onopen = resolve;
+      ws.onerror = () => reject(new HarnessEnvError('WebSocket 连接失败', 'cdp'));
+    });
+
+    browser = new Browser(ws, chrome, profileDir, { onError });
+    try {
+      await browser.send('Page.enable');
+      await browser.send('Runtime.enable');
+      await browser.send('Network.enable');
+      if (cookie) {
+        await browser.send('Network.setExtraHTTPHeaders', { headers: { Cookie: cookie } });
+      }
+      if (initScript) {
+        await browser.send('Page.addScriptToEvaluateOnNewDocument', { source: initScript });
+      }
+      await browser.send('Page.navigate', { url: `${base}/` });
+      if (awaitBoot) {
+        try {
+          await browser.waitBoot();
+        } catch (error) {
+          throw new HarnessEnvError(`页面启动超时：${error.message}`, 'timeout');
+        }
+      }
+      return browser;
+    } catch (error) {
+      await browser.close();
+      browser = null;
+      throw error instanceof HarnessEnvError
+        ? error
+        : new HarnessEnvError(`浏览器初始化失败：${error.message}`, 'cdp');
+    }
+  } catch (error) {
+    if (browser) {
+      await browser.close();
+    } else {
+      try { chrome.kill('SIGKILL'); } catch { /* ignore */ }
+      try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch { /* ignore */ }
+    }
+    throw error;
   }
-  const ws = new WebSocket(target.webSocketDebuggerUrl);
-  await new Promise((resolve, reject) => {
-    ws.onopen = resolve;
-    ws.onerror = () => reject(new Error('WebSocket 连接失败'));
+}
+
+// 启动失败只在环境类错误（CDP / 启动超时）时重试一次；重试会通过 `retried:true` 留痕。
+export async function launchBrowser(options = {}) {
+  let retried = false;
+  const browser = await withRetry(() => launchBrowserOnce(options), {
+    retries: 1,
+    onlyOn: ENV_FAILURE_CODES,
+    onRetry: ({ attempt, retries, code, error }) => {
+      retried = true;
+      console.warn(
+        `[harness] retried:true（${options.name || 'rtd-test'} ${attempt}/${retries}，${code}）：${error.message}`
+      );
+    },
   });
-
-  const browser = new Browser(ws, chrome, profileDir, { onError });
-  await browser.send('Page.enable');
-  await browser.send('Runtime.enable');
-  await browser.send('Network.enable');
-  if (cookie) {
-    await browser.send('Network.setExtraHTTPHeaders', { headers: { Cookie: cookie } });
-  }
-  if (initScript) {
-    await browser.send('Page.addScriptToEvaluateOnNewDocument', { source: initScript });
-  }
-  await browser.send('Page.navigate', { url: `${base}/` });
-  if (awaitBoot) await browser.waitBoot();
+  browser.retried = retried;
   return browser;
 }
 

@@ -8,11 +8,20 @@ const PAGE_SIZE = 10;
 const STATE = {
   mode: 'normal',
   difficulty: '',
-  page: 1,
+  // cursors[0] 恒为首页（null）；index 指向当前页，翻页只前进/回退游标。
+  cursors: [null],
+  index: 0,
   totalPages: 1,
   day: '',
   loading: false,
+  nextCursor: null,
 };
+
+function resetPaging() {
+  STATE.cursors = [null];
+  STATE.index = 0;
+  STATE.nextCursor = null;
+}
 
 const STYLE = `
   #leaderboard-panel {
@@ -201,7 +210,7 @@ function renderShell(panel) {
     button.addEventListener('click', () => {
       if (STATE.mode === button.dataset.mode) return;
       STATE.mode = button.dataset.mode;
-      STATE.page = 1;
+      resetPaging();
       markActive(panel);
       load(panel);
     });
@@ -210,19 +219,22 @@ function renderShell(panel) {
     button.addEventListener('click', () => {
       if (STATE.difficulty === button.dataset.difficulty) return;
       STATE.difficulty = button.dataset.difficulty;
-      STATE.page = 1;
+      resetPaging();
       markActive(panel);
       load(panel);
     });
   });
   panel.querySelector('#lb-prev').addEventListener('click', () => {
-    if (STATE.page <= 1) return;
-    STATE.page -= 1;
+    if (STATE.loading || STATE.index <= 0) return;
+    STATE.index -= 1;
     load(panel);
   });
   panel.querySelector('#lb-next').addEventListener('click', () => {
-    if (STATE.page >= STATE.totalPages) return;
-    STATE.page += 1;
+    if (STATE.loading || !STATE.nextCursor) return;
+    // 只保留已走过的游标，首页到末页之间可自由回退。
+    STATE.cursors = STATE.cursors.slice(0, STATE.index + 1);
+    STATE.cursors.push(STATE.nextCursor);
+    STATE.index += 1;
     load(panel);
   });
 }
@@ -284,10 +296,16 @@ function renderRows(panel, data) {
       .join('');
   }
 
+  STATE.nextCursor = data.nextCursor || null;
   panel.querySelector('#lb-page').textContent =
-    `第 ${data.page || STATE.page} / ${STATE.totalPages} 页 · 共 ${Number(data.total) || 0} 条`;
-  panel.querySelector('#lb-prev').disabled = STATE.page <= 1;
-  panel.querySelector('#lb-next').disabled = STATE.page >= STATE.totalPages;
+    `第 ${data.page || STATE.index + 1} / ${STATE.totalPages} 页 · 共 ${Number(data.total) || 0} 条`;
+  setPagingBusy(panel, false);
+}
+
+// 加载态：分页按钮在请求期间禁用，避免连点造成游标栈错位。
+function setPagingBusy(panel, busy) {
+  panel.querySelector('#lb-prev').disabled = busy || STATE.index <= 0;
+  panel.querySelector('#lb-next').disabled = busy || !STATE.nextCursor;
 }
 
 async function load(panel) {
@@ -295,12 +313,14 @@ async function load(panel) {
   STATE.loading = true;
   const list = panel.querySelector('#lb-list');
   list.innerHTML = '<p class="lb-hint">正在读取排行榜…</p>';
+  setPagingBusy(panel, true);
   const params = new URLSearchParams({
     mode: STATE.mode,
-    page: String(STATE.page),
-    size: String(PAGE_SIZE),
+    limit: String(PAGE_SIZE),
   });
   if (STATE.difficulty) params.set('difficulty', STATE.difficulty);
+  const cursor = STATE.cursors[STATE.index];
+  if (cursor) params.set('cursor', cursor);
   try {
     const response = await fetch(`/api/leaderboard?${params}`, {
       credentials: 'same-origin',
@@ -316,6 +336,7 @@ async function load(panel) {
     list.innerHTML = `<p class="lb-hint">${escapeHtml(error.message || '读取排行榜失败')}</p>`;
   } finally {
     STATE.loading = false;
+    setPagingBusy(panel, false);
   }
 }
 

@@ -113,6 +113,7 @@ export const TEST_MAP = [
     'tests/biome-visuals.test.mjs',
     'tests/render-visuals.test.mjs',
   ] },
+  { match: 'public/js/render/menu-background.js', tests: ['tests/menu-background.test.mjs'] },
   { match: 'public/js/render/palette.js', tests: [
     'tests/biome-visuals.test.mjs',
     'tests/render-visuals.test.mjs',
