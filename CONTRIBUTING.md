@@ -77,14 +77,18 @@ node scripts/install-hooks.mjs --dry-run  # 只看将写入的路径与内容
 
 - **默认级**：`npm run check:syntax`（语法）+ `node scripts/check-version.mjs`
   （`CONTENT_VERSION` / CHANGELOG / PRD 修订记录 / `package.json` 版本一致性）。
-- **完整级**：在推送命令前加 `HOOK_FULL=1`，在默认级之上加跑 `npm test` 与
-  `npm run perf:budget`（性能预算快速集）：
+- **完整级**：在推送命令前加 `HOOK_FULL=1`，改跑统一入口 `npm run verify:local`
+  （语法 + 风格 + 依赖图 + 版本一致性 + 全量测试）与 `npm run perf:budget`
+  （性能预算快速集）：
 
   ```bash
   HOOK_FULL=1 git push
   ```
 
 - 某项检查失败时，钩子会打印 `✗ <检查项>未通过` 并中止后续检查，直接指出是哪一级没过。
+- 不推送时也可以直接跑 `npm run verify:local`。它与 CI 的对应关系：语法检查与
+  `npm test` 在 `.github/workflows/ci.yml` 的 `test` job 里也有；风格、依赖图、版本
+  一致性是本地补充门禁。浏览器验收（`npm run verify:browser`）不在其中，按需单独跑。
 - 不会覆盖已有的非本工具钩子；如确认要覆盖，加 `--force`。
 - 紧急绕过：`git push --no-verify`（不推荐，会跳过全部本地门禁）。
 

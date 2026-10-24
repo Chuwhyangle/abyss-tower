@@ -21,6 +21,62 @@ const AMBIENT_TRACKS = {
   boss: { type: 'sine', freqs: [41.2, 61.74] },
 };
 
+// ---------- 环境音层（群系 / 天气联动） ----------
+// 独立于音乐、音效的总线，默认电平低于音乐（0.1 × 50% = 0.05）。
+export const AMBIENCE_VOLUME = 0.03;
+export const AMBIENCE_ENABLED_KEY = 'abyss-tower.ambience';
+
+// 三类程序化音色，全部由振荡器/噪声合成，不引入音频素材。
+export const AMBIENCE_KINDS = Object.freeze({
+  wind: Object.freeze({ id: 'wind', name: '风声', noise: true, filter: 520, bed: 0.3 }),
+  drone: Object.freeze({ id: 'drone', name: '低鸣', noise: false, filter: 420, bed: 0 }),
+  water: Object.freeze({ id: 'water', name: '水滴', noise: true, filter: 900, bed: 0.12, drip: true }),
+});
+
+// 六个群系全部有映射；kind 决定合成方式，freqs 是底层振荡器的基频。
+export const AMBIENCE_PROFILES = Object.freeze({
+  canyon: Object.freeze({ kind: 'wind', freqs: [55, 82.5], level: 1 }),
+  twin: Object.freeze({ kind: 'water', freqs: [196, 293.66], level: 0.9 }),
+  triple: Object.freeze({ kind: 'drone', freqs: [41.2, 61.74], level: 1 }),
+  ring: Object.freeze({ kind: 'drone', freqs: [49, 73.42], level: 0.95 }),
+  cross: Object.freeze({ kind: 'wind', freqs: [46.25, 69.3], level: 0.9 }),
+  switchback: Object.freeze({ kind: 'wind', freqs: [51.91, 77.78], level: 1.05 }),
+});
+
+// 天气覆盖音色：与 render/background-renderer.js 的 WEATHER_IDS 一一对应。
+export const AMBIENCE_WEATHER = Object.freeze({
+  rain: Object.freeze({ kind: 'water', levelMul: 1.1 }),
+  fog: Object.freeze({ kind: 'wind', levelMul: 0.85 }),
+  meteor: Object.freeze({ kind: 'drone', levelMul: 1.15 }),
+});
+
+// 纯函数：群系决定基础音色，天气覆盖音色与电平。未知群系回退 canyon。
+export function ambienceFor(mapMeta, weather = null) {
+  const archetype = mapMeta?.archetype;
+  const biome = Object.prototype.hasOwnProperty.call(AMBIENCE_PROFILES, archetype)
+    ? archetype
+    : 'canyon';
+  const base = AMBIENCE_PROFILES[biome];
+  const overlay = AMBIENCE_WEATHER[weather] || null;
+  const kind = overlay?.kind || base.kind;
+  return Object.freeze({
+    biome,
+    weather: overlay ? weather : null,
+    kind,
+    freqs: base.freqs,
+    level: AMBIENCE_VOLUME * base.level * (overlay?.levelMul ?? 1),
+    key: `${biome}:${kind}:${overlay ? weather : 'none'}`,
+  });
+}
+
+function readAmbienceEnabled() {
+  try {
+    return globalThis.localStorage?.getItem?.(AMBIENCE_ENABLED_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
 // 三套程序化氛围：menu / battle / boss。每套提供两首变体，全部由振荡器循环合成。
 // 会话开始时抽一个种子，同一会话内每个场景固定选同一首，换一局再重新抽。
 export const MUSIC_VARIANTS = {
@@ -226,6 +282,14 @@ class AudioFX {
     this.ambientMood = null;
     this.ambientWanted = false;
     this._ambientNodes = null;
+    // 环境音层与 sfx/music 完全独立：自己的开关、总线、节点与计时器。
+    this.ambienceEnabled = readAmbienceEnabled();
+    this.ambienceWanted = false;
+    this._ambienceSpec = null;
+    this._ambienceKey = null;
+    this._ambienceNodes = null;
+    this._ambienceNoise = null;
+    this._ambienceTimer = null;
     this._musicTimer = null;
     this._musicStep = 0;
     this.seed = sessionSeed();
@@ -240,8 +304,16 @@ class AudioFX {
 
   ensure() {
     if (!this.ctx) {
-      // 音效、音乐、环境音都关闭时不必创建上下文。
-      if (!this.enabled && !this.musicEnabled && !this.musicWanted && !this.ambientWanted) return null;
+      // 音效、音乐、环境音（两层）都关闭时不必创建上下文。
+      if (
+        !this.enabled &&
+        !this.musicEnabled &&
+        !this.musicWanted &&
+        !this.ambientWanted &&
+        !this.ambienceWanted
+      ) {
+        return null;
+      }
       const AC = globalThis.window?.AudioContext || globalThis.window?.webkitAudioContext;
       if (!AC) return null;
       this.ctx = new AC();
@@ -265,17 +337,24 @@ class AudioFX {
       this.ambientGain = this.ctx.createGain();
       this.ambientGain.gain.value = 0.0001;
       this.ambientGain.connect(this.sfxGain);
+
+      // 环境音层走自己的总线，直接接 master，音量/开关与 sfx、music 互不影响。
+      this.ambienceGain = this.ctx.createGain();
+      this.ambienceGain.gain.value = 0.0001;
+      this.ambienceGain.connect(this.masterGain);
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume()
         .then(() => {
           this.maybeBeginMusic();
           this.maybeBeginAmbient();
+          this.maybeBeginAmbience();
         })
         .catch(() => {});
     } else {
       this.maybeBeginMusic();
       this.maybeBeginAmbient();
+      this.maybeBeginAmbience();
     }
     return this.ctx;
   }
@@ -286,8 +365,10 @@ class AudioFX {
     if (value) {
       this.ensure();
       this.maybeBeginAmbient();
+      this.maybeBeginAmbience();
     } else {
       this.pauseAmbient();
+      this.pauseAmbience();
     }
   }
 
@@ -410,6 +491,7 @@ class AudioFX {
     this.bossPhase = 1;
     this.pauseMusicLoop();
     this.stopAmbient();
+    this.stopAmbience();
   }
 
   // 浏览器要求首次用户手势后才能出声：上下文未 running 时只排队，不调度音符。
@@ -599,18 +681,191 @@ class AudioFX {
     this._ambientNodes = null;
   }
 
+  // ---------- 环境音层（群系 / 天气） ----------
+
+  // 低配可关闭：独立开关持久化在自己的键上，不触碰 sfx/music 的任何状态。
+  setAmbienceEnabled(value) {
+    this.ambienceEnabled = !!value;
+    try {
+      globalThis.localStorage?.setItem?.(
+        AMBIENCE_ENABLED_KEY,
+        this.ambienceEnabled ? 'on' : 'off'
+      );
+    } catch {
+      /* 存储不可用：只在本次会话生效 */
+    }
+    if (!this.ambienceEnabled) {
+      this.pauseAmbience();
+      return false;
+    }
+    if (this.ambienceWanted) {
+      const ctx = this.ensure();
+      if (ctx) this.maybeBeginAmbience();
+    }
+    return true;
+  }
+
+  // 入口：群系由 mapMeta.archetype 决定，天气由调用方用 weatherFor() 求得。
+  startAmbience(mapMeta = null, weather = null) {
+    const spec = ambienceFor(mapMeta, weather);
+    this._ambienceSpec = spec;
+    this.ambienceWanted = true;
+    if (this._ambienceKey === spec.key && this._ambienceNodes) {
+      this.maybeBeginAmbience();
+      return spec;
+    }
+    this.stopAmbienceNodes();
+    this.clearAmbienceTimer();
+    this._ambienceKey = spec.key;
+    const ctx = this.ensure();
+    if (ctx) this.maybeBeginAmbience();
+    return spec;
+  }
+
+  stopAmbience() {
+    this.ambienceWanted = false;
+    this._ambienceKey = null;
+    this._ambienceSpec = null;
+    this.pauseAmbience();
+  }
+
+  maybeBeginAmbience() {
+    if (!this.ambienceEnabled || !this.ambienceWanted || !this.ctx || !this.ambienceGain) return;
+    if (this.ctx.state !== 'running') return;
+    if (!this._ambienceNodes) this.buildAmbienceNodes();
+    const now = this.ctx.currentTime;
+    const level = Math.max(0.0002, this._ambienceSpec?.level ?? AMBIENCE_VOLUME);
+    this.ambienceGain.gain.cancelScheduledValues(now);
+    this.ambienceGain.gain.setTargetAtTime(level, now, 0.8);
+  }
+
+  // 三类音色共享低频铺底；风声/水滴额外叠一层低通噪声，水滴再排布随机滴答。
+  buildAmbienceNodes() {
+    const ctx = this.ctx;
+    const spec = this._ambienceSpec || ambienceFor(null);
+    if (!ctx || !this.ambienceGain) return;
+    const kind = AMBIENCE_KINDS[spec.kind] || AMBIENCE_KINDS.wind;
+    const nodes = [];
+
+    spec.freqs.forEach((freq, index) => {
+      const osc = ctx.createOscillator();
+      osc.type = kind.id === 'water' ? 'sine' : 'triangle';
+      osc.frequency.value = freq;
+      const trem = ctx.createGain();
+      trem.gain.value = 0.35 / spec.freqs.length;
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.07 + index * 0.02;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.2 / spec.freqs.length;
+      lfo.connect(depth).connect(trem.gain);
+      osc.connect(trem).connect(this.ambienceGain);
+      osc.start();
+      lfo.start();
+      nodes.push(osc, lfo);
+    });
+
+    if (kind.noise) {
+      const source = ctx.createBufferSource();
+      source.buffer = this.ambienceNoiseBuffer();
+      source.loop = true;
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = kind.filter;
+      const bed = ctx.createGain();
+      bed.gain.value = kind.bed;
+      source.connect(filter).connect(bed).connect(this.ambienceGain);
+      source.start();
+      nodes.push(source);
+    }
+
+    this._ambienceNodes = nodes;
+    if (kind.drip) this.scheduleDrip();
+  }
+
+  // 2 秒白噪声循环，只用一个缓冲区，不引入素材文件。
+  ambienceNoiseBuffer() {
+    if (this._ambienceNoise) return this._ambienceNoise;
+    const ctx = this.ctx;
+    const frames = Math.max(1, Math.floor(ctx.sampleRate * 2));
+    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
+    this._ambienceNoise = buffer;
+    return buffer;
+  }
+
+  // 水滴：随机间隔的短促下滑音，自带包络与停止时间，不占用循环节点表。
+  scheduleDrip() {
+    if (!this.ambienceEnabled || !this.ambienceWanted || !this.ctx || this.ctx.state !== 'running') {
+      this._ambienceTimer = null;
+      return;
+    }
+    const ctx = this.ctx;
+    const spec = this._ambienceSpec || ambienceFor(null);
+    const base = spec.freqs[Math.floor(Math.random() * spec.freqs.length)] || 220;
+    const freq = base * (2 + Math.random() * 2);
+    const when = ctx.currentTime + 0.04;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, when);
+    osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.55), when + 0.22);
+    env.gain.setValueAtTime(0.0001, when);
+    env.gain.exponentialRampToValueAtTime(0.12, when + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.0001, when + 0.26);
+    osc.connect(env).connect(this.ambienceGain);
+    osc.start(when);
+    osc.stop(when + 0.3);
+    const timer = setTimeout(() => this.scheduleDrip(), (1.2 + Math.random() * 2.4) * 1000);
+    timer?.unref?.();
+    this._ambienceTimer = timer;
+  }
+
+  clearAmbienceTimer() {
+    if (this._ambienceTimer) {
+      clearTimeout(this._ambienceTimer);
+      this._ambienceTimer = null;
+    }
+  }
+
+  pauseAmbience() {
+    this.clearAmbienceTimer();
+    this.stopAmbienceNodes();
+    if (this.ambienceGain && this.ctx) {
+      const now = this.ctx.currentTime;
+      this.ambienceGain.gain.cancelScheduledValues(now);
+      this.ambienceGain.gain.setTargetAtTime(0.0001, now, 0.35);
+    }
+  }
+
+  stopAmbienceNodes() {
+    if (!this._ambienceNodes) return;
+    for (const node of this._ambienceNodes) {
+      try {
+        node.stop();
+        node.disconnect();
+      } catch {
+        /* 节点可能已停止 */
+      }
+    }
+    this._ambienceNodes = null;
+  }
+
   // 页面切到后台时暂停音乐与环境音并挂起上下文，回到前台再续播。
   handleVisibility() {
     if (!this.ctx) return;
     if (document.hidden) {
       this.pauseMusicLoop();
       this.pauseAmbient();
+      this.pauseAmbience();
       this.ctx.suspend().catch(() => {});
     } else {
       this.ctx.resume()
         .then(() => {
           this.maybeBeginMusic();
           this.maybeBeginAmbient();
+          this.maybeBeginAmbience();
         })
         .catch(() => {});
     }

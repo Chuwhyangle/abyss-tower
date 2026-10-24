@@ -29,9 +29,8 @@ node scripts/release.mjs prepare v1.14.0 --date 2026-10-24 --yes
 # 3. 手工补全 CHANGELOG 条目正文与 PRD 修订说明（脚本只写占位「待补充。」）
 $EDITOR CHANGELOG.md docs/PRD.md
 
-# 4. 本地全量检查
-npm test
-npm run check:version
+# 4. 本地全量检查（单一入口，见下节）
+npm run verify:local
 
 # 5. 提交并推送发布分支，创建 PR
 git add server/config.mjs CHANGELOG.md docs/PRD.md
@@ -52,6 +51,29 @@ node scripts/release.mjs verify v1.14.0
 node scripts/release.mjs build v1.14.0 --ref develop
 node scripts/release.mjs build v1.14.0 --ref develop --yes --out ../abyss-tower-release/v1.14.0
 ```
+
+## 本地门禁 `verify:local` 与 CI 的对应关系
+
+推送前统一跑一个入口：
+
+```bash
+npm run verify:local
+```
+
+它按固定顺序串联下列步骤，任一步失败立即停止（`&&` 短路），退出码非 0，并由
+npm 的错误输出点名失败的脚本：
+
+| 顺序 | 步骤 | CI 对应项 |
+| --- | --- | --- |
+| 1 | `npm run check:syntax` | `.github/workflows/ci.yml` 的「语法检查」 |
+| 2 | `npm run check:style` | 无（本地补充） |
+| 3 | `npm run check:imports` | 无（本地补充） |
+| 4 | `npm run check:version` | 无（本地补充） |
+| 5 | `npm test` | `.github/workflows/ci.yml` 的「单元与接口测试」 |
+
+`verify:local` 是推送前的单一入口，但**不替代**仓库的全量门禁：浏览器验收
+（`npm run verify:browser`）与性能/平衡模拟仍按需单独执行，合入 develop 前的
+fan-in 也会再跑一遍全量检查。
 
 ## 子命令
 

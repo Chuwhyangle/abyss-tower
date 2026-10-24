@@ -46,6 +46,10 @@ if [ "\${FAKE_NPM_FAIL:-}" = "syntax" ] && [ "$1" = "run" ] && [ "$2" = "check:s
   echo "syntax failed" >&2
   exit 1
 fi
+if [ "\${FAKE_NPM_FAIL:-}" = "verify-local" ] && [ "$1" = "run" ] && [ "$2" = "verify:local" ]; then
+  echo "verify failed" >&2
+  exit 1
+fi
 `,
     { mode: 0o755 },
   );
@@ -89,7 +93,7 @@ test('--dry-run 输出目标路径与内容，且不写入文件', (t) => {
   assert.match(result.stdout, /npm run check:syntax/);
   assert.match(result.stdout, /node scripts\/check-version\.mjs/);
   assert.match(result.stdout, /node --no-warnings scripts\/import-graph\.mjs/);
-  assert.match(result.stdout, /npm test/);
+  assert.match(result.stdout, /npm run verify:local/);
   assert.match(result.stdout, /npm run perf:budget/);
   assert.match(result.stdout, /HOOK_FULL/);
   assert.equal(fs.existsSync(hookPath(root)), false, 'dry-run 不应创建钩子');
@@ -108,7 +112,7 @@ test('安装生成可执行钩子，内容包含快速检查与完整测试开�
   assert.match(content, /node --no-warnings scripts\/import-graph\.mjs/);
   assert.match(content, /依赖图检查/);
   assert.match(content, /HOOK_FULL/);
-  assert.match(content, /npm test/);
+  assert.match(content, /npm run verify:local/);
   assert.match(content, /npm run perf:budget/);
   assert.match(content, /✗ \$\{label\}未通过/, '失败信息应指出具体检查项');
 
@@ -133,7 +137,7 @@ test('默认分级跑语法、版本一致性与依赖图检查', (t) => {
   assert.match(result.stdout, /\[pre-push\] 依赖图检查/);
 });
 
-test('HOOK_FULL=1 时加跑完整测试与性能预算', (t) => {
+test('HOOK_FULL=1 时改跑 verify:local 与性能预算', (t) => {
   const root = gitRepo(t);
   assert.equal(run(root).status, 0);
   const log = fakeToolchain(root);
@@ -141,11 +145,21 @@ test('HOOK_FULL=1 时加跑完整测试与性能预算', (t) => {
   const result = runHook(root, log, { HOOK_FULL: '1' });
   assert.equal(result.status, 0, result.stderr);
   const calls = fs.readFileSync(log, 'utf8');
-  assert.match(calls, /^npm run check:syntax$/m);
-  assert.match(calls, /^version-check$/m);
-  assert.match(calls, /^import-graph$/m);
-  assert.match(calls, /^npm test$/m);
+  assert.match(calls, /^npm run verify:local$/m);
   assert.match(calls, /^npm run perf:budget$/m);
+  assert.doesNotMatch(calls, /^npm run check:syntax$/m, '快速检查已包含在 verify:local 中，不应重复执行');
+  assert.match(result.stdout, /\[pre-push\] 本地全量门禁/);
+});
+
+test('verify:local 失败时中止性能预算并指出检查项', (t) => {
+  const root = gitRepo(t);
+  assert.equal(run(root).status, 0);
+  const log = fakeToolchain(root);
+
+  const result = runHook(root, log, { HOOK_FULL: '1', FAKE_NPM_FAIL: 'verify-local' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /✗ 本地全量门禁未通过/);
+  assert.doesNotMatch(fs.readFileSync(log, 'utf8'), /perf:budget/, 'verify:local 失败后不应继续');
 });
 
 test('依赖图检查失败时输出违规位置并中止后续检查', (t) => {

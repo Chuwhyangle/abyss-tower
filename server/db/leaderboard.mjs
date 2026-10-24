@@ -7,6 +7,7 @@ import {
 } from '../../public/js/shared/scoring.js';
 import { DIFFICULTIES } from '../../public/js/shared/data.js';
 import { COSMETIC_TITLES } from '../../public/js/shared/achievements.js';
+import { AUDIT_ACTIONS, recordAudit } from './audit.mjs';
 import { notify } from './notifications.mjs';
 
 // v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
@@ -851,11 +852,16 @@ export function settleSeason(season, { dryRun = false } = {}) {
     for (const item of rewards) {
       insertResult.run(item.accountId, season, item.rank, item.cores, settledAt);
       if (item.cores > 0) grantCores.run(item.accountId, item.cores, settledAt);
-      // 通知写入是附加动作，失败也不影响结算事务。
+      // 通知与审计都是附加动作，失败也不影响结算事务。
       notify(item.accountId, {
         kind: 'season',
         dedupeKey: `season:${season}`,
         payload: { season, rank: item.rank, cores: item.cores },
+      }, settledAt);
+      recordAudit(item.accountId, AUDIT_ACTIONS.SEASON_SETTLE, {
+        season,
+        rank: item.rank,
+        cores: item.cores,
       }, settledAt);
     }
     return {

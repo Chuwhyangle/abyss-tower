@@ -1,5 +1,6 @@
 // 浏览器运行时：固定步长模拟、按画质限帧渲染、HUD 节流、性能指标与后台暂停。
 import { Renderer } from './render.js';
+import { weatherFor } from './render/background-renderer.js';
 import { audio } from './audio.js';
 import { normalizeSettings } from './settings.js';
 
@@ -31,6 +32,8 @@ export class GameApp {
       floaters: this.settings.floaters,
     });
     sim.opts.onSound = (name) => audio.play(name);
+    // 最低画质（关闭装饰）同时关掉环境音层；环境音开关独立于音乐/音效。
+    audio.setAmbienceEnabled(this.settings.decorations !== 'off');
 
     this._onVisibility = () => {
       // 回到前台不补算后台时间；保留手动暂停/整理状态。
@@ -68,6 +71,7 @@ export class GameApp {
     this.running = false;
     if (this.raf) cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this._onVisibility);
+    audio.stopAmbience();
   }
 
   tick(now) {
@@ -163,6 +167,9 @@ export class GameApp {
     }
     // 波次越高音乐电平略微上浮；非战斗阶段回到基准，避免结束后仍持续紧张。
     audio.setMusicIntensity(sim.phase === 'wave' ? sim.wave : 0);
+    // 环境音层跟随地图群系与天气；同一组合重复请求会直接短路。
+    const mapMeta = sim.mapMeta || {};
+    audio.startAmbience(mapMeta, weatherFor(mapMeta, sim.seed));
   }
 
   applySettings(settings) {
@@ -173,6 +180,8 @@ export class GameApp {
       floaters: this.settings.floaters,
     });
     this.lastRenderAt = 0;
+    // 画质切到最低档时关闭环境音层，切回则恢复。
+    audio.setAmbienceEnabled(this.settings.decorations !== 'off');
     this.emitHud(true);
   }
 

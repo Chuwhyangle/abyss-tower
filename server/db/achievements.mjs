@@ -10,8 +10,13 @@ import {
   ACHIEVEMENT_RARITIES,
   COSMETIC_FRAMES,
   COSMETIC_TITLES,
+  SEASONAL_ACHIEVEMENTS,
   achievementProgress,
   evaluateAchievements,
+  parseSeasonalAchievementId,
+  seasonalAchievementById,
+  seasonalAchievementId,
+  seasonalAchievementsFor,
 } from '../../public/js/shared/achievements.js';
 import { SKILL_ORDER } from '../../public/js/shared/data.js';
 import { notify } from './notifications.mjs';
@@ -248,16 +253,19 @@ function seasonBestRank(accountId, bounds) {
   return best;
 }
 
-// 当前赛季（自然月）统计：对局数、通关数、最高分、活跃天数与最佳榜单排名。
+// 当前赛季（自然月）统计：对局数、通关数、最高分、击杀、活跃天数与最佳榜单排名。
 function seasonContext(accountId, now = Date.now()) {
   const key = seasonOf(now);
   const bounds = seasonBounds(key);
-  if (!bounds) return { key: null, runs: 0, wins: 0, bestScore: 0, days: 0, rank: null };
+  if (!bounds) {
+    return { key: null, runs: 0, wins: 0, bestScore: 0, kills: 0, days: 0, rank: null };
+  }
   const row = db
     .prepare(
       `SELECT COUNT(*) AS runs,
               COALESCE(SUM(victory), 0) AS wins,
               COALESCE(MAX(score), 0) AS best_score,
+              COALESCE(SUM(kills), 0) AS kills,
               COUNT(DISTINCT day) AS days
          FROM runs
         WHERE account_id = ? AND status = 'finished'
@@ -269,6 +277,7 @@ function seasonContext(accountId, now = Date.now()) {
     runs: Number(row?.runs) || 0,
     wins: Number(row?.wins) || 0,
     bestScore: Number(row?.best_score) || 0,
+    kills: Number(row?.kills) || 0,
     days: Number(row?.days) || 0,
     rank: seasonBestRank(accountId, bounds),
   };
@@ -307,6 +316,24 @@ function progressContext(accountId, unlocked) {
   };
 }
 
+// 普通成就与赛季模板共用同一条 id 解析路径。
+function achievementOf(id) {
+  return ACHIEVEMENT_BY_ID[id] || seasonalAchievementById(id) || null;
+}
+
+// 赛季成就复用现有判定流程，只是把 id 加上赛季前缀：换季后 id 变化，天然不会重复解锁。
+function evaluateSeasonalAchievements(season, unlocked) {
+  if (!season?.key) return [];
+  const ctx = { season };
+  const added = [];
+  for (const template of seasonalAchievementsFor(season.key)) {
+    const id = seasonalAchievementId(season.key, template.id);
+    if (unlocked.has(id)) continue;
+    if (template.check(ctx)) added.push(id);
+  }
+  return added;
+}
+
 export function listUnlocked(accountId) {
   return new Map(unlockedRows(accountId).map((row) => [row.achievement_id, row.unlocked_at]));
 }
@@ -316,18 +343,22 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
   const unlocked = new Set(listUnlocked(accountId).keys());
   const daily = dailySummary(accountId);
   const flawless = flawlessSummary(accountId);
-  const added = evaluateAchievements({
-    run,
-    stats,
-    dailyRuns: daily.runs,
-    dailyWins: daily.wins,
-    skills: skillContext(accountId),
-    skillAbyssWins: skillAbyssWins(accountId),
-    noDamageWins: flawless.wins,
-    abyssFlawlessWins: flawless.abyssWins,
-    season: seasonContext(accountId),
-    unlocked,
-  });
+  const season = seasonContext(accountId);
+  const added = [
+    ...evaluateAchievements({
+      run,
+      stats,
+      dailyRuns: daily.runs,
+      dailyWins: daily.wins,
+      skills: skillContext(accountId),
+      skillAbyssWins: skillAbyssWins(accountId),
+      noDamageWins: flawless.wins,
+      abyssFlawlessWins: flawless.abyssWins,
+      season,
+      unlocked,
+    }),
+    ...evaluateSeasonalAchievements(season, unlocked),
+  ];
   if (!added.length) return [];
 
   const insert = db.prepare(
@@ -338,7 +369,7 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
   for (const id of added) insert.run(accountId, id, now);
   writeCosmeticUnlocks(accountId, added, now);
   for (const id of added) {
-    const achievement = ACHIEVEMENT_BY_ID[id];
+    const achievement = achievementOf(id);
     notify(accountId, {
       kind: 'achievement',
       dedupeKey: `achievement:${id}`,
@@ -350,6 +381,67 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
     }, now);
   }
   return added;
+}
+
+// 赛季成就条目与普通成就保持同一展示结构，前端复用同一张卡片。
+function seasonalItem(template, season, seasonCtx, id, unlockedAt) {
+  const isUnlocked = unlockedAt != null;
+  let progress = seasonCtx ? achievementProgress(template, { season: seasonCtx }) : null;
+  if (progress && isUnlocked) progress = { ...progress, current: progress.target };
+  return {
+    id,
+    season,
+    templateId: template.id,
+    title: template.title,
+    desc: template.desc,
+    condition: template.condition,
+    group: 'season',
+    groupName: '本赛季',
+    rarity: template.rarity,
+    rarityName: ACHIEVEMENT_RARITIES[template.rarity]?.name || template.rarity,
+    hidden: false,
+    unlocked: isUnlocked,
+    unlockedAt: isUnlocked ? unlockedAt : null,
+    progress,
+  };
+}
+
+function seasonalSummary(seasonCtx, unlocked) {
+  const season = seasonCtx?.key || null;
+  const achievements = season
+    ? seasonalAchievementsFor(season).map((template) => {
+        const id = seasonalAchievementId(season, template.id);
+        return seasonalItem(template, season, seasonCtx, id, unlocked.get(id) ?? null);
+      })
+    : [];
+  return {
+    season,
+    total: achievements.length,
+    unlockedCount: achievements.filter((item) => item.unlocked).length,
+    achievements,
+  };
+}
+
+// 往季成就保存在 account_achievements 里，按赛季倒序汇总为荣誉展示。
+function seasonalHistory(accountId, currentSeason, unlocked) {
+  const grouped = new Map();
+  for (const [id, unlockedAt] of unlocked) {
+    const parsed = parseSeasonalAchievementId(id);
+    if (!parsed || parsed.season === currentSeason) continue;
+    const template = SEASONAL_ACHIEVEMENTS.find((item) => item.id === parsed.templateId);
+    if (!template) continue;
+    if (!grouped.has(parsed.season)) grouped.set(parsed.season, []);
+    grouped.get(parsed.season).push(
+      seasonalItem(template, parsed.season, null, id, unlockedAt)
+    );
+  }
+  return [...grouped.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .map(([season, achievements]) => ({
+      season,
+      total: achievements.length,
+      achievements,
+    }));
 }
 
 export function achievementSummary(accountId) {
@@ -390,5 +482,7 @@ export function achievementSummary(accountId) {
     unlockedCount: achievements.filter((item) => item.unlocked).length,
     groups,
     achievements,
+    seasonal: seasonalSummary(ctx.season, unlocked),
+    seasonalHistory: seasonalHistory(accountId, ctx.season?.key || null, unlocked),
   };
 }

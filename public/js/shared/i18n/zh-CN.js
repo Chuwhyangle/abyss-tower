@@ -40,6 +40,10 @@ export default {
   'data.modifier.dusk.desc': '视野收缩：防御塔射程 -3%，敌人生命 +8%，最终分数 +3%',
   'data.modifier.starlit.name': '星辉',
   'data.modifier.starlit.desc': '星光照明：防御塔射程 +8%，敌人生命 +6%，最终分数 +2%',
+  'data.modifier.frenzy.name': '狂暴',
+  'data.modifier.frenzy.desc': '敌人移速 +18%，击杀金币 +5%，最终分数 +5%',
+  'data.modifier.barren.name': '贫瘠',
+  'data.modifier.barren.desc': '击杀金币 -18%，最终分数 +6%',
 
   'data.tower.arrow.name': '弩塔',
   'data.tower.cannon.name': '炮塔',

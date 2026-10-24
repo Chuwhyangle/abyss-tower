@@ -2731,6 +2731,19 @@ body.is-touch .rotate-hint {
   display: none;
 }
 
+/* 光晕放在伪元素上：待机呼吸只跑 opacity/transform，避免每帧重绘 box-shadow。 */
+.btn-skill::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--skill) 55%, transparent);
+  box-shadow: 0 0 18px 3px color-mix(in srgb, var(--skill) 32%, transparent);
+  opacity: 0;
+  transform: scale(0.94);
+  pointer-events: none;
+}
+
 .btn-skill .skill-glyph {
   position: relative;
   z-index: 1;
@@ -2784,7 +2797,7 @@ body.is-touch .rotate-hint {
   border-color: color-mix(in srgb, var(--skill) 30%, transparent);
 }
 
-.btn-skill.ready {
+.btn-skill.ready::after {
   animation: skill-breathe 1.9s ease-in-out infinite;
 }
 
@@ -2801,12 +2814,12 @@ body.is-touch .rotate-hint {
 @keyframes skill-breathe {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--skill) 0%, transparent),
-      0 10px 26px rgba(0, 0, 0, 0.5);
+    opacity: 0.35;
+    transform: scale(0.94);
   }
   50% {
-    box-shadow: 0 0 20px 4px color-mix(in srgb, var(--skill) 42%, transparent),
-      0 10px 26px rgba(0, 0, 0, 0.5);
+    opacity: 0.9;
+    transform: scale(1.04);
   }
 }
 
@@ -3342,6 +3355,11 @@ body.is-touch .rotate-hint {
   content: "◆ ";
 }
 
+/* ============ UI 动效预算 ============ */
+/* 一次性动效 ≤800ms；无限循环只跑 transform/opacity（总数 ≤4）；reduced-motion 全关闭。
+   审计：node scripts/ui-animation-audit.mjs。确需更久的一次性动效，
+   在 animation 上一行写 `ui-motion-budget: allow-long — 理由`。 */
+
 /* ============ 界面转场与首领横幅 ============ */
 /* 轻量转场：只改透明度与位移，时长 ≤400ms；reduced-motion 下直接显示。 */
 .view-enter {
@@ -3393,6 +3411,7 @@ body.is-touch .rotate-hint {
   white-space: nowrap;
   pointer-events: none;
   transform: translateX(-50%);
+  /* ui-motion-budget: allow-long — 首领预警需要完整停留 1.5s（见 tests/ui-transitions.test.mjs） */
   animation: boss-banner 1500ms var(--ease-standard) both;
 }
 
@@ -3476,6 +3495,10 @@ body.is-touch .rotate-hint {
   }
 
   .stat.hp.low b {
+    animation: none !important;
+  }
+
+  .btn-skill.ready::after {
     animation: none !important;
   }
 
