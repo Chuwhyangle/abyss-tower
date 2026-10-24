@@ -5,6 +5,20 @@ import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { fmt, diffName, enemyName, escapeHtml } from './shared.js';
 
+// 技能按钮状态机：把冷却进度与阶段换算成可测的纯状态，渲染层只负责套用（纯函数）。
+export function skillButtonState({ skill, phase, paused = false }) {
+  if (!skill?.id) return null;
+  const stats = skill.stats || skillStats(skill.id, skill.level || 1);
+  const maxCd = Math.max(1, Number(stats?.cd) || 1);
+  const cooldown = Math.max(0, Number(skill.cooldown ?? skill.cd ?? 0));
+  const ratio = Math.min(1, cooldown / maxCd);
+  const inWave = phase === 'wave';
+  const ready = inWave && cooldown <= 0 && !paused;
+  const state = ready ? 'ready' : !inWave ? 'prep' : cooldown > 0 ? 'cooling' : 'paused';
+  const countdown = cooldown > 0 && inWave ? Math.ceil(cooldown) : 0;
+  return { cooldown, maxCd, ratio, ready, state, countdown };
+}
+
 export const hudMethods = {
   // HUD 入口提示：动态插入，避免改动静态页面结构；仅多入口地图显示。
   buildPortalHint() {
@@ -201,13 +215,12 @@ export const hudMethods = {
     }
     const def = SKILLS[skill.id] || { id: skill.id, color: '#7cd4f5' };
     const name = tOr(`skill.${skill.id}.name`, def.name || t('skill.ui.fallback'));
-    const stats = skill.stats || skillStats(skill.id, skill.level || 1);
-    const maxCd = Math.max(1, Number(stats?.cd) || 1);
-    const cooldown = Math.max(0, Number(skill.cooldown ?? skill.cd ?? 0));
-    const ratio = Math.min(1, cooldown / maxCd);
     const phase = sim.phase;
-    const paused = !!hud.paused;
-    const ready = phase === 'wave' && cooldown <= 0 && !paused;
+    const { cooldown, ratio, ready, state, countdown } = skillButtonState({
+      skill,
+      phase,
+      paused: !!hud.paused,
+    });
 
     btn.hidden = false;
     btn.style.setProperty('--skill', def.color);
@@ -216,13 +229,7 @@ export const hudMethods = {
     btn.classList.toggle('cooling', cooldown > 0);
     btn.classList.toggle('idle', phase !== 'wave');
     btn.dataset.skill = skill.id;
-    btn.dataset.state = ready
-      ? 'ready'
-      : phase !== 'wave'
-        ? 'prep'
-        : cooldown > 0
-          ? 'cooling'
-          : 'paused';
+    btn.dataset.state = state;
     const status =
       phase !== 'wave'
         ? t('skill.ui.status.prep')
@@ -232,7 +239,7 @@ export const hudMethods = {
     btn.title = t('skill.ui.buttonTitle', { name, status });
     btn.setAttribute('aria-label', t('skill.ui.buttonAria', { name, status }));
     if (this.el.skillCount) {
-      this.el.skillCount.textContent = cooldown > 0 && phase === 'wave' ? String(Math.ceil(cooldown)) : '';
+      this.el.skillCount.textContent = countdown > 0 ? String(countdown) : '';
     }
   },
 

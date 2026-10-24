@@ -9,8 +9,9 @@
 //   - 粒子池 + 上限（full 180 / standard 120 / minimal 48）；
 //   - 全屏色层、极光帘幕、星空、光柱、焦痕全部预烘焙，绘制时只 drawImage；
 //   - 不使用 ctx.filter / shadowBlur / getImageData，也不在每帧创建渐变。
-import { TILE, SKILLS, SKILL_ORDER, skillStats } from '../shared/data.js';
+import { TILE, BOSS_SKILLS, SKILLS, SKILL_ORDER, skillStats } from '../shared/data.js';
 import { RNG } from '../shared/rng.js';
+import { Palette, SKILL_WARNING_STYLE } from './palette.js';
 
 const T = TILE;
 
@@ -31,27 +32,56 @@ export function qualityProfile(tier) {
   return SKILL_QUALITY_PROFILES[tier] || DEFAULT_QUALITY_PROFILE;
 }
 
-// 前摇预警：地面标记 + 倒计时环。cast = 渲染层在释放瞬间起搏；
-// event = 沿用模拟层的 meteorWarn 事件（逐落点、位置精确）。
-export const SKILL_WARNING_PROFILES = {
-  aurora: { source: 'cast', shape: 'hex', ttl: 0.85, radius: 3.2, dash: [8, 6], fill: 0.1, spin: 0.5, ring: true },
-  meteor: { source: 'event', shape: 'ring', ttl: 0.55, radius: 1.8, dash: [6, 5], fill: 0.12, spin: 0, ring: true },
-  chrono: { source: 'cast', shape: 'star', ttl: 1, radius: 4.4, dash: [10, 8], fill: 0.08, spin: -0.4, ring: true },
+// 前摇预警：地面标记 + 倒计时环。语义色、形状、线宽、虚线节奏与倒计时样式
+// 统一来自 palette，这里只声明每个技能的起搏来源、时长与范围。
+// cast = 渲染层在释放瞬间起搏；event = 沿用模拟层的 meteorWarn 事件（逐落点、位置精确）。
+const WARNING_SPECS = {
+  aurora: { source: 'cast', semantic: 'control', ttl: 0.85, radius: 3.2, spin: 0.5 },
+  meteor: { source: 'event', semantic: 'danger', ttl: 0.55, radius: 1.8, spin: 0 },
+  chrono: { source: 'cast', semantic: 'buff', ttl: 1, radius: 4.4, spin: -0.4 },
+  roar: { source: 'cast', semantic: 'danger', ttl: 0.85, radius: 3, spin: 0 },
+  summon: { source: 'cast', semantic: 'danger', ttl: 0.85, radius: 2.2, spin: 0 },
+  slam: { source: 'cast', semantic: 'danger', ttl: 0.85, radius: 2.5, spin: 0 },
 };
 
-const DEFAULT_WARNING_PROFILE = {
+function buildWarningProfile(entry) {
+  const semantic = Palette.semantic(entry.semantic);
+  return Object.freeze({
+    source: entry.source,
+    semantic: semantic.id,
+    shape: semantic.shape,
+    ttl: entry.ttl,
+    radius: entry.radius,
+    spin: entry.spin,
+    dash: SKILL_WARNING_STYLE.dash,
+    fill: SKILL_WARNING_STYLE.fill,
+    lineWidth: SKILL_WARNING_STYLE.lineWidth,
+    countdownWidth: SKILL_WARNING_STYLE.countdownWidth,
+    ring: true,
+  });
+}
+
+// 玩家技能的预警配置与 SKILL_ORDER 一一对应（既有契约）。
+export const SKILL_WARNING_PROFILES = Object.freeze(
+  Object.fromEntries(SKILL_ORDER.map((id) => [id, buildWarningProfile(WARNING_SPECS[id])]))
+);
+
+// 完整预警注册表：玩家技能 + 首领技能，保证“所有技能都有预警定义”。
+export const SKILL_WARNING_REGISTRY = Object.freeze({
+  ...SKILL_WARNING_PROFILES,
+  ...Object.fromEntries(Object.keys(BOSS_SKILLS).map((id) => [id, buildWarningProfile(WARNING_SPECS[id])])),
+});
+
+const DEFAULT_WARNING_PROFILE = buildWarningProfile({
   source: 'cast',
-  shape: 'ring',
+  semantic: 'danger',
   ttl: 0.7,
   radius: 2.2,
-  dash: [6, 6],
-  fill: 0.08,
   spin: 0,
-  ring: true,
-};
+});
 
 export function warningProfile(id) {
-  return SKILL_WARNING_PROFILES[id] || DEFAULT_WARNING_PROFILE;
+  return SKILL_WARNING_REGISTRY[id] || DEFAULT_WARNING_PROFILE;
 }
 
 // 倒计时环比例：剩余时间 / 总时长，1 → 0；非法输入回退 0（不画环）。
@@ -704,7 +734,7 @@ export class SkillRenderer {
     const warn = this._warn;
     if (!warn.id || warn.ttl <= 0) return;
     const profile = warn.profile || warningProfile(warn.id);
-    const color = this.colors[warn.id] || this.colors.aurora;
+    const color = Palette.semanticColor(profile.semantic, this.settings);
     const left = warningCountdown(warn.ttl, warn.maxTtl);
     if (left <= 0) return;
     const r = profile.radius * T;
@@ -715,9 +745,9 @@ export class SkillRenderer {
     g.globalAlpha = alpha;
     g.strokeStyle = rgba(color, 0.6);
     g.fillStyle = rgba(color, profile.fill);
-    g.lineWidth = 1.8;
-    g.setLineDash(profile.dash);
-    g.lineDashOffset = -time * 14;
+    g.lineWidth = profile.lineWidth;
+    g.setLineDash(SKILL_WARNING_STYLE.dash);
+    g.lineDashOffset = -time * SKILL_WARNING_STYLE.dashScroll;
     this._traceWarningShape(g, profile.shape, r, time * profile.spin);
     g.fill();
     g.stroke();
@@ -725,8 +755,8 @@ export class SkillRenderer {
 
     // 倒计时环：剩余比例收缩，越接近命中越短。
     const start = -Math.PI / 2;
-    g.strokeStyle = rgba('#f4fbff', 0.72);
-    g.lineWidth = 2.4;
+    g.strokeStyle = rgba(SKILL_WARNING_STYLE.countdownColor, 0.72);
+    g.lineWidth = profile.countdownWidth;
     g.beginPath();
     g.arc(0, 0, r * 0.82, start, start + Math.PI * 2 * left);
     g.stroke();
@@ -779,25 +809,26 @@ export class SkillRenderer {
       // 落点预警：`meteorWarn` 期间地面圈 + 倒计时环。玩法信息，minimal 也保留。
       if (/warn|telegraph|mark/.test(kind)) {
         const profile = warningProfile('meteor');
+        const color = Palette.semanticColor(profile.semantic, this.settings);
         const left = warningCountdown(event.ttl, event.maxTtl ?? profile.ttl);
         const warnAlpha = 0.16 + fade * 0.22;
         g.save();
-        g.fillStyle = rgba(this.colors.meteor, warnAlpha * progress);
+        g.fillStyle = rgba(color, warnAlpha * progress);
         g.beginPath();
         g.arc(x, y, Math.max(2, r * progress), 0, Math.PI * 2);
         g.fill();
-        g.strokeStyle = rgba(this.colors.meteor, 0.55 + fade * 0.3);
-        g.lineWidth = 1.6;
-        g.setLineDash(profile.dash);
-        g.lineDashOffset = -time * 18;
+        g.strokeStyle = rgba(color, 0.55 + fade * 0.3);
+        g.lineWidth = profile.lineWidth;
+        g.setLineDash(SKILL_WARNING_STYLE.dash);
+        g.lineDashOffset = -time * SKILL_WARNING_STYLE.dashScroll;
         g.beginPath();
         g.arc(x, y, r, 0, Math.PI * 2);
         g.stroke();
         g.setLineDash([]);
         // 倒计时环：剩余时间越少弧越短，落点更可读。
         const start = -Math.PI / 2;
-        g.strokeStyle = rgba('#fff0d8', 0.78);
-        g.lineWidth = 2.6;
+        g.strokeStyle = rgba(SKILL_WARNING_STYLE.countdownColor, 0.78);
+        g.lineWidth = profile.countdownWidth;
         g.beginPath();
         g.arc(x, y, r * 0.86, start, start + Math.PI * 2 * left);
         g.stroke();

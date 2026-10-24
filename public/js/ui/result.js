@@ -10,6 +10,16 @@ import { fmt, diffName, skillName, escapeHtml } from './shared.js';
 // 结算分数滚动时长；与结算入场动效一起保持在 600ms 以内。
 const RESULT_SCORE_DURATION = 600;
 
+// 结算分数格式化：非法或缺失分数按 0 展示，静态展示与滚动动画共用（纯函数）。
+export function formatResultScore(value) {
+  return fmt(Number(value) || 0);
+}
+
+// 最佳波次：取历史最佳与本局波次的较大值，非法值按 0 处理（纯函数）。
+export function resultBestWave(profileBest, stats) {
+  return Math.max(Number(profileBest) || 0, Number(stats?.clearedWave ?? stats?.wave) || 0);
+}
+
 // 结算音效走 sfx 总线，静音由音频层统一判断；音频异常时只跳过声音，不阻塞结算展示。
 function playResultSound(victory) {
   try {
@@ -46,10 +56,7 @@ export const resultMethods = {
       ? t('result.clearedTag', { name: diffName(diff) })
       : t('result.difficultyTag', { name: diffName(diff) });
 
-    const bestWave = Math.max(
-      Number(this.profile?.stats?.byDifficulty?.[difficulty]?.bestWave) || 0,
-      Number(stats.clearedWave ?? stats.wave) || 0
-    );
+    const bestWave = resultBestWave(this.profile?.stats?.byDifficulty?.[difficulty]?.bestWave, stats);
 
     // 结算页只展示本局真正产出的解锁；没有解锁时整块不渲染。
     const achievementUnlocks = (res?.unlockedAchievements || [])
@@ -90,7 +97,7 @@ export const resultMethods = {
             <p class="diff-tag" style="color:${diff.color}">${diffTag}</p>
           </header>
           <section class="result-score">
-            <div class="score-big" data-score-target="${score}">${fmt(score)}</div>
+            <div class="score-big" data-score-target="${score}">${formatResultScore(score)}</div>
             <p class="muted">${t('result.finalScore')}</p>
             ${personalBest ? `<p class="result-record" data-result-record>${iconSvg('victory', 'icon-inline')}${t('result.newRecord')}</p>` : ''}
           </section>
@@ -152,12 +159,12 @@ export const resultMethods = {
     }
     const duration = RESULT_SCORE_DURATION;
     const start = performance.now();
-    node.textContent = fmt(0);
+    node.textContent = formatResultScore(0);
     const step = (now) => {
       if (!node.isConnected) return;
       const progress = Math.min(1, (now - start) / duration);
       const eased = 1 - (1 - progress) ** 3;
-      node.textContent = fmt(Math.round(target * eased));
+      node.textContent = formatResultScore(Math.round(target * eased));
       if (progress < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);

@@ -11,14 +11,44 @@ import { t } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { towerName, evolutionEffectText, choiceLabel, escapeHtml } from './shared.js';
 
+// 商店卡片顺序：按 TOWER_ORDER 展开，缺少定义的 id 跳过（纯函数，便于单测）。
+export function orderedShopTowers() {
+  return TOWER_ORDER.map((id) => ({ id, def: TOWERS[id] })).filter((entry) => entry.def);
+}
+
+// 价格可负担判定：与界面原来的 `gold < cost` 语义一致，非数值视为可负担（纯函数）。
+export function shopCardAffordable(gold, cost) {
+  return !(Number(gold) < Number(cost));
+}
+
+// 遗物等级夹取：数据损坏或缺失时回落到 1–3 级区间（纯函数）。
+export function clampRelicLevel(level) {
+  return Math.min(3, Math.max(1, level || 1));
+}
+
+// 遗物条目的展示模型：等级、等级文案与稀有度配色，列表渲染与单测共用（纯函数）。
+export function relicChipView(state) {
+  const relic = RELIC_BY_ID[state?.id];
+  if (!relic) return null;
+  const level = clampRelicLevel(state.level);
+  const rarity = RARITY[relic.rarity];
+  return {
+    id: relic.id,
+    level,
+    levelLabel: RELIC_LEVEL_LABELS[level - 1],
+    rarityKey: relic.rarity,
+    rarityName: rarity.name,
+    color: rarity.color,
+  };
+}
+
 export const shopMethods = {
   // ---------- 商店 ----------
 
   renderShop() {
     if (!this.el?.shopList) return;
     this.el.shopList.innerHTML = '';
-    TOWER_ORDER.forEach((id, index) => {
-      const def = TOWERS[id];
+    orderedShopTowers().forEach(({ id, def }, index) => {
       const locked = !this.game.unlockedTowers.includes(id);
       const button = document.createElement('button');
       button.className = `tower-card${locked ? ' locked' : ''}`;
@@ -53,7 +83,7 @@ export const shopMethods = {
       const type = card.dataset.type;
       card.classList.toggle('selected', this.game.placementType === type);
       const cost = this.game.towerCost(type);
-      card.classList.toggle('poor', this.game.gold < cost);
+      card.classList.toggle('poor', !shopCardAffordable(this.game.gold, cost));
     });
   },
 
@@ -71,14 +101,14 @@ export const shopMethods = {
       return;
     }
     for (const state of this.game.relics) {
+      const view = relicChipView(state);
+      if (!view) continue;
       const relic = RELIC_BY_ID[state.id];
-      if (!relic) continue;
-      const level = Math.min(3, Math.max(1, state.level || 1));
       const rarity = RARITY[relic.rarity];
       const chip = document.createElement('div');
       chip.className = 'relic-chip';
-      chip.dataset.tip = `<b style="color:${rarity.color}">${relic.name} ${RELIC_LEVEL_LABELS[level - 1]}</b><span class="rarity-tag" style="color:${rarity.color}">${rarity.name}</span><p>${relicEffectText(state.id, level)}</p>`;
-      chip.innerHTML = `<i style="background:${rarity.color}"></i><span>${relic.name} <em class="relic-level">${RELIC_LEVEL_LABELS[level - 1]}</em></span>`;
+      chip.dataset.tip = `<b style="color:${view.color}">${relic.name} ${view.levelLabel}</b><span class="rarity-tag" style="color:${view.color}">${rarity.name}</span><p>${relicEffectText(state.id, view.level)}</p>`;
+      chip.innerHTML = `<i style="background:${view.color}"></i><span>${relic.name} <em class="relic-level">${view.levelLabel}</em></span>`;
       this.el.relicList.appendChild(chip);
     }
   },
@@ -153,7 +183,7 @@ export const shopMethods = {
     const cost = this.game.upgradeCost(this._panelTower);
     const button = this.el.towerPanel.querySelector('.upgrade');
     if (!button || cost == null) return;
-    button.classList.toggle('poor', gold < cost);
+    button.classList.toggle('poor', !shopCardAffordable(gold, cost));
   },
 
   hideTowerPanel() {
