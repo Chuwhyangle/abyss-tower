@@ -67,6 +67,11 @@ export class HexRuntime {
     return next >= 1 ? next : base;
   }
 
+  // 建造费用：钩子拿到数据表原价（尚未乘遗物 costMul），返回非法值即回退原价。
+  buildCost(type, base) {
+    return toFinite(this.call('buildCost', type, base), base);
+  }
+
   // 返回 null 表示「不能继续升级」（例如扩展等级到顶）。
   upgradeCost(tower, base) {
     const next = this.call('upgradeCost', tower, base);

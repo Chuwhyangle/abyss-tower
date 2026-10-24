@@ -1406,8 +1406,11 @@ export class Simulation {
     };
   }
 
+  // 建造费用：海克斯可改写数据表原价（如独塔为王 ×0.70），随后统一套用遗物 costMul 与下限。
   towerCost(type) {
-    return Math.max(20, Math.round(TOWERS[type].cost * (1 + (this.mods.costMul || 0))));
+    const def = TOWERS[type];
+    const base = this.hexRuntime.active ? this.hexRuntime.buildCost(type, def.cost) : def.cost;
+    return Math.max(20, Math.round(base * (1 + (this.mods.costMul || 0))));
   }
 
   // 等级上限：默认取数据表的等级数；独塔为王等海克斯可扩展。
