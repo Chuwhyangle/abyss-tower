@@ -48,10 +48,13 @@ export const SEASON_PASS_BY_ID = Object.freeze(
 export const SEASON_PASS_MAX_POINTS = SEASON_PASS_MILESTONES.at(-1).points;
 
 // 积分来源分类：键、顺序与文案集中定义，服务端聚合与客户端展示共用这一份。
+// ORDER 是「可派生来源」的固定顺序：对局、已领取赛季悬赏、已解锁成就。
+// 解锁加成的来源不参与派生（它由账本一次性写入），因此单独追加在明细末尾。
 export const SEASON_POINT_SOURCES = Object.freeze({
   MATCH: 'match',
   BOUNTY: 'bounty',
   ACHIEVEMENT: 'achievement',
+  ACHIEVEMENT_BONUS: 'achievementBonus',
 });
 
 export const SEASON_POINT_SOURCE_ORDER = Object.freeze([
@@ -64,6 +67,7 @@ export const SEASON_POINT_SOURCE_LABELS = Object.freeze({
   [SEASON_POINT_SOURCES.MATCH]: '对局积分',
   [SEASON_POINT_SOURCES.BOUNTY]: '赛季悬赏',
   [SEASON_POINT_SOURCES.ACHIEVEMENT]: '成就奖励',
+  [SEASON_POINT_SOURCES.ACHIEVEMENT_BONUS]: '成就解锁加成',
 });
 
 // 额外积分只由来源决定，不改动里程碑阈值与奖励：调整联动强度只改这两张表。
@@ -87,6 +91,30 @@ export function seasonBountyPoints(tier) {
 export function seasonAchievementPoints(rarity) {
   const points = Number(SEASON_ACHIEVEMENT_POINT_BONUS[rarity]);
   return Number.isFinite(points) && points > 0 ? Math.floor(points) : 0;
+}
+
+// 解锁时的一次性通行证加成：与上面的稀有度积分互不重叠，每个成就每赛季只发一次。
+export const SEASON_ACHIEVEMENT_UNLOCK_POINTS = Object.freeze({
+  common: 50,
+  rare: 120,
+  epic: 300,
+});
+
+export function seasonAchievementUnlockPoints(rarity) {
+  const points = Number(SEASON_ACHIEVEMENT_UNLOCK_POINTS[rarity]);
+  return Number.isFinite(points) && points > 0 ? Math.floor(points) : 0;
+}
+
+// 一次性加成走独立账本：player_kv 主键 (账号, 命名空间, 键) 天然去重，
+// 键里带赛季，换季后自然不再计入旧赛季明细。
+export const SEASON_POINT_LEDGER_NAMESPACE = 'season_pass_ledger';
+
+export function seasonBonusLedgerKey(season, achievementId) {
+  return `bonus:${season}:${achievementId}`;
+}
+
+export function seasonBonusLedgerPrefix(season) {
+  return `bonus:${season}:`;
 }
 
 // 来源明细：入参可以是条目数组、{来源: 分数} 映射，或旧数据的裸总分。

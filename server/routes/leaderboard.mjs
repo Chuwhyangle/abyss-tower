@@ -20,10 +20,33 @@ import {
   seasonBounds,
   seasonOf,
   seasonResultFor,
+  validateLeaderboardEntry,
 } from '../db/leaderboard.mjs';
 import { today } from './support.mjs';
 
 const DEFAULT_SIZE = 20;
+
+// 玩家可见的复核说明：只描述哪类数据对不上，不出现任何阈值或内部规则名。
+const SUSPECT_REASON_TEXT = {
+  kills_clamped: '击杀数与波次数据不符',
+  score_too_high: '分数与波次、击杀数据不符',
+  score_too_low: '分数与波次、击杀数据不符',
+};
+const SUSPECT_REASON_FALLBACK = '本局数据存在异常，正在复核';
+
+// 可疑标记以入库时的判定为准；这里只按当前数据补一条规则级说明，不改排序、不改名次。
+function annotateSuspect(entries, scoreMul) {
+  return entries.map((entry) => {
+    if (!entry.suspect) return { ...entry, suspect: false, suspectReason: null };
+    const { flags } = validateLeaderboardEntry(entry, { scoreMul });
+    const flag = flags.find((item) => SUSPECT_REASON_TEXT[item]);
+    return {
+      ...entry,
+      suspect: true,
+      suspectReason: SUSPECT_REASON_TEXT[flag] || SUSPECT_REASON_FALLBACK,
+    };
+  });
+}
 
 function boundedInt(raw, fallback, max) {
   const parsed = Math.floor(Number(raw));
@@ -112,6 +135,9 @@ export class LeaderboardRoutes {
           season,
         });
       }
+      // 变异倍率同时用于复核说明的重新判定，避免合法的高倍率成绩被标成异常。
+      const scoreMul = mutationIds ? mutationScoreMul(mutationIds) : 1;
+      entries = annotateSuspect(entries, scoreMul);
       const total = countBoard(mode, day, { includeUnclaimed, difficulty, season });
       const me = accountBoardSummary(ctx.token, mode, day, {
         includeUnclaimed,
@@ -124,7 +150,7 @@ export class LeaderboardRoutes {
         day,
         week: mode === 'weekly' ? day : null,
         mutations: mutationIds ? mutationSummary(mutationIds) : null,
-        mutationScoreMul: mutationIds ? mutationScoreMul(mutationIds) : null,
+        mutationScoreMul: mutationIds ? scoreMul : null,
         page,
         size,
         difficulty,

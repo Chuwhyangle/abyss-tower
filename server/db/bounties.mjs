@@ -11,6 +11,7 @@ import {
   deriveBounties,
 } from '../../public/js/shared/bounties.js';
 import { notify } from './notifications.mjs';
+import { syncSeasonPassPointsInTx } from './season_pass.mjs';
 
 function parseJson(text) {
   try {
@@ -267,6 +268,8 @@ export function claimBounty(accountId, bountyId, now = Date.now()) {
       }
 
       const balance = grantCores(accountId, definition.reward);
+      // 通行证积分与领取同事务：积分快照写失败则整笔领取回滚。
+      syncSeasonPassPointsInTx(accountId, now);
       // 通知失败不改变领取结果：星核已经写入钱包。
       notify(accountId, {
         kind: 'bounty',

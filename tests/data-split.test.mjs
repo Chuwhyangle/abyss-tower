@@ -36,7 +36,8 @@ const EXPECTED_EXPORTS = [
 // V34-001：遗物扩容到 50 件并新增 2 套套装，内容快照随之更新。
 // V36-002：塔的进化扩容到三分支（24 条路线），内容快照随之更新。
 // V41-004：遗物扩容到 60 件并新增条件型套装，内容快照随之更新。
-const BASELINE_HASH = '794e25002d2ae1ba70388d273cec58d48811abdb88c7e703ad67b544d31509e3';
+// V50-003：遗物扩容到 70 件并新增回合型效果，内容快照随之更新。
+const BASELINE_HASH = '85fdc3f1bed8417f544219a0d35148bd3df458b55e0a156d0e7b20e3153385df';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -146,7 +147,7 @@ test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
   assert.equal(Object.keys(data.ENEMIES).length, 12);
-  assert.equal(data.RELICS.length, 60);
+  assert.equal(data.RELICS.length, 70);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);
 });

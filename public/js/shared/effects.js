@@ -195,7 +195,85 @@ export const EFFECT_REGISTRY = {
     balanceWeight: 0.4,
     integer: true,
   },
+
+  // ---------- 回合型效果 ----------
+  // periodic 声明触发周期（波）与结算时机；数值仍走等级缩放与全局封顶。
+  // applyPeriodic 只在对应波次结束时调用一次，不消耗随机数，因此不影响固定种子结算顺序。
+  waveGold2: {
+    cap: 24,
+    globalCap: 36,
+    text: (value) => `每 2 波结束时获得 ${value} 金币`,
+    balanceWeight: 5,
+    integer: true,
+    periodic: { period: 2, timing: 'waveEnd' },
+    applyPeriodic(sim, value) {
+      sim.gold += value;
+    },
+  },
+  waveGold3: {
+    cap: 48,
+    globalCap: 72,
+    text: (value) => `每 3 波结束时获得 ${value} 金币`,
+    balanceWeight: 6,
+    integer: true,
+    periodic: { period: 3, timing: 'waveEnd' },
+    applyPeriodic(sim, value) {
+      sim.gold += value;
+    },
+  },
+  waveGold5: {
+    cap: 96,
+    globalCap: 160,
+    text: (value) => `每 5 波结束时获得 ${value} 金币`,
+    balanceWeight: 8,
+    integer: true,
+    periodic: { period: 5, timing: 'waveEnd' },
+    applyPeriodic(sim, value) {
+      sim.gold += value;
+    },
+  },
+  waveHeal3: {
+    cap: 5,
+    globalCap: 8,
+    text: (value) => `每 3 波结束时恢复 ${value} 点基地生命`,
+    balanceWeight: 3,
+    integer: true,
+    periodic: { period: 3, timing: 'waveEnd' },
+    applyPeriodic(sim, value) {
+      healBase(sim, value);
+    },
+  },
+  waveHeal4: {
+    cap: 6,
+    globalCap: 10,
+    text: (value) => `每 4 波结束时恢复 ${value} 点基地生命`,
+    balanceWeight: 3,
+    integer: true,
+    periodic: { period: 4, timing: 'waveEnd' },
+    applyPeriodic(sim, value) {
+      healBase(sim, value);
+    },
+  },
+  waveHeal5: {
+    cap: 10,
+    globalCap: 16,
+    text: (value) => `每 5 波结束时恢复 ${value} 点基地生命`,
+    balanceWeight: 4,
+    integer: true,
+    periodic: { period: 5, timing: 'waveEnd' },
+    applyPeriodic(sim, value) {
+      healBase(sim, value);
+    },
+  },
 };
+
+function healBase(sim, value) {
+  const before = sim.baseHp;
+  sim.baseHp = Math.min(sim.maxBaseHp, sim.baseHp + value);
+  if (sim.baseHp > before) {
+    sim.addEffect?.({ kind: 'heal', x: sim.map.base.x, y: sim.map.base.y, ttl: 0.8 });
+  }
+}
 
 // 遗物套装：按“不同遗物”计件（重复获得同一遗物只提升等级，不重复计数），
 // 达到 2/4 件阈值时追加一组效果。加成只引用已注册的 mod 键，
@@ -347,6 +425,33 @@ export function hitBonuses(sim, enemy, context) {
     if (entry.hitCondition(sim, enemy, state)) bonuses.push(value);
   }
   return bonuses;
+}
+
+// 回合型效果：返回当前波次结束时应触发的 [{key, value, period}]。
+// 周期由注册表声明，未到周期（含第 0 波）不触发；顺序沿用注册表顺序，保证确定性。
+export function periodicWaveEffects(mods, wave) {
+  const current = Math.floor(Number(wave) || 0);
+  const effects = [];
+  for (const [key, entry] of Object.entries(EFFECT_REGISTRY)) {
+    if (!entry.periodic || entry.periodic.timing !== 'waveEnd') continue;
+    const value = mods[key];
+    if (!value) continue;
+    const { period } = entry.periodic;
+    if (current < period || current % period !== 0) continue;
+    effects.push({ key, value, period });
+  }
+  return effects;
+}
+
+// 在波次结束时结算回合型效果。只读写本局状态，不消耗随机数。
+export function applyPeriodicWaveEffects(sim, wave) {
+  const applied = periodicWaveEffects(sim.mods, wave);
+  for (const effect of applied) {
+    const entry = getEffect(effect.key);
+    if (typeof entry.applyPeriodic !== 'function') continue;
+    entry.applyPeriodic(sim, effect.value);
+  }
+  return applied;
 }
 
 // 由注册表派生的全局上限（保持旧 GLOBAL_MOD_CAPS 的键名与顺序）。

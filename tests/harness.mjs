@@ -8,13 +8,35 @@ import { fileURLToPath } from 'node:url';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
+// 并行负载下服务启动与 CDP 连接受机器资源影响：时限可用环境变量覆盖，默认比历史值更宽松。
+function envNumber(name, fallback) {
+  const raw = process.env[name];
+  if (raw === undefined || raw === '') return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.floor(value) : fallback;
+}
+
+export const HARNESS_TIMEOUTS = Object.freeze({
+  startAttempts: envNumber('HARNESS_START_ATTEMPTS', 8),
+  healthAttempts: envNumber('HARNESS_HEALTH_ATTEMPTS', 150),
+  healthIntervalMs: envNumber('HARNESS_HEALTH_INTERVAL_MS', 100),
+  cdpAttempts: envNumber('HARNESS_CDP_ATTEMPTS', 160),
+  cdpIntervalMs: envNumber('HARNESS_CDP_INTERVAL_MS', 120),
+  bootTimeoutMs: envNumber('HARNESS_BOOT_TIMEOUT_MS', 20000),
+  waitTimeoutMs: envNumber('HARNESS_WAIT_TIMEOUT_MS', 20000),
+  stopAttempts: envNumber('HARNESS_STOP_ATTEMPTS', 40),
+  stopIntervalMs: envNumber('HARNESS_STOP_INTERVAL_MS', 50),
+  registerAttempts: envNumber('HARNESS_REGISTER_ATTEMPTS', 12),
+  registerDelayMs: envNumber('HARNESS_REGISTER_DELAY_MS', 200),
+});
+
 function randomPort(min = 20000, max = 29999) {
   return min + Math.floor(Math.random() * (max - min));
 }
 
 export async function startTestServer({ seedHeader = false, dbPath = null, env = {} } = {}) {
   let lastError = '';
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < HARNESS_TIMEOUTS.startAttempts; attempt++) {
     const port = randomPort();
     const databasePath =
       dbPath || path.join(os.tmpdir(), `rtd-test-${process.pid}-${Date.now()}-${port}.db`);
@@ -38,7 +60,7 @@ export async function startTestServer({ seedHeader = false, dbPath = null, env =
     child.stderr.on('data', (chunk) => { log += chunk; });
 
     const base = `http://127.0.0.1:${port}`;
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < HARNESS_TIMEOUTS.healthAttempts; i++) {
       if (child.exitCode != null) break;
       try {
         const response = await fetch(`${base}/api/health`);
@@ -50,7 +72,9 @@ export async function startTestServer({ seedHeader = false, dbPath = null, env =
             log: () => log,
             async stop() {
               if (child.exitCode == null) child.kill('SIGTERM');
-              for (let j = 0; j < 30 && child.exitCode == null; j++) await sleep(50);
+              for (let j = 0; j < HARNESS_TIMEOUTS.stopAttempts && child.exitCode == null; j++) {
+                await sleep(HARNESS_TIMEOUTS.stopIntervalMs);
+              }
               if (child.exitCode == null) child.kill('SIGKILL');
               for (const suffix of ['', '-wal', '-shm']) {
                 try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch { /* ignore */ }
@@ -61,7 +85,7 @@ export async function startTestServer({ seedHeader = false, dbPath = null, env =
       } catch {
         /* wait */
       }
-      await sleep(100);
+      await sleep(HARNESS_TIMEOUTS.healthIntervalMs);
     }
     lastError = log;
     if (child.exitCode == null) child.kill('SIGKILL');
@@ -70,7 +94,7 @@ export async function startTestServer({ seedHeader = false, dbPath = null, env =
 }
 
 export async function findPageTarget(debugPort) {
-  for (let i = 0; i < 100; i++) {
+  for (let i = 0; i < HARNESS_TIMEOUTS.cdpAttempts; i++) {
     try {
       const list = await (await fetch(`http://127.0.0.1:${debugPort}/json/list`)).json();
       const target = list.find((item) => item.type === 'page' && item.webSocketDebuggerUrl);
@@ -78,7 +102,7 @@ export async function findPageTarget(debugPort) {
     } catch {
       /* wait */
     }
-    await sleep(120);
+    await sleep(HARNESS_TIMEOUTS.cdpIntervalMs);
   }
   return null;
 }
@@ -147,7 +171,7 @@ export class Browser {
     return result.result?.value;
   }
 
-  async waitFor(expression, label, timeout = 15000) {
+  async waitFor(expression, label, timeout = HARNESS_TIMEOUTS.waitTimeoutMs) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
       try {
@@ -161,7 +185,7 @@ export class Browser {
   }
 
   async waitBoot() {
-    await this.waitFor(`document.body.dataset.boot === 'ok'`, '页面启动');
+    await this.waitFor(`document.body.dataset.boot === 'ok'`, '页面启动', HARNESS_TIMEOUTS.bootTimeoutMs);
   }
 
   async screenshot(file) {
@@ -194,7 +218,11 @@ export class Browser {
 
 
 // 并行测试时本地服务可能刚起或短暂抖动：注册请求做有限重试，失败原因保持可见。
-async function fetchWithRetry(url, options, { attempts = 8, delayMs = 150 } = {}) {
+async function fetchWithRetry(
+  url,
+  options,
+  { attempts = HARNESS_TIMEOUTS.registerAttempts, delayMs = HARNESS_TIMEOUTS.registerDelayMs } = {}
+) {
   let lastError;
   for (let i = 0; i < attempts; i++) {
     try {

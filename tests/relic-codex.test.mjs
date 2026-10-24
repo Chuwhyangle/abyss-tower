@@ -24,8 +24,8 @@ const CODEX_UI = read('public/js/relic-codex-ui.js');
 const INDEX_HTML = read('public/index.html');
 const ALL_IDS = RELICS.map((relic) => relic.id);
 
-test('遗物池：60 件，稀有度分组完整且顺序固定', () => {
-  assert.equal(RELICS.length, 60, '遗物应为 60 件');
+test('遗物池：70 件，稀有度分组完整且顺序固定', () => {
+  assert.equal(RELICS.length, 70, '遗物应为 70 件');
   const groups = groupByRarity(RELICS);
   assert.deepEqual(
     groups.map((group) => group.rarity),
@@ -34,19 +34,19 @@ test('遗物池：60 件，稀有度分组完整且顺序固定', () => {
   );
   assert.deepEqual(
     groups.map((group) => group.items.length),
-    [25, 22, 13],
-    '普通 / 稀有 / 史诗数量应分别为 25 / 22 / 13'
+    [29, 26, 15],
+    '普通 / 稀有 / 史诗数量应分别为 29 / 26 / 15'
   );
   assert.equal(
     groups.reduce((sum, group) => sum + group.items.length, 0),
-    60,
+    70,
     '分组必须覆盖全部遗物'
   );
 });
 
 test('筛选：按稀有度、套装、无套装与搜索词过滤', () => {
   const rare = filterRelics(RELICS, { rarity: 'rare' });
-  assert.equal(rare.length, 22);
+  assert.equal(rare.length, 26);
   assert.ok(rare.every((relic) => relic.rarity === 'rare'));
 
   const hunter = filterRelics(RELICS, { set: 'hunter' });
@@ -54,11 +54,11 @@ test('筛选：按稀有度、套装、无套装与搜索词过滤', () => {
   assert.ok(hunter.every((relic) => relic.set === 'hunter'));
 
   const noSet = filterRelics(RELICS, { set: 'none' });
-  assert.equal(noSet.length, 28);
+  assert.equal(noSet.length, 35);
   assert.ok(noSet.every((relic) => !relic.set));
 
   const frostCommon = filterRelics(RELICS, { rarity: 'common', set: 'frost' });
-  assert.equal(frostCommon.length, 2);
+  assert.equal(frostCommon.length, 3);
   assert.ok(frostCommon.every((relic) => relic.rarity === 'common' && relic.set === 'frost'));
 
   assert.equal(filterRelics(RELICS, { query: '不存在的遗物' }).length, 0);
@@ -68,7 +68,7 @@ test('筛选：按稀有度、套装、无套装与搜索词过滤', () => {
   );
 });
 
-test('60 件遗物都能按名称检索（含未收录条目）', () => {
+test('70 件遗物都能按名称检索（含未收录条目）', () => {
   for (const relic of RELICS) {
     const found = filterRelics(RELICS, { query: relic.name, discovered: [] });
     assert.ok(
@@ -107,10 +107,10 @@ test('收录推导：合并当前局、历史局、本地快照与本机记录�
 
 test('未收录条目不泄露名称之外的效果与升级数值', () => {
   const { progressText, body } = renderCodex({ relics: RELICS, discovered: [] });
-  assert.equal((body.match(/data-known="false"/g) || []).length, 60, '未收录时应遮罩全部 60 件');
+  assert.equal((body.match(/data-known="false"/g) || []).length, 70, '未收录时应遮罩全部 70 件');
   assert.equal((body.match(/data-known="true"/g) || []).length, 0);
   assert.ok(body.includes(t('codex.unknownEffects')), '缺少问号遮罩');
-  assert.ok(progressText.includes('0 / 60'), '收录进度应为 0 / 60');
+  assert.ok(progressText.includes('0 / 70'), '收录进度应为 0 / 70');
 
   // 名称保留（可检索），但描述与升级数值不得出现。
   assert.ok(body.includes(RELICS.find((relic) => relic.id === 'sharp').name));
@@ -125,8 +125,8 @@ test('未收录条目不泄露名称之外的效果与升级数值', () => {
 
 test('已收录条目展示描述、三级升级数值与套装标签', () => {
   const { progressText, body } = renderCodex({ relics: RELICS, discovered: ALL_IDS });
-  assert.equal((body.match(/data-known="true"/g) || []).length, 60, '全部收录时应展示 60 件');
-  assert.ok(progressText.includes('60 / 60'));
+  assert.equal((body.match(/data-known="true"/g) || []).length, 70, '全部收录时应展示 70 件');
+  assert.ok(progressText.includes('70 / 70'));
 
   const sharp = RELICS.find((relic) => relic.id === 'sharp');
   assert.ok(body.includes(sharp.desc), '缺少遗物描述');

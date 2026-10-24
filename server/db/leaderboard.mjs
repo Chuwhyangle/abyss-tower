@@ -361,6 +361,8 @@ function publicEntry(row) {
     score: row.score,
     kills: Number(metrics.kills) || 0,
     victory: !!metrics.victory,
+    // 反作弊标记只透出布尔值；具体规则说明由路由层按玩家口径补充，不暴露内部阈值。
+    suspect: metrics.suspect === true,
     durationMs: row.duration_ms || 0,
     contentVersion: row.content_version,
     createdAt: row.created_at,

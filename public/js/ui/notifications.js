@@ -51,9 +51,24 @@ export function formatTime(ts) {
   }
 }
 
+// 赛季成就复用成就通知通道：payload.seasonal 标记决定独立的「赛季成就」样式（纯函数）。
+export function isSeasonalAchievement(item) {
+  return item?.kind === 'achievement' && item?.payload?.seasonal === true;
+}
+
+// 卡片标签：赛季成就与普通成就解锁分开显示，其余类型沿用固定标签（纯函数）。
+export function notificationKindLabel(item) {
+  if (isSeasonalAchievement(item)) return '赛季成就';
+  return KIND_LABELS[item?.kind] || '通知';
+}
+
 // 通知正文：按服务端 kind 生成文案，未知 kind 回落到通用提示（纯函数）。
 export function describeNotification(item) {
   const payload = item?.payload || {};
+  if (isSeasonalAchievement(item)) {
+    const season = payload.season ? `（${payload.season} 赛季）` : '';
+    return `解锁赛季成就「${payload.title || payload.achievementId || '未知成就'}」${season}`;
+  }
   if (item?.kind === 'achievement') {
     return `解锁成就「${payload.title || payload.achievementId || '未知成就'}」`;
   }
@@ -111,9 +126,13 @@ export function archiveSummaryLines(archive) {
 
 function notificationCard(item) {
   const unread = item.readAt == null;
-  const kind = KIND_LABELS[item.kind] || '通知';
+  const kind = notificationKindLabel(item);
+  const rarity = ['common', 'rare', 'epic'].includes(item?.payload?.rarity)
+    ? ` rarity-${item.payload.rarity}`
+    : '';
+  const seasonal = isSeasonalAchievement(item) ? ' seasonal-notification' : '';
   return `
-    <article class="achievement-card notification-card${unread ? ' unread' : ''}">
+    <article class="achievement-card notification-card${rarity}${seasonal}${unread ? ' unread' : ''}">
       <h3>
         <span>${escapeHtml(kind)}</span>
         <span class="achievement-rarity">${escapeHtml(formatTime(item.createdAt))}</span>

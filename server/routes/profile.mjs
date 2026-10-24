@@ -7,7 +7,17 @@ import {
   softDeleteAccount,
 } from '../db/accounts.mjs';
 import { cosmeticSummary, setSelectedCosmetics } from '../db/achievements.mjs';
-import { AUDIT_ACTIONS, AUDIT_PAGE_SIZE, listAuditForAccount, recordAudit } from '../db/audit.mjs';
+import {
+  AUDIT_ACTIONS,
+  AUDIT_PAGE_SIZE,
+  auditCsvHeader,
+  auditCsvRow,
+  auditExportPages,
+  listAuditForAccount,
+  recordAudit,
+  toAuditExportEntry,
+} from '../db/audit.mjs';
+import { SECURITY_HEADERS } from '../http/respond.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import { hashIp, recordAuthEvent } from '../auth/rate-limit.mjs';
 import { clearSessionCookie } from '../auth/cookies.mjs';
@@ -25,6 +35,20 @@ import {
 import { cleanName, dailyAttemptsLeft, dailyState, today } from './support.mjs';
 
 const HISTORY_DAYS = 14;
+
+// 导出分块写响应：尊重背压，客户端提前断开时也能结束等待。
+function writeChunk(res, chunk) {
+  return new Promise((resolve) => {
+    if (res.write(chunk)) return resolve();
+    const done = () => {
+      res.removeListener('drain', done);
+      res.removeListener('close', done);
+      resolve();
+    };
+    res.once('drain', done);
+    res.once('close', done);
+  });
+}
 
 // 皮肤选择与称号/头像框共用 cosmetics 命名空间；解锁仍由成就表派生。
 const COSMETICS_NAMESPACE = 'cosmetics';
@@ -208,6 +232,7 @@ export class ProfileRoutes {
     router.add('PUT', '/api/profile/skins', (ctx) => this.selectSkins(ctx));
     router.add('GET', '/api/profile/export', (ctx) => this.exportData(ctx));
     router.add('GET', '/api/profile/audit', (ctx) => this.auditLog(ctx));
+    router.add('GET', '/api/profile/audit/export', (ctx) => this.auditExport(ctx));
     router.add('GET', '/api/daily/history', (ctx) => this.dailyHistory(ctx));
     router.add('DELETE', '/api/profile', (ctx) => this.remove(ctx));
   }
@@ -423,6 +448,48 @@ export class ProfileRoutes {
       entries: listAuditForAccount(ctx.token),
       limit: AUDIT_PAGE_SIZE,
     });
+  }
+
+  // 审计导出：按游标分页读取全部本人记录并分块写出；脱敏在读取与导出两层完成。
+  async auditExport(ctx) {
+    const format = String(ctx.url.searchParams.get('format') || 'json').toLowerCase();
+    if (format !== 'json' && format !== 'csv') {
+      return ctx.fail(400, '不支持的导出格式', 'INVALID_EXPORT_FORMAT');
+    }
+    const res = ctx.res;
+    const filename = `audit-log-${new Date().toISOString().slice(0, 10)}.${format}`;
+    res.writeHead(200, {
+      ...SECURITY_HEADERS,
+      'content-type':
+        format === 'csv' ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'content-disposition': `attachment; filename="${filename}"`,
+    });
+
+    if (format === 'csv') {
+      await writeChunk(res, auditCsvHeader());
+      for (const rows of auditExportPages(ctx.token)) {
+        if (rows.length) await writeChunk(res, rows.map(auditCsvRow).join(''));
+      }
+    } else {
+      await writeChunk(
+        res,
+        `{"exportedAt":${JSON.stringify(new Date().toISOString())},"entries":[`
+      );
+      let first = true;
+      for (const rows of auditExportPages(ctx.token)) {
+        if (!rows.length) continue;
+        let chunk = '';
+        for (const row of rows) {
+          chunk += `${first ? '' : ','}${JSON.stringify(toAuditExportEntry(row))}`;
+          first = false;
+        }
+        await writeChunk(res, chunk);
+      }
+      await writeChunk(res, ']}\n');
+    }
+    res.end();
+    return true;
   }
 
   // 账号删除采用软删除 + 7 天冷却期：需显式确认，立即吊销会话，冷却期内可取消。

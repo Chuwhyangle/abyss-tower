@@ -7,7 +7,7 @@ import {
   normalizeSettings,
   presetSettings,
 } from '../settings.js';
-import { DEFAULT_LOCALE, LOCALES, getLocale, setLocale, t } from '../i18n.js';
+import { DEFAULT_LOCALE, LOCALES, getLocale, setLocale, t, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { escapeHtml } from './shared.js';
 
@@ -111,6 +111,17 @@ const SECTIONS = [
   },
 ];
 
+// 新增文案不写进词典，按当前语言就地回退，避免为两个按钮扩大 i18n 改动面。
+const LOCAL_FALLBACK = {
+  'settings.exportAudit': { zh: '导出审计日志', en: 'Export audit log' },
+};
+
+function textFor(key) {
+  const entry = LOCAL_FALLBACK[key];
+  const fallback = entry ? (getLocale() === 'en-US' ? entry.en : entry.zh) : key;
+  return tOr(key, fallback);
+}
+
 // 重置只回到设置默认值；声音开关与语言不在 settings.js 的持久化对象里。
 function resetValue(key) {
   if (key === 'sound') return true;
@@ -164,14 +175,25 @@ function controlHtml(key, value) {
   return '';
 }
 
-function rowHtml(key, value) {
+function exportLinksHtml() {
+  return `
+        <div class="setting-export">
+          <span class="muted">${textFor('settings.exportAudit')}</span>
+          <a class="btn small" href="/api/profile/audit/export?format=json" download>JSON</a>
+          <a class="btn small ghost" href="/api/profile/audit/export?format=csv" download>CSV</a>
+        </div>`;
+}
+
+function rowHtml(key, value, canExportAudit = false) {
   const meta = ITEM_META[key];
-  const label = t(meta.label);
+  const label = textFor(meta.label);
   const isStatic = meta.type === 'static';
   const labelTag = isStatic ? 'span' : 'label';
   const forAttr = isStatic ? '' : ` for="${meta.id}"`;
   const control = isStatic
-    ? `<span class="setting-static">${escapeHtml(value)}</span>`
+    ? `<div class="setting-control"><span class="setting-static">${escapeHtml(value)}</span>${
+        key === 'account' && canExportAudit ? exportLinksHtml() : ''
+      }</div>`
     : `<div class="setting-control">${controlHtml(key, value)}</div>`;
   const reset = isStatic
     ? ''
@@ -214,8 +236,11 @@ export const settingsPanelMethods = {
       account: accountText,
       notifications: '',
     };
+    const canExportAudit = Boolean(this.profile?.username);
     const sections = SECTIONS.map((section) => {
-      const rows = section.items.map((key) => rowHtml(key, values[key])).join('');
+      const rows = section.items
+        .map((key) => rowHtml(key, values[key], canExportAudit))
+        .join('');
       const count = section.items.filter((key) => ITEM_META[key].type !== 'static').length;
       return `
         <details class="settings-section" data-section="${section.id}" open>

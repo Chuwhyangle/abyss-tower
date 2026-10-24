@@ -6,9 +6,12 @@ import { ACHIEVEMENT_BY_ID } from '../../public/js/shared/achievements.js';
 import {
   SEASON_PASS_MAX_POINTS,
   SEASON_PASS_MILESTONES,
+  SEASON_POINT_LEDGER_NAMESPACE,
+  SEASON_POINT_SOURCE_LABELS,
   SEASON_POINT_SOURCES,
   pointsBreakdown,
   seasonAchievementPoints,
+  seasonBonusLedgerPrefix,
   seasonBountyPoints,
   seasonPassMilestone,
   seasonPassProgress,
@@ -119,6 +122,32 @@ function achievementSource(accountId, bounds) {
   return { source: SEASON_POINT_SOURCES.ACHIEVEMENT, points, updatedAt };
 }
 
+// 解锁加成来源：只读账本里本赛季的一次性加成，与 account_achievements 的派生积分互不重叠。
+function achievementBonusSource(accountId, season) {
+  const rows = db
+    .prepare(
+      `SELECT value_json, updated_at FROM player_kv
+        WHERE account_id = ? AND namespace = ? AND key LIKE ?`
+    )
+    .all(accountId, SEASON_POINT_LEDGER_NAMESPACE, `${seasonBonusLedgerPrefix(season)}%`);
+  let points = 0;
+  let updatedAt = null;
+  for (const row of rows) {
+    let value = null;
+    try {
+      value = JSON.parse(row.value_json || 'null');
+    } catch {
+      value = null;
+    }
+    const amount = Math.floor(Number(value?.points));
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    points += amount;
+    const at = Number(value?.updatedAt ?? row.updated_at) || 0;
+    if (at > (updatedAt || 0)) updatedAt = at;
+  }
+  return { source: SEASON_POINT_SOURCES.ACHIEVEMENT_BONUS, points, updatedAt };
+}
+
 function storedPoints(accountId, season) {
   const row = db
     .prepare('SELECT points FROM account_season_pass WHERE account_id = ? AND season = ?')
@@ -126,21 +155,50 @@ function storedPoints(accountId, season) {
   return Math.max(0, Math.floor(Number(row?.points) || 0));
 }
 
-// 赛季积分 = 对局 + 已领取赛季悬赏 + 本赛季解锁成就。
+// 赛季积分 = 对局 + 已领取赛季悬赏 + 本赛季解锁成就 + 解锁一次性加成。
 // 旧数据只有总分、没有来源记录：整笔按对局积分处理，保证明细合计不丢分。
 function seasonSources(accountId, season, bounds) {
   if (!bounds) return pointsBreakdown([]);
-  const breakdown = pointsBreakdown([
+  const derived = pointsBreakdown([
     matchSource(accountId, bounds),
     bountySource(accountId, season),
     achievementSource(accountId, bounds),
   ]);
-  if (breakdown.total > 0) return breakdown;
-  return pointsBreakdown(storedPoints(accountId, season));
+  const bonus = achievementBonusSource(accountId, season);
+
+  let sources = derived.sources;
+  let total = derived.total;
+  if (total === 0 && bonus.points === 0) {
+    // 没有任何可派生来源时才回退到旧快照，避免把新账本加成当成历史的全部积分。
+    const legacy = pointsBreakdown(storedPoints(accountId, season));
+    if (legacy.total > 0) {
+      sources = legacy.sources;
+      total = legacy.total;
+    }
+  }
+  if (bonus.points > 0) {
+    sources = [
+      ...sources,
+      { ...bonus, label: SEASON_POINT_SOURCE_LABELS[bonus.source] },
+    ];
+    total += bonus.points;
+  }
+  return { total, sources };
 }
 
 function seasonPoints(accountId, season, bounds) {
   return seasonSources(accountId, season, bounds).total;
+}
+
+// 必须在调用方事务内执行：悬赏领取、成就解锁据此把积分快照与领取/解锁一起落库。
+export function syncSeasonPassPointsInTx(accountId, now = Date.now()) {
+  const season = seasonOf(now);
+  if (!season) return null;
+  const bounds = seasonBounds(season);
+  const breakdown = seasonSources(accountId, season, bounds);
+  recordPoints(accountId, season, breakdown.total, now);
+  recordSources(accountId, season, breakdown, now);
+  return { season, points: breakdown.total, sources: breakdown.sources };
 }
 
 function recordPoints(accountId, season, points, now) {
