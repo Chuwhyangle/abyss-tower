@@ -304,6 +304,41 @@ test('点击物件打开确认面板；点空白处正常取消；已拆除的�
   assert.ok(events.hide >= 1);
 });
 
+test('确认面板 → destroyDestructible：成功扣费/加金/变废墟/格子可建，失败提示原因', () => {
+  setLocale('zh-CN', { silent: true });
+  const buttons = new Map();
+  const toasts = [];
+  const self = {
+    openModal: () => ({
+      querySelector: (selector) => {
+        if (!buttons.has(selector)) buttons.set(selector, {});
+        return buttons.get(selector);
+      },
+    }),
+    closeModal() {},
+    toast: (message) => toasts.push(message),
+  };
+
+  const sim = makeSim({ gold: 100 });
+  const vein = sim.destructibles.find((item) => item.type === 'vein');
+  assert.equal(vein.cost, 50);
+  modalMethods.showDestructibleConfirm.call(self, { sim, item: vein });
+  buttons.get('#btn-destructible-yes').onclick();
+  assert.equal(vein.destroyed, true);
+  assert.equal(sim.gold, 160, '扣 50 金后获得 110 金');
+  assert.equal(toasts.at(-1), '已拆除金脉');
+  assert.equal(sim.canBuild(vein.c, vein.r), true, '拆除后同格可建造');
+  assert.equal(destructibleVisual(vein).state, 'ruined');
+
+  const poor = makeSim({ gold: 10 });
+  const poorVein = poor.destructibles.find((item) => item.type === 'vein');
+  modalMethods.showDestructibleConfirm.call(self, { sim: poor, item: poorVein });
+  buttons.get('#btn-destructible-yes').onclick();
+  assert.equal(poorVein.destroyed, false, '金币不足不扣费也不标记');
+  assert.equal(poor.gold, 10);
+  assert.equal(toasts.at(-1), '金币不足，无法拆除');
+});
+
 test('渲染层与 UI 层已接入：注册渲染器、确认面板调用 destroyDestructible 并播放拆除音效', () => {
   assert.match(RENDER_SRC, /import \{ DestructibleRenderer \} from '\.\/render\/destructible-renderer\.js'/);
   assert.match(RENDER_SRC, /new DestructibleRenderer\(game\)/);
