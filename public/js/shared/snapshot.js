@@ -1,7 +1,8 @@
 // 快照的单一来源：序列化（toSnapshot）、校验（validateSnapshot）与迁移（migrateSnapshot）。
 // 战斗模拟与存档加载都走这里，版本号只在本文件定义一次。
 // v2 只有遗物 ID，v3 使用 {id, level}，v4 增加 skill:{id, level, cooldown}，
-// v5 增加事件连锁排期 chains:[{chainId, wave}]；旧档一律按 Ⅰ 级 / 无连锁恢复。
+// v5 增加事件连锁排期 chains:[{chainId, wave}]，v6 增加主海克斯 hexId/hexState 与塔生命；
+// 旧档一律按 Ⅰ 级 / 无连锁 / 无海克斯 / 无敌塔恢复。
 // 损坏输入统一由 validateSnapshot 判定：不抛异常，返回 { ok:false, reason } 交给调用方决定重开。
 // 字段级异常（类型错误、越界数值、非法难度/地图）属于可恢复损坏，会收敛到安全默认值。
 import {
@@ -18,9 +19,10 @@ import { ARCHETYPES, MODIFIER_BY_ID } from './mapgen.js';
 import { normalizeChains, normalizeEventHistory } from './events.js';
 import { ENDLESS } from './waves.js';
 
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 export const MIN_SAVE_VERSION = 2;
-// 没有连锁时沿用旧版本号，避免旧客户端/旧测试误读：有技能写 v4，无技能仍写 v3。
+// 没有连锁/海克斯时沿用旧版本号，避免旧客户端/旧测试误读：
+// 有技能写 v4，无技能仍写 v3；有连锁写 v6（含 v5 的 chains 字段）。
 export const SKILL_SAVE_VERSION = 4;
 export const BASE_SAVE_VERSION = 3;
 
@@ -31,6 +33,17 @@ const MODES = new Set(['normal', 'daily', 'endless']);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+// 深拷贝纯对象；不是纯对象或不可序列化时返回 null（调用方按「无状态」处理）。
+function clonePlainRecord(value) {
+  if (!isRecord(value)) return null;
+  try {
+    const cloned = JSON.parse(JSON.stringify(value));
+    return isRecord(cloned) ? cloned : null;
+  } catch {
+    return null;
+  }
 }
 
 // 只接受有限数字与数字字符串；布尔、对象、NaN/Infinity 一律视为损坏。
@@ -60,13 +73,21 @@ function normalizeTowers(towers) {
   const states = [];
   for (const tower of towers) {
     if (!isRecord(tower) || !TOWERS[tower.type]) continue;
-    states.push({
+    const state = {
       type: tower.type,
       c: boundedInt(tower.c, 0, MAP_COLS - 1, 0),
       r: boundedInt(tower.r, 0, MAP_ROWS - 1, 0),
       level: boundedInt(tower.level, 0, Number.MAX_SAFE_INTEGER, 0),
       invested: boundedInt(tower.invested, 0, Number.MAX_SAFE_INTEGER, 0),
-    });
+    };
+    // 塔生命只在有上限（海克斯赋予）时保留；旧档没有该字段时按无敌恢复。
+    const maxHp = finiteNumber(tower.maxHp);
+    if (maxHp !== null && maxHp > 0) {
+      state.maxHp = Math.max(1, Math.floor(maxHp));
+      const hp = finiteNumber(tower.hp);
+      state.hp = Math.max(0, Math.min(state.maxHp, hp === null ? state.maxHp : Math.floor(hp)));
+    }
+    states.push(state);
   }
   return states;
 }
@@ -112,6 +133,9 @@ function collectWarnings(snap) {
   }
   if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
   if ('chains' in snap && !Array.isArray(snap.chains)) warnings.push('invalid-chains');
+  if ('hexId' in snap && (typeof snap.hexId !== 'string' || !snap.hexId)) {
+    warnings.push('invalid-hex-id');
+  }
   const rawWave = finiteNumber(snap.clearedWave ?? snap.wave);
   const maxWave = snap.mode === 'endless' ? ENDLESS.maxIndex : MAX_WAVE;
   if (rawWave !== null && (rawWave < 0 || rawWave > maxWave)) warnings.push('wave-clamped');
@@ -127,8 +151,15 @@ export function toSnapshot(state) {
   const skill = normalizeSkill(state.skill);
   const mode = normalizeMode(state.mode);
   const chains = normalizeChains(state.chains, mode);
+  const hex = normalizeHexSave(state);
   const snapshot = {
-    version: chains.length ? SAVE_VERSION : skill ? SKILL_SAVE_VERSION : BASE_SAVE_VERSION,
+    // 有海克斯或有连锁都写当前版本；否则沿用 v4/v3 的旧版本号。
+    version:
+      hex.id || chains.length
+        ? SAVE_VERSION
+        : skill
+          ? SKILL_SAVE_VERSION
+          : BASE_SAVE_VERSION,
     runId: state.runId,
     seed: state.seed,
     mode: state.mode,
@@ -141,9 +172,7 @@ export function toSnapshot(state) {
     maxBaseHp: state.maxBaseHp,
     kills: state.kills,
     relics: state.relics.map((r) => ({ id: r.id, level: r.level || 1 })),
-    towers: state.towers.map((t) => ({
-      type: t.type, c: t.c, r: t.r, level: t.level, invested: t.invested,
-    })),
+    towers: state.towers.map(serializeTower),
     skill,
     startedAt: state.startedAt,
     savedAt: Date.now(),
@@ -153,7 +182,36 @@ export function toSnapshot(state) {
   if (events.length) snapshot.events = events;
   // 连锁排期同理：没有连锁时不写该字段，v3/v4 存档结构保持不变。
   if (chains.length) snapshot.chains = chains;
+  // 海克斯：id 必有，状态为空时不写字段（无海克斯的旧对局字节结构不变）。
+  if (hex.id) {
+    snapshot.hexId = hex.id;
+    if (Object.keys(hex.state).length) snapshot.hexState = hex.state;
+  }
   return snapshot;
+}
+
+// 塔生命只在有上限（海克斯赋予）时写入，未受海克斯影响的塔保持旧字节结构。
+function serializeTower(tower) {
+  const state = { type: tower.type, c: tower.c, r: tower.r, level: tower.level, invested: tower.invested };
+  const maxHp = finiteNumber(tower.maxHp);
+  if (maxHp === null || maxHp <= 0) return state;
+  state.maxHp = Math.max(1, Math.floor(maxHp));
+  const hp = finiteNumber(tower.hp);
+  state.hp = Math.max(0, Math.min(state.maxHp, hp === null ? state.maxHp : Math.floor(hp)));
+  return state;
+}
+
+// 海克斯存档字段：Simulation 暴露 hex/hexState，纯状态对象只读这两个字段。
+// 状态必须可 JSON 序列化；不可序列化时退回空状态，绝不把函数/循环引用写进存档。
+function normalizeHexSave(state) {
+  const id =
+    typeof state?.hex?.id === 'string'
+      ? state.hex.id
+      : typeof state?.hexRuntime?.id === 'string'
+        ? state.hexRuntime.id
+        : null;
+  const raw = state?.hexState ?? state?.hexRuntime?.state;
+  return { id, state: clonePlainRecord(raw) || {} };
 }
 
 // 版本迁移与字段收敛。只有 validateSnapshot 判定合法后才会调用。
@@ -182,6 +240,16 @@ export function migrateSnapshot(snap) {
     if ('baseHp' in out) out.maxBaseHp = Math.max(out.maxBaseHp, out.baseHp);
   }
   if ('towers' in snap) out.towers = normalizeTowers(snap.towers);
+  // 主海克斯：非法/空 id 视为「无海克斯」；状态只保留可序列化的纯对象。
+  if ('hexId' in snap) {
+    if (typeof snap.hexId === 'string' && snap.hexId) out.hexId = snap.hexId;
+    else delete out.hexId;
+  }
+  if ('hexState' in snap) {
+    const state = clonePlainRecord(snap.hexState);
+    if ('hexId' in out && state) out.hexState = state;
+    else delete out.hexState;
+  }
   // 旧存档没有 events/chains：保持缺省（读取方按“无事件、无连锁”处理）。
   if ('events' in snap) out.events = normalizeEventHistory(snap.events, mode);
   if ('chains' in snap) out.chains = normalizeChains(snap.chains, mode);
