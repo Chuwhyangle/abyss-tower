@@ -241,6 +241,7 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 建造/移除：`canBuild`（显式带塔型时询问）、`onTowerBuilt` / `onTowerUpgraded` / `onTowerRemoved`。
 - 对局/波次：`onRunInit`、`onWaveStart` / `onWaveEnd`（临时 mod 波末清理）。
 - 战斗事件：`onEnemyKilled` / `onLeak` / `onHit`；遗物：`onRelicGained`、`relicOfferCount`、`relicRerollCost`、`relicRerollBonus`、`sellRatio`。
+- 友方单位（`sim.allies`，由 `ctx.spawnAlly` 生成）：框架负责存活时间（`ttl`）、范围内最近敌人索敌与攻击冷却（`rate`）。攻击结算二选一：`dmg` 为固定伤害（走护甲/增伤/不暴击）；`pct` / `pctBoss` 为目标最大生命百分比（`pctBoss` 覆盖首领；与技能百分比伤害同语义，不吃护甲/增伤/暴击）。`maxHp` 只记录继承生命，盟友不阻挡敌人、不被攻击、不吸引仇恨。
 - `implemented: true` 的定义才会进入开局三选一候选池；未实现的桩保持 no-op，行为与无海克斯一致。
 
 ---
