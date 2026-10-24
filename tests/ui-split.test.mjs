@@ -83,6 +83,15 @@ const METHOD_MODULES = {
   'panels.js': 'panelMethods',
 };
 
+// 面板可额外导出的纯函数（无 DOM 依赖、供单测直接调用），必须在此显式声明，
+// 未声明的导出仍视为破坏模块边界。
+const PURE_EXPORTS = {
+  'hud.js': ['skillButtonState'],
+  'shop.js': ['orderedShopTowers', 'shopCardAffordable', 'clampRelicLevel', 'relicChipView'],
+  'modals.js': ['relicDraftLevels', 'supplyAmount'],
+  'result.js': ['formatResultScore', 'resultBestWave'],
+};
+
 const SHARED_EXPORTS = [
   '$',
   'hydrateIcons',
@@ -128,14 +137,18 @@ test('门面低于 300 行，子模块低于 400 行', () => {
   }
 });
 
-test('每个面板模块只导出单一方法集合', async () => {
+test('每个面板模块只导出方法集合与已声明的纯函数', async () => {
   for (const [file, exportName] of Object.entries(METHOD_MODULES)) {
     const module = await import(`../${UI_DIR}/${file}`);
-    assert.deepEqual(Object.keys(module), [exportName], `${file} 导出面应为 ${exportName}`);
+    const allowed = [exportName, ...(PURE_EXPORTS[file] || [])].sort();
+    assert.deepEqual(Object.keys(module).sort(), allowed, `${file} 导出面应为 ${allowed.join(', ')}`);
     const methods = module[exportName];
     assert.ok(methods && typeof methods === 'object', `${file} 的 ${exportName} 不是对象`);
     for (const [name, fn] of Object.entries(methods)) {
       assert.equal(typeof fn, 'function', `${file} 的 ${name} 不是方法`);
+    }
+    for (const name of PURE_EXPORTS[file] || []) {
+      assert.equal(typeof module[name], 'function', `${file} 的纯函数 ${name} 不是函数`);
     }
   }
 });

@@ -116,6 +116,42 @@ export const ACCESSIBILITY_PALETTES = Object.freeze({
   tritanopia: RED_GREEN_COLORS,
 });
 
+// 技能预警的语义规范：危险=红橙、控制=蓝、增益=金。
+// 形状由语义固定（危险=环、控制=六边、增益=星芒），玩家技能与首领技能共用同一套语言。
+export const SKILL_SEMANTICS = Object.freeze({
+  danger: Object.freeze({ id: 'danger', label: '危险', color: '#ff7a4d', accent: '#ffd2b0', shape: 'ring' }),
+  control: Object.freeze({ id: 'control', label: '控制', color: '#5cb8ff', accent: '#d9f1ff', shape: 'hex' }),
+  buff: Object.freeze({ id: 'buff', label: '增益', color: '#ffd36b', accent: '#fff3c8', shape: 'star' }),
+});
+
+// 技能 id → 语义。玩家三技能与首领三技能都必须在册，未知 id 回退危险。
+export const SKILL_SEMANTIC_MAP = Object.freeze({
+  aurora: 'control',
+  chrono: 'buff',
+  meteor: 'danger',
+  roar: 'danger',
+  summon: 'danger',
+  slam: 'danger',
+});
+
+// 色盲模式下的语义重映射：沿用角色调色的同一思路（蓝-黄 / 红-绿轴），
+// 三类语义在每种模式下仍保持 LAB 距离 ≥ ACCESSIBILITY_MIN_DISTANCE。
+const SKILL_SEMANTICS_COLORBLIND = Object.freeze({
+  deuteranopia: Object.freeze({ danger: '#ff8f00', control: '#1e88e5', buff: '#fff59d' }),
+  protanopia: Object.freeze({ danger: '#ff8f00', control: '#1e88e5', buff: '#fff59d' }),
+  tritanopia: Object.freeze({ danger: '#d32f2f', control: '#2e7d32', buff: '#fff8e1' }),
+});
+
+// 预警几何：线宽、倒计时环、虚线节奏与填充只在这里定义，所有技能共用。
+export const SKILL_WARNING_STYLE = Object.freeze({
+  lineWidth: 1.8,
+  countdownWidth: 2.4,
+  dash: Object.freeze([8, 6]),
+  fill: 0.1,
+  dashScroll: 14,
+  countdownColor: '#f4fbff',
+});
+
 function parseColor(color) {
   if (typeof color !== 'string') return null;
   const value = color.trim();
@@ -241,6 +277,29 @@ export class Palette {
       towers: mapColors(base.towers),
       enemies: mapColors(base.enemies),
     };
+  }
+
+  // 技能 id 或语义 id → 语义定义；未知输入回退危险（fail-safe：宁可显眼）。
+  static semantic(kindOrId) {
+    const id = SKILL_SEMANTIC_MAP[kindOrId] || kindOrId;
+    return SKILL_SEMANTICS[id] || SKILL_SEMANTICS.danger;
+  }
+
+  static semanticColor(kindOrId, settings) {
+    const { id } = Palette.semantic(kindOrId);
+    const mode = Palette.normalizeMode(settings);
+    const mapped = SKILL_SEMANTICS_COLORBLIND[mode]?.[id];
+    const color = mapped || SKILL_SEMANTICS[id].color;
+    return settings?.highContrast ? boostContrast(color) : color;
+  }
+
+  static semanticAccent(kindOrId, settings) {
+    const { id } = Palette.semantic(kindOrId);
+    return settings?.highContrast ? boostContrast(SKILL_SEMANTICS[id].accent) : SKILL_SEMANTICS[id].accent;
+  }
+
+  static semanticShape(kindOrId) {
+    return Palette.semantic(kindOrId).shape;
   }
 
   static rarityColor(rarity, settings) {

@@ -68,6 +68,7 @@ export class LeaderboardRoutes {
       const offset = (page - 1) * size;
 
       // 赛季默认当前自然月；非法参数回退当前赛季，不报错。
+      // mode=endless 与普通榜共用赛季参数：赛季既是查询区间，也是榜单 key（endless:<season>）。
       const currentSeason = seasonOf();
       const requestedSeason = params.get('season');
       const season = isSeasonKey(requestedSeason) ? requestedSeason : currentSeason;

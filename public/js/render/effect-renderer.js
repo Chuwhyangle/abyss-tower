@@ -3,7 +3,7 @@
 // 首领系列：蓄力、咆哮、召唤、震击、防御塔停摆。
 import { TILE, BOSS_SKILLS } from '../shared/data.js';
 import { BALANCE } from '../shared/config.js';
-import { Palette } from './palette.js';
+import { Palette, SKILL_WARNING_STYLE } from './palette.js';
 
 const T = TILE;
 const PI2 = Math.PI * 2;
@@ -17,7 +17,7 @@ export const BOSS_KILL_RADIUS = 0.5;
 export const EFFECT_EVENTS = {
   kill: {
     color: '#efe6d8',
-    accent: '#ffd36b',
+    accent: Palette.semanticColor('buff'),
     shape: 'shards',
     duration: 0.3,
     particles: 8,
@@ -303,7 +303,7 @@ export class EffectRenderer {
       const { p, fade } = effectProgress(effect, style, this._progress);
       const x = effect.x * T;
       const y = effect.y * T;
-      const color = effect.color || '#ffd36b';
+      const color = effect.color || Palette.semanticColor('buff');
 
       if (effect.kind === 'ring') {
         const radius = (effect.r0 + (effect.r1 - effect.r0) * p) * T;
@@ -549,14 +549,15 @@ export class EffectRenderer {
         g.restore();
       } else if (effect.kind === 'bossCast') {
         // 蓄力：收缩的能量环 + 向心火花 + 旋转符文，随 progress 增强。
+        // 预警配色/线宽/虚线走与玩家技能相同的语义规范（首领技能均为危险）。
         const skill = BOSS_SKILLS[effect.skill];
-        const castColor = skill?.color || color;
+        const castColor = Palette.semanticColor(effect.skill, settings);
         const R = (skill?.radiusKey ? BALANCE[skill.radiusKey] || 2.5 : 2.2) * T;
         g.save();
         if (glow) g.globalCompositeOperation = 'lighter';
         g.globalAlpha = 0.3 + p * 0.55;
         g.strokeStyle = castColor;
-        g.lineWidth = 2;
+        g.lineWidth = SKILL_WARNING_STYLE.lineWidth;
         g.beginPath();
         g.arc(x, y, R * (0.55 - p * 0.35), 0, Math.PI * 2);
         g.stroke();
@@ -564,7 +565,7 @@ export class EffectRenderer {
         g.save();
         g.translate(x, y);
         g.rotate(t * 2);
-        g.setLineDash([5, 7]);
+        g.setLineDash(SKILL_WARNING_STYLE.dash);
         g.beginPath();
         g.arc(0, 0, R * 0.3, 0, Math.PI * 2);
         g.stroke();

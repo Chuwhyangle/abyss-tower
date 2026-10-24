@@ -6,6 +6,19 @@ import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
 import { fmt, modifierName, modifierDesc, mapPreviewSvg, escapeHtml } from './shared.js';
 
+// 遗物草稿的等级分组：fromLevel 为 0 表示新遗物，升级组夹在 1–3 级（纯函数）。
+export function relicDraftLevels(offer) {
+  const fromLevel = Math.max(0, Math.min(3, offer?.fromLevel || 0));
+  const toLevel = Math.min(3, offer?.toLevel || fromLevel + 1);
+  return { fromLevel, toLevel, isUpgrade: fromLevel > 0 };
+}
+
+// 金币/修理补给的数量：向下取整并夹到非负，非数值按 0 处理（纯函数）。
+export function supplyAmount(offer) {
+  const amount = Number(offer?.amount);
+  return Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
+}
+
 export const modalMethods = {
   // ---------- 弹窗 ----------
 
@@ -52,9 +65,7 @@ export const modalMethods = {
           const relic = RELIC_BY_ID[offer.id];
           if (!relic) return '';
           const rarity = RARITY[relic.rarity];
-          const fromLevel = Math.max(0, Math.min(3, offer.fromLevel || 0));
-          const toLevel = Math.min(3, offer.toLevel || fromLevel + 1);
-          const isUpgrade = fromLevel > 0;
+          const { fromLevel, toLevel, isUpgrade } = relicDraftLevels(offer);
           const levelLabel = isUpgrade
             ? `${RELIC_LEVEL_LABELS[fromLevel - 1]} → ${RELIC_LEVEL_LABELS[toLevel - 1]}`
             : t('draft.new');
@@ -74,7 +85,7 @@ export const modalMethods = {
         }
 
         const isGold = offer.kind === 'gold';
-        const amount = Math.max(0, Math.floor(offer.amount || 0));
+        const amount = supplyAmount(offer);
         return `
           <button class="relic-card fallback" data-index="${index}" style="--rarity:#8fa3b2">
             <span class="rarity">${t('draft.supply')}</span>

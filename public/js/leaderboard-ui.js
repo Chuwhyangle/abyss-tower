@@ -69,7 +69,7 @@ const STYLE = `
   .lb-list { border-top: 1px solid rgba(120, 160, 175, 0.12); }
   .lb-row {
     display: grid;
-    grid-template-columns: 38px 1fr 84px 104px;
+    grid-template-columns: 38px 1fr 118px 104px;
     align-items: center;
     gap: 10px;
     padding: 9px 6px;
@@ -141,6 +141,12 @@ function fmt(n) {
   return Number(n || 0).toLocaleString('en-US');
 }
 
+// 无尽榜以波次为主、用时为辅展示；用时统一成 m:ss，避免每行长度跳动。
+function fmtDuration(ms) {
+  const total = Math.max(0, Math.floor(Number(ms || 0) / 1000));
+  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
+}
+
 function ensureStyle() {
   if (document.getElementById('leaderboard-ui-style')) return;
   const style = document.createElement('style');
@@ -174,6 +180,7 @@ function renderShell(panel) {
     <div class="lb-controls">
       <div class="lb-tabs">
         <button class="lb-checks active" data-mode="normal">无尽远征</button>
+        <button class="lb-checks" data-mode="endless">无尽模式</button>
         <button class="lb-checks" data-mode="daily">每日挑战</button>
         <button class="lb-checks" data-mode="weekly">本周挑战</button>
       </div>
@@ -238,9 +245,14 @@ function renderRows(panel, data) {
   STATE.day = data.day || '';
 
   if (me.rank && me.best) {
-    summary.textContent = `我的排名 #${me.rank} · 最佳 ${fmt(me.best.score)} · 最近 ${fmt(
-      me.latest?.score ?? me.best.score
-    )}`;
+    const best = me.best;
+    const recent = me.latest || best;
+    summary.textContent =
+      STATE.mode === 'endless'
+        ? `我的排名 #${me.rank} · 最佳第 ${Number(best.wave) || 0} 波 · 最近第 ${
+            Number(recent.wave) || 0
+          } 波`
+        : `我的排名 #${me.rank} · 最佳 ${fmt(best.score)} · 最近 ${fmt(recent.score)}`;
   } else {
     summary.textContent = '你还没有成绩';
   }
@@ -263,7 +275,9 @@ function renderRows(panel, data) {
                 difficultyName(entry.difficulty)
               )}</span>
             </span>
-            <span class="lb-wave">第 ${Number(entry.wave) || 0} 波</span>
+            <span class="lb-wave">第 ${Number(entry.wave) || 0} 波${
+              STATE.mode === 'endless' ? ` · ${fmtDuration(entry.durationMs)}` : ''
+            }</span>
             <span class="lb-score">${fmt(entry.score)}</span>
           </div>`;
       })

@@ -25,6 +25,7 @@ import {
   personalBest,
   rankFor,
   recordLeaderboardEntry,
+  seasonOf,
   validateLeaderboardEntry,
 } from '../db/leaderboard.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
@@ -683,8 +684,10 @@ export class RunService {
     });
     const now = Date.now();
     const durationMs = Math.max(0, now - run.createdAt);
+    // 无尽榜按结算时间归入赛季，与榜单 created_at 的赛季边界保持一致。
+    const season = seasonOf(now);
 
-    const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day);
+    const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day, { season });
     const replayId = crypto.randomBytes(9).toString('base64url');
     const replayResult = {
       victory: outcome.victory,
@@ -838,6 +841,9 @@ export class RunService {
 
     const rank = rankFor(run.mode, run.day, outcome.score, {
       includeUnclaimed: !AUTH_ENABLED,
+      season,
+      wave: payload.waveReached,
+      durationMs,
     });
 
     return {
