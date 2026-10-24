@@ -10,7 +10,7 @@ import {
 // 混音总线：master ← sfx / music。各总线增益由 0–100 的音量设置换算。
 const MASTER_VOLUME = 0.45;
 // 音乐走独立增益节点，100% 时仍明显低于音效主增益（0.45）。
-const MUSIC_VOLUME = 0.1;
+export const MUSIC_VOLUME = 0.1;
 // 环境音是低频氛围底噪，电平低于常规音效。
 const AMBIENT_VOLUME = 0.035;
 
@@ -104,6 +104,76 @@ export const MUSIC_VARIANTS = {
   },
 };
 
+// 首领变体专属曲目：键与 shared/data/enemies.js 的 BOSS_VARIANT_ROTATION 一一对应。
+// 三种变体各一首，全部由振荡器循环合成，不引入任何音频素材。
+export const BOSS_MUSIC_TRACKS = {
+  armored: {
+    id: 'boss-armored',
+    type: 'sawtooth',
+    chordDur: 1.1,
+    chords: [
+      [73.42, 87.31, 110.0],
+      [69.3, 82.41, 103.83],
+      [65.41, 77.78, 98.0],
+      [61.74, 73.42, 92.5],
+    ],
+  },
+  summoner: {
+    id: 'boss-summoner',
+    type: 'triangle',
+    chordDur: 0.9,
+    chords: [
+      [82.41, 98.0, 123.47],
+      [77.78, 92.5, 116.54],
+      [73.42, 87.31, 110.0],
+      [69.3, 82.41, 103.83],
+    ],
+  },
+  berserk: {
+    id: 'boss-berserk',
+    type: 'square',
+    chordDur: 0.72,
+    chords: [
+      [87.31, 110.0, 130.81],
+      [82.41, 103.83, 123.47],
+      [77.78, 98.0, 116.54],
+      [73.42, 92.5, 110.0],
+    ],
+  },
+};
+
+// 没有变体信息时回退到 boss 通用曲目（旧存档/旧模式）。
+export function pickBossMusicTrack(variant) {
+  return BOSS_MUSIC_TRACKS[variant] || null;
+}
+
+// 首领血量比例 → 音乐阶段；阈值与 sim.js 的 66% / 33% 阶段线保持一致。
+export const BOSS_PHASE_THRESHOLDS = Object.freeze([0.66, 0.33]);
+
+export function bossMusicPhase(hpRatio) {
+  const ratio = Number.isFinite(hpRatio) ? Math.min(1, Math.max(0, hpRatio)) : 1;
+  if (ratio <= BOSS_PHASE_THRESHOLDS[1]) return 3;
+  if (ratio <= BOSS_PHASE_THRESHOLDS[0]) return 2;
+  return 1;
+}
+
+// 阶段强度层：每升一阶段多一层鼓点，低音略抬；三层的合成电平始终低于音乐总线基准。
+export const BOSS_INTENSITY_LAYERS = Object.freeze({
+  1: { drums: 0, chord: 0.04, bass: 0.032, drum: 0 },
+  2: { drums: 1, chord: 0.04, bass: 0.036, drum: 0.018 },
+  3: { drums: 2, chord: 0.04, bass: 0.038, drum: 0.01 },
+});
+
+export function bossLayer(phase) {
+  return BOSS_INTENSITY_LAYERS[phase] || BOSS_INTENSITY_LAYERS[1];
+}
+
+// 该阶段所有声部叠加后的名义电平，供「不超总线」约束与测试使用。
+export function bossLayerGain(phase) {
+  const layer = bossLayer(phase);
+  return layer.chord + layer.bass + layer.drums * layer.drum;
+}
+
 // 曲目切换的交叉淡入淡出时长（秒）：新旧两路音乐总线交叠，避免切换爆音。
 export const CROSSFADE_SECONDS = 1.2;
 
@@ -160,6 +230,8 @@ class AudioFX {
     this._musicStep = 0;
     this.seed = sessionSeed();
     this.intensity = 1;
+    this.bossVariant = null;
+    this.bossPhase = 1;
     this._spareMusicGain = null;
     this._crossfadeUntil = 0;
     this._onVisibility = () => this.handleVisibility();
@@ -274,6 +346,24 @@ class AudioFX {
     return this.intensity;
   }
 
+  // 首领曲目与阶段强度层。variant 变化走 1.2s 交叉淡化；同一首内的阶段变化
+  // 只改变下一个调度步的声部（鼓点/低音），新声部自带淡入包络，不会产生爆音。
+  setBossContext(variant, hpRatio) {
+    const nextVariant = pickBossMusicTrack(variant) ? variant : null;
+    const nextPhase = bossMusicPhase(hpRatio);
+    if (nextVariant === this.bossVariant && nextPhase === this.bossPhase) return false;
+    const variantChanged = nextVariant !== this.bossVariant;
+    this.bossVariant = nextVariant;
+    this.bossPhase = nextPhase;
+    if (this.mood !== 'boss') return true;
+    if (variantChanged) {
+      this._musicStep = 0;
+      if (this.ctx && this._musicTimer) this.crossfadeMusicBus();
+      if (this.ctx) this.maybeBeginMusic();
+    }
+    return true;
+  }
+
   // ---------- 背景音乐 ----------
 
   setMusicEnabled(value) {
@@ -289,6 +379,11 @@ class AudioFX {
   startMusic(mood = 'menu') {
     const next = MUSIC_VARIANTS[mood] ? mood : 'menu';
     this.musicWanted = true;
+    // 离开首领战就清掉变体/阶段，下一场首领从第一阶段和新曲目开始。
+    if (next !== 'boss') {
+      this.bossVariant = null;
+      this.bossPhase = 1;
+    }
     // 环境音跟随场景，与音乐共用同一套 menu/battle/boss 氛围切换点。
     this.startAmbient(next);
     if (this.mood === next) {
@@ -311,6 +406,8 @@ class AudioFX {
     this.musicWanted = false;
     this.mood = null;
     this.intensity = 1;
+    this.bossVariant = null;
+    this.bossPhase = 1;
     this.pauseMusicLoop();
     this.stopAmbient();
   }
@@ -368,14 +465,28 @@ class AudioFX {
       this._musicTimer = null;
       return;
     }
-    const track = pickMusicVariant(this.mood, this.seed) || pickMusicVariant('menu', this.seed);
+    const bossTrack = this.mood === 'boss' ? pickBossMusicTrack(this.bossVariant) : null;
+    const track =
+      bossTrack || pickMusicVariant(this.mood, this.seed) || pickMusicVariant('menu', this.seed);
     const chord = track.chords[this._musicStep % track.chords.length];
     const when = this.ctx.currentTime + 0.06;
-    const level = this.mood === 'menu' ? 0.06 : 0.045;
-    for (const freq of chord) {
-      this.musicTone(freq, track.chordDur * 0.95, track.type, level, when);
+    if (bossTrack) {
+      const layer = bossLayer(this.bossPhase);
+      for (const freq of chord) {
+        this.musicTone(freq, track.chordDur * 0.95, track.type, layer.chord, when);
+      }
+      this.musicTone(chord[0] / 2, track.chordDur * 0.95, 'sine', layer.bass, when);
+      for (let i = 0; i < layer.drums; i += 1) {
+        const offset = (track.chordDur * (i + 0.5)) / layer.drums;
+        this.musicDrum(layer.drum, when + offset);
+      }
+    } else {
+      const level = this.mood === 'menu' ? 0.06 : 0.045;
+      for (const freq of chord) {
+        this.musicTone(freq, track.chordDur * 0.95, track.type, level, when);
+      }
+      this.musicTone(chord[0] / 2, track.chordDur * 0.95, 'sine', level * 0.8, when);
     }
-    this.musicTone(chord[0] / 2, track.chordDur * 0.95, 'sine', level * 0.8, when);
     this._musicStep += 1;
     this._musicTimer = setTimeout(() => this.scheduleMusicStep(), track.chordDur * 1000);
   }
@@ -393,6 +504,23 @@ class AudioFX {
     osc.connect(env).connect(this.musicGain);
     osc.start(when);
     osc.stop(when + duration);
+  }
+
+  // 阶段鼓点：低频快速下坠 + 短包络，和旋律一样走音乐总线，切换时不会越过总线电平。
+  musicDrum(level, when) {
+    const ctx = this.ctx;
+    if (!ctx || !this.musicGain) return;
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(140, when);
+    osc.frequency.exponentialRampToValueAtTime(45, when + 0.12);
+    env.gain.setValueAtTime(0.0001, when);
+    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, level), when + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.0001, when + 0.18);
+    osc.connect(env).connect(this.musicGain);
+    osc.start(when);
+    osc.stop(when + 0.2);
   }
 
   // ---------- 环境音 ----------

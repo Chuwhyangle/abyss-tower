@@ -53,6 +53,16 @@ fi
     path.join(root, 'scripts', 'check-version.mjs'),
     `import fs from 'node:fs';\nfs.appendFileSync(process.env.HOOK_LOG, 'version-check\\n');\n`,
   );
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'import-graph.mjs'),
+    `import fs from 'node:fs';
+fs.appendFileSync(process.env.HOOK_LOG, 'import-graph\\n');
+if (process.env.FAKE_IMPORT_FAIL === '1') {
+  console.error("✗ public/js/shared/bad.js:1  import '../app/upper.js'");
+  process.exitCode = 1;
+}
+`,
+  );
   return log;
 }
 
@@ -78,6 +88,7 @@ test('--dry-run 输出目标路径与内容，且不写入文件', (t) => {
   assert.ok(result.stdout.includes('将要写入的内容：'), result.stdout);
   assert.match(result.stdout, /npm run check:syntax/);
   assert.match(result.stdout, /node scripts\/check-version\.mjs/);
+  assert.match(result.stdout, /node --no-warnings scripts\/import-graph\.mjs/);
   assert.match(result.stdout, /npm test/);
   assert.match(result.stdout, /npm run perf:budget/);
   assert.match(result.stdout, /HOOK_FULL/);
@@ -94,6 +105,8 @@ test('安装生成可执行钩子，内容包含快速检查与完整测试开�
   assert.match(content, /managed by scripts\/install-hooks\.mjs/);
   assert.match(content, /npm run check:syntax/);
   assert.match(content, /node scripts\/check-version\.mjs/);
+  assert.match(content, /node --no-warnings scripts\/import-graph\.mjs/);
+  assert.match(content, /依赖图检查/);
   assert.match(content, /HOOK_FULL/);
   assert.match(content, /npm test/);
   assert.match(content, /npm run perf:budget/);
@@ -103,7 +116,7 @@ test('安装生成可执行钩子，内容包含快速检查与完整测试开�
   assert.ok(mode & 0o111, `钩子应可执行，实际权限 ${mode.toString(8)}`);
 });
 
-test('默认分级只跑语法与版本一致性检查', (t) => {
+test('默认分级跑语法、版本一致性与依赖图检查', (t) => {
   const root = gitRepo(t);
   assert.equal(run(root).status, 0);
   const log = fakeToolchain(root);
@@ -113,9 +126,11 @@ test('默认分级只跑语法与版本一致性检查', (t) => {
   const calls = fs.readFileSync(log, 'utf8');
   assert.match(calls, /^npm run check:syntax$/m);
   assert.match(calls, /^version-check$/m);
+  assert.match(calls, /^import-graph$/m);
   assert.doesNotMatch(calls, /npm test/);
   assert.doesNotMatch(calls, /perf:budget/);
   assert.match(result.stdout, /已跳过完整测试与性能预算/);
+  assert.match(result.stdout, /\[pre-push\] 依赖图检查/);
 });
 
 test('HOOK_FULL=1 时加跑完整测试与性能预算', (t) => {
@@ -128,8 +143,21 @@ test('HOOK_FULL=1 时加跑完整测试与性能预算', (t) => {
   const calls = fs.readFileSync(log, 'utf8');
   assert.match(calls, /^npm run check:syntax$/m);
   assert.match(calls, /^version-check$/m);
+  assert.match(calls, /^import-graph$/m);
   assert.match(calls, /^npm test$/m);
   assert.match(calls, /^npm run perf:budget$/m);
+});
+
+test('依赖图检查失败时输出违规位置并中止后续检查', (t) => {
+  const root = gitRepo(t);
+  assert.equal(run(root).status, 0);
+  const log = fakeToolchain(root);
+
+  const result = runHook(root, log, { FAKE_IMPORT_FAIL: '1' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /✗ 依赖图检查未通过/);
+  assert.match(result.stderr, /public\/js\/shared\/bad\.js:1/);
+  assert.doesNotMatch(fs.readFileSync(log, 'utf8'), /npm test/, '依赖图检查失败后不应继续');
 });
 
 test('某一级检查失败时输出对应检查项并中止后续检查', (t) => {
