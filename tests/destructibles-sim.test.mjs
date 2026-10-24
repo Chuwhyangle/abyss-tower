@@ -94,6 +94,21 @@ test('运行时状态是深拷贝：改动运行时不污染注册表', () => {
   assert.equal(fresh.destructibles.find((item) => item.type === 'vein').cost, 50);
 });
 
+test('五种类型的费用与效果数值与设计一致（运行时条目即注册表数值）', () => {
+  const { sim } = makeSim();
+  const byType = Object.fromEntries(sim.destructibles.map((item) => [item.type, item]));
+  assert.equal(byType.vein.cost, 50);
+  assert.deepEqual(byType.vein.effect, { gold: 110 });
+  assert.equal(byType.obelisk.cost, 70);
+  assert.deepEqual(byType.obelisk.effect, { towerDamageMul: 0.05, maxStacks: 3 });
+  assert.equal(byType.cache.cost, 0);
+  assert.deepEqual(byType.cache.effect, { gold: 25, baseHp: 1 });
+  assert.equal(byType.nest.cost, 0);
+  assert.deepEqual(byType.nest.effect, { spawn: { enemy: 'swarm', count: 6 } });
+  assert.equal(byType.totem.cost, 80);
+  assert.deepEqual(byType.totem.effect, { aura: { enemySpeedMul: 1.08, enemyHpMul: 1.1 } });
+});
+
 test('没有布点的旧地图：destructibles 为空数组，不影响建造', () => {
   const { sim } = makeSim({
     map: { ...syntheticMap([]), destructibles: undefined },
