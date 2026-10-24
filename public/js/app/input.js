@@ -5,6 +5,7 @@ import { TOWER_ORDER } from '../shared/data.js';
 export const DEFAULT_TOUCH_SETTINGS = Object.freeze({
   snapRadius: 1,
   towerSnapRadius: 1.2,
+  destructibleSnapRadius: 1.2,
   tapSlopPx: 12,
 });
 
@@ -63,6 +64,33 @@ export function nearestTower(sim, c, r, radius = DEFAULT_TOUCH_SETTINGS.towerSna
   return best;
 }
 
+// 可破坏物命中：已拆除的不再响应；触屏在吸附半径内取最近一件，鼠标要求精确点中。
+export function nearestDestructible(sim, c, r, radius = DEFAULT_TOUCH_SETTINGS.destructibleSnapRadius) {
+  const items = Array.isArray(sim?.destructibles) ? sim.destructibles : [];
+  let best = null;
+  let bestDist = radius * radius;
+  for (const item of items) {
+    if (!item || item.destroyed) continue;
+    const dc = item.c - c;
+    const dr = item.r - r;
+    const dist = dc * dc + dr * dr;
+    if (dist <= bestDist) {
+      bestDist = dist;
+      best = item;
+    }
+  }
+  return best;
+}
+
+export function resolveDestructible(sim, tile, pointerType = 'mouse', settings = DEFAULT_TOUCH_SETTINGS) {
+  if (!sim || !tile) return null;
+  const direct = sim.destructibleAt?.(tile.c, tile.r) || null;
+  if (direct) return direct;
+  if (pointerType !== 'touch') return null;
+  const radius = settings?.destructibleSnapRadius ?? DEFAULT_TOUCH_SETTINGS.destructibleSnapRadius;
+  return nearestDestructible(sim, tile.c, tile.r, radius);
+}
+
 // 触屏落点吸附：已命中的塔优先，其次吸附到附近可建格；边界外只认 sim.canBuild 的格子。
 export function resolveTouchTile(sim, tile, settings = DEFAULT_TOUCH_SETTINGS) {
   if (!sim || !tile) return tile;
@@ -109,7 +137,8 @@ export class InputController {
       );
       sim.hover = tile;
       const overTower = sim.towerAt(tile.c, tile.r);
-      canvas.style.cursor = sim.placementType || overTower ? 'pointer' : 'default';
+      const overDestructible = sim.destructibleAt?.(tile.c, tile.r);
+      canvas.style.cursor = sim.placementType || overTower || overDestructible ? 'pointer' : 'default';
     };
 
     const trackGesture = (event) => {
@@ -165,9 +194,16 @@ export class InputController {
       this.gestureDragged = false;
       return;
     }
+    const pointerTile = this.state.app.renderer.screenToTile(event);
+    // 可破坏物优先于建造/选塔：点中物件打开确认面板，点空白处正常取消。
+    const destructible = resolveDestructible(sim, pointerTile, this.lastPointerType, this.touchSettings);
+    if (destructible) {
+      this.openDestructible(destructible);
+      return;
+    }
     const tile = resolvePointerTile(
       sim,
-      this.state.app.renderer.screenToTile(event),
+      pointerTile,
       this.lastPointerType,
       this.touchSettings
     );
@@ -215,6 +251,24 @@ export class InputController {
     sim.selectedTower = null;
     this.ui.hideTowerPanel();
     this.ui.updateShopState();
+  }
+
+  // 点击场景物件：先清掉建造/选塔状态，再打开确认面板。
+  // 拆除调用与成功/失败反馈都在 UI 层完成，这里只提供模拟层与 HUD 刷新回调。
+  openDestructible(item) {
+    const sim = this.state.sim;
+    if (!sim || !item || item.destroyed) return null;
+    this.cancelSelection();
+    return (
+      this.ui.showDestructibleConfirm?.({
+        sim,
+        item,
+        onResolved: () => {
+          this.ui.updateShopState();
+          this.state.app?.emitHud?.(true);
+        },
+      }) ?? null
+    );
   }
 
   upgradeTower(tower) {

@@ -952,6 +952,13 @@ class AudioFX {
       case 'sell':
         this.tone(560, 0.1, 'sine', 0.04, -220, t);
         break;
+      case 'destructible':
+        // 拆除：低频碎裂 + 砂石噪声，收尾一声清亮奖励音；全部由振荡器/噪声合成。
+        this.tone(170, 0.2, 'square', 0.05, -95, t);
+        this.tone(88, 0.26, 'sine', 0.05, -30, t + 0.03);
+        this.noise(0.22, 0.05, 880, t);
+        this.tone(660, 0.12, 'triangle', 0.028, 220, t + 0.1);
+        break;
       case 'hurt':
         this.tone(120, 0.22, 'sawtooth', 0.06, -50, t);
         this.noise(0.16, 0.03, 420, t);

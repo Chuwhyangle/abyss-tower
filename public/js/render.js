@@ -10,6 +10,7 @@ import { TowerRenderer } from './render/tower-renderer.js';
 import { EnemyRenderer } from './render/enemy-renderer.js';
 import { AllyRenderer } from './render/ally-renderer.js';
 import { ProjectileRenderer } from './render/projectile-renderer.js';
+import { DestructibleRenderer } from './render/destructible-renderer.js';
 import { EffectRenderer } from './render/effect-renderer.js';
 import { FloaterRenderer } from './render/floater-renderer.js';
 import { OverlayRenderer } from './render/overlay-renderer.js';
@@ -43,6 +44,8 @@ export class Renderer {
     // 友方单位（海克斯召唤物）：塔之上、敌人之下的独立层。
     this.allyRenderer = new AllyRenderer(game);
     this.projectiles = new ProjectileRenderer(game, { glow: this.glow });
+    // 场景可破坏物：地面层，塔之下、范围圈之上（只读 game.destructibles）。
+    this.destructibleRenderer = new DestructibleRenderer(game);
     this.effects = new EffectRenderer(game, { glow: this.glow });
     this.floaters = new FloaterRenderer(game);
     this.overlay = new OverlayRenderer();
@@ -141,6 +144,8 @@ export class Renderer {
     this.skillRenderer.renderWarnings(g, this.time, this.settings);
     // L1：塔之前的地面层（焦痕 / 霜裂 / 时间刻度）
     this.skillRenderer.renderL1(g, this.time, this.settings);
+    // 可破坏物在地面特效之上、塔之下；已拆除的格子画废墟残迹。
+    this.destructibleRenderer.render(g, this.time, this.settings);
     this.towers.render(g, this.time, this.settings);
     this.allyRenderer.render(g, this.time, this.settings);
     this.enemies.render(g, this.time, this.settings);

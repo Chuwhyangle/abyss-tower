@@ -1845,6 +1845,114 @@ kbd {
   line-height: 1.7;
 }
 
+/* 可破坏物确认面板 */
+
+.destructible-modal {
+  max-width: 460px;
+}
+
+.destructible-confirm {
+  --destructible-color: var(--gold);
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.destructible-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text);
+}
+
+.destructible-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in srgb, var(--destructible-color) 55%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--destructible-color) 14%, transparent);
+  font-size: 22px;
+  line-height: 1;
+}
+
+.destructible-desc {
+  line-height: 1.7;
+}
+
+.destructible-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.destructible-fact {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  text-align: left;
+}
+
+.destructible-fact span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.destructible-fact b {
+  color: var(--destructible-color);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.destructible-warning {
+  margin-top: 12px;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--red) 45%, transparent);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--danger-text);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+@media (max-width: 900px), (max-height: 520px) {
+  .destructible-modal {
+    padding: var(--space-4);
+  }
+
+  .destructible-facts {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .destructible-glyph {
+    width: 36px;
+    height: 36px;
+    font-size: 19px;
+  }
+
+  .destructible-modal .modal-actions {
+    margin-top: 12px;
+  }
+
+  .destructible-modal .modal-actions .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
 .text-input {
   width: 100%;
   margin-top: 14px;

@@ -911,4 +911,42 @@ export default {
   'codex.relic.eternalhourglass.desc': 'Gain 35 gold at the end of every 5 waves',
   'codex.relic.stormpulse.name': 'Storm Pulse',
   'codex.relic.stormpulse.desc': 'All tower damage +10%, attack speed +10%',
+
+  // Destructibles (data names/descriptions + confirm panel copy)
+  'data.destructible.vein.name': 'Gold Vein',
+  'data.destructible.vein.desc': 'A gold vein exposed in the rock. Clear it for 50 gold to gain 110 gold.',
+  'data.destructible.obelisk.name': 'Obelisk',
+  'data.destructible.obelisk.desc':
+    'An ancient obelisk. Clear it for 70 gold to gain +5% tower damage permanently (up to 3 stacks per run).',
+  'data.destructible.cache.name': 'Supply Crate',
+  'data.destructible.cache.desc':
+    'An abandoned supply crate. Clear it for free to gain 25 gold and restore 1 base HP (up to max).',
+  'data.destructible.nest.name': 'Swarm Nest',
+  'data.destructible.nest.desc':
+    'Clear it for free, but 6 current-wave swarmers burrow out at the nest; the freed cell can hold a tower.',
+  'data.destructible.totem.name': 'Cursed Totem',
+  'data.destructible.totem.desc':
+    'While it stands, all enemies gain +8% move speed and +10% HP; clear it for 80 gold to end the aura immediately.',
+
+  'destructible.eyebrow': 'Scene Object',
+  'destructible.costLabel': 'Clear cost',
+  'destructible.costValue': '{n} gold',
+  'destructible.free': 'Free',
+  'destructible.effectLabel': 'Effect',
+  'destructible.effect.gold': 'Gain {gold} gold',
+  'destructible.effect.goldHp': 'Gain {gold} gold and restore {hp} base HP',
+  'destructible.effect.hp': 'Restore {hp} base HP',
+  'destructible.effect.damage': 'All tower damage +{pct}% permanently (up to {max} stacks per run)',
+  'destructible.effect.spawn': '{count} current-wave swarmers burrow out immediately',
+  'destructible.effect.aura': 'While standing: enemy move speed +{speed}%, HP +{hp}%',
+  'destructible.effect.none': 'No extra effect',
+  'destructible.warn.nest': 'Warning: enemies spawn the moment you clear it — set up your defenses first.',
+  'destructible.warn.totem': 'Warning: the aura is active until cleared — enemies are faster and tougher.',
+  'destructible.confirm': 'Clear',
+  'destructible.cancel': 'Keep it',
+  'destructible.toast.done': 'Cleared {name}',
+  'destructible.toast.notFound': 'Nothing to clear here',
+  'destructible.toast.already': 'This object is already cleared',
+  'destructible.toast.noGold': 'Not enough gold to clear it',
+  'destructible.toast.failed': 'Failed to clear',
 };

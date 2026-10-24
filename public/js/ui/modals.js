@@ -1,9 +1,11 @@
 // 通用弹窗：遮罩生命周期、遗物三选一、事件节点、选图、确认框与提示。
 import { RELIC_BY_ID, RARITY, RELIC_LEVEL_LABELS, relicEffectText } from '../shared/data.js';
 import { canAffordEventOption, findEventChain } from '../shared/events.js';
+import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
 import { t, tData } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
+import { destructibleCostSpec, destructibleEffectSpec, destructibleFailureKey, destructibleWarningKey } from '../render/destructible-renderer.js';
 import { fmt, modifierName, modifierDesc, mapPreviewSvg, escapeHtml } from './shared.js';
 
 // 固定地图的专有名词按 id 取译名；旧随机地图没有 id 时回退数据表自带名称。
@@ -277,6 +279,44 @@ export const modalMethods = {
     window.addEventListener('keydown', onKey);
     this._modalCleanup = () => window.removeEventListener('keydown', onKey);
     audio.play('draft');
+  },
+
+  // 可破坏物确认面板：确认后调用 sim.destroyDestructible，成功音效/toast，失败按原因提示。
+  showDestructibleConfirm({ sim, item, onResolved = null }) {
+    const type = DESTRUCTIBLE_BY_ID[item?.type];
+    if (!sim || !item || item.destroyed || !type) return null;
+    const name = tData('destructible', type.id, 'name', type.name);
+    const desc = tData('destructible', type.id, 'desc', type.desc);
+    const cost = destructibleCostSpec(type);
+    const effect = destructibleEffectSpec(type);
+    const warning = destructibleWarningKey(type);
+    const modal = this.openModal(
+      `<div class="destructible-confirm" style="--destructible-color:${escapeHtml(type.color)}">
+        <p class="eyebrow">${t('destructible.eyebrow')}</p>
+        <h2 class="destructible-title"><span class="destructible-glyph" aria-hidden="true">${escapeHtml(type.glyph)}</span>${escapeHtml(name)}</h2>
+        <p class="muted destructible-desc">${escapeHtml(desc)}</p>
+        <div class="destructible-facts">
+          <div class="destructible-fact"><span>${t('destructible.costLabel')}</span><b>${escapeHtml(t(cost.key, cost.params))}</b></div>
+          <div class="destructible-fact"><span>${t('destructible.effectLabel')}</span><b>${escapeHtml(t(effect.key, effect.params))}</b></div>
+        </div>
+        ${warning ? `<p class="destructible-warning">${escapeHtml(t(warning))}</p>` : ''}
+        <div class="modal-actions">
+          <button class="btn primary" id="btn-destructible-yes">${t('destructible.confirm')}</button>
+          <button class="btn ghost" id="btn-destructible-no">${t('destructible.cancel')}</button>
+        </div>
+      </div>`,
+      { className: 'destructible-modal confirm-modal', closable: true }
+    );
+    modal.querySelector('#btn-destructible-yes').onclick = () => {
+      const result = sim.destroyDestructible?.(item.id) ?? { ok: false, reason: 'not-found' };
+      this.closeModal();
+      if (result.ok) audio.play('destructible');
+      this.toast(result.ok ? t('destructible.toast.done', { name }) : t(destructibleFailureKey(result.reason)));
+      onResolved?.(result);
+    };
+    modal.querySelector('#btn-destructible-no').onclick = () => this.closeModal();
+    audio.play('click');
+    return modal;
   },
 
   showConfirm({ title, text, confirmText = null, danger = false, onConfirm, onCancel = null }) {
