@@ -279,7 +279,9 @@ export class RunService {
       status: run.status,
     };
     if (withVictory) payload.victory = !!run.victory;
-    payload.maxRerolls = isFixedRulesMode(run.mode) ? 1 : maxRerollsFor(profile);
+    // 刷新次数：基础（固定规则模式恒为 1）算清后交给主海克斯加码（遗物吞噬者 +2）。
+    const baseMaxRerolls = isFixedRulesMode(run.mode) ? 1 : maxRerollsFor(profile);
+    payload.maxRerolls = hexRuntimeFor(run).relicRerollBonus(baseMaxRerolls);
     payload.rerollsUsed = run.rerollsUsed;
     payload.towersUnlocked = isFixedRulesMode(run.mode)
       ? [...TOWER_ORDER]
@@ -596,9 +598,9 @@ export class RunService {
       throw new RunError(409, '当前波次尚未结算完成');
     }
     const key = String(run.clearedWaves);
-    const maxRerolls = maxRerollsFor(profile);
-    // 遗物数量/刷新费用经由共享 hex 定义（遗物吞噬者、赌徒之骰由后续任务填数值）。
+    // 遗物数量/刷新费用/刷新次数上限经由共享 hex 定义（遗物吞噬者、赌徒之骰在此填数值）。
     const hexRuntime = hexRuntimeFor(run);
+    const maxRerolls = hexRuntime.relicRerollBonus(maxRerollsFor(profile));
     const offerCount = hexRuntime.relicOfferCount(RELIC_OFFER_COUNT);
     const rerollCost = hexRuntime.relicRerollCost(RELIC_REROLL_COST, run.rerollsUsed);
     let rerollsUsed = run.rerollsUsed;

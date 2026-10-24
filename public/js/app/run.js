@@ -312,6 +312,8 @@ export class RunController {
       day: data.day,
       maxRerolls: data.maxRerolls ?? 1,
       rerollsUsed: data.rerollsUsed ?? 0,
+      // 首次拿到遗物候选前沿用默认刷新费；服务端响应会按主海克斯覆盖（遗物吞噬者为 0）。
+      rerollCost: data.rerollCost ?? 25,
       clearedWaves: data.clearedWaves ?? sim.clearedWave,
       wavesServed: data.wavesServed ?? sim.clearedWave,
       mapChoice: data.mapChoice ?? sim.map.index ?? 0,
@@ -422,6 +424,7 @@ export class RunController {
       data.offers = RelicOffers.normalize(data.offers, sim);
       state.run.maxRerolls = data.maxRerolls ?? state.run.maxRerolls;
       state.run.rerollsUsed = data.rerollsUsed ?? 0;
+      if (Number.isFinite(Number(data.rerollCost))) state.run.rerollCost = Number(data.rerollCost);
       if (data.picked) {
         sim.pendingDraft = false;
         sim.save();
@@ -436,6 +439,7 @@ export class RunController {
         offers: data.offers,
         rerolls: { used: state.run.rerollsUsed, max: state.run.maxRerolls },
         gold: sim.gold,
+        cost: state.run.rerollCost,
       });
     } catch (error) {
       console.warn('[draft restore]', error);
