@@ -6,6 +6,8 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { allocatePort, releasePort, waitForHealth } from './test-server.mjs';
+
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 // 并行负载下服务启动与 CDP 连接受机器资源影响：时限可用环境变量覆盖，默认比历史值更宽松。
@@ -30,14 +32,10 @@ export const HARNESS_TIMEOUTS = Object.freeze({
   registerDelayMs: envNumber('HARNESS_REGISTER_DELAY_MS', 200),
 });
 
-function randomPort(min = 20000, max = 29999) {
-  return min + Math.floor(Math.random() * (max - min));
-}
-
 export async function startTestServer({ seedHeader = false, dbPath = null, env = {} } = {}) {
   let lastError = '';
   for (let attempt = 0; attempt < HARNESS_TIMEOUTS.startAttempts; attempt++) {
-    const port = randomPort();
+    const port = await allocatePort();
     const databasePath =
       dbPath || path.join(os.tmpdir(), `rtd-test-${process.pid}-${Date.now()}-${port}.db`);
     const child = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
@@ -60,35 +58,38 @@ export async function startTestServer({ seedHeader = false, dbPath = null, env =
     child.stderr.on('data', (chunk) => { log += chunk; });
 
     const base = `http://127.0.0.1:${port}`;
-    for (let i = 0; i < HARNESS_TIMEOUTS.healthAttempts; i++) {
-      if (child.exitCode != null) break;
-      try {
-        const response = await fetch(`${base}/api/health`);
-        if (response.ok) {
-          return {
-            base,
-            port,
-            dbPath: databasePath,
-            log: () => log,
-            async stop() {
-              if (child.exitCode == null) child.kill('SIGTERM');
-              for (let j = 0; j < HARNESS_TIMEOUTS.stopAttempts && child.exitCode == null; j++) {
-                await sleep(HARNESS_TIMEOUTS.stopIntervalMs);
-              }
-              if (child.exitCode == null) child.kill('SIGKILL');
-              for (const suffix of ['', '-wal', '-shm']) {
-                try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch { /* ignore */ }
-              }
-            },
-          };
-        }
-      } catch {
-        /* wait */
-      }
-      await sleep(HARNESS_TIMEOUTS.healthIntervalMs);
+    try {
+      await waitForHealth({
+        base,
+        port,
+        child,
+        log: () => log,
+        attempts: HARNESS_TIMEOUTS.healthAttempts,
+        intervalMs: HARNESS_TIMEOUTS.healthIntervalMs,
+      });
+    } catch {
+      lastError = log;
+      if (child.exitCode == null) child.kill('SIGKILL');
+      releasePort(port);
+      continue;
     }
-    lastError = log;
-    if (child.exitCode == null) child.kill('SIGKILL');
+    return {
+      base,
+      port,
+      dbPath: databasePath,
+      log: () => log,
+      async stop() {
+        if (child.exitCode == null) child.kill('SIGTERM');
+        for (let j = 0; j < HARNESS_TIMEOUTS.stopAttempts && child.exitCode == null; j++) {
+          await sleep(HARNESS_TIMEOUTS.stopIntervalMs);
+        }
+        if (child.exitCode == null) child.kill('SIGKILL');
+        releasePort(port);
+        for (const suffix of ['', '-wal', '-shm']) {
+          try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch { /* ignore */ }
+        }
+      },
+    };
   }
   throw new Error(`测试服务未能启动：${lastError}`);
 }
@@ -108,10 +109,11 @@ export async function findPageTarget(debugPort) {
 }
 
 export class Browser {
-  constructor(ws, chrome, profileDir, { onError } = {}) {
+  constructor(ws, chrome, profileDir, { onError, debugPort = null } = {}) {
     this.ws = ws;
     this.chrome = chrome;
     this.profileDir = profileDir;
+    this.debugPort = debugPort;
     this.nextId = 0;
     this.pending = new Map();
     this.pageErrors = [];
@@ -212,6 +214,7 @@ export class Browser {
       this.chrome.kill('SIGKILL');
       await sleep(100);
     }
+    if (this.debugPort !== null) releasePort(this.debugPort);
     try { fs.rmSync(this.profileDir, { recursive: true, force: true }); } catch { /* ignore */ }
   }
 }
@@ -306,7 +309,7 @@ async function launchBrowserOnce({
   cookie = null,
   awaitBoot = true,
 } = {}) {
-  const debugPort = randomPort(30000, 39999);
+  const debugPort = await allocatePort();
   const profileDir = path.join(os.tmpdir(), `${name}-${process.pid}-${Date.now()}-${debugPort}`);
   fs.rmSync(profileDir, { recursive: true, force: true });
   const chrome = spawn(
@@ -340,7 +343,7 @@ async function launchBrowserOnce({
       ws.onerror = () => reject(new HarnessEnvError('WebSocket 连接失败', 'cdp'));
     });
 
-    browser = new Browser(ws, chrome, profileDir, { onError });
+    browser = new Browser(ws, chrome, profileDir, { onError, debugPort });
     try {
       await browser.send('Page.enable');
       await browser.send('Runtime.enable');
@@ -372,6 +375,7 @@ async function launchBrowserOnce({
       await browser.close();
     } else {
       try { chrome.kill('SIGKILL'); } catch { /* ignore */ }
+      releasePort(debugPort);
       try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch { /* ignore */ }
     }
     throw error;

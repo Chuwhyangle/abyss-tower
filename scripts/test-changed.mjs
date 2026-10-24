@@ -194,6 +194,7 @@ export const TEST_MAP = [
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
   { match: 'scripts/test-isolation-audit.mjs', tests: ['tests/test-isolation-audit.test.mjs'] },
   { match: 'scripts/test-stability.mjs', tests: ['tests/test-stability.test.mjs'] },
+  { match: 'scripts/check-stability.mjs', tests: ['tests/check-stability.test.mjs'] },
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
   { match: 'scripts/ui-animation-audit.mjs', tests: ['tests/ui-animation-audit.test.mjs'] },
 ];

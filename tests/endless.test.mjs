@@ -6,8 +6,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import { BALANCE } from '../public/js/shared/config.js';
 import { MAX_WAVE } from '../public/js/shared/data.js';
@@ -133,7 +134,7 @@ test('旧存档兼容：普通档仍按 30 波收敛，无尽档保留更高波�
 
 // ---------- 服务端：续波、结算与独立排行榜 ----------
 
-const PORT = 18800 + Math.floor(Math.random() * 200);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = path.join(os.tmpdir(), `rtd-endless-test-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'endless-test-token-0001';
@@ -208,16 +209,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  throw new Error(`测试服务未能启动：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(() => {

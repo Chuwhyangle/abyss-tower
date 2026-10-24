@@ -5,14 +5,15 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import { clampFinishPayload, computeOutcome, dayKey } from '../public/js/shared/scoring.js';
 import { DIFFICULTIES, SKILLS, TOWER_ORDER } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 18600 + Math.floor(Math.random() * 300);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = path.join(os.tmpdir(), `rtd-api-test-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'api-test-token-0001';
@@ -58,16 +59,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  throw new Error(`测试服务未能启动：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(() => {

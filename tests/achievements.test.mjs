@@ -7,6 +7,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 import { ACHIEVEMENT_BY_ID } from '../public/js/shared/achievements.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,7 +44,7 @@ const LEGACY_IDS = [
 ];
 const GROUPS = new Set(['clear', 'build', 'challenge', 'collect']);
 const RARITIES = new Set(['common', 'rare', 'epic']);
-const PORT = 19600 + Math.floor(Math.random() * 300);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB_PATH = path.join(os.tmpdir(), `rtd-achievements-${process.pid}-${Date.now()}.db`);
 
@@ -129,16 +131,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  throw new Error(`测试服务未能启动：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(async () => {

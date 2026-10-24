@@ -7,15 +7,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import { SEASON_PASS_MILESTONES } from '../public/js/shared/season-pass.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-claim-all-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-claim-all-server-${process.pid}-${Date.now()}.db`);
-const PORT = 20100 + Math.floor(Math.random() * 200);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const PARTIAL_TOKEN = 'claim-all-partial-01';
@@ -159,16 +160,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  throw new Error(`测试服务未能启动：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(() => {

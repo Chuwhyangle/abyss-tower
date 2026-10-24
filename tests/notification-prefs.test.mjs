@@ -8,13 +8,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-notif-prefs-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-notif-prefs-server-${process.pid}-${Date.now()}.db`);
-const PORT = 20100 + Math.floor(Math.random() * 200);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const ALICE = 'notif-prefs-alice-01';
 const BOB = 'notif-prefs-bob-01';
@@ -33,6 +34,7 @@ let normalizePrefs = null;
 let DEFAULT_NOTIFICATION_PREFS = null;
 
 let server = null;
+let serverLog = '';
 let serverDb = null;
 
 function removeDb(file) {
@@ -108,18 +110,14 @@ before(async () => {
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
-  server.stdout.on('data', () => {});
-  server.stderr.on('data', () => {});
+  server.stdout.on('data', (chunk) => {
+    serverLog += chunk;
+  });
+  server.stderr.on('data', (chunk) => {
+    serverLog += chunk;
+  });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) break;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 
   await api('/api/notifications', { token: ALICE });
   await api('/api/notifications', { token: BOB });

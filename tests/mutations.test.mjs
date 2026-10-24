@@ -5,8 +5,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import {
   MUTATION_MAX,
@@ -20,7 +21,7 @@ import { generateMapCandidates } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 19200 + Math.floor(Math.random() * 300);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = path.join(os.tmpdir(), `rtd-mutations-test-${process.pid}-${Date.now()}.db`);
 
@@ -99,17 +100,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 100; i += 1) {
-    if (server.exitCode != null) break;
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return;
-    } catch {
-      /* 等待服务启动 */
-    }
-    await sleep(100);
-  }
-  throw new Error(`测试服务启动失败：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(() => {

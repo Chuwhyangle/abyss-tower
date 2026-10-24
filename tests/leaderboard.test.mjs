@@ -8,8 +8,10 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { allocatePort, waitForHealth } from './test-server.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 19000 + Math.floor(Math.random() * 500);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = path.join(os.tmpdir(), `rtd-leaderboard-test-${process.pid}-${Date.now()}.db`);
 
@@ -95,17 +97,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 100; i += 1) {
-    if (server.exitCode != null) break;
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) break;
-    } catch {
-      /* 等待服务启动 */
-    }
-    await sleep(100);
-  }
-  if (server.exitCode != null) throw new Error(`测试服务启动失败：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 
   totals.set('alpha', (await play(TOKENS.alpha, { waves: 3 })).score);
   const betaHigh = await play(TOKENS.beta, { waves: 6 });

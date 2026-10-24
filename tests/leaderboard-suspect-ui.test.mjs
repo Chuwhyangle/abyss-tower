@@ -9,8 +9,10 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { allocatePort, waitForHealth } from './test-server.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 21400 + Math.floor(Math.random() * 400);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = path.join(os.tmpdir(), `rtd-lb-suspect-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'lb-suspect-0001';
@@ -113,17 +115,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 100; i += 1) {
-    if (server.exitCode != null) break;
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) break;
-    } catch {
-      /* 等待服务启动 */
-    }
-    await sleep(100);
-  }
-  if (server.exitCode != null) throw new Error(`测试服务启动失败：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(async () => {

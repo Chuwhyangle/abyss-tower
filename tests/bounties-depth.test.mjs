@@ -5,8 +5,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import {
   BOUNTIES_PER_PERIOD,
@@ -28,7 +29,7 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-bounty-depth-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-bounty-depth-server-${process.pid}-${Date.now()}.db`);
-const PORT = 18800 + Math.floor(Math.random() * 300);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 
 const REFRESH_TOKEN = 'bounty-depth-refresh-01';
@@ -150,16 +151,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) return;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  throw new Error(`测试服务未能启动：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 });
 
 after(() => {

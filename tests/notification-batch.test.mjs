@@ -5,28 +5,17 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
-import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import { allocatePort, waitForHealth } from './test-server.mjs';
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-notif-batch-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-notif-batch-server-${process.pid}-${Date.now()}.db`);
-// 端口交给内核分配：整套测试并行执行时，固定端口段会和其他测试文件撞车。
-async function allocatePort() {
-  const probe = net.createServer();
-  await new Promise((resolve, reject) => {
-    probe.once('error', reject);
-    probe.listen(0, '127.0.0.1', resolve);
-  });
-  const { port } = probe.address();
-  await new Promise((resolve) => probe.close(resolve));
-  return port;
-}
-
 const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const ALICE = 'notif-batch-alice-01';
@@ -140,24 +129,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  let ready = false;
-  for (let i = 0; i < 80; i++) {
-    // 子进程已退出就没必要再等满 8 秒，直接把服务端日志带进失败信息。
-    if (server.exitCode !== null) break;
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) {
-        ready = true;
-        break;
-      }
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  if (!ready) {
-    throw new Error(`测试服务未就绪（exitCode=${server.exitCode}）：\n${serverLog}`);
-  }
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
 
   // 先让服务端建好两个账号，再直接向服务端库写入 >1 批的未读通知。
   await api('/api/notifications', { token: ALICE });

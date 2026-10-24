@@ -7,13 +7,15 @@ import { fileURLToPath } from 'node:url';
 
 export const RULES = Object.freeze({
   HARDCODED_PORT: 'hardcoded-port',
+  RANDOM_PORT_GUESS: 'random-port-guess',
   FIXED_DB_PATH: 'fixed-db-path',
   REPO_WRITE: 'repo-write',
   SHARED_USERNAME: 'shared-username',
 });
 
 export const RULE_HINTS = Object.freeze({
-  [RULES.HARDCODED_PORT]: '端口写死，并行时可能被其他测试或进程占用；改用随机端口，或 listen(0) 让内核分配',
+  [RULES.HARDCODED_PORT]: '端口写死，并行时可能被其他测试或进程占用；改用 listen(0) 或 tests/test-server.mjs 的 allocatePort()',
+  [RULES.RANDOM_PORT_GUESS]: '端口从固定段里随机猜，会撞上长期占用的端口；改用 tests/test-server.mjs 的 allocatePort()（内核分配 + 租约）',
   [RULES.FIXED_DB_PATH]: '数据库路径写死，多个测试进程会共用同一文件；改用 os.tmpdir() + pid + 时间戳',
   [RULES.REPO_WRITE]: '测试写入仓库目录，会改动工作区并在并行时互相覆盖；改写到临时目录',
   [RULES.SHARED_USERNAME]: '多个测试文件共用同一个固定用户名，共享数据库时会互相污染；改用随机用户名',
@@ -164,6 +166,7 @@ function pushFinding(findings, suppressed, lineIndex, file, index, rule, detail)
 }
 
 const PORT_ASSIGN = /\b(?:PORT|port|SERVER_PORT|DEBUG_PORT|debugPort|remoteDebuggingPort)\s*[:=]\s*(['"]?)(\d{2,5})\1\s*(?=[,;)}\n]|$)/g;
+const PORT_GUESS = /\b(?:PORT|port|SERVER_PORT|DEBUG_PORT|debugPort|remoteDebuggingPort)\s*[:=][^;\n]*Math\.random\s*\(/g;
 const PORT_LISTEN = /\blisten\s*\(\s*(\d{1,5})\s*[,)]/g;
 const PORT_DEBUG_FLAG = /--remote-debugging-port=(\d{1,5})\b/g;
 const PORT_URL = /(?:127\.0\.0\.1|localhost):(\d{2,5})\b/g;
@@ -181,6 +184,20 @@ function findPorts(masked, file, lineIndex, suppressed, findings) {
       if (value === '0') continue;
       pushFinding(findings, suppressed, lineIndex, file, match.index, RULES.HARDCODED_PORT, `端口 ${value} 写死（${kind}）`);
     }
+  }
+}
+
+function findPortGuesses(masked, file, lineIndex, suppressed, findings) {
+  for (const match of masked.matchAll(PORT_GUESS)) {
+    pushFinding(
+      findings,
+      suppressed,
+      lineIndex,
+      file,
+      match.index,
+      RULES.RANDOM_PORT_GUESS,
+      '端口由 Math.random() 在固定段里猜出'
+    );
   }
 }
 
@@ -256,6 +273,7 @@ export function scanSources(entries, { includeTools = false } = {}) {
     const lineIndex = buildLineIndex(source);
     const suppressed = suppressionSet(source);
     findPorts(masked, file, lineIndex, suppressed, findings);
+    findPortGuesses(masked, file, lineIndex, suppressed, findings);
     findFixedDbPaths(masked, file, lineIndex, suppressed, findings);
     if (includeTools || !MANUAL_TOOLS.has(path.basename(file))) {
       findRepoWrites(source, masked, file, lineIndex, suppressed, findings);
@@ -324,7 +342,7 @@ function parseArgs(argv) {
 const HELP = [
   '用法：node scripts/test-isolation-audit.mjs [--root <dir>] [--dir <subdir>] [--include-tools] [--json]',
   '',
-  '静态扫描 tests/*.mjs，报告硬编码端口、固定数据库路径、写入仓库目录、跨文件共用固定用户名。',
+  '静态扫描 tests/*.mjs，报告硬编码端口、随机猜端口、固定数据库路径、写入仓库目录、跨文件共用固定用户名。',
   '退出码：0 无风险；1 发现风险；2 参数错误。',
 ].join('\n');
 

@@ -5,8 +5,9 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+
+import { allocatePort, waitForHealth } from './test-server.mjs';
 
 import {
   ACHIEVEMENTS,
@@ -16,7 +17,7 @@ import {
 } from '../public/js/shared/achievements.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 19500 + Math.floor(Math.random() * 300);
+const PORT = await allocatePort();
 const BASE = `http://127.0.0.1:${PORT}`;
 const DB = path.join(os.tmpdir(), `rtd-ach-skills-${process.pid}-${Date.now()}.db`);
 
@@ -102,16 +103,7 @@ before(async () => {
     serverLog += chunk;
   });
 
-  for (let i = 0; i < 80; i++) {
-    try {
-      const response = await fetch(`${BASE}/api/health`);
-      if (response.ok) break;
-    } catch {
-      /* 等待启动 */
-    }
-    await sleep(100);
-  }
-  if (!server || server.exitCode != null) throw new Error(`测试服务未能启动：${serverLog}`);
+  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
   const health = await fetch(`${BASE}/api/health`).catch(() => null);
   if (!health?.ok) throw new Error(`测试服务未能启动：${serverLog}`);
 

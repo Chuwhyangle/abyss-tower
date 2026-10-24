@@ -25,16 +25,26 @@ function scan(source, file = 'tests/sample.test.mjs', options = {}) {
 
 const CLEAN = fixture([
   "import os from 'node:os';",
-  'const PORT = 19000 + Math.floor(Math.random() * 500);',
+  'const PORT = await allocatePort();',
   'const DB = path.join(os.tmpdir(), `rtd-${process.pid}-${Date.now()}.db`);',
   "fs.mkdirSync(path.join(os.tmpdir(), `rtd-${process.pid}`), { recursive: true });",
   'const username = `u${Date.now().toString(36)}`;',
   "server.listen(0, '127.0.0.1');",
 ]);
 
-test('放行：随机端口、临时目录 DB、临时目录写入、随机用户名', () => {
+test('放行：内核分配端口、临时目录 DB、临时目录写入、随机用户名', () => {
   const findings = scan(CLEAN);
   assert.deepEqual(findings, []);
+});
+
+test('命中：随机猜端口段', () => {
+  const source = fixture([
+    'const PORT = 19000 + Math.floor(Math.random() * 500); // isolation-audit-ignore',
+    'const debugPort = 30000 + Math.floor(Math.random() * 1000); // isolation-audit-ignore',
+  ]);
+  const findings = scan(source);
+  assert.deepEqual(findings.map((finding) => finding.rule), [RULES.RANDOM_PORT_GUESS, RULES.RANDOM_PORT_GUESS]);
+  assert.deepEqual(findings.map((finding) => finding.line), [1, 2]);
 });
 
 test('命中：硬编码端口 / 固定 DB / 写仓库 / 共用用户名', () => {

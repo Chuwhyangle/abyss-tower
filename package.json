@@ -12,6 +12,7 @@
     "test:changed": "node --no-warnings scripts/test-changed.mjs --run",
     "test:timing": "node --no-warnings scripts/test-timing.mjs",
     "test:stability": "node --no-warnings scripts/test-stability.mjs",
+    "check:stability": "node --no-warnings scripts/check-stability.mjs",
     "coverage": "node --no-warnings scripts/coverage.mjs",
     "coverage:check": "node --no-warnings scripts/coverage.mjs --check",
     "coverage:changed": "node --no-warnings scripts/coverage.mjs --check-changed develop",
