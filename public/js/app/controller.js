@@ -272,6 +272,8 @@ export class GameController {
       onCancel: () => {
         if (inGame) state.app?.setPaused(wasPaused);
       },
+      // 局内设置面板的「退出远征」：走与 HUD 退出键同一个放弃确认流程。
+      onQuit: inGame ? () => this.run.confirmAbandon() : null,
     });
   }
 

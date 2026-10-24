@@ -118,10 +118,17 @@ export class RunController {
       dailyLeft: this.state.dailyLeft,
       weeklyLeft: this.state.weeklyLeft,
     });
+    // 确认框打开期间暂停战斗：否则玩家在犹豫时波次仍在推进。
+    const app = this.state.app;
+    const wasPaused = app?.paused || false;
+    if (app) app.setPaused(true);
     this.ui.showConfirm({
       ...copy,
       danger: true,
       onConfirm: () => this.abandonCurrentRun(),
+      onCancel: () => {
+        if (app) app.setPaused(wasPaused);
+      },
     });
   }
 

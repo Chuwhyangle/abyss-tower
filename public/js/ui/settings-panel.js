@@ -210,7 +210,7 @@ function rowHtml(key, value, canExportAudit = false) {
 }
 
 export const settingsPanelMethods = {
-  showSettings({ settings, inGame = false, onApply, onCancel }) {
+  showSettings({ settings, inGame = false, onApply, onCancel, onQuit = null }) {
     const current = normalizeSettings(settings);
     const presetLabel = (name) =>
       name === 'custom'
@@ -266,6 +266,7 @@ export const settingsPanelMethods = {
             <span class="muted" id="preset-label">${t('settings.currentPreset', { preset: presetLabel(detectPreset(current)) })}</span>
           </div>
           <div class="modal-actions">
+            ${inGame && onQuit ? `<button class="btn danger settings-quit" id="settings-quit">${t('settings.quitRun')}</button>` : ''}
             <button class="btn primary" id="settings-apply">${t('common.apply')}</button>
             <button class="btn ghost" id="settings-cancel">${t('common.cancel')}</button>
           </div>
@@ -341,7 +342,7 @@ export const settingsPanelMethods = {
     control('set-locale').addEventListener('change', (event) => {
       const draft = read();
       setLocale(event.target.value);
-      this.showSettings({ settings: draft, inGame, onApply, onCancel });
+      this.showSettings({ settings: draft, inGame, onApply, onCancel, onQuit });
     });
     // 画质预设不覆盖用户单独选择的音乐、音量与无障碍偏好。
     const applyPreset = (name) => {
@@ -385,5 +386,13 @@ export const settingsPanelMethods = {
       onApply?.(next);
     };
     control('settings-cancel').onclick = () => this.closeModal();
+    // 局内退出入口：设置面板本身就是"暂停时的菜单"，退出放在这里比 HUD 角落更显眼。
+    const quitButton = control('settings-quit');
+    if (quitButton) {
+      quitButton.onclick = () => {
+        this.closeModal();
+        onQuit?.();
+      };
+    }
   },
 };

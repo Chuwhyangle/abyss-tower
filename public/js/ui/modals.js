@@ -274,7 +274,9 @@ export const modalMethods = {
     audio.play('draft');
   },
 
-  showConfirm({ title, text, confirmText = null, danger = false, onConfirm }) {
+  showConfirm({ title, text, confirmText = null, danger = false, onConfirm, onCancel = null }) {
+    // 只有「没点确认就关掉」才算取消：确认路径也会走 closeModal。
+    let confirmed = false;
     const modal = this.openModal(
       `
         <div class="confirm">
@@ -286,9 +288,16 @@ export const modalMethods = {
           </div>
         </div>
       `,
-      { className: 'confirm-modal', closable: true }
+      {
+        className: 'confirm-modal',
+        closable: true,
+        onClose: () => {
+          if (!confirmed) onCancel?.();
+        },
+      }
     );
     modal.querySelector('#btn-confirm-yes').onclick = () => {
+      confirmed = true;
       this.closeModal();
       onConfirm?.();
     };

@@ -366,6 +366,27 @@ button {
   background: rgba(255, 255, 255, 0.05);
 }
 
+/* 退出远征：图标 + 文字 + 危险色。HUD 最右端的裸 × 很容易被当成"关闭弹窗"或忽略掉。 */
+.quit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--red) 6%, transparent);
+  border-color: color-mix(in srgb, var(--red) 28%, transparent);
+}
+
+.quit-btn:hover:not(:disabled) {
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--red) 16%, transparent);
+}
+
+.quit-btn .quit-label {
+  font-size: var(--text-sm);
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
 /* 程序化图标：路径来自 canvas-shapes.js，尺寸/描边集中走令牌。
    non-scaling-stroke 让 12–24px 的小图标保持同样的像素描边，避免缩小后变虚。 */
 .icon {
@@ -1805,6 +1826,11 @@ kbd {
   border-top: 1px solid rgba(120, 160, 175, 0.12);
 }
 
+/* 局内设置底部的退出按钮与「应用/取消」分开，避免误触。 */
+.settings-quit {
+  margin-right: auto;
+}
+
 /* 确认 / 输入 */
 
 .confirm {
@@ -2094,7 +2120,9 @@ kbd {
 
   .hud-left,
   .hud-right {
-    gap: 7px;
+    /* 5px 而不是 7px：退出键带文字后，844px 横屏在英文界面会刚好越过换行阈值，
+       多一行会把 HUD 撑高、让固定尺寸的战场压住 HUD/商店。 */
+    gap: 5px;
   }
 
   .stat {
