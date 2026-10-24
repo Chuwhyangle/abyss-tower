@@ -53,6 +53,33 @@ function card(item) {
     </article>`;
 }
 
+// 积分来源明细：服务端返回 sources；旧接口只给总分时按对局积分占位，避免明细凭空消失。
+function sourceItem(item) {
+  const at = Number(item?.updatedAt);
+  const when = Number.isFinite(at) && at > 0
+    ? ` · ${new Date(at).toLocaleDateString('zh-CN')}`
+    : '';
+  return `<li><span>${escapeHtml(item?.label || '对局积分')}</span><span>${fmt(item?.points)}${escapeHtml(when)}</span></li>`;
+}
+
+function sourcesBlock(data) {
+  const sources = Array.isArray(data?.sources) && data.sources.length
+    ? data.sources
+    : [{ source: 'match', label: '对局积分', points: data?.points }];
+  const total = sources.reduce((sum, item) => sum + (Number(item?.points) || 0), 0);
+  const detail = total > 0
+    ? `<ul class="season-pass-source-list">${sources.map(sourceItem).join('')}</ul>`
+    : '<p class="achievement-hint">暂无积分来源</p>';
+  return `
+    <article class="achievement-card rarity-common">
+      <h3>
+        <span>积分来源</span>
+        <span class="achievement-rarity">${fmt(total)}</span>
+      </h3>
+      ${detail}
+    </article>`;
+}
+
 function render(panel, data) {
   const list = panel.querySelector(`#${LIST_ID}`);
   const milestones = Array.isArray(data?.milestones) ? data.milestones : [];
@@ -65,10 +92,10 @@ function render(panel, data) {
     progress.textContent = `${data?.label || ''} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
   }
   if (!milestones.length) {
-    list.innerHTML = '<p class="achievement-hint">暂无里程碑</p>';
+    list.innerHTML = `${sourcesBlock(data)}<p class="achievement-hint">暂无里程碑</p>`;
     return;
   }
-  list.innerHTML = milestones.map(card).join('');
+  list.innerHTML = `${sourcesBlock(data)}${milestones.map(card).join('')}`;
   for (const button of list.querySelectorAll('[data-claim]')) {
     button.addEventListener('click', () => claim(panel, button.dataset.claim));
   }

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// 安装 git pre-push 分级门禁：默认语法 + 版本一致性 + 风格检查，HOOK_FULL=1 时加跑完整测试与性能预算。
+// 安装 git pre-push 分级门禁：默认语法 + 版本一致性 + 风格 + 依赖图检查，HOOK_FULL=1 时加跑完整测试与性能预算。
 // 零依赖、幂等；不覆盖非本工具写入的已有钩子。
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,6 +30,7 @@ run_check() {
 run_check "语法检查" npm run check:syntax
 run_check "版本一致性检查" node scripts/check-version.mjs
 run_check "风格检查" npm run check:style
+run_check "依赖图检查" node --no-warnings scripts/import-graph.mjs
 
 if [ "\${HOOK_FULL:-0}" = "1" ]; then
   run_check "完整测试" npm test
@@ -120,7 +121,7 @@ function install(plan) {
   fs.writeFileSync(plan.target, plan.content, { mode: 0o755 });
   fs.chmodSync(plan.target, 0o755);
   console.log(`已安装 pre-push 钩子：${plan.target}`);
-  console.log('默认跑语法检查与版本一致性；设置 HOOK_FULL=1 可加跑完整测试与性能预算。');
+  console.log('默认跑语法、版本一致性、风格与依赖图检查；设置 HOOK_FULL=1 可加跑完整测试与性能预算。');
   return 0;
 }
 

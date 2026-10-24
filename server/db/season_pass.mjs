@@ -1,15 +1,21 @@
-// 赛季通行证持久化：积分由赛季内已完成对局派生，里程碑领取与奖励发放同事务。
+// 赛季通行证持久化：积分由赛季内的对局、赛季悬赏与成就三类来源派生，里程碑领取与奖励发放同事务。
 // 赛季边界直接复用排行榜的 seasonOf / seasonBounds，保证与榜单口径一致。
 import { db, grantCores, getCores, transaction } from '../db.mjs';
 import { seasonBounds, seasonOf } from './leaderboard.mjs';
+import { ACHIEVEMENT_BY_ID } from '../../public/js/shared/achievements.js';
 import {
   SEASON_PASS_MAX_POINTS,
+  SEASON_POINT_SOURCES,
+  pointsBreakdown,
+  seasonAchievementPoints,
+  seasonBountyPoints,
   seasonPassMilestone,
   seasonPassProgress,
 } from '../../public/js/shared/season-pass.js';
 
 const SHARD_CURRENCY = 'skin_shards';
 const COSMETIC_NAMESPACE = 'cosmetics';
+const SOURCE_NAMESPACE = 'season_pass_sources';
 
 export const SEASON_PASS_SHARD_CURRENCY = SHARD_CURRENCY;
 
@@ -49,17 +55,91 @@ function grantTitleInTx(accountId, titleId, season, milestoneId, now) {
   );
 }
 
-function seasonPoints(accountId, bounds) {
-  if (!bounds) return 0;
+// 对局来源：赛季内已完成对局的分数求和，并记录最近一局的落库时间。
+function matchSource(accountId, bounds) {
+  if (!bounds) return { source: SEASON_POINT_SOURCES.MATCH, points: 0, updatedAt: null };
   const row = db
     .prepare(
-      `SELECT COALESCE(SUM(CASE WHEN score > 0 THEN score ELSE 0 END), 0) AS points
+      `SELECT COALESCE(SUM(CASE WHEN score > 0 THEN score ELSE 0 END), 0) AS points,
+              MAX(CASE WHEN score > 0 THEN created_at END) AS updated_at
          FROM runs
         WHERE account_id = ? AND status = 'finished'
           AND created_at >= ? AND created_at < ?`
     )
     .get(accountId, bounds.start, bounds.end);
+  return {
+    source: SEASON_POINT_SOURCES.MATCH,
+    points: Math.max(0, Math.floor(Number(row?.points) || 0)),
+    updatedAt: Number(row?.updated_at) || null,
+  };
+}
+
+// 悬赏来源：只统计已领取的赛季悬赏；赛季悬赏的周期键就是赛季键。
+function bountySource(accountId, season) {
+  const rows = db
+    .prepare(
+      `SELECT bounty_id, claimed_at FROM account_bounties
+        WHERE account_id = ? AND period = 'season' AND period_key = ?
+          AND claimed_at IS NOT NULL`
+    )
+    .all(accountId, season);
+  let points = 0;
+  let updatedAt = null;
+  for (const row of rows) {
+    const id = String(row.bounty_id || '');
+    const tier = id.endsWith(':extreme')
+      ? 'extreme'
+      : id.endsWith(':challenge')
+        ? 'challenge'
+        : 'normal';
+    points += seasonBountyPoints(tier);
+    const at = Number(row.claimed_at) || 0;
+    if (at > (updatedAt || 0)) updatedAt = at;
+  }
+  return { source: SEASON_POINT_SOURCES.BOUNTY, points, updatedAt };
+}
+
+// 成就来源：只统计本赛季解锁的成就，按稀有度折算额外积分。
+function achievementSource(accountId, bounds) {
+  if (!bounds) return { source: SEASON_POINT_SOURCES.ACHIEVEMENT, points: 0, updatedAt: null };
+  const rows = db
+    .prepare(
+      `SELECT achievement_id, unlocked_at FROM account_achievements
+        WHERE account_id = ? AND unlocked_at >= ? AND unlocked_at < ?`
+    )
+    .all(accountId, bounds.start, bounds.end);
+  let points = 0;
+  let updatedAt = null;
+  for (const row of rows) {
+    points += seasonAchievementPoints(ACHIEVEMENT_BY_ID[row.achievement_id]?.rarity);
+    const at = Number(row.unlocked_at) || 0;
+    if (at > (updatedAt || 0)) updatedAt = at;
+  }
+  return { source: SEASON_POINT_SOURCES.ACHIEVEMENT, points, updatedAt };
+}
+
+function storedPoints(accountId, season) {
+  const row = db
+    .prepare('SELECT points FROM account_season_pass WHERE account_id = ? AND season = ?')
+    .get(accountId, season);
   return Math.max(0, Math.floor(Number(row?.points) || 0));
+}
+
+// 赛季积分 = 对局 + 已领取赛季悬赏 + 本赛季解锁成就。
+// 旧数据只有总分、没有来源记录：整笔按对局积分处理，保证明细合计不丢分。
+function seasonSources(accountId, season, bounds) {
+  if (!bounds) return pointsBreakdown([]);
+  const breakdown = pointsBreakdown([
+    matchSource(accountId, bounds),
+    bountySource(accountId, season),
+    achievementSource(accountId, bounds),
+  ]);
+  if (breakdown.total > 0) return breakdown;
+  return pointsBreakdown(storedPoints(accountId, season));
+}
+
+function seasonPoints(accountId, season, bounds) {
+  return seasonSources(accountId, season, bounds).total;
 }
 
 function recordPoints(accountId, season, points, now) {
@@ -70,6 +150,23 @@ function recordPoints(accountId, season, points, now) {
        points = excluded.points,
        updated_at = excluded.updated_at`
   ).run(accountId, season, points, now);
+}
+
+// 来源与时间随积分快照一起落库，明细展示无需回算历史数据。
+function recordSources(accountId, season, breakdown, now) {
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json,
+       updated_at = excluded.updated_at`
+  ).run(
+    accountId,
+    SOURCE_NAMESPACE,
+    `sources:${season}`,
+    JSON.stringify({ total: breakdown.total, sources: breakdown.sources }),
+    now
+  );
 }
 
 function claimRows(accountId, season) {
@@ -105,13 +202,18 @@ export function seasonPassSummary(accountId, now = Date.now()) {
       claimedCount: 0,
       claimableCount: 0,
       wallet: wallet(accountId),
+      sources: pointsBreakdown([]).sources,
       milestones: seasonPassProgress(0, []),
     };
   }
 
   const bounds = seasonBounds(season);
-  const points = seasonPoints(accountId, bounds);
-  transaction(() => recordPoints(accountId, season, points, now));
+  const breakdown = seasonSources(accountId, season, bounds);
+  const points = breakdown.total;
+  transaction(() => {
+    recordPoints(accountId, season, points, now);
+    recordSources(accountId, season, breakdown, now);
+  });
 
   const claims = new Map(
     claimRows(accountId, season).map((row) => [row.milestone_id, Number(row.claimed_at)])
@@ -131,6 +233,7 @@ export function seasonPassSummary(accountId, now = Date.now()) {
     claimedCount: milestones.filter((milestone) => milestone.claimed).length,
     claimableCount: milestones.filter((milestone) => milestone.claimable).length,
     wallet: wallet(accountId),
+    sources: breakdown.sources,
     milestones,
   };
 }
@@ -145,8 +248,10 @@ export function claimSeasonPassMilestone(accountId, milestoneId, now = Date.now(
 
   return transaction(() => {
     const bounds = seasonBounds(season);
-    const points = seasonPoints(accountId, bounds);
+    const breakdown = seasonSources(accountId, season, bounds);
+    const points = breakdown.total;
     recordPoints(accountId, season, points, now);
+    recordSources(accountId, season, breakdown, now);
 
     const existing = db
       .prepare(

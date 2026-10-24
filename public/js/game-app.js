@@ -22,6 +22,8 @@ export class GameApp {
     this._hudTimer = 0;
     this._lastSkillCast = sim.skillCastCount || 0;
     this._lastMood = null;
+    this._lastBossVariant = null;
+    this._bossHpRatio = 1;
     this._resetMetrics();
 
     sim.setVisualQuality({
@@ -139,10 +141,25 @@ export class GameApp {
       if (sim.skill) audio.play(`skill_${sim.skill.id}`);
     }
     const waveDef = sim.phase === 'wave' ? sim.waveDef : null;
-    const mood = waveDef && (waveDef.boss || waveDef.finalBoss) ? 'boss' : 'battle';
+    const bossWave = !!(waveDef && (waveDef.boss || waveDef.finalBoss));
+    const mood = bossWave ? 'boss' : 'battle';
     if (mood !== this._lastMood) {
       this._lastMood = mood;
       audio.startMusic(mood);
+    }
+    if (bossWave) {
+      const variant = waveDef.bossVariant || null;
+      if (variant !== this._lastBossVariant) {
+        this._lastBossVariant = variant;
+        this._bossHpRatio = 1;
+      }
+      // 首领阵亡后保留最后一阶段的强度层，避免结算前突然回落。
+      const boss = sim.enemies.find((enemy) => enemy.boss && !enemy.dead);
+      if (boss) this._bossHpRatio = boss.hp / Math.max(1, boss.maxHp);
+      audio.setBossContext(variant, this._bossHpRatio);
+    } else {
+      this._lastBossVariant = null;
+      this._bossHpRatio = 1;
     }
     // 波次越高音乐电平略微上浮；非战斗阶段回到基准，避免结束后仍持续紧张。
     audio.setMusicIntensity(sim.phase === 'wave' ? sim.wave : 0);

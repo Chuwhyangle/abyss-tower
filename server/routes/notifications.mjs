@@ -1,5 +1,19 @@
-// 通知接口：读取本人最近通知与未读数，一键全部已读，以及通知偏好读写。
-import { markAllRead, notificationSummary, readPrefs, writePrefs } from '../db/notifications.mjs';
+// 通知接口：读取本人通知（游标分页 + 归档摘要）、一键全部已读，以及通知偏好读写。
+import {
+  DEFAULT_NOTIFICATION_PAGE,
+  MAX_NOTIFICATION_PAGE,
+  archiveOld,
+  list as listNotifications,
+  markAllRead,
+  readPrefs,
+  writePrefs,
+} from '../db/notifications.mjs';
+
+function boundedInt(raw, fallback, max) {
+  const parsed = Math.floor(Number(raw));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(max, parsed));
+}
 
 export class NotificationRoutes {
   register(router) {
@@ -10,7 +24,20 @@ export class NotificationRoutes {
   }
 
   list(ctx) {
-    return ctx.json(200, notificationSummary(ctx.token));
+    // 读取前顺手压缩 90 天前的明细：幂等，且失败绝不能阻断通知列表。
+    try {
+      archiveOld(ctx.token);
+    } catch {
+      /* 归档失败时保留明细，下次读取会重试 */
+    }
+    const params = ctx.url.searchParams;
+    const page = listNotifications(ctx.token, {
+      cursor: params.get('cursor'),
+      limit: boundedInt(params.get('limit'), DEFAULT_NOTIFICATION_PAGE, MAX_NOTIFICATION_PAGE),
+    });
+    // 非法/跨账号游标直接拒绝，不回退首页，避免看起来翻页成功却读错数据。
+    if (!page) return ctx.fail(400, '非法游标', 'INVALID_CURSOR');
+    return ctx.json(200, page);
   }
 
   readAll(ctx) {

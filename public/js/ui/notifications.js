@@ -1,5 +1,5 @@
-// 大厅通知中心：顶部铃铛展示未读数，面板列出最近通知并支持一键全部已读。
-// 通知内容完全由服务端生成，客户端只负责展示与标记已读。
+// 大厅通知中心：顶部铃铛展示未读数，面板按游标分页列出通知、展示 90 天归档摘要，
+// 并支持一键全部已读。通知内容完全由服务端生成，客户端只负责展示与标记已读。
 
 const KIND_LABELS = {
   achievement: '成就解锁',
@@ -17,6 +17,14 @@ const PREFS_TITLE = '通知偏好 / Notification preferences';
 const PREFS_HINT = '关闭后不再产生新的未读，历史通知仍然保留。 / Turning a type off stops new unread items; history is kept.';
 const PREFS_SAVED = '已保存 / Saved';
 const PREFS_ERROR = '保存失败 / Save failed';
+
+const PAGE_SIZE = 20;
+const ARCHIVE_TITLE = '归档摘要 / Archive summary';
+const LOAD_MORE = '加载更多 / Load more';
+const LOADING = '加载中…';
+
+// 分页状态：面板只有一个，首次加载整体替换，加载更多时累积。
+const pageState = { cursor: null, items: [], unread: 0, archive: null };
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -78,6 +86,23 @@ export function unreadSummaryText(value) {
   return count ? `${count} 条未读` : '全部已读';
 }
 
+// ISO 周键 → 可读标签；非法输入原样返回，展示层不抛错（纯函数）。
+export function archiveWeekLabel(week) {
+  const match = /^(\d{4})-W(\d{2})$/.exec(String(week || ''));
+  if (!match) return String(week || '');
+  return `${Number(match[1])} 年第 ${Number(match[2])} 周`;
+}
+
+// 归档摘要文案：按周展示总数与未读，最多 12 周（纯函数）。
+export function archiveSummaryLines(archive) {
+  const weeks = Array.isArray(archive?.weeks) ? archive.weeks : [];
+  return weeks.slice(0, 12).map((entry) => {
+    const total = Math.max(0, Number(entry?.total) || 0);
+    const unread = Math.max(0, Number(entry?.unread) || 0);
+    return `${archiveWeekLabel(entry?.week)}：${total} 条${unread ? `（${unread} 条未读）` : ''}`;
+  });
+}
+
 function notificationCard(item) {
   const unread = item.readAt == null;
   const kind = KIND_LABELS[item.kind] || '通知';
@@ -99,19 +124,72 @@ function renderEmpty(message) {
     </div>`;
 }
 
-function render(panel, data) {
+function ensureArchiveSection(panel) {
+  let section = panel.querySelector('#notifications-archive');
+  if (section) return section;
+  section = document.createElement('section');
+  section.id = 'notifications-archive';
+  section.className = 'notifications-archive';
+  section.hidden = true;
+  const list = panel.querySelector('#notifications-list');
+  if (list) panel.insertBefore(section, list);
+  else panel.append(section);
+  return section;
+}
+
+function renderArchive(panel, archive) {
+  const section = ensureArchiveSection(panel);
+  const lines = archiveSummaryLines(archive);
+  if (!lines.length) {
+    section.hidden = true;
+    section.innerHTML = '';
+    return;
+  }
+  const total = Math.max(0, Number(archive?.totalArchived) || 0);
+  section.hidden = false;
+  section.innerHTML = `
+    <p class="achievement-hint">${escapeHtml(ARCHIVE_TITLE)} · ${total} 条</p>
+    <ul class="archive-weeks">${lines
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join('')}</ul>`;
+}
+
+function ensureMoreButton(panel) {
+  let button = panel.querySelector('#btn-notifications-more');
+  if (button) return button;
+  button = document.createElement('button');
+  button.id = 'btn-notifications-more';
+  button.className = 'btn small';
+  button.type = 'button';
+  button.textContent = LOAD_MORE;
+  button.hidden = true;
+  button.addEventListener('click', () => loadMore(panel));
+  const list = panel.querySelector('#notifications-list');
+  if (list) list.insertAdjacentElement('afterend', button);
+  else panel.append(button);
+  return button;
+}
+
+function render(panel, data, { append = false } = {}) {
   const list = panel.querySelector('#notifications-list');
   const count = panel.querySelector('#notifications-count');
   const readAll = panel.querySelector('#btn-notifications-read');
-  const items = Array.isArray(data?.items) ? data.items : [];
-  const unread = normalizeUnread(data?.unread);
-  if (count) count.textContent = unreadSummaryText(unread);
-  if (readAll) readAll.disabled = unread === 0;
-  if (!items.length) {
+  const incoming = Array.isArray(data?.items) ? data.items : [];
+  // 首屏整体替换，加载更多则累积；服务端按 (created_at, id) 排序，追加顺序天然连续。
+  pageState.items = append ? [...pageState.items, ...incoming] : incoming;
+  pageState.cursor = data?.nextCursor || null;
+  if (data?.archive) pageState.archive = data.archive;
+  pageState.unread = normalizeUnread(data?.unread);
+  if (count) count.textContent = unreadSummaryText(pageState.unread);
+  if (readAll) readAll.disabled = pageState.unread === 0;
+  renderArchive(panel, pageState.archive);
+  const more = ensureMoreButton(panel);
+  if (more) more.hidden = pageState.cursor == null;
+  if (!pageState.items.length) {
     list.innerHTML = renderEmpty('暂无通知');
     return;
   }
-  list.innerHTML = items.map(notificationCard).join('');
+  list.innerHTML = pageState.items.map(notificationCard).join('');
 }
 
 function updateBadge(unread) {
@@ -122,8 +200,12 @@ function updateBadge(unread) {
   badge.hidden = count === 0;
 }
 
-async function fetchSummary() {
-  const response = await fetch('/api/notifications', { credentials: 'same-origin' });
+async function fetchSummary(cursor = null) {
+  const query = new URLSearchParams({ limit: String(PAGE_SIZE) });
+  if (cursor) query.set('cursor', cursor);
+  const response = await fetch(`/api/notifications?${query.toString()}`, {
+    credentials: 'same-origin',
+  });
   if (response.status === 401) return null;
   const data = await response.json().catch(() => null);
   if (!response.ok) throw new Error(data?.error || '加载失败');
@@ -142,10 +224,16 @@ async function refreshBadge() {
 async function load(panel) {
   const list = panel.querySelector('#notifications-list');
   list.innerHTML = '<p class="achievement-hint">加载中…</p>';
+  pageState.cursor = null;
+  pageState.items = [];
+  pageState.archive = null;
   try {
     const data = await fetchSummary();
     if (!data) {
       updateBadge(0);
+      renderArchive(panel, null);
+      const more = ensureMoreButton(panel);
+      if (more) more.hidden = true;
       list.innerHTML = renderEmpty('登录后可查看通知');
       return;
     }
@@ -153,6 +241,32 @@ async function load(panel) {
     render(panel, data);
   } catch (error) {
     list.innerHTML = `<p class="achievement-hint">${escapeHtml(error.message || '加载失败')}</p>`;
+  }
+}
+
+async function loadMore(panel) {
+  if (!pageState.cursor) return;
+  const button = panel.querySelector('#btn-notifications-more');
+  if (button) {
+    button.disabled = true;
+    button.textContent = LOADING;
+  }
+  try {
+    const data = await fetchSummary(pageState.cursor);
+    if (!data) return;
+    updateBadge(data.unread);
+    render(panel, data, { append: true });
+  } catch (error) {
+    const list = panel.querySelector('#notifications-list');
+    const note = document.createElement('p');
+    note.className = 'achievement-hint';
+    note.textContent = error.message || '加载失败';
+    list.append(note);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = LOAD_MORE;
+    }
   }
 }
 
