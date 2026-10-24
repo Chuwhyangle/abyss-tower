@@ -5,6 +5,7 @@ import { seasonBounds, seasonOf } from './leaderboard.mjs';
 import { ACHIEVEMENT_BY_ID } from '../../public/js/shared/achievements.js';
 import {
   SEASON_PASS_MAX_POINTS,
+  SEASON_PASS_MILESTONES,
   SEASON_POINT_SOURCES,
   pointsBreakdown,
   seasonAchievementPoints,
@@ -318,6 +319,62 @@ export function claimSeasonPassMilestone(accountId, milestoneId, now = Date.now(
       season,
       points,
       milestone,
+      wallet: wallet(accountId),
+    };
+  });
+}
+
+// 一键领取：在同一事务内按阈值升序补齐全部可领取里程碑。
+// 主键 + INSERT OR IGNORE 让重复点击只命中既有行，不会重复发放。
+export function claimAllSeasonPassMilestones(accountId, now = Date.now()) {
+  const season = seasonOf(now);
+  if (!season) return { ok: false, code: 'SEASON_UNAVAILABLE' };
+
+  return transaction(() => {
+    const bounds = seasonBounds(season);
+    const breakdown = seasonSources(accountId, season, bounds);
+    const points = breakdown.total;
+    recordPoints(accountId, season, points, now);
+    recordSources(accountId, season, breakdown, now);
+
+    const claimed = new Set(
+      db
+        .prepare(
+          `SELECT milestone_id FROM account_season_pass_claims
+            WHERE account_id = ? AND season = ?`
+        )
+        .all(accountId, season)
+        .map((row) => row.milestone_id)
+    );
+
+    const awarded = [];
+    for (const milestone of SEASON_PASS_MILESTONES) {
+      if (points < milestone.points) break;
+      if (claimed.has(milestone.id)) continue;
+
+      const inserted = db
+        .prepare(
+          `INSERT OR IGNORE INTO account_season_pass_claims
+             (account_id, season, milestone_id, points, claimed_at)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run(accountId, season, milestone.id, points, now);
+      if (inserted.changes !== 1) continue;
+
+      const { cores = 0, shards = 0, title = null } = milestone.reward || {};
+      if (cores > 0) grantCores(accountId, cores);
+      if (shards > 0) grantShardsInTx(accountId, shards, now);
+      if (title) grantTitleInTx(accountId, title, season, milestone.id, now);
+      awarded.push({ id: milestone.id, reward: { ...(milestone.reward || {}) } });
+    }
+
+    return {
+      ok: true,
+      claimedCount: awarded.length,
+      alreadyClaimed: awarded.length === 0,
+      awarded,
+      season,
+      points,
       wallet: wallet(accountId),
     };
   });

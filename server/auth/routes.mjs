@@ -20,7 +20,10 @@ import {
 import {
   createSession,
   findSessionByToken,
+  hashSessionToken,
+  listAccountSessions,
   revokeAccountSessions,
+  revokeOthers,
   revokeSession,
   touchSession,
 } from '../db/sessions.mjs';
@@ -265,6 +268,31 @@ export async function handleAuthRoute(req, res, url, { json, fail, readJson }) {
       sessionExpiresAt: session.expires_at,
       sessionTtlMs: SESSION_TTL_MS,
     });
+  }
+
+  if (pathname === '/api/auth/sessions' && method === 'GET') {
+    const session = currentSession(req);
+    if (!session) return failWith(json, res, 401, '请先登录', 'AUTH_REQUIRED');
+    const currentTokenHash = hashSessionToken(getSessionToken(req));
+    return json(res, 200, {
+      sessions: listAccountSessions(session.id, currentTokenHash),
+      currentSessionId: session.session_id,
+    });
+  }
+
+  if (pathname === '/api/auth/sessions/revoke-others' && method === 'POST') {
+    const session = currentSession(req);
+    if (!session) return failWith(json, res, 401, '请先登录', 'AUTH_REQUIRED');
+    const revoked = revokeOthers(session.id, hashSessionToken(getSessionToken(req)));
+    recordAuthEvent({
+      accountId: session.id,
+      usernameNorm: session.username_norm,
+      event: 'sessions_revoke_others',
+      ipHash: hashIp(req),
+      userAgent: req.headers['user-agent'],
+      detail: { revoked },
+    });
+    return json(res, 200, { ok: true, revoked });
   }
 
   if (pathname === '/api/auth/legacy' && method === 'GET') {

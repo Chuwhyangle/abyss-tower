@@ -189,6 +189,7 @@
   white-space: nowrap;
 }
 
+.auth-widget-sessions,
 .auth-widget-logout {
   padding: 5px 10px;
   border: 1px solid var(--line);
@@ -199,9 +200,92 @@
   cursor: pointer;
 }
 
+.auth-widget-sessions:hover {
+  border-color: rgba(92, 226, 208, 0.45);
+  color: var(--cyan);
+}
+
 .auth-widget-logout:hover {
   border-color: rgba(255, 107, 125, 0.45);
   color: var(--red);
+}
+
+.auth-strength {
+  display: grid;
+  gap: 5px;
+  margin-top: -6px;
+}
+
+.auth-strength-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.auth-strength-bar span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--red);
+  transition: width 0.15s ease, background 0.15s ease;
+}
+
+.auth-strength[data-tone='fair'] .auth-strength-bar span {
+  background: var(--gold);
+}
+
+.auth-strength[data-tone='good'] .auth-strength-bar span,
+.auth-strength[data-tone='strong'] .auth-strength-bar span {
+  background: var(--cyan);
+}
+
+.auth-strength-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.auth-sessions {
+  display: grid;
+  gap: 8px;
+  max-height: 280px;
+  margin: 0 0 16px;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.auth-session {
+  display: grid;
+  gap: 3px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 11, 14, 0.55);
+}
+
+.auth-session-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.auth-session-badge {
+  color: var(--cyan);
+  font-size: 11px;
+}
+
+.auth-session-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.auth-session-actions {
+  display: grid;
+  gap: 10px;
 }
 
 @media (max-width: 640px) {

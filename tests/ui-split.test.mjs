@@ -88,7 +88,7 @@ const METHOD_MODULES = {
 const PURE_EXPORTS = {
   'hud.js': ['skillButtonState'],
   'shop.js': ['orderedShopTowers', 'shopCardAffordable', 'clampRelicLevel', 'relicChipView'],
-  'modals.js': ['relicDraftLevels', 'supplyAmount'],
+  'modals.js': ['relicDraftLevels', 'supplyAmount', 'abandonConfirmCopy'],
   'result.js': ['formatResultScore', 'resultBestWave'],
 };
 

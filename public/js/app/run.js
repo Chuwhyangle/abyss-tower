@@ -5,6 +5,7 @@ import { Simulation } from '../sim.js';
 import { GameApp } from '../game-app.js';
 import { RelicOffers } from './offers.js';
 import { skillApi } from './skills.js';
+import { abandonConfirmCopy } from '../ui/modals.js';
 
 export class RunController {
   constructor({
@@ -16,8 +17,9 @@ export class RunController {
     onGameOver,
     onRequestError,
     onBindCanvas,
-    onShowTitle,
     onPendingEvent,
+    onAttempts,
+    onGoHome,
   }) {
     this.state = state;
     this.api = api;
@@ -27,8 +29,9 @@ export class RunController {
     this.onGameOver = onGameOver;
     this.onRequestError = onRequestError;
     this.onBindCanvas = onBindCanvas;
-    this.onShowTitle = onShowTitle;
     this.onPendingEvent = onPendingEvent;
+    this.onAttempts = onAttempts;
+    this.onGoHome = onGoHome;
   }
 
   async restorePendingMap() {
@@ -105,6 +108,48 @@ export class RunController {
     }
   }
 
+  // 统一的放弃入口：所有模式共用二次确认，文案带当次模式与剩余次数。
+  confirmAbandon() {
+    if (!this.state.sim && !this.state.run?.id) {
+      this.onGoHome?.();
+      return;
+    }
+    const copy = abandonConfirmCopy(this.state.run?.mode, {
+      dailyLeft: this.state.dailyLeft,
+      weeklyLeft: this.state.weeklyLeft,
+    });
+    this.ui.showConfirm({
+      ...copy,
+      danger: true,
+      onConfirm: () => this.abandonCurrentRun(),
+    });
+  }
+
+  // 服务端记录放弃并回传剩余次数；离线时仍允许本地退出并清理本地进度。
+  // 选图阶段尚未 beginGame，调用方显式传入待放弃的 runId。
+  async abandonCurrentRun(runId = this.state.run?.id) {
+    if (runId) {
+      try {
+        const result = await this.api.abandonRun(runId);
+        this.onAttempts?.(result);
+      } catch {
+        /* 离线时仍允许本地退出 */
+      }
+    }
+    this.store.clearSnapshot();
+    this.store.clearPendingMap();
+    this.state.mapCandidates = null;
+    this.state.mapChoosing = false;
+    this.onGoHome?.();
+  }
+
+  // 重开复用开局与选图流程；次数只在结算时扣除，重开不会重复扣次数。
+  restartRun(mode, difficulty) {
+    this.store.clearSnapshot();
+    const mutations = mode === 'mutated' ? this.state.lastMutations : null;
+    return this.startRun(mode, difficulty, mutations);
+  }
+
   // 新开局与刷新恢复共用同一套选图流程。
   showMapSelectFlow(data, candidates) {
     this.state.mapCandidates = candidates;
@@ -123,16 +168,8 @@ export class RunController {
         }
       },
       onCancel: async () => {
-        try {
-          await this.api.abandonRun(data.runId);
-        } catch {
-          /* 忽略 */
-        }
-        this.store.clearPendingMap();
-        this.state.mapCandidates = null;
-        this.state.mapChoosing = false;
         this.ui.closeModal();
-        this.onShowTitle();
+        await this.abandonCurrentRun(data.runId);
       },
     });
   }
@@ -214,7 +251,7 @@ export class RunController {
       mapMeta: data.mapMeta || sim.map.meta || null,
       skill: skill ? { id: skill.id, level: skill.level || 1 } : null,
     };
-    if (data.dailyAttemptsLeft != null) state.dailyLeft = data.dailyAttemptsLeft;
+    this.onAttempts?.(data);
     if (data.daily) state.daily = data.daily;
 
     const canvas = document.getElementById('game-canvas');

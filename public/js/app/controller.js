@@ -22,6 +22,7 @@ export class GameController {
     this.state = {
       profile: null,
       dailyLeft: null,
+      weeklyLeft: null,
       daily: null,
       // 技能养成：服务端快照 + 本次携带技能（localStorage 记住上次选择）。
       skills: null,
@@ -64,8 +65,9 @@ export class GameController {
       onGameOver: (stats) => this.combat.handleGameOver(stats),
       onRequestError: (error, options) => this.handleKeyRequestError(error, options),
       onBindCanvas: (canvas) => this.input.bindCanvas(canvas),
-      onShowTitle: () => this.session.showTitle(),
       onPendingEvent: () => this.combat.resolvePendingEvent(),
+      onAttempts: (data) => this.session.applyAttempts(data),
+      onGoHome: () => this.goHome(),
     });
     this.combat = new CombatController({
       state: this.state,
@@ -148,7 +150,7 @@ export class GameController {
       onRelics: () => this.ui.showRelicsModal(),
       onFullscreen: () => this.toggleFullscreen(),
       onForceLandscape: () => this.forceLandscape(),
-      onQuit: () => this.quitRun(),
+      onQuit: () => this.run.confirmAbandon(),
       onNextWave: () => this.combat.nextWave(),
       onSpeed: (value) => this.state.app?.setSpeed(value),
       onSound: () => {
@@ -164,8 +166,7 @@ export class GameController {
       onReroll: () => this.combat.rerollRelics(),
       onRestart: (mode, difficulty) => {
         this.forceLandscape();
-        this.store.clearSnapshot();
-        this.run.startRun(mode, difficulty, mode === 'mutated' ? this.state.lastMutations : null);
+        this.run.restartRun(mode, difficulty);
       },
       onHome: () => this.goHome(),
       onBuyUnlock: (id) => this.session.buyUnlock(id),
@@ -270,27 +271,6 @@ export class GameController {
       },
       onCancel: () => {
         if (inGame) state.app?.setPaused(wasPaused);
-      },
-    });
-  }
-
-  quitRun() {
-    if (!this.state.sim) return this.goHome();
-    this.ui.showConfirm({
-      title: '退出远征',
-      text: '当前波次进度将丢失，本局不会计入每日结算。',
-      confirmText: '退出',
-      danger: true,
-      onConfirm: async () => {
-        if (this.state.run?.id) {
-          try {
-            await this.api.abandonRun(this.state.run.id);
-          } catch {
-            /* 离线时仍允许本地退出 */
-          }
-        }
-        this.store.clearSnapshot();
-        this.goHome();
       },
     });
   }

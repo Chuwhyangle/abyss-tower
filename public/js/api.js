@@ -243,6 +243,12 @@ export function createApi({
     logout() {
       return request('/api/auth/logout', { method: 'POST', body: {} });
     },
+    sessions() {
+      return request('/api/auth/sessions');
+    },
+    revokeOtherSessions() {
+      return request('/api/auth/sessions/revoke-others', { method: 'POST', body: {} });
+    },
     legacyStatus() {
       return request('/api/auth/legacy', { headers: legacyHeaders() });
     },

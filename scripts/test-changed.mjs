@@ -134,6 +134,7 @@ export const TEST_MAP = [
     'tests/skill-visuals.test.mjs',
   ] },
   { match: 'public/js/render/portal-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
+  { match: 'public/js/render/transition.js', tests: ['tests/transition.test.mjs'] },
 
   // 服务端
   { match: 'server/config.mjs', tests: [
@@ -186,6 +187,7 @@ export const TEST_MAP = [
   { match: 'scripts/settle-seasons.mjs', tests: ['tests/settle-seasons.test.mjs'] },
   { match: 'scripts/style-check.mjs', tests: ['tests/style-check.test.mjs'] },
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
+  { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
 ];
 
 export function normalizePath(file) {

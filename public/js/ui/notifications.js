@@ -86,6 +86,12 @@ export function unreadSummaryText(value) {
   return count ? `${count} 条未读` : '全部已读';
 }
 
+// 批量已读进度：累计已处理条数 + 服务端返回的剩余未读数（纯函数）。
+export function readProgressText(done, remaining) {
+  const processed = Math.max(0, Number(done) || 0);
+  return `已标记 ${processed} 条，剩余 ${normalizeUnread(remaining)} 条`;
+}
+
 // ISO 周键 → 可读标签；非法输入原样返回，展示层不抛错（纯函数）。
 export function archiveWeekLabel(week) {
   const match = /^(\d{4})-W(\d{2})$/.exec(String(week || ''));
@@ -270,18 +276,46 @@ async function loadMore(panel) {
   }
 }
 
+// 进度条式文案：脚本创建，避免额外改 index.html 的静态标记。
+function ensureReadStatus(panel) {
+  let status = panel.querySelector('#notifications-read-status');
+  if (status) return status;
+  status = document.createElement('p');
+  status.id = 'notifications-read-status';
+  status.className = 'achievement-hint';
+  status.setAttribute('role', 'status');
+  const readAll = panel.querySelector('#btn-notifications-read');
+  if (readAll) readAll.insertAdjacentElement('afterend', status);
+  else panel.append(status);
+  return status;
+}
+
+// 逐批标记已读：每批都回读 remaining 并刷新角标，全部清零后再拉取最新列表。
 async function markAllRead(panel) {
   const button = panel.querySelector('#btn-notifications-read');
+  const status = ensureReadStatus(panel);
   if (button) button.disabled = true;
+  let done = 0;
+  let remaining = 0;
   try {
-    const response = await fetch('/api/notifications/read', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '操作失败');
-    updateBadge(0);
+    // 服务端每批最多处理固定条数；批次上限防御客户端与服务端不一致时的死循环。
+    for (let round = 0; round < 10_000; round++) {
+      const response = await fetch('/api/notifications/read', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ all: false }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(data?.error || '操作失败');
+      done += Math.max(0, Number(data?.updated) || 0);
+      remaining = normalizeUnread(data?.remaining ?? data?.unread);
+      updateBadge(remaining);
+      status.textContent = readProgressText(done, remaining);
+      if (remaining === 0) break;
+    }
     await load(panel);
+    status.textContent = readProgressText(done, remaining);
   } catch (error) {
     const list = panel.querySelector('#notifications-list');
     const note = document.createElement('p');
