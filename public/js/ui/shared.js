@@ -88,12 +88,22 @@ export function skillSummary(id, level) {
   });
 }
 
+// 选图缩略图：直接按固定地图的真实数据绘制——lane 折线、入口、基地与固定岩石，
+// 不另画示意图，保证卡片预览与实际进入战斗的地形一致。
 export function mapPreviewSvg(map) {
   const w = 220;
   const h = 120;
   const pad = 7;
   const sx = (w - pad * 2) / map.cols;
   const sy = (h - pad * 2) / map.rows;
+  const rocks = (map.rocks || [])
+    .map((rock) => {
+      const size = Math.max(1.6, (rock.size || 0.3) * Math.min(sx, sy) * 1.7);
+      const x = pad + (rock.c + 0.5) * sx - size / 2;
+      const y = pad + (rock.r + 0.5) * sy - size / 2;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${size.toFixed(1)}" height="${size.toFixed(1)}" rx="${(size * 0.3).toFixed(1)}" fill="#26323a" opacity="0.85" />`;
+    })
+    .join('');
   const lanes = (map.lanes || [])
     .map((lane) => {
       const points = lane.polyline
@@ -115,6 +125,7 @@ export function mapPreviewSvg(map) {
       ${Array.from({ length: map.cols + 1 }, (_, i) => `<line x1="${pad + i * sx}" y1="${pad}" x2="${pad + i * sx}" y2="${h - pad}" />`).join('')}
       ${Array.from({ length: map.rows + 1 }, (_, i) => `<line x1="${pad}" y1="${pad + i * sy}" x2="${w - pad}" y2="${pad + i * sy}" />`).join('')}
     </g>
+    ${rocks}
     ${lanes}
     ${spawns}
     ${base}

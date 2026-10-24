@@ -71,25 +71,42 @@ function assertCandidateInvariants(candidate, label) {
   });
 }
 
-// 跨种子语料：入口数分布合法且三种拓扑都会出现，路径始终连通到基地。
+// 跨种子语料：固定地图池与种子无关——任意种子都必须得到同一组三张图（canyon → twin → ring），
+// 且每张图的路径连通、入口/基地绑定始终合法。
 function assertSeedCorpusInvariants(seedCount = 40) {
-  const distribution = new Map();
+  let reference = null;
   for (let i = 0; i < seedCount; i++) {
     const seed = `ux-invariant-${i}`;
     const candidates = generateMapCandidates(seed, 3);
     assert.equal(candidates.length, 3, `种子 ${seed} 候选数量`);
-    candidates.forEach((candidate, index) => {
-      assertCandidateInvariants(candidate, `种子 ${seed} 候选 ${index}`);
-      const portals = candidate.spawns.length;
-      distribution.set(portals, (distribution.get(portals) || 0) + 1);
-    });
+    assert.deepEqual(
+      candidates.map((candidate) => candidate.id),
+      ['canyon', 'twin', 'ring'],
+      `种子 ${seed} 候选顺序必须固定`
+    );
+    candidates.forEach((candidate, index) =>
+      assertCandidateInvariants(candidate, `种子 ${seed} 候选 ${index}`)
+    );
+    const shape = candidates.map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name,
+      archetype: candidate.archetype,
+      portals: candidate.spawns.length,
+      modifier: candidate.modifier?.id || null,
+      scoreMul: candidate.meta?.scoreMul,
+      cells: candidate.lanes.map((lane) =>
+        lane.cells.map((cell) => `${cell.c},${cell.r}`).join(';')
+      ),
+    }));
+    if (reference == null) reference = shape;
+    else assert.deepEqual(shape, reference, `种子 ${seed} 的固定地图与首个种子不一致`);
   }
-  assert.deepEqual(
-    [...distribution.keys()].sort(),
-    [1, 2, 3],
-    `跨 ${seedCount} 个种子的入口数分布异常：${JSON.stringify([...distribution])}`
-  );
-  return Object.fromEntries([...distribution].sort((a, b) => a[0] - b[0]));
+  return reference.map(({ id, portals, modifier, scoreMul }) => ({
+    id,
+    portals,
+    modifier,
+    scoreMul,
+  }));
 }
 
 async function openMapModal(browser) {
@@ -110,9 +127,12 @@ async function readMapModal(browser) {
       const modalRect = modal.getBoundingClientRect();
       return {
         index: Number(card.dataset.index),
+        mapId: card.dataset.mapId || null,
+        title: card.querySelector('.map-card-head b')?.textContent.trim(),
         portalText: card.querySelector('.map-portals')?.textContent.trim(),
         desc: card.querySelector('.map-desc')?.textContent.trim(),
         scoreText: card.querySelector('.map-foot')?.textContent.trim(),
+        traitLabel: card.querySelector('.map-mod-label')?.textContent.trim(),
         modifierName: card.querySelector('.map-mod b')?.textContent.trim(),
         modifierDesc: card.querySelector('.map-mod span')?.textContent.trim(),
         polylines: polylines.map((line) => ({
@@ -138,6 +158,8 @@ async function readMapModal(browser) {
       cards,
       stateCandidates: window.__rtd.state.mapCandidates?.map((item, index) => ({
         index,
+        id: item.id || null,
+        name: item.name || null,
         archetype: item.archetype,
         portals: item.spawns.length,
         modifier: item.modifier?.id || null,
@@ -165,6 +187,12 @@ function assertModalMatchesCandidates(modal, expected) {
     }, `候选 ${index} 与服务端生成不一致`);
 
     assert.equal(card.portalText, `${candidate.spawns.length} 入口`, `卡片 ${index} 入口数文案`);
+    // 固定地图：卡片标题与数据 id 即服务端固定池，不再显示随机原型名。
+    assert.equal(card.mapId, candidate.id, `卡片 ${index} 固定地图 id`);
+    assert.equal(stateCandidate.id, candidate.id, `卡片 ${index} 页面候选 id`);
+    assert.equal(stateCandidate.name, candidate.name, `卡片 ${index} 页面候选名`);
+    assert.equal(card.title, candidate.name, `卡片 ${index} 固定地图名`);
+    assert.equal(card.traitLabel, '固定特性', `卡片 ${index} 固定特性标签`);
     assert.equal(card.polylines.length, candidate.lanes.length, `卡片 ${index} 预览路径数`);
     assert.equal(card.circles.length, candidate.spawns.length + 1, `卡片 ${index} 预览入口+基地数`);
     assert.equal(card.polygons, 0, `卡片 ${index} 预览不应包含岩石/其它图形`);
@@ -180,16 +208,10 @@ function assertModalMatchesCandidates(modal, expected) {
     });
     assert.equal(card.circles.at(-1).fill, '#4fd8c8', `卡片 ${index} 基地标记`);
 
-    if (candidate.spawns.length <= 1) {
-      assert.ok(card.desc.includes('单路推进'), `单入口卡片 ${index} 不应显示汇流文案：${card.desc}`);
-    } else if (candidate.archetype === 'cross') {
-      assert.ok(card.desc.includes('二次分配'), `交叉回廊卡片 ${index} 文案`);
-    } else {
-      assert.ok(card.desc.includes('汇流'), `多入口卡片 ${index} 文案`);
-    }
+    assert.equal(card.desc, candidate.desc, `卡片 ${index} 固定地图说明`);
     assert.ok(card.scoreText.includes(`×${candidate.meta.scoreMul.toFixed(2)}`), `卡片 ${index} 分数`);
-    assert.equal(card.modifierName, candidate.modifier?.name || '无词缀', `卡片 ${index} 词缀名`);
-    assert.equal(card.modifierDesc, candidate.modifier?.desc || '标准地图', `卡片 ${index} 词缀说明`);
+    assert.equal(card.modifierName, candidate.modifier?.name || '无固定特性', `卡片 ${index} 固定特性名`);
+    assert.equal(card.modifierDesc, candidate.modifier?.desc || '标准规则，无额外修正', `卡片 ${index} 固定特性说明`);
   });
 }
 
@@ -209,7 +231,7 @@ async function main() {
   let browser = null;
   try {
     assert.equal(EXPECTED.length, 3);
-    const distribution = assertSeedCorpusInvariants();
+    const corpus = assertSeedCorpusInvariants();
     EXPECTED.forEach((candidate, index) =>
       assertCandidateInvariants(candidate, `当前候选 ${index}`)
     );
@@ -245,6 +267,11 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-cancel-map').click()`);
     await browser.waitFor(`!document.querySelector('.map-modal')`, '放弃后关闭选图弹窗');
     await browser.waitFor(`document.getElementById('title-screen').hidden === false`, '放弃后返回标题');
+    // 放弃是异步的（先通知服务端再清理本地记录），等本地记录真正清理后再断言。
+    await browser.waitFor(
+      `!localStorage.getItem('abyss-tower.mapselect.v1')`,
+      '放弃后清理待选记录'
+    );
     const afterCancel = await browser.evaluate(`({
       modal: !!document.querySelector('.map-modal'),
       pending: localStorage.getItem('abyss-tower.mapselect.v1'),
@@ -557,7 +584,7 @@ async function main() {
     console.log('[map] 通过');
     console.log(JSON.stringify({
       candidates: EXPECTED.map(fingerprint),
-      distribution,
+      corpus,
       focusIndex,
       focusPortals,
       geometry,

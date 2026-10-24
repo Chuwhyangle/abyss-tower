@@ -44,6 +44,19 @@ export default {
   'data.modifier.frenzy.desc': '敌人移速 +18%，击杀金币 +5%，最终分数 +5%',
   'data.modifier.barren.name': '贫瘠',
   'data.modifier.barren.desc': '击杀金币 -18%，最终分数 +6%',
+  // 固定地图的固定 trait（与随机词缀同 schema）。
+  'data.modifier.trade.name': '商路',
+  'data.modifier.trade.desc': '击杀金币 +10%，敌人生命 +8%',
+  'data.modifier.echo.name': '回响',
+  'data.modifier.echo.desc': '防御塔射程 +8%，敌人移速 +6%',
+
+  // 三张固定手工地图的专有名词（顺序 canyon → twin → ring）。
+  'data.map.canyon.name': '裂谷关隘',
+  'data.map.canyon.desc': '一条主路自西向东折返穿过裂谷，塔位充足、节奏平稳，适合稳定构筑。',
+  'data.map.twin.name': '双牙桥',
+  'data.map.twin.desc': '两枚牙桥自南北两道入口咬合，于东侧汇流；守好汇流点即可双线兼顾。',
+  'data.map.ring.name': '环心遗迹',
+  'data.map.ring.desc': '两条回廊沿遗迹外环反向绕行，于东侧合流；路径最长，需要双线兼顾。',
 
   'data.tower.arrow.name': '弩塔',
   'data.tower.cannon.name': '炮塔',
@@ -205,7 +218,7 @@ export default {
 
   'mapSelect.eyebrow': 'EXPEDITION MAP',
   'mapSelect.title': '选择远征地图',
-  'mapSelect.note': '三张候选地图共享本局种子；入口、汇流与词缀会改变防守策略。',
+  'mapSelect.note': '三张固定地图对所有玩家一致；每张图有固定特性，入口与汇流决定了防守策略。',
   'mapSelect.abandon': '放弃本局',
   'mapSelect.preview': '地图预览',
   'mapSelect.single': '单路推进，塔位充足',
@@ -214,6 +227,9 @@ export default {
   'mapSelect.portals': '{n} 入口',
   'mapSelect.noModifier': '无词缀',
   'mapSelect.standard': '标准地图',
+  'mapSelect.trait': '固定特性',
+  'mapSelect.noTrait': '无固定特性',
+  'mapSelect.noTraitDesc': '标准规则，无额外修正',
   'mapSelect.score': '分数 ×{mul}',
   'mapSelect.pick': '选择此图',
 
