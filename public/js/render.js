@@ -8,6 +8,7 @@ import { BackgroundRenderer } from './render/background-renderer.js';
 import { PortalRenderer } from './render/portal-renderer.js';
 import { TowerRenderer } from './render/tower-renderer.js';
 import { EnemyRenderer } from './render/enemy-renderer.js';
+import { AllyRenderer } from './render/ally-renderer.js';
 import { ProjectileRenderer } from './render/projectile-renderer.js';
 import { EffectRenderer } from './render/effect-renderer.js';
 import { FloaterRenderer } from './render/floater-renderer.js';
@@ -39,6 +40,8 @@ export class Renderer {
     this.portals = new PortalRenderer(game);
     this.towers = new TowerRenderer(game, { glow: this.glow });
     this.enemies = new EnemyRenderer(game, { glow: this.glow });
+    // 友方单位（海克斯召唤物）：塔之上、敌人之下的独立层。
+    this.allyRenderer = new AllyRenderer(game);
     this.projectiles = new ProjectileRenderer(game, { glow: this.glow });
     this.effects = new EffectRenderer(game, { glow: this.glow });
     this.floaters = new FloaterRenderer(game);
@@ -139,6 +142,7 @@ export class Renderer {
     // L1：塔之前的地面层（焦痕 / 霜裂 / 时间刻度）
     this.skillRenderer.renderL1(g, this.time, this.settings);
     this.towers.render(g, this.time, this.settings);
+    this.allyRenderer.render(g, this.time, this.settings);
     this.enemies.render(g, this.time, this.settings);
     this.projectiles.render(g, this.settings);
     this.effects.render(g, this.time, this.settings);

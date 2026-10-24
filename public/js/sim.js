@@ -35,6 +35,7 @@ import { BALANCE } from './shared/config.js';
 import { computeOutcome } from './shared/scoring.js';
 import { generateWave } from './shared/waves.js';
 import { toSnapshot } from './shared/snapshot.js';
+import { HexRuntime } from './shared/hexes/runtime.js';
 
 // 主动技能常量：落点间距、预警时长、余烬连锁范围。
 const SKILL_METEOR_WARNING = 0.55;
@@ -106,6 +107,14 @@ export class Simulation {
     this.modifier = this.mapMeta.modifier || null;
     this.activePortals = [];
 
+    // 主海克斯运行时：钩子缺失时全部安全跳过，没有海克斯的旧对局行为完全不变。
+    this.hexRuntime = new HexRuntime(opts.hex ?? null, opts.hexState ?? null);
+    this.hex = this.hexRuntime.definition;
+    this.hexState = this.hexRuntime.state;
+    // 友方单位（亡者军团等召唤物）：由海克斯通过 ctx.spawnAlly 写入。
+    this.allies = [];
+    this.hexCtx = this.createHexContext();
+
     // 主动技能：每局只带一个；等级由外层（服务端开局规则集）冻结。
     this.skill = null;
     this.skillCastCount = 0;
@@ -120,6 +129,11 @@ export class Simulation {
 
     this.buildPath();
     this.recomputeMods();
+    // 初始化顺序：基础 mods → onRunInit → 重算塔属性。读档时状态已包含开局效果，不重放。
+    if (!opts.restored && this.hexRuntime.active) {
+      this.hexCall('onRunInit', this.hexCtx);
+      this.recomputeMods();
+    }
     this.initSkill(opts);
     // 事件阶段：续玩时由已清波次 + 事件历史推导，已结算过的不再重复弹出。
     this.pendingEvent = this.computePendingEvent();
@@ -138,7 +152,16 @@ export class Simulation {
 
     for (const tower of opts.towers || []) {
       this.towers.push(
-        this.makeTower(tower.type, tower.c, tower.r, tower.level, tower.invested, tower.evolution)
+        this.makeTower(
+          tower.type,
+          tower.c,
+          tower.r,
+          tower.level,
+          tower.invested,
+          tower.evolutions ?? tower.evolution,
+          // 旧快照没有塔生命字段时按无敌恢复（maxHp 为 null）。
+          tower.maxHp == null ? null : { maxHp: tower.maxHp, hp: tower.hp }
+        )
       );
     }
     this.recomputeTowerStats();
@@ -200,6 +223,51 @@ export class Simulation {
     };
   }
 
+  // ---------- 主海克斯运行时 ----------
+
+  // 钩子上下文：只暴露受控入口，海克斯不需要（也不应该）直接改模拟内部。
+  createHexContext() {
+    const sim = this;
+    let rng = null;
+    return {
+      sim,
+      seed: this.seed,
+      difficulty: this.difficulty,
+      mode: this.mode,
+      get wave() {
+        return sim.wave;
+      },
+      get state() {
+        return sim.hexState;
+      },
+      get gold() {
+        return sim.gold;
+      },
+      // 海克斯专用随机流：与战斗 RNG 隔离，抽取顺序不会影响固定种子的战斗结算。
+      get rng() {
+        if (!rng) rng = new RNG(`${sim.seed}:hex:${sim.hexRuntime.id || 'none'}`);
+        return rng;
+      },
+      addTempMod(key, value) {
+        // 写入后立即重算：临时 mod 必须对这一波马上生效。
+        const applied = sim.hexRuntime.addTempMod(key, value);
+        if (applied) sim.recomputeMods();
+        return applied;
+      },
+      spawnAlly(spec) {
+        return sim.spawnAlly(spec);
+      },
+      toast(message) {
+        sim.opts.onToast?.(message);
+      },
+    };
+  }
+
+  // 统一调用出口：没有海克斯时直接返回 undefined，调用点不需要判空。
+  hexCall(name, ...args) {
+    return this.hexRuntime?.active ? this.hexRuntime.call(name, ...args) : undefined;
+  }
+
   // ---------- 主更新 ----------
 
   update(dt) {
@@ -212,6 +280,7 @@ export class Simulation {
     this.spawnDue();
     this.updateEnemies(dt);
     this.updateTowers(dt);
+    this.updateAllies(dt);
     this.updateProjectiles(dt);
     this.cleanup();
 
@@ -282,6 +351,7 @@ export class Simulation {
     this.activePortals = Array.isArray(waveDef.portals) && waveDef.portals.length
       ? waveDef.portals.slice()
       : [...new Set(waveDef.groups.map((group) => group.portal || 0))];
+    this.hexCall('onWaveStart', waveDef.index, this.hexCtx);
     this.playSound(waveDef.boss ? 'boss' : 'wave');
     return true;
   }
@@ -399,6 +469,14 @@ export class Simulation {
     this.gold += reward + interest;
     // 回合型遗物在波末按注册表周期结算；纯状态读写，不消耗随机数。
     const periodic = applyPeriodicWaveEffects(this, this.wave);
+    // 海克斯波末结算：先让钩子读到本波临时 mod，再统一清理（临时 mod 不跨波）。
+    if (this.hexRuntime.active) {
+      this.hexCall('onWaveEnd', this.wave, this.hexCtx);
+      if (this.hexRuntime.hasTempMods) {
+        this.hexRuntime.clearTempMods();
+        this.recomputeMods();
+      }
+    }
     const cleared = this.wave;
     this.waveDef = null;
     this.clearedWave = cleared;
@@ -716,6 +794,68 @@ export class Simulation {
     this.addEffect({ kind: 'leak', x: enemy.x, y: enemy.y, ttl: 0.5 });
     this.addFloater(enemy.x, enemy.y - 0.4, `-${enemy.dmg}`, '#ff6b6b', true, { key: true });
     this.playSound('hurt');
+    this.hexCall('onLeak', enemy, this.hexCtx);
+  }
+
+  // ---------- 友方单位 ----------
+
+  // 最小友方接口：存档内只有存活时长（ttl）与自动攻击最近敌人；
+  // 生成时机/数值由海克斯通过 ctx.spawnAlly 决定，模拟层不内置任何具体召唤规则。
+  spawnAlly(spec = {}) {
+    const x = Number(spec.x);
+    const y = Number(spec.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const ttl = Math.max(0, Number(spec.ttl) || 0);
+    const ally = {
+      id: this.nextId++,
+      kind: typeof spec.kind === 'string' ? spec.kind : 'ally',
+      x,
+      y,
+      angle: Number.isFinite(spec.angle) ? spec.angle : 0,
+      r: Math.max(0.05, Number(spec.r) || 0.25),
+      dmg: Math.max(0, Number(spec.dmg) || 0),
+      range: Math.max(0, Number(spec.range) || 0),
+      rate: Math.max(0, Number(spec.rate) || 0),
+      ttl,
+      life: ttl,
+      cd: 0,
+      recoil: 0,
+      color: typeof spec.color === 'string' ? spec.color : '#cfe8ff',
+      target: null,
+      dead: false,
+    };
+    this.allies.push(ally);
+    return ally;
+  }
+
+  // 每步只读写盟友自身与敌人列表，不消耗战斗 RNG（暴击关闭），同种子结果稳定。
+  updateAllies(dt) {
+    if (!this.allies.length) return;
+    for (const ally of this.allies) {
+      if (ally.dead) continue;
+      ally.ttl -= dt;
+      ally.recoil = Math.max(0, (ally.recoil || 0) - dt * 5);
+      if (ally.ttl <= 0) {
+        ally.dead = true;
+        continue;
+      }
+      if (!(ally.rate > 0) || !(ally.range > 0)) continue;
+      ally.cd = Math.max(0, (ally.cd || 0) - dt);
+      if (ally.cd > 0) continue;
+      const target = this.nearestSkillTarget(ally.x, ally.y, ally.range);
+      if (!target) {
+        ally.target = null;
+        continue;
+      }
+      ally.target = target;
+      ally.angle = Math.atan2(target.y - ally.y, target.x - ally.x);
+      ally.recoil = 1;
+      if (ally.dmg > 0) this.dealDamage(target, ally.dmg, ally.kind, { noCrit: true });
+      ally.cd = 1 / ally.rate;
+    }
+    if (this.allies.some((ally) => ally.dead)) {
+      this.allies = this.allies.filter((ally) => !ally.dead);
+    }
   }
 
   // ---------- 防御塔 ----------
@@ -784,7 +924,7 @@ export class Simulation {
       for (let i = 0; i < chain && current; i++) {
         hit.add(current.id);
         points.push({ x: current.x, y: current.y });
-        this.dealDamage(current, stats.dmg, 'arc', { ignoreArmor: true });
+        this.dealDamage(current, stats.dmg, 'arc', { ignoreArmor: true, tower });
         let next = null;
         let bestDist = Infinity;
         for (const enemy of this.enemies) {
@@ -813,6 +953,8 @@ export class Simulation {
       speed: def.proj.speed * (1 + (this.mods.projSpeed || 0)),
       dmg: stats.dmg,
       towerType: tower.type,
+      // 命中钩子需要出手的塔（塔被卖掉后弹道仍按出手时的那座塔归属）。
+      tower,
       splash: stats.splash || 0,
       slow: stats.slow || 0,
       slowDur: stats.slowDur || 0,
@@ -909,7 +1051,7 @@ export class Simulation {
 
   hitEnemy(enemy, proj) {
     if (enemy.dead) return;
-    this.dealDamage(enemy, proj.dmg, proj.towerType, { ignoreArmor: proj.ignoreArmor });
+    this.dealDamage(enemy, proj.dmg, proj.towerType, { ignoreArmor: proj.ignoreArmor, tower: proj.tower || null });
 
     if (proj.slow > 0) {
       const amount = Math.min(0.85, proj.slow + (this.mods.slow || 0));
@@ -933,9 +1075,14 @@ export class Simulation {
   // ---------- 伤害 ----------
 
   dealDamage(enemy, base, towerType, opts = {}) {
-    if (enemy.dead) return;
+    if (enemy.dead) return 0;
     const hit = this.computeHit(base, towerType, enemy, opts);
-    this.damage(enemy, hit.dmg, { ignoreArmor: opts.ignoreArmor, crit: hit.crit });
+    const dealt = this.damage(enemy, hit.dmg, { ignoreArmor: opts.ignoreArmor, crit: hit.crit });
+    // 命中钩子：只有塔的攻击会带上出手的塔；盟友/技能命中以 tower = null 传入。
+    if (this.hexRuntime.active) {
+      this.hexCall('onHit', enemy, opts.tower || null, dealt, this.hexCtx);
+    }
+    return dealt;
   }
 
   // base 必须来自 statsFor()（已包含塔专属与全局增伤），这里只应用条件增伤与暴击。
@@ -955,7 +1102,7 @@ export class Simulation {
   }
 
   damage(enemy, amount, opts = {}) {
-    if (enemy.dead) return;
+    if (enemy.dead) return 0;
     let final = amount;
     if (!opts.ignoreArmor) {
       final = Math.max(1, final - enemy.armor * (1 - (this.mods.armorPierce || 0)));
@@ -994,6 +1141,7 @@ export class Simulation {
       );
     }
     if (enemy.hp <= 0) this.killEnemy(enemy);
+    return final;
   }
 
   killEnemy(enemy) {
@@ -1032,6 +1180,7 @@ export class Simulation {
       this.playSound('kill');
     }
     // 里程碑击杀钩子（极光终章 / 终章延时）
+    this.hexCall('onEnemyKilled', enemy, this.hexCtx);
     this.onSkillKill(enemy);
   }
 
@@ -1074,7 +1223,10 @@ export class Simulation {
 
   // ---------- 建造 ----------
 
-  makeTower(type, c, r, level = 0, invested = 0, evolution = null) {
+  // hpState 为快照里的 {maxHp, hp}；maxHp 为 null 表示该塔无敌（默认，未受海克斯影响）。
+  makeTower(type, c, r, level = 0, invested = 0, evolution = null, hpState = null) {
+    const evolutions = normalizeEvolutionIds(evolution);
+    const maxHp = normalizeTowerMaxHp(hpState?.maxHp);
     return {
       id: this.nextId++,
       type,
@@ -1084,8 +1236,11 @@ export class Simulation {
       y: r + 0.5,
       level,
       invested,
-      // 满级三选一的分支 id；旧存档没有该字段时按未进化处理。
-      evolution: evolution || null,
+      // 进化分支：evolutions 是完整列表（独塔为王可兼得全部），evolution 保留首个以兼容旧读取方。
+      evolution: evolutions[0] || null,
+      evolutions,
+      maxHp,
+      hp: maxHp === null ? null : clampTowerHp(hpState?.hp, maxHp),
       cd: 0,
       angle: TOWERS[type]?.support ? 0 : -Math.PI / 2,
       target: null,
@@ -1103,23 +1258,78 @@ export class Simulation {
     return Math.max(20, Math.round(TOWERS[type].cost * (1 + (this.mods.costMul || 0))));
   }
 
+  // 等级上限：默认取数据表的等级数；独塔为王等海克斯可扩展。
+  towerMaxLevel(tower) {
+    const base = TOWERS[tower.type]?.levels?.length || 1;
+    if (!this.hexRuntime.active) return base;
+    return this.hexRuntime.towerMaxLevel(tower, base);
+  }
+
+  // base 是数据表里的原始升级费用（未乘 costMul）；扩展等级没有表行时 base 为 null，
+  // 由 upgradeCost 钩子给出费用，模拟层再统一套用 costMul 与下限。
   upgradeCost(tower) {
+    if (!tower) return null;
     const def = TOWERS[tower.type];
-    if (tower.level >= def.levels.length - 1) return null;
-    return Math.max(10, Math.round(def.levels[tower.level + 1].cost * (1 + (this.mods.costMul || 0))));
+    if (!def) return null;
+    if (tower.level >= this.towerMaxLevel(tower) - 1) return null;
+    const row = def.levels[tower.level + 1];
+    const base = row ? row.cost : null;
+    const cost = this.hexRuntime.active ? this.hexRuntime.upgradeCost(tower, base) : base;
+    if (cost == null) return null;
+    const parsed = Number(cost);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(10, Math.round(parsed * (1 + (this.mods.costMul || 0))));
   }
 
   sellValue(tower) {
-    return Math.floor(tower.invested * 0.7);
+    const base = 0.7;
+    const ratio = this.hexRuntime.active ? this.hexRuntime.sellRatio(base) : base;
+    return Math.floor(tower.invested * ratio);
   }
 
   towerAt(c, r) {
     return this.towers.find((t) => t.c === c && t.r === r) || null;
   }
 
-  canBuild(c, r) {
+  // 显式给出 type 时才询问海克斯建造限制（镜像工程等）；UI 预览仍走纯地形判断。
+  canBuild(c, r, type = null) {
     if (r < 0 || r >= this.map.rows || c < 0 || c >= this.map.cols) return false;
-    return this.map.buildable[r][c] && !this.towerAt(c, r);
+    if (!this.map.buildable[r][c] || this.towerAt(c, r)) return false;
+    if (type && this.hexRuntime.active && !this.hexRuntime.canBuild(type, c, r, this.hexCtx)) {
+      return false;
+    }
+    return true;
+  }
+
+  // 统一移除入口：塔位由 towers 数组隐式释放，钩子与属性刷新都收敛在这里。
+  removeTower(tower, reason = 'removed') {
+    const index = this.towers.indexOf(tower);
+    if (index < 0) return false;
+    this.towers.splice(index, 1);
+    if (this.selectedTower === tower) this.selectedTower = null;
+    this.hexCall('onTowerRemoved', tower, reason, this.hexCtx);
+    this.recomputeTowerStats();
+    return true;
+  }
+
+  // 塔生命：maxHp 为 null 表示无敌。归零时移除塔、释放塔位，并按存档规则写快照。
+  damageTower(tower, amount) {
+    if (!tower || tower.maxHp == null) return false;
+    const damage = Number(amount);
+    if (!Number.isFinite(damage) || damage <= 0) return false;
+    if (!this.towers.includes(tower)) return false;
+    const maxHp = normalizeTowerMaxHp(tower.maxHp);
+    tower.maxHp = maxHp;
+    tower.hp = clampTowerHp((Number.isFinite(Number(tower.hp)) ? Number(tower.hp) : maxHp) - damage, maxHp);
+    if (tower.hp > 0) {
+      return false;
+    }
+    this.removeTower(tower, 'destroyed');
+    this.addEffect({ kind: 'towerDestroy', x: tower.x, y: tower.y, ttl: 0.7, color: '#ff8a6b' });
+    this.addFloater(tower.x, tower.y - 0.4, '塔被摧毁', '#ff8a6b', true, { key: true });
+    // 与其它局内状态一致：整备阶段立即落盘，波中由波前快照负责回滚重放。
+    this.save();
+    return true;
   }
 
   placeTower(type, c, r) {
@@ -1128,7 +1338,7 @@ export class Simulation {
       this.opts.onToast?.('该防御塔尚未解锁');
       return false;
     }
-    if (!this.canBuild(c, r)) {
+    if (!this.canBuild(c, r, type)) {
       this.opts.onToast?.('这里无法建造');
       return false;
     }
@@ -1141,6 +1351,8 @@ export class Simulation {
     const tower = this.makeTower(type, c, r, 0, cost);
     this.inheritTowerOverdrive(tower);
     this.towers.push(tower);
+    // 建塔钩子先于属性重算：海克斯可在此写入塔生命上限等逐塔状态。
+    this.hexCall('onTowerBuilt', tower, this.hexCtx);
     this.recomputeTowerStats();
     this.addEffect({ kind: 'place', x: c + 0.5, y: r + 0.5, ttl: 0.45, color: TOWERS[type].color });
     this.playSound('place');
@@ -1158,6 +1370,7 @@ export class Simulation {
     this.gold -= cost;
     tower.level += 1;
     tower.invested += cost;
+    this.hexCall('onTowerUpgraded', tower, this.hexCtx);
     this.recomputeTowerStats();
     this.addEffect({ kind: 'place', x: tower.x, y: tower.y, ttl: 0.5, color: '#ffd36b' });
     this.playSound('upgrade');
@@ -1167,37 +1380,64 @@ export class Simulation {
 
   // ---------- 分支进化 ----------
 
-  towerEvolution(tower) {
+  // 已生效的全部进化（独塔为王可兼得三条）；旧存档没有该字段时按未进化处理。
+  towerEvolutions(tower) {
     const def = TOWERS[tower.type];
-    if (!tower.evolution || !def?.evolutions) return null;
-    return def.evolutions.find((entry) => entry.id === tower.evolution) || null;
+    if (!def?.evolutions) return [];
+    const ids = normalizeEvolutionIds(tower.evolutions ?? tower.evolution);
+    const entries = [];
+    for (const id of ids) {
+      const entry = def.evolutions.find((item) => item.id === id);
+      if (entry) entries.push(entry);
+    }
+    return entries;
+  }
+
+  towerEvolution(tower) {
+    return this.towerEvolutions(tower)[0] || null;
   }
 
   // 满级且尚未选择分支时才可进化；进化不消耗 RNG，也不改变基础塔数值。
   canEvolve(tower) {
     const def = TOWERS[tower.type];
-    if (!def?.evolutions?.length || tower.evolution) return false;
-    return tower.level >= def.levels.length - 1;
+    if (!def?.evolutions?.length || normalizeEvolutionIds(tower.evolutions).length) return false;
+    return tower.level >= this.towerMaxLevel(tower) - 1;
   }
 
+  // 默认给出数据表的全部分支；allowedEvolutions 钩子可裁剪（独塔为王可一次兼得全部）。
   evolutionOptions(tower) {
-    return this.canEvolve(tower) ? TOWERS[tower.type].evolutions : [];
+    if (!this.canEvolve(tower)) return [];
+    const base = TOWERS[tower.type].evolutions;
+    const allowed = this.hexRuntime.active ? this.hexRuntime.allowedEvolutions(tower, base) : base;
+    const entries = [];
+    for (const item of Array.isArray(allowed) ? allowed : base) {
+      const entry = typeof item === 'string' ? base.find((option) => option.id === item) : item;
+      if (entry && base.includes(entry) && !entries.includes(entry)) entries.push(entry);
+    }
+    return entries;
   }
 
-  evolveTower(tower, evolutionId) {
-    if (!tower || !this.towers.includes(tower) || !this.canEvolve(tower)) return false;
-    const def = TOWERS[tower.type];
-    const evolution = def.evolutions.find((entry) => entry.id === evolutionId);
-    if (!evolution) return false;
-    tower.evolution = evolution.id;
+  // 接受单个分支 id 或数组：一次应用多条进化，返回是否有任一进化生效。
+  evolveTower(tower, evolutionIds) {
+    if (!tower || !this.towers.includes(tower)) return false;
+    const options = this.evolutionOptions(tower);
+    if (!options.length) return false;
+    const requested = normalizeEvolutionIds(evolutionIds);
+    const applied = options.filter((entry) => requested.includes(entry.id));
+    if (!applied.length) return false;
+    tower.evolutions = applied.map((entry) => entry.id);
+    tower.evolution = tower.evolutions[0];
     this.recomputeTowerStats();
-    this.addEffect({
-      kind: 'evolve',
-      x: tower.x,
-      y: tower.y,
-      ttl: 0.9,
-      color: evolution.color || def.color,
-    });
+    const def = TOWERS[tower.type];
+    for (const evolution of applied) {
+      this.addEffect({
+        kind: 'evolve',
+        x: tower.x,
+        y: tower.y,
+        ttl: 0.9,
+        color: evolution.color || def.color,
+      });
+    }
     this.playSound('upgrade');
     this.save();
     return true;
@@ -1206,9 +1446,7 @@ export class Simulation {
   sellTower(tower) {
     const value = this.sellValue(tower);
     this.gold += value;
-    this.towers = this.towers.filter((t) => t !== tower);
-    this.recomputeTowerStats();
-    if (this.selectedTower === tower) this.selectedTower = null;
+    this.removeTower(tower, 'sold');
     this.addFloater(tower.x, tower.y - 0.4, `+${value}`, '#ffd36b');
     this.playSound('sell');
     this.save();
@@ -1321,6 +1559,10 @@ export class Simulation {
     if (existing) existing.level = toLevel;
     else this.relics.push({ id, level: toLevel });
 
+    // 获得/升级遗物都走同一钩子；它先跑，随后统一重算，钩子对状态的改动才能落到塔属性上。
+    if (this.hexRuntime.active) {
+      this.hexCall('onRelicGained', { id, level: toLevel }, this.hexCtx);
+    }
     this.recomputeMods();
     this.save();
     return { applied: true, id, fromLevel, toLevel, baseHpDelta: delta };
@@ -1372,6 +1614,8 @@ export class Simulation {
         }
       }
     }
+    // 海克斯波内临时 mod 与遗物同源聚合，仍受注册表的单件/全局封顶约束。
+    this.hexRuntime.applyTempMods(mods);
     clampMods(mods);
 
     this.mods = mods;
@@ -1384,9 +1628,10 @@ export class Simulation {
     const level = def.levels[Math.min(tower.level, def.levels.length - 1)];
     const mods = this.mods;
     const dmg = effectValue(mods, 'dmg');
-    // 进化分支只是纯数据系数，这里统一应用；未进化时全部为 1。
-    const evolution = this.towerEvolution(tower);
-    const evoMul = (key) => evolution?.mods?.[key] ?? 1;
+    // 进化分支只是纯数据系数，这里统一应用；多进化时系数依次相乘，未进化时全部为 1。
+    const evolutions = this.towerEvolutions(tower);
+    const evoMul = (key) =>
+      evolutions.reduce((mul, evolution) => mul * (evolution.mods?.[key] ?? 1), 1);
     let rate = level.rate * evoMul('rate') * (1 + effectValue(mods, 'fireRate'));
     let range = level.range * evoMul('range') + effectValue(mods, 'range');
     // 时之终章的过载窗口：攻速/射程只在窗口内生效，结束即刷新缓存。
@@ -1394,7 +1639,7 @@ export class Simulation {
       rate *= 1 + (tower.skillOverdriveAtk || 0);
       range += tower.skillOverdriveRange || 0;
     }
-    return {
+    const stats = {
       dmg: level.dmg * evoMul('dmg') * (1 + (dmg[tower.type] || 0) + effectValue(mods, 'dmgAll')),
       rate,
       range: range * (this.modifier?.rangeMul || 1),
@@ -1408,8 +1653,11 @@ export class Simulation {
       buffDmg: (level.buffDmg || 0) * evoMul('buffDmg'),
       buffRate: (level.buffRate || 0) * evoMul('buffRate'),
       support: !!def.support,
-      maxLevel: def.levels.length,
+      maxLevel: this.towerMaxLevel(tower),
     };
+    // 末尾交给海克斯改写（扩展等级成长、相邻加成等）；没有海克斯时原样返回。
+    if (!this.hexRuntime.active) return stats;
+    return this.hexRuntime.modifyTowerStats(tower, stats, this.hexCtx);
   }
 
   refreshTowerStats(tower) {
@@ -2040,4 +2288,29 @@ function lerpAngle(current, target, t) {
   while (delta > Math.PI) delta -= Math.PI * 2;
   while (delta < -Math.PI) delta += Math.PI * 2;
   return current + delta * t;
+}
+
+// 进化分支统一成去重后的 id 数组：兼容旧存档的单个字符串与新的多进化数组。
+function normalizeEvolutionIds(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+  const ids = [];
+  for (const item of list) {
+    const id = typeof item === 'string' ? item : item?.id;
+    if (typeof id === 'string' && id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
+// 塔生命上限：null/非正数表示无敌（默认）；其余收敛到 ≥1 的整数。
+function normalizeTowerMaxHp(value) {
+  if (value == null) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return Math.max(1, Math.floor(parsed));
+}
+
+function clampTowerHp(value, maxHp) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return maxHp;
+  return Math.max(0, Math.min(maxHp, parsed));
 }
