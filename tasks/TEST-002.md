@@ -1,7 +1,7 @@
 ---
 id: TEST-002
 title: 修复测试隔离并新增稳定性门禁
-status: ready
+status: done
 labels: []
 parent: null
 children: []
@@ -70,3 +70,16 @@ goal_ac: AC-002
 
 - [x] 全量测试通过
 - [x] 新门禁在 CI 或 package.json scripts 中可调用
+
+## Blocker
+
+**2026-10-24T13:27:59.294Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=flip-done: git add failed: The following paths are ignored by one of your .gitignore files:
+tasks
+hint: Use -f if you really want to add them.
+hint: Turn this message off by running
+hint: "git config advice.addIgnoredFile false"
+
+- run_id：wk-prod-anchor
+- session_id：3eb346d1-36a0-4b11-a51e-2b70d03f3eb7
