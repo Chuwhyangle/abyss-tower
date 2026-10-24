@@ -106,6 +106,12 @@ export class HexRuntime {
     return next >= 0 ? next : base;
   }
 
+  // 刷新次数上限：基础次数（解锁/模式/变异算完后）交给海克斯加码，服务端 relicOffers/serialize 共用。
+  relicRerollBonus(base) {
+    const next = Math.floor(toFinite(this.call('relicRerollBonus', base), base));
+    return next >= 0 ? next : base;
+  }
+
   // ---------- 波内临时 mod ----------
 
   // 键必须已在 EFFECT_REGISTRY 声明（与遗物同一约束），未注册键立即报错而不是静默丢弃。

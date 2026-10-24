@@ -240,7 +240,7 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 逐塔钩子：`modifyTowerStats`（属性重算末尾）、`buildCost`（建造原价，之后统一套遗物 `costMul` 与下限）、`towerMaxLevel`、`upgradeCost`（数据表外等级由钩子给价）、`allowedEvolutions`（可一次兼得多条进化）。
 - 建造/移除：`canBuild`（显式带塔型时询问）、`onTowerBuilt` / `onTowerUpgraded` / `onTowerRemoved`。
 - 对局/波次：`onRunInit`、`onWaveStart` / `onWaveEnd`（临时 mod 波末清理）。
-- 战斗事件：`onEnemyKilled` / `onLeak` / `onHit`；遗物：`onRelicGained`、`relicOfferCount`、`relicRerollCost`、`relicRerollBonus`、`sellRatio`。
+- 战斗事件：`onEnemyKilled` / `onLeak` / `onHit`；遗物：`onRelicGained`、`relicOfferCount`、`relicRerollCost`、`relicRerollBonus`（服务端 `relicOffers` 与 `serialize` 用它给刷新次数上限加码）、`sellRatio`。
 - `implemented: true` 的定义才会进入开局三选一候选池；未实现的桩保持 no-op，行为与无海克斯一致。
 
 ---
