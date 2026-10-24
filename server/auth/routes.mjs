@@ -28,6 +28,7 @@ import {
   touchSession,
 } from '../db/sessions.mjs';
 import { getProfile, createProfile } from '../db.mjs';
+import { AUDIT_ACTIONS, recordAudit } from '../db/audit.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import {
   clearSessionCookie,
@@ -284,6 +285,7 @@ export async function handleAuthRoute(req, res, url, { json, fail, readJson }) {
     const session = currentSession(req);
     if (!session) return failWith(json, res, 401, '请先登录', 'AUTH_REQUIRED');
     const revoked = revokeOthers(session.id, hashSessionToken(getSessionToken(req)));
+    recordAudit(session.id, AUDIT_ACTIONS.SESSIONS_REVOKE_OTHERS, { revoked });
     recordAuthEvent({
       accountId: session.id,
       usernameNorm: session.username_norm,
@@ -378,6 +380,9 @@ export async function handleAuthRoute(req, res, url, { json, fail, readJson }) {
     }
     setAccountPassword(session.id, hashPassword(next));
     revokeAccountSessions(session.id, session.session_id);
+    recordAudit(session.id, AUDIT_ACTIONS.PASSWORD_CHANGE, {
+      revokedOthers: true,
+    });
     recordAuthEvent({
       accountId: session.id,
       usernameNorm: session.username_norm,

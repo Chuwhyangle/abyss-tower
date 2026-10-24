@@ -80,6 +80,44 @@ function groupSections(data, items) {
     .join('');
 }
 
+// 赛季区块与普通分组共用卡片/进度条结构，只是标题由服务端赛季 id 派生。
+function seasonSection(title, items, { history = false } = {}) {
+  if (!items.length) return '';
+  const unlocked = items.filter((item) => item.unlocked).length;
+  const total = items.length;
+  const pct = total ? Math.round((unlocked / total) * 100) : 0;
+  return `
+    <section class="achievement-group${history ? ' achievement-group-history' : ''}" data-group="${history ? 'season-history' : 'season'}">
+      <div class="achievement-group-head">
+        <h3 class="achievement-group-title">${escapeHtml(title)}<span class="achievement-group-count">${unlocked} / ${total}</span></h3>
+        <div class="achievement-group-meter" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${unlocked}">
+          <span style="width:${pct}%"></span>
+        </div>
+      </div>
+      <div class="achievement-group-grid">${items.map(card).join('')}</div>
+    </section>`;
+}
+
+function seasonalSections(data) {
+  const seasonal = data?.seasonal;
+  const current = Array.isArray(seasonal?.achievements) ? seasonal.achievements : [];
+  const history = Array.isArray(data?.seasonalHistory) ? data.seasonalHistory : [];
+  const currentBlock = seasonSection(
+    tOr('achievements.seasonCurrent', '本赛季 · {season}', { season: seasonal?.season || '' }),
+    current
+  );
+  const historyBlock = history
+    .map((entry) =>
+      seasonSection(
+        tOr('achievements.seasonHistory', '荣誉赛季 · {season}', { season: entry.season }),
+        Array.isArray(entry.achievements) ? entry.achievements : [],
+        { history: true }
+      )
+    )
+    .join('');
+  return currentBlock + historyBlock;
+}
+
 function emptyState(message) {
   return `
     <div class="panel-empty" role="status">
@@ -103,7 +141,7 @@ function render(panel, data) {
     unlockedCount === items.length
       ? `<div class="achievement-complete-banner">${t('achievements.completeBanner')}</div>`
       : '';
-  list.innerHTML = banner + groupSections(data, items);
+  list.innerHTML = banner + seasonalSections(data) + groupSections(data, items);
 }
 
 function escapeHtml(value) {

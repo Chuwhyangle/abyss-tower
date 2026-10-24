@@ -111,6 +111,7 @@ const seasonDays = (ctx) => seasonValue(ctx, 'days');
 
 const noDamageWins = (ctx) => Number(ctx.noDamageWins) || 0;
 const abyssNoDamageWins = (ctx) => Number(ctx.abyssFlawlessWins) || 0;
+const seasonKills = (ctx) => seasonValue(ctx, 'kills');
 
 // 带 target/progress 的成就自动由进度判定；其余成就自行提供 check。
 // reward 引用 COSMETIC_TITLES / COSMETIC_FRAMES 中的 id，解锁成就即解锁对应外观。
@@ -122,12 +123,14 @@ function define({
   group,
   rarity,
   hidden = false,
+  seasonal = false,
   target,
   progress,
   check,
   reward,
 }) {
   const item = { id, title, desc, condition, group, rarity, hidden };
+  if (seasonal) item.seasonal = true;
   if (reward) item.reward = reward;
   if (Number.isInteger(target) && target > 0 && typeof progress === 'function') {
     item.target = target;
@@ -808,6 +811,188 @@ export const ACHIEVEMENTS = [
 export const ACHIEVEMENT_BY_ID = Object.fromEntries(
   ACHIEVEMENTS.map((item) => [item.id, item])
 );
+
+// ── 赛季成就 ────────────────────────────────────────────────────────
+// 每个赛季（自然月）从模板池里轮换出 5 个短期目标。赛季 id 形如 2026-10，
+// 解锁记录以 seasonal:<赛季>:<模板 id> 落库，赛季结束后自然成为荣誉历史。
+export const SEASONAL_PER_SEASON = 5;
+
+const SEASONAL_GROUP_ID = 'season';
+const SEASONAL_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export const SEASONAL_ACHIEVEMENTS = [
+  define({
+    id: 'runs_5',
+    title: '赛季远征',
+    desc: '在单个赛季内完成 5 局远征。',
+    condition: '本赛季完成 5 局',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'common',
+    seasonal: true,
+    target: 5,
+    progress: seasonRuns,
+  }),
+  define({
+    id: 'runs_15',
+    title: '赛季征程',
+    desc: '在单个赛季内完成 15 局远征。',
+    condition: '本赛季完成 15 局',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'rare',
+    seasonal: true,
+    target: 15,
+    progress: seasonRuns,
+  }),
+  define({
+    id: 'wins_3',
+    title: '赛季三胜',
+    desc: '在单个赛季内通关 3 次。',
+    condition: '本赛季通关 3 次',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'rare',
+    seasonal: true,
+    target: 3,
+    progress: seasonWins,
+  }),
+  define({
+    id: 'wins_8',
+    title: '赛季凯旋',
+    desc: '在单个赛季内通关 8 次。',
+    condition: '本赛季通关 8 次',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'epic',
+    seasonal: true,
+    target: 8,
+    progress: seasonWins,
+  }),
+  define({
+    id: 'score_8000',
+    title: '赛季高分',
+    desc: '在单个赛季内单局得分达到 8000。',
+    condition: '本赛季最高得分 8000',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'rare',
+    seasonal: true,
+    target: 8000,
+    progress: seasonBestScore,
+  }),
+  define({
+    id: 'score_15000',
+    title: '赛季巅峰',
+    desc: '在单个赛季内单局得分达到 15000。',
+    condition: '本赛季最高得分 15000',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'epic',
+    seasonal: true,
+    target: 15000,
+    progress: seasonBestScore,
+  }),
+  define({
+    id: 'days_5',
+    title: '赛季常客',
+    desc: '在单个赛季的 5 个不同日期完成对局。',
+    condition: '本赛季活跃 5 天',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'common',
+    seasonal: true,
+    target: 5,
+    progress: seasonDays,
+  }),
+  define({
+    id: 'days_10',
+    title: '赛季常驻',
+    desc: '在单个赛季的 10 个不同日期完成对局。',
+    condition: '本赛季活跃 10 天',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'rare',
+    seasonal: true,
+    target: 10,
+    progress: seasonDays,
+  }),
+  define({
+    id: 'kills_300',
+    title: '赛季收割',
+    desc: '在单个赛季内击杀 300 个敌人。',
+    condition: '本赛季击杀 300',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'common',
+    seasonal: true,
+    target: 300,
+    progress: seasonKills,
+  }),
+  define({
+    id: 'kills_1200',
+    title: '赛季屠戮',
+    desc: '在单个赛季内击杀 1200 个敌人。',
+    condition: '本赛季击杀 1200',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'rare',
+    seasonal: true,
+    target: 1200,
+    progress: seasonKills,
+  }),
+  define({
+    id: 'top_20',
+    title: '赛季前列',
+    desc: '在单个赛季的任意榜单进入前 20 名。',
+    condition: '本赛季任意榜单排名前 20',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'rare',
+    seasonal: true,
+    check: (ctx) => {
+      const rank = Number(ctx.season?.rank);
+      return Number.isInteger(rank) && rank >= 1 && rank <= 20;
+    },
+  }),
+  define({
+    id: 'top_5',
+    title: '赛季之巅',
+    desc: '在单个赛季的任意榜单进入前 5 名。',
+    condition: '本赛季任意榜单排名前 5',
+    group: SEASONAL_GROUP_ID,
+    rarity: 'epic',
+    seasonal: true,
+    check: (ctx) => {
+      const rank = Number(ctx.season?.rank);
+      return Number.isInteger(rank) && rank >= 1 && rank <= 5;
+    },
+  }),
+];
+
+// YYYY-MM → 连续月份序号；非法赛季返回 null。
+export function seasonIndex(season) {
+  if (typeof season !== 'string' || !SEASONAL_KEY_RE.test(season)) return null;
+  const [year, month] = season.split('-').map(Number);
+  return year * 12 + (month - 1);
+}
+
+// 确定性地按赛季轮换：同一赛季永远得到同一组 5 个目标，相邻赛季窗口顺移。
+export function seasonalAchievementsFor(season) {
+  const index = seasonIndex(season);
+  if (index == null) return [];
+  const pool = SEASONAL_ACHIEVEMENTS;
+  const offset = (index * SEASONAL_PER_SEASON) % pool.length;
+  return Array.from(
+    { length: SEASONAL_PER_SEASON },
+    (_, i) => pool[(offset + i) % pool.length]
+  );
+}
+
+export function seasonalAchievementId(season, templateId) {
+  return `seasonal:${season}:${templateId}`;
+}
+
+export function parseSeasonalAchievementId(id) {
+  const match = /^seasonal:(\d{4}-(?:0[1-9]|1[0-2])):([a-z0-9_]+)$/.exec(String(id ?? ''));
+  if (!match) return null;
+  return { season: match[1], templateId: match[2] };
+}
+
+export function seasonalAchievementById(id) {
+  const parsed = parseSeasonalAchievementId(id);
+  if (!parsed) return null;
+  return SEASONAL_ACHIEVEMENTS.find((item) => item.id === parsed.templateId) || null;
+}
 
 // 返回 { current, target }；非进度型成就返回 null。current 不超过 target，便于直接画进度条。
 export function achievementProgress(achievement, ctx) {

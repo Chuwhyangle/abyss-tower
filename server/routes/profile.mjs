@@ -7,6 +7,7 @@ import {
   softDeleteAccount,
 } from '../db/accounts.mjs';
 import { cosmeticSummary, setSelectedCosmetics } from '../db/achievements.mjs';
+import { AUDIT_ACTIONS, AUDIT_PAGE_SIZE, listAuditForAccount, recordAudit } from '../db/audit.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import { hashIp, recordAuthEvent } from '../auth/rate-limit.mjs';
 import { clearSessionCookie } from '../auth/cookies.mjs';
@@ -206,6 +207,7 @@ export class ProfileRoutes {
     router.add('GET', '/api/profile/skins', (ctx) => ctx.json(200, skinSummary(ctx.token)));
     router.add('PUT', '/api/profile/skins', (ctx) => this.selectSkins(ctx));
     router.add('GET', '/api/profile/export', (ctx) => this.exportData(ctx));
+    router.add('GET', '/api/profile/audit', (ctx) => this.auditLog(ctx));
     router.add('GET', '/api/daily/history', (ctx) => this.dailyHistory(ctx));
     router.add('DELETE', '/api/profile', (ctx) => this.remove(ctx));
   }
@@ -415,6 +417,14 @@ export class ProfileRoutes {
     });
   }
 
+  // 审计查询：只读本人最近 50 条，响应经过脱敏，不含密码哈希与 token。
+  auditLog(ctx) {
+    return ctx.json(200, {
+      entries: listAuditForAccount(ctx.token),
+      limit: AUDIT_PAGE_SIZE,
+    });
+  }
+
   // 账号删除采用软删除 + 7 天冷却期：需显式确认，立即吊销会话，冷却期内可取消。
   async remove(ctx) {
     const body = await ctx.readJson();
@@ -423,6 +433,7 @@ export class ProfileRoutes {
     }
     const result = softDeleteAccount(ctx.token);
     if (!result) return ctx.fail(404, '账号不存在');
+    recordAudit(ctx.token, AUDIT_ACTIONS.ACCOUNT_DELETE, { dueAt: result.deletion.dueAt });
     recordPlayerEvent(ctx.token, 'account_deletion_requested', {
       dueAt: result.deletion.dueAt,
     });

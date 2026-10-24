@@ -1,4 +1,4 @@
-// 地图生成：多入口/汇流路径图、7 种原型、10 种地图词缀与三候选。
+// 地图生成：多入口/汇流路径图、7 种原型、12 种地图词缀与三候选。
 import { RNG } from './rng.js';
 
 const DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -86,6 +86,16 @@ export const MAP_MODIFIERS = [
     id: 'starlit', name: '星辉', color: '#8fe0ff',
     desc: '星光照明：防御塔射程 +8%，敌人生命 +6%，最终分数 +2%',
     hpMul: 1.06, speedMul: 1, goldMul: 1, rangeMul: 1.08, scoreMul: 1.02, extraPortal: 0,
+  },
+  {
+    id: 'frenzy', name: '狂暴', color: '#ff8f5a',
+    desc: '敌人移速 +18%，击杀金币 +5%，最终分数 +5%',
+    hpMul: 1, speedMul: 1.18, goldMul: 1.05, rangeMul: 1, scoreMul: 1.05, extraPortal: 0,
+  },
+  {
+    id: 'barren', name: '贫瘠', color: '#b8a179',
+    desc: '击杀金币 -18%，最终分数 +6%',
+    hpMul: 1, speedMul: 1, goldMul: 0.82, rangeMul: 1, scoreMul: 1.06, extraPortal: 0,
   },
 ];
 

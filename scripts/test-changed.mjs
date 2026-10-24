@@ -98,7 +98,10 @@ export const TEST_MAP = [
   { match: 'public/js/i18n.js', tests: ['tests/i18n.test.mjs'] },
   { match: 'public/js/leaderboard-ui.js', tests: ['tests/leaderboard.test.mjs'] },
   { match: 'public/index.html', tests: ['tests/ui-styles.test.mjs', 'tests/leaderboard.test.mjs'] },
-  { match: 'public/styles.css', tests: ['tests/ui-styles.test.mjs'] },
+  { match: 'public/styles.css', tests: [
+    'tests/ui-animation-audit.test.mjs',
+    'tests/ui-styles.test.mjs',
+  ] },
 
   // 渲染层
   { match: 'public/js/render.js', tests: [
@@ -187,7 +190,9 @@ export const TEST_MAP = [
   { match: 'scripts/settle-seasons.mjs', tests: ['tests/settle-seasons.test.mjs'] },
   { match: 'scripts/style-check.mjs', tests: ['tests/style-check.test.mjs'] },
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
+  { match: 'scripts/test-isolation-audit.mjs', tests: ['tests/test-isolation-audit.test.mjs'] },
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
+  { match: 'scripts/ui-animation-audit.mjs', tests: ['tests/ui-animation-audit.test.mjs'] },
 ];
 
 export function normalizePath(file) {

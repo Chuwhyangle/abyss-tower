@@ -40,6 +40,10 @@ export default {
   'data.modifier.dusk.desc': 'Closing visibility: Tower range -3%, enemy health +8%, final score +3%',
   'data.modifier.starlit.name': 'Starlit',
   'data.modifier.starlit.desc': 'Starlight: Tower range +8%, enemy health +6%, final score +2%',
+  'data.modifier.frenzy.name': 'Frenzy',
+  'data.modifier.frenzy.desc': 'Enemy move speed +18%, kill gold +5%, final score +5%',
+  'data.modifier.barren.name': 'Barren',
+  'data.modifier.barren.desc': 'Kill gold -18%, final score +6%',
 
   'data.tower.arrow.name': 'Bolt Tower',
   'data.tower.cannon.name': 'Cannon Tower',
