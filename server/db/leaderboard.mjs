@@ -246,6 +246,8 @@ export function recordLeaderboardEntry({
     metrics,
     createdAt
   );
+  // 新成绩立即对读路径可见，不让 5 秒短期缓存拖慢结算后的刷新。
+  clearLeaderboardCache();
 }
 
 export function personalBest(accountId, mode, day, { season = null } = {}) {
@@ -421,6 +423,234 @@ export function listBoard(
     isMe: !!accountId && row.account_id === accountId,
     ...publicEntry(row),
   }));
+}
+
+// ---------- 游标分页与短期缓存 ----------
+
+export const LEADERBOARD_CACHE_TTL_MS = 5_000;
+export const MAX_CURSOR_PAGE_SIZE = 100;
+const CURSOR_VERSION = 1;
+const CACHE_MAX_PAGES = 500;
+
+const pageCache = new Map();
+
+// 缓存只服务读路径；任何写榜都会整体失效，避免不同榜单之间串页。
+function clearLeaderboardCache() {
+  pageCache.clear();
+}
+
+// 游标只携带定位用的排序键，不携带权限信息：查询范围始终由请求参数重新推导并校验，
+// 因此伪造游标最多只能在本就有权看到的榜单内跳页，无法借此读到越权数据。
+export function encodeCursor({
+  offset = 0,
+  mode,
+  day,
+  difficulty = null,
+  season = null,
+  includeUnclaimed = false,
+  wave = 0,
+  score = 0,
+  durationMs = 0,
+  createdAt = 0,
+  id = 0,
+} = {}) {
+  const payload = {
+    v: CURSOR_VERSION,
+    o: Math.max(0, Math.floor(Number(offset) || 0)),
+    m: mode,
+    d: day,
+    f: difficulty || '',
+    s: season || '',
+    u: includeUnclaimed ? 1 : 0,
+    w: Math.max(0, Math.floor(Number(wave) || 0)),
+    c: Math.max(0, Math.floor(Number(score) || 0)),
+    t: Math.max(0, Math.floor(Number(durationMs) || 0)),
+    a: Math.max(0, Math.floor(Number(createdAt) || 0)),
+    i: Math.max(0, Math.floor(Number(id) || 0)),
+  };
+  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
+}
+
+export function decodeCursor(raw) {
+  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 512) return null;
+  let data;
+  try {
+    data = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== 'object' || data.v !== CURSOR_VERSION) return null;
+  if (typeof data.m !== 'string' || data.m.length > 16) return null;
+  if (typeof data.d !== 'string' || data.d.length > 32) return null;
+  if (typeof data.f !== 'string' || data.f.length > 32) return null;
+  if (typeof data.s !== 'string' || data.s.length > 16) return null;
+  if (data.u !== 0 && data.u !== 1) return null;
+  const numbers = {
+    offset: data.o,
+    wave: data.w,
+    score: data.c,
+    durationMs: data.t,
+    createdAt: data.a,
+    id: data.i,
+  };
+  for (const value of Object.values(numbers)) {
+    if (!Number.isSafeInteger(value) || value < 0) return null;
+  }
+  return {
+    ...numbers,
+    mode: data.m,
+    day: data.d,
+    difficulty: data.f || null,
+    season: data.s || null,
+    includeUnclaimed: data.u === 1,
+  };
+}
+
+// 游标必须与本次请求的榜单维度完全一致，否则视为非法，绝不复用到别的榜。
+function cursorInScope(cursor, { mode, day, difficulty, season, includeUnclaimed }) {
+  return (
+    cursor.mode === mode &&
+    cursor.day === day &&
+    (cursor.difficulty || '') === (difficulty || '') &&
+    (cursor.season || '') === (season || '') &&
+    cursor.includeUnclaimed === !!includeUnclaimed
+  );
+}
+
+// 与 ORDER BY 严格同序的 keyset 条件：分数/波次 DESC、用时 ASC、记录时间 ASC、id ASC。
+// 用行值比较表达，避免手写多层 OR 括号出错。
+function cursorPredicate(mode) {
+  return mode === 'endless'
+    ? { sql: '(wave, score, -duration_ms, created_at, id) < (?, ?, ?, ?, ?)' }
+    : { sql: '(score, -duration_ms, created_at, id) < (?, ?, ?, ?)' };
+}
+
+function cursorPredicateParams(mode, cursor) {
+  return mode === 'endless'
+    ? [cursor.wave, cursor.score, -cursor.durationMs, cursor.createdAt, cursor.id]
+    : [cursor.score, -cursor.durationMs, cursor.createdAt, cursor.id];
+}
+
+// 单页查询：取 size + 1 行判断是否还有下一页，绝不依赖总数推断。
+function queryCursorPage({ mode, day, season, difficulty, includeUnclaimed, cursor, size }) {
+  const scope = boardScope(mode, day, { includeUnclaimed, difficulty, season });
+  const clauses = [scope.where];
+  const params = [...scope.params];
+  if (cursor) {
+    clauses.push(cursorPredicate(mode).sql);
+    params.push(...cursorPredicateParams(mode, cursor));
+  }
+  const offset = cursor ? cursor.offset : 0;
+  const rows = db
+    .prepare(
+      `SELECT * FROM (
+         SELECT e.id, e.account_id, e.display_name, e.difficulty, e.score,
+                e.duration_ms, e.metrics_json, e.content_version, e.created_at,
+                ${waveSql('e')} AS wave,
+                s.value_json AS selected_cosmetics,
+                ROW_NUMBER() OVER (
+                  PARTITION BY e.account_id
+                  ORDER BY ${boardOrderBy(mode, 'e')}, e.id ASC
+                ) AS rn
+           FROM leaderboard_entries e
+           JOIN accounts a ON a.id = e.account_id
+           LEFT JOIN player_kv s
+             ON s.account_id = e.account_id
+            AND s.namespace = 'cosmetics'
+            AND s.key = 'selected'
+          WHERE ${scope.where}
+       ) WHERE rn = 1 AND ${clauses.slice(1).join(' AND ') || '1 = 1'}
+       ORDER BY ${boardOrderBy(mode, null)}, created_at ASC, id ASC
+       LIMIT ?`
+    )
+    .all(...params, size + 1);
+
+  const hasMore = rows.length > size;
+  const pageRows = hasMore ? rows.slice(0, size) : rows;
+  const last = pageRows.at(-1);
+  const nextCursor =
+    hasMore && last
+      ? encodeCursor({
+          offset: offset + size,
+          mode,
+          day,
+          difficulty,
+          season,
+          includeUnclaimed,
+          wave: Number(last.wave) || 0,
+          score: last.score,
+          durationMs: last.duration_ms,
+          createdAt: last.created_at,
+          id: last.id,
+        })
+      : null;
+  return { rows: pageRows, offset, nextCursor };
+}
+
+function prunePageCache(now) {
+  for (const [key, item] of pageCache) {
+    if (item.expiresAt <= now) pageCache.delete(key);
+  }
+  while (pageCache.size >= CACHE_MAX_PAGES) {
+    pageCache.delete(pageCache.keys().next().value);
+  }
+}
+
+function cachedCursorPage(key, compute) {
+  const now = Date.now();
+  const hit = pageCache.get(key);
+  if (hit && hit.expiresAt > now) return hit.value;
+  if (hit) pageCache.delete(key);
+  const value = compute();
+  prunePageCache(now);
+  pageCache.set(key, { value, expiresAt: now + LEADERBOARD_CACHE_TTL_MS });
+  return value;
+}
+
+// 游标分页入口：非法游标返回 null，由路由层转成 400，而不是静默回退到首页。
+export function listEntries({
+  mode,
+  day,
+  season = null,
+  difficulty = null,
+  includeUnclaimed = false,
+  cursor = null,
+  limit = 20,
+  accountId = null,
+} = {}) {
+  const decoded = cursor ? decodeCursor(cursor) : null;
+  if (
+    cursor &&
+    (!decoded || !cursorInScope(decoded, { mode, day, difficulty, season, includeUnclaimed }))
+  ) {
+    return null;
+  }
+
+  const size = Math.max(1, Math.min(MAX_CURSOR_PAGE_SIZE, Math.floor(Number(limit) || 20)));
+  // 缓存键包含赛季/模式/难度/游标，同一页面在不同榜单之间绝不复用。
+  const key = JSON.stringify([
+    mode,
+    day,
+    season || '',
+    difficulty || '',
+    includeUnclaimed ? 1 : 0,
+    cursor || '',
+    size,
+  ]);
+  const page = cachedCursorPage(key, () =>
+    queryCursorPage({ mode, day, season, difficulty, includeUnclaimed, cursor: decoded, size })
+  );
+
+  return {
+    offset: page.offset,
+    size,
+    nextCursor: page.nextCursor,
+    entries: page.rows.map((row, index) => ({
+      rank: page.offset + index + 1,
+      isMe: !!accountId && row.account_id === accountId,
+      ...publicEntry(row),
+    })),
+  };
 }
 
 export function countBoard(

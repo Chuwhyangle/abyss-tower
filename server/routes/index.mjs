@@ -12,6 +12,7 @@ import { SkillRoutes } from './skills.mjs';
 import { UnlockRoutes } from './unlock.mjs';
 import { AchievementRoutes } from './achievements.mjs';
 import { BountyRoutes } from './bounties.mjs';
+import { SeasonPassRoutes } from './season-pass.mjs';
 import { NotificationRoutes } from './notifications.mjs';
 import { StatsRoutes } from './stats.mjs';
 import { ReplayRoutes } from './replay.mjs';
@@ -44,6 +45,7 @@ export function createApiRouter() {
     .addProtected(new UnlockRoutes())
     .addProtected(new AchievementRoutes())
     .addProtected(new BountyRoutes())
+    .addProtected(new SeasonPassRoutes())
     .addProtected(new NotificationRoutes())
     .addProtected(new StatsRoutes())
     .addProtected(new ReplayRoutes())
