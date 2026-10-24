@@ -20,6 +20,9 @@ export const IGNORE_FILE_MARKER = 'docs-consistency:ignore-file';
 // gitignore 的运行时数据目录：文档会引用，但任何干净检出里都不存在，不属于仓库内容。
 export const RUNTIME_ROOTS = ['server/data', 'backups'];
 
+// 本地 quay 工作区专属目录：clean release 树按约定不包含它们，文档引用属正常。
+export const LOCAL_ONLY_ROOTS = ['tasks', 'goals', 'adr', 'meta'];
+
 // 仓库内可引用的顶层目录；只校验这些前缀，避免把普通单词或命令参数当成路径。
 export const REPO_DIRS = [
   'docs',
@@ -100,6 +103,10 @@ export function checkCodePath(root, candidate) {
     (runtimeRoot) => normalized === runtimeRoot || normalized === `${runtimeRoot}/` || normalized.startsWith(`${runtimeRoot}/`)
   );
   if (runtime) return null;
+  const localOnly = LOCAL_ONLY_ROOTS.some(
+    (localRoot) => normalized === localRoot || normalized === `${localRoot}/` || normalized.startsWith(`${localRoot}/`)
+  );
+  if (localOnly) return null;
   const resolved = path.resolve(root, normalized);
   const rootWithSep = root.endsWith(path.sep) ? root : `${root}${path.sep}`;
   // 解析后必须仍位于仓库内，避免 `../` 与绝对路径越界检查。
