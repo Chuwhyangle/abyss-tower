@@ -39,5 +39,15 @@ export const CANYON_SPEC = {
     { c: 13, r: 9, size: 0.35, rot: 2.6 },
     { c: 7, r: 10, size: 0.3, rot: 0.2 },
   ],
+  // 固定可破坏物：位置写死，全部落在可建造格，且距出生点/基地 ≥2 格（切比雪夫）。
+  // 2 金脉、1 石碑、1 补给箱（免费）、1 虫巢（免费）、1 诅咒图腾。
+  destructibles: [
+    { id: 'canyon-vein-1', type: 'vein', c: 2, r: 2 },
+    { id: 'canyon-vein-2', type: 'vein', c: 9, r: 3 },
+    { id: 'canyon-obelisk-1', type: 'obelisk', c: 12, r: 4 },
+    { id: 'canyon-cache-1', type: 'cache', c: 12, r: 8 },
+    { id: 'canyon-nest-1', type: 'nest', c: 12, r: 6 },
+    { id: 'canyon-totem-1', type: 'totem', c: 18, r: 4 },
+  ],
   blockers: [],
 };
