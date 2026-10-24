@@ -106,7 +106,12 @@ test('变体属性修正在生成时生效', () => {
     const boss = spawnBoss(sim);
     const variant = BOSS_VARIANTS[id];
     assert.equal(boss.variant, id);
-    assert.equal(boss.maxHp, Math.round(ENEMIES.boss.hp * sim.waveDef.hpMul * variant.hpMul));
+    // 固定地图自带一个存活诅咒图腾：生成时生命 ×1.1（花 80 金拆除后失效）。
+    const auraHpMul = sim.destructibleAura().hpMul;
+    assert.equal(
+      boss.maxHp,
+      Math.round(ENEMIES.boss.hp * sim.waveDef.hpMul * variant.hpMul * auraHpMul)
+    );
     assert.equal(boss.hp, boss.maxHp);
     assert.equal(boss.armor, ENEMIES.boss.armor + variant.armorBonus);
     assert.ok(Math.abs(boss.baseSpeed - ENEMIES.boss.speed * variant.speedMul) < 1e-9);

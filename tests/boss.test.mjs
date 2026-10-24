@@ -165,8 +165,10 @@ test('开局放怪按群组血量倍率生成（首领独立曲线生效）', ()
   const boss = sim.enemies.find((enemy) => enemy.boss);
   const grunt = sim.enemies.find((enemy) => enemy.type === 'grunt');
   assert.ok(boss, '首领已生成');
-  assert.equal(boss.maxHp, Math.round(ENEMIES.boss.hp * 5));
-  assert.equal(grunt.maxHp, Math.round(ENEMIES.grunt.hp * 10));
+  // 固定地图自带一个存活诅咒图腾：生成时生命 ×1.1。
+  const auraHpMul = sim.destructibleAura().hpMul;
+  assert.equal(boss.maxHp, Math.round(ENEMIES.boss.hp * 5 * auraHpMul));
+  assert.equal(grunt.maxHp, Math.round(ENEMIES.grunt.hp * 10 * auraHpMul));
 });
 
 test('拥有多个首领时各自独立停摆', () => {

@@ -6,6 +6,7 @@ import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { SKILLS, skillStats } from '../public/js/shared/data.js';
 import { normalizeSnapshot } from '../public/js/shared/save.js';
+import { SAVE_VERSION } from '../public/js/shared/snapshot.js';
 
 const EPS = 1e-6;
 const near = (actual, expected, message, eps = EPS) =>
@@ -491,7 +492,7 @@ test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4/v5'
   assert.equal(plain.skill, null);
 
   const v2 = normalizeSnapshot({ version: 2, wave: 4, relics: ['sharp'] });
-  assert.equal(v2.version, 6);
+  assert.equal(v2.version, SAVE_VERSION);
   assert.equal(v2.skill, null);
   assert.deepEqual(v2.relics, [{ id: 'sharp', level: 1 }]);
 
@@ -501,7 +502,7 @@ test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4/v5'
     relics: [],
     skill: { id: 'meteor', level: 99, cooldown: 9999 },
   });
-  assert.equal(v3.version, 6);
+  assert.equal(v3.version, SAVE_VERSION);
   assert.equal(v3.skill.level, 10, '等级钳到 1..10');
   assert.ok(v3.skill.cooldown <= SKILLS.meteor.levels[9].cd, '冷却钳到 ≤ 冷却上限');
 

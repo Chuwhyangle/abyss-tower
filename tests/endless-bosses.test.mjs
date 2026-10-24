@@ -156,7 +156,12 @@ test('普通模式首领属性与旧公式一致', () => {
   assert.equal(boss.shield, 0);
   assert.equal(boss.maxShield, 0);
   assert.equal(boss.splits, null);
-  assert.equal(boss.maxHp, Math.round(ENEMIES.boss.hp * group.hpMul * variant.hpMul));
+  // 固定地图自带一个存活诅咒图腾：生成时生命 ×1.1（与无尽词条无关）。
+  const auraHpMul = sim.destructibleAura().hpMul;
+  assert.equal(
+    boss.maxHp,
+    Math.round(ENEMIES.boss.hp * group.hpMul * variant.hpMul * auraHpMul)
+  );
   assert.ok(
     Math.abs(boss.baseSpeed - ENEMIES.boss.speed * def.speedMul * variant.speedMul) < 1e-9
   );
