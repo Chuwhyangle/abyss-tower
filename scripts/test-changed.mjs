@@ -109,6 +109,7 @@ export const TEST_MAP = [
     'tests/render-visuals.test.mjs',
     'tests/skill-visuals.test.mjs',
   ] },
+  { match: 'public/js/render/ally-renderer.js', tests: ['tests/hex-runtime.test.mjs'] },
   { match: 'public/js/render/canvas-shapes.js', tests: ['tests/icon-system.test.mjs'] },
   { match: 'public/js/render/floater-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
   { match: 'public/js/render/overlay-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
