@@ -1,8 +1,9 @@
 // 快照的单一来源：序列化（toSnapshot）、校验（validateSnapshot）与迁移（migrateSnapshot）。
 // 战斗模拟与存档加载都走这里，版本号只在本文件定义一次。
 // v2 只有遗物 ID，v3 使用 {id, level}，v4 增加 skill:{id, level, cooldown}，
-// v5 增加事件连锁排期 chains:[{chainId, wave}]，v6 增加主海克斯 hexId/hexState 与塔生命；
-// 旧档一律按 Ⅰ 级 / 无连锁 / 无海克斯 / 无敌塔恢复。
+// v5 增加事件连锁排期 chains:[{chainId, wave}]，v6 增加主海克斯 hexId/hexState 与塔生命，
+// v7 增加可破坏物拆除状态 destructibles:{destroyed, obeliskStacks}；
+// 旧档一律按 Ⅰ 级 / 无连锁 / 无海克斯 / 无敌塔 / 可破坏物全存活恢复。
 // 损坏输入统一由 validateSnapshot 判定：不抛异常，返回 { ok:false, reason } 交给调用方决定重开。
 // 字段级异常（类型错误、越界数值、非法难度/地图）属于可恢复损坏，会收敛到安全默认值。
 import {
@@ -17,9 +18,10 @@ import {
 } from './data.js';
 import { ARCHETYPES, MODIFIER_BY_ID } from './mapgen.js';
 import { normalizeChains, normalizeEventHistory } from './events.js';
+import { DESTRUCTIBLE_BY_ID } from './destructibles.js';
 import { ENDLESS } from './waves.js';
 
-export const SAVE_VERSION = 6;
+export const SAVE_VERSION = 7;
 export const MIN_SAVE_VERSION = 2;
 // 没有连锁/海克斯时沿用旧版本号，避免旧客户端/旧测试误读：
 // 有技能写 v4，无技能仍写 v3；有连锁写 v6（含 v5 的 chains 字段）。
@@ -100,6 +102,26 @@ function normalizeMode(value) {
   return MODES.has(value) ? value : DEFAULT_MODE;
 }
 
+// 可破坏物存档字段：只保留拆除结果（id 列表 + 石碑层数），布点坐标随地图恢复。
+// 旧档缺字段、类型错误、重复/空 id 统一收敛为「全部存活」；石碑层数钳到数据里的叠加上限。
+function normalizeDestructibleState(raw) {
+  const destroyed = [];
+  const rawDestroyed = isRecord(raw) ? raw.destroyed : null;
+  if (Array.isArray(rawDestroyed)) {
+    for (const id of rawDestroyed) {
+      if (typeof id === 'string' && id !== '' && !destroyed.includes(id)) destroyed.push(id);
+    }
+  }
+  const maxStacks = DESTRUCTIBLE_BY_ID.obelisk?.effect?.maxStacks ?? 3;
+  const obeliskStacks = boundedInt(isRecord(raw) ? raw.obeliskStacks : 0, 0, maxStacks, 0);
+  return { destroyed, obeliskStacks };
+}
+
+// 只有真的拆过东西才写字段，没有可破坏物状态的旧对局保持原存档字节结构。
+function hasDestructibleState(state) {
+  return state.destroyed.length > 0 || state.obeliskStacks > 0;
+}
+
 function normalizeSkill(raw) {
   if (!isRecord(raw)) return null;
   const def = SKILLS[raw.id];
@@ -133,6 +155,9 @@ function collectWarnings(snap) {
   }
   if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
   if ('chains' in snap && !Array.isArray(snap.chains)) warnings.push('invalid-chains');
+  if ('destructibles' in snap && !isRecord(snap.destructibles)) {
+    warnings.push('invalid-destructibles');
+  }
   if ('hexId' in snap && (typeof snap.hexId !== 'string' || !snap.hexId)) {
     warnings.push('invalid-hex-id');
   }
@@ -145,17 +170,20 @@ function collectWarnings(snap) {
 /**
  * 从战斗模拟状态生成可持久化快照。字段与顺序即存档格式本身，改动需同步 SAVE_VERSION。
  * @param {object} state 具备 runId/seed/mode/difficulty/clearedWave/pendingDraft/gold/
- *   baseHp/maxBaseHp/kills/relics/towers/startedAt 的状态对象。
+ *   baseHp/maxBaseHp/kills/relics/towers/startedAt 的状态对象；模拟层额外暴露
+ *   destructibleState:{destroyed, obeliskStacks} 记录可破坏物拆除结果。
  */
 export function toSnapshot(state) {
   const skill = normalizeSkill(state.skill);
   const mode = normalizeMode(state.mode);
   const chains = normalizeChains(state.chains, mode);
   const hex = normalizeHexSave(state);
+  // 模拟层作为快照视图暴露拆除结果；纯状态对象没有该字段时按「全部存活」处理。
+  const destructibles = normalizeDestructibleState(state.destructibleState);
   const snapshot = {
-    // 有海克斯或有连锁都写当前版本；否则沿用 v4/v3 的旧版本号。
+    // 有海克斯/连锁/可破坏物状态都写当前版本；否则沿用 v4/v3 的旧版本号。
     version:
-      hex.id || chains.length
+      hex.id || chains.length || hasDestructibleState(destructibles)
         ? SAVE_VERSION
         : skill
           ? SKILL_SAVE_VERSION
@@ -187,6 +215,8 @@ export function toSnapshot(state) {
     snapshot.hexId = hex.id;
     if (Object.keys(hex.state).length) snapshot.hexState = hex.state;
   }
+  // 可破坏物同理：一件没拆时不写字段，未受影响的旧对局存档字节结构不变。
+  if (hasDestructibleState(destructibles)) snapshot.destructibles = destructibles;
   return snapshot;
 }
 
@@ -253,6 +283,12 @@ export function migrateSnapshot(snap) {
   // 旧存档没有 events/chains：保持缺省（读取方按“无事件、无连锁”处理）。
   if ('events' in snap) out.events = normalizeEventHistory(snap.events, mode);
   if ('chains' in snap) out.chains = normalizeChains(snap.chains, mode);
+  // 可破坏物：旧档缺字段视为「全部存活、零层石碑」，不写空字段以保持字节结构。
+  if ('destructibles' in snap) {
+    const destructibles = normalizeDestructibleState(snap.destructibles);
+    if (hasDestructibleState(destructibles)) out.destructibles = destructibles;
+    else delete out.destructibles;
+  }
   if ('preWave' in snap) out.preWave = snap.preWave === true;
 
   if ('mapId' in snap) {

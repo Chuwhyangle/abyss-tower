@@ -275,6 +275,8 @@ export class RunController {
       kills: snapshot?.kills || 0,
       startedAt: snapshot?.startedAt,
       restored: !!snapshot,
+      // 可破坏物：只恢复拆除结果（布点随地图恢复）；旧档缺字段时按「全部存活」处理。
+      destructibleState: snapshot?.destructibles,
       unlockedTowers: data.towersUnlocked || ['arrow', 'cannon', 'frost'],
       // sim 契约：skill = { id, level }（可选 cooldown/readyAt），无技能为 null。
       skill,

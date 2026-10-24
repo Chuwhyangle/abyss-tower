@@ -207,7 +207,7 @@ test('快照 v5：链锁排期随存档往返，恢复后照常触发', () => {
 
   const snap = sim.toSnapshot();
   assert.equal(snap.version, SAVE_VERSION, '含连锁的存档写当前版本');
-  assert.equal(SAVE_VERSION, 6);
+  assert.equal(SAVE_VERSION, 7);
   assert.deepEqual(snap.chains, [{ chainId: TRIGGER.id, wave: FOLLOW_UP_WAVE }]);
   assert.equal(validateSnapshot(snap).ok, true);
 
