@@ -65,10 +65,13 @@ export class Simulation {
     this.clearPending = false;
     this.kills = opts.kills || 0;
     this.relics = normalizeRelicStates(opts.relics || []);
-    // 事件历史：旧存档没有该字段时按“无事件”处理。
-    this.events = normalizeEventHistory(opts.events || []);
+    // 事件历史：旧存档没有该字段时按“无事件”处理；事件波规则随模式变化。
+    this.events = normalizeEventHistory(opts.events || [], this.mode);
     // 连锁排期：快照里的记录只是冗余，历史才是事实来源，二者合并去重。
-    this.chains = normalizeChains([...(opts.chains || []), ...chainsFromHistory(this.events)]);
+    this.chains = normalizeChains(
+      [...(opts.chains || []), ...chainsFromHistory(this.events, this.mode)],
+      this.mode
+    );
     this.unlockedTowers = opts.unlockedTowers || ['arrow', 'cannon', 'frost'];
     this.startedAt = opts.startedAt || Date.now();
 
@@ -1199,6 +1202,7 @@ export class Simulation {
     return resolveEventForWave(this.seed, this.clearedWave, {
       history: this.events,
       chains: this.chains,
+      mode: this.mode,
     });
   }
 
@@ -1247,9 +1251,9 @@ export class Simulation {
     this.baseHp = Math.min(this.baseHp, this.maxBaseHp);
 
     this.events.push({ wave: this.clearedWave, eventId: event.id, optionId: option.id });
-    this.events = normalizeEventHistory(this.events);
+    this.events = normalizeEventHistory(this.events, this.mode);
     // 连锁选项在此刻排期；后续波次由事件历史推导，不消耗战斗 RNG。
-    this.chains = normalizeChains(chainsFromHistory(this.events));
+    this.chains = normalizeChains(chainsFromHistory(this.events, this.mode), this.mode);
     this.pendingEvent = null;
     this.phase = 'prep';
     this.playSound('draft');

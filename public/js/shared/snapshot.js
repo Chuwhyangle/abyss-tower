@@ -125,7 +125,8 @@ function collectWarnings(snap) {
  */
 export function toSnapshot(state) {
   const skill = normalizeSkill(state.skill);
-  const chains = normalizeChains(state.chains);
+  const mode = normalizeMode(state.mode);
+  const chains = normalizeChains(state.chains, mode);
   const snapshot = {
     version: chains.length ? SAVE_VERSION : skill ? SKILL_SAVE_VERSION : BASE_SAVE_VERSION,
     runId: state.runId,
@@ -148,7 +149,7 @@ export function toSnapshot(state) {
     savedAt: Date.now(),
   };
   // 事件历史是可选字段：没有事件时保持旧存档字节不变。
-  const events = normalizeEventHistory(state.events);
+  const events = normalizeEventHistory(state.events, mode);
   if (events.length) snapshot.events = events;
   // 连锁排期同理：没有连锁时不写该字段，v3/v4 存档结构保持不变。
   if (chains.length) snapshot.chains = chains;
@@ -182,8 +183,8 @@ export function migrateSnapshot(snap) {
   }
   if ('towers' in snap) out.towers = normalizeTowers(snap.towers);
   // 旧存档没有 events/chains：保持缺省（读取方按“无事件、无连锁”处理）。
-  if ('events' in snap) out.events = normalizeEventHistory(snap.events);
-  if ('chains' in snap) out.chains = normalizeChains(snap.chains);
+  if ('events' in snap) out.events = normalizeEventHistory(snap.events, mode);
+  if ('chains' in snap) out.chains = normalizeChains(snap.chains, mode);
   if ('preWave' in snap) out.preWave = snap.preWave === true;
 
   if ('mapId' in snap) {

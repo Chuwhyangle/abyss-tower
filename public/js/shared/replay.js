@@ -8,7 +8,7 @@
 // 新增或修改字段必须递增版本号。解码器拒绝未知字段，避免跨版本误读。
 // 完整性：base64url 段附带 FNV-1a 32 位校验和，任何字符损坏都会在解析 JSON 前被拒绝。
 import { DIFFICULTY_ORDER, RELICS, RELIC_BY_ID, RELIC_MAX_LEVEL } from './data.js';
-import { EVENTS, EVENT_WAVES, findEventOption } from './events.js';
+import { EVENTS, EVENT_WAVES, isEventWave, findEventOption } from './events.js';
 
 export const REPLAY_VERSION = 1;
 export const MAX_REPLAY_CODE_LENGTH = 2048;
@@ -18,6 +18,8 @@ const MAX_REPLAY_SEED_LENGTH = 64;
 const MAX_REPLAY_MAP_INDEX = 2;
 const MAX_REPLAY_RELICS = RELICS.length;
 const MAX_REPLAY_EVENTS = EVENT_WAVES.length;
+// 无尽模式事件无限延续，分享码仍按体积上限截断，避免超出 MAX_REPLAY_CODE_LENGTH。
+const MAX_REPLAY_ENDLESS_EVENTS = 12;
 const MODES = new Set(['normal', 'daily', 'endless']);
 const PAYLOAD_KEYS = new Set(['v', 's', 'm', 'd', 'o', 'r', 'e']);
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
@@ -109,10 +111,11 @@ function readRelics(raw) {
 }
 
 // 接受 {wave,eventId,optionId} 或 [wave,eventId,optionId]；只允许事件波与已知选项。
-function readEvents(raw) {
+function readEvents(raw, mode = 'normal') {
   if (raw === undefined || raw === null) return { ok: true, value: [] };
   if (!Array.isArray(raw)) return fail('REPLAY_INVALID_EVENTS', 'not-array');
-  if (raw.length > MAX_REPLAY_EVENTS) return fail('REPLAY_INVALID_EVENTS', 'too-many');
+  const maxEvents = mode === 'endless' ? MAX_REPLAY_ENDLESS_EVENTS : MAX_REPLAY_EVENTS;
+  if (raw.length > maxEvents) return fail('REPLAY_INVALID_EVENTS', 'too-many');
   const seenWaves = new Set();
   const value = [];
   for (const item of raw) {
@@ -127,7 +130,7 @@ function readEvents(raw) {
     } else {
       return fail('REPLAY_INVALID_EVENTS', 'bad-entry');
     }
-    if (typeof wave !== 'number' || !Number.isInteger(wave) || !EVENT_WAVES.includes(wave)) {
+    if (typeof wave !== 'number' || !Number.isInteger(wave) || !isEventWave(wave, mode)) {
       return fail('REPLAY_INVALID_EVENTS', 'bad-wave');
     }
     const event = typeof eventId === 'string' ? EVENTS[eventId] : null;
@@ -162,7 +165,7 @@ export function validateRun(raw) {
 
   const relics = readRelics(raw.relics);
   if (!relics.ok) return relics;
-  const events = readEvents(raw.events);
+  const events = readEvents(raw.events, mode);
   if (!events.ok) return events;
 
   return {

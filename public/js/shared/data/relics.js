@@ -9,6 +9,22 @@ export const RARITY = {
   epic: { id: 'epic', name: '史诗', color: '#c88bff', weight: 12 },
 };
 
+// 按模式调整遗物稀有度抽取权重（纯数据）。普通模式沿用 RARITY 原值，保持既有序列；
+// 无尽模式是长局，提高稀有/史诗占比，让后期三选一更有价值。
+export const MODE_RARITY_WEIGHTS = Object.freeze({
+  normal: Object.freeze({
+    common: RARITY.common.weight,
+    rare: RARITY.rare.weight,
+    epic: RARITY.epic.weight,
+  }),
+  endless: Object.freeze({ common: 46, rare: 34, epic: 20 }),
+});
+
+export function rarityWeightForMode(rarity, mode = 'normal') {
+  const weights = MODE_RARITY_WEIGHTS[mode] || MODE_RARITY_WEIGHTS.normal;
+  return weights[rarity] ?? RARITY[rarity].weight;
+}
+
 // mods 键说明：
 // dmg:{towerId: 加成}  dmgAll  fireRate  range  splash  slow  slowDur
 // chain  dot  goldMul  killGold  interest  crit  armorPierce  costMul
@@ -177,7 +193,7 @@ export function fallbackOffers(wave = 1) {
 
 // 抽取遗物选项：可包含未拥有遗物（新获得）或已有遗物（升级），满级退出。
 // 候选不足时用金币/修复补位，保证始终能完成选择。
-export function rollRelicOffers(seedKey, relicStates = [], count = 3, wave = 1) {
+export function rollRelicOffers(seedKey, relicStates = [], count = 3, wave = 1, mode = 'normal') {
   const rng = new RNG(seedKey);
   const states = normalizeRelicStates(relicStates);
   const levels = new Map(states.map((state) => [state.id, state.level]));
@@ -185,7 +201,7 @@ export function rollRelicOffers(seedKey, relicStates = [], count = 3, wave = 1) 
   const offers = [];
 
   while (offers.length < count && pool.length) {
-    const relic = rng.weighted(pool, (item) => RARITY[item.rarity].weight);
+    const relic = rng.weighted(pool, (item) => rarityWeightForMode(item.rarity, mode));
     const fromLevel = levels.get(relic.id) || 0;
     offers.push({
       kind: 'relic',

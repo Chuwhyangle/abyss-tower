@@ -14,6 +14,7 @@ const EXPECTED_STEPS = [
   'npm run check:style',
   'npm run check:imports',
   'npm run check:version',
+  'npm run check:docs',
   'npm test',
   'npm run coverage:changed',
 ];

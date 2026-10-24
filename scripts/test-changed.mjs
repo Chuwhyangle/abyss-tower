@@ -61,6 +61,7 @@ export const TEST_MAP = [
     'tests/icon-system.test.mjs',
     'tests/season-ui.test.mjs',
   ] },
+  { match: 'public/js/share-card.js', tests: ['tests/share-card.test.mjs'] },
   { match: 'public/js/share-ui.js', tests: ['tests/share-ui.test.mjs'] },
   { match: 'public/js/stats-ui.js', tests: [
     'tests/icon-system.test.mjs',
@@ -180,6 +181,7 @@ export const TEST_MAP = [
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },
+  { match: 'scripts/docs-consistency.mjs', tests: ['tests/docs-consistency.test.mjs'] },
   { match: 'scripts/docs-preview.mjs', tests: ['tests/docs-preview.test.mjs'] },
   { match: 'scripts/import-graph.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/install-hooks.mjs', tests: ['tests/hooks.test.mjs'] },

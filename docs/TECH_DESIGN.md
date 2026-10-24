@@ -707,7 +707,7 @@ account_achievements(
 - **语义**：弹窗使用 `role="dialog" aria-modal="true"` + `aria-labelledby`；控件组（如速度）使用 `role="group"` + `aria-label`；动态提示使用 `aria-live="polite"`；纯装饰元素标 `aria-hidden="true"`。
 - **对比与信息传达**：正文对比度达到 WCAG AA（≥4.5:1），关键数值可读；状态不只靠颜色区分。
 - **边界**：可访问性只改 DOM、样式与动画开关，不进入 `sim.js`，不改变伤害、敌人数、攻速、掉落或计分。
-- **验收**：`node --test tests/a11y-baseline.test.mjs`（AC-104），至少覆盖 reduced-motion 开关、键盘焦点可见性与关键弹窗语义。
+- **验收**：`node --test tests/ui-styles.test.mjs tests/a11y-color.test.mjs`（AC-104），至少覆盖 reduced-motion 开关、键盘焦点可见性与关键弹窗语义。
 
 ### 14.5 硬约束（v1.8–v2.0 全程）
 

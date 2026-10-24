@@ -137,9 +137,9 @@ test('各主题模块的导出面保持单一职责', () => {
   ]);
   assert.deepEqual(Object.keys(unlocks).sort(), ['UNLOCKS', 'UNLOCK_BY_ID', 'unlockedTowerIds']);
   assert.deepEqual(Object.keys(relics).sort(), [
-    'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
-    'fallbackOffers', 'normalizeRelicState', 'normalizeRelicStates', 'relicEffectText',
-    'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers',
+    'MODE_RARITY_WEIGHTS', 'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
+    'fallbackOffers', 'normalizeRelicState', 'normalizeRelicStates', 'rarityWeightForMode',
+    'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers',
   ]);
 });
 

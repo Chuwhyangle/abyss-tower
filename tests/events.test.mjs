@@ -1,5 +1,5 @@
 // 局内事件节点：同种子事件序列稳定、三选项效果合法、重复提交幂等。
-import test, { before, after } from 'node:test';
+import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { Simulation } from '../public/js/sim.js';
@@ -16,7 +16,7 @@ import {
   rollEvent,
 } from '../public/js/shared/events.js';
 import { normalizeSnapshot, toSnapshot, validateSnapshot } from '../public/js/shared/snapshot.js';
-import { registerAndLogin, startTestServer } from './harness.mjs';
+import { HarnessEnvError, registerAndLogin, startTestServer, withRetry } from './harness.mjs';
 
 const SEED = 'events-test-seed';
 
@@ -183,19 +183,27 @@ test('无事件时快照保持旧字节结构', () => {
 let server = null;
 let auth = null;
 
-before(async () => {
-  server = await startTestServer({ seedHeader: true });
-  auth = await registerAndLogin(server.base);
-});
-
 after(async () => {
   if (server) await server.stop();
 });
 
+// 连接层失败（服务进程抖动）不是断言失败：标成环境类，由 withRetry 换一台新服务从头
+// 重跑，⛔ 不在同一个 run 上重放有状态的 POST。
+async function fetchOrEnvError(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (error) {
+    throw new HarnessEnvError(
+      `服务端请求失败：${error.message}\n${server?.log?.() || ''}`,
+      'timeout',
+    );
+  }
+}
+
 async function request(pathname, { method = 'GET', body } = {}) {
   const headers = { cookie: auth.rawCookie };
   if (body !== undefined) headers['content-type'] = 'application/json';
-  const response = await fetch(`${server.base}${pathname}`, {
+  const response = await fetchOrEnvError(`${server.base}${pathname}`, {
     method,
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -204,9 +212,23 @@ async function request(pathname, { method = 'GET', body } = {}) {
   return { status: response.status, data };
 }
 
+async function startFreshServer() {
+  if (server) await server.stop();
+  server = await startTestServer({ seedHeader: true });
+  auth = await registerAndLogin(server.base);
+}
+
 test('服务端事件节点：合法性校验与重复提交幂等', async () => {
+  await withRetry(async () => {
+    // 每次尝试都从全新服务与全新 run 开始，失败重试不会重复应用任何操作。
+    await startFreshServer();
+    await runServerEventFlow();
+  });
+});
+
+async function runServerEventFlow() {
   // 固定种子：服务端事件必须与 rollEvent(seed, wave) 完全一致。
-  const createdWithSeed = await fetch(`${server.base}/api/runs`, {
+  const createdWithSeed = await fetchOrEnvError(`${server.base}/api/runs`, {
     method: 'POST',
     headers: {
       cookie: auth.rawCookie,
@@ -267,4 +289,4 @@ test('服务端事件节点：合法性校验与重复提交幂等', async () =>
   assert.equal(afterNode.status, 200);
   assert.equal(afterNode.data.picked, true);
   assert.equal(afterNode.data.choice.optionId, node.data.event.options[0].id);
-});
+}

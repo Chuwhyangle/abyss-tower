@@ -5,16 +5,19 @@ const KIND_LABELS = {
   achievement: '成就解锁',
   bounty: '悬赏奖励',
   season: '赛季奖励',
+  announcement: '系统公告',
 };
 
 // 通知偏好开关：中英双语标签，关闭后服务端不再写入新的未读。
+// announcements 是复数键，与 kind='announcement' 一一对应。
 const PREFS = [
   { key: 'achievement', zh: '成就通知', en: 'Achievements' },
   { key: 'bounty', zh: '悬赏通知', en: 'Bounties' },
   { key: 'season', zh: '赛季通知', en: 'Season' },
+  { key: 'announcements', zh: '系统公告', en: 'Announcements' },
 ];
 const PREFS_TITLE = '通知偏好 / Notification preferences';
-const PREFS_HINT = '关闭后不再产生新的未读，历史通知仍然保留。 / Turning a type off stops new unread items; history is kept.';
+const PREFS_HINT = '关闭后不再产生新的未读，历史通知仍然保留；重要公告始终送达。 / Turning a type off stops new unread items; history is kept. Important announcements always arrive.';
 const PREFS_SAVED = '已保存 / Saved';
 const PREFS_ERROR = '保存失败 / Save failed';
 
@@ -28,6 +31,14 @@ const STYLE_ID = 'notifications-season-reward-style';
 const STYLE = `
   .notification-card.season-reward-notification {
     border-left: 3px solid var(--gold, #ffd36b);
+  }
+  .notification-card.important-announcement {
+    border-left: 3px solid var(--danger, #ff6b6b);
+    background: color-mix(in srgb, var(--danger, #ff6b6b) 8%, transparent);
+  }
+  .notification-card.important-announcement .achievement-state {
+    color: var(--danger, #ff6b6b);
+    font-weight: 600;
   }
   .notification-card .notification-jump {
     margin-top: var(--space-2, 8px);
@@ -80,6 +91,11 @@ export function isSeasonReward(item) {
   return item?.kind === 'season';
 }
 
+// 重要公告由服务端在 payload.important 打标，客户端据此加醒目样式（纯函数）。
+export function isImportantAnnouncement(item) {
+  return item?.kind === 'announcement' && item?.payload?.important === true;
+}
+
 // 通知的跳转目标：赛季奖励 → 赛季面板，其余类型不跳转（纯函数）。
 export function notificationJumpTarget(item) {
   return isSeasonReward(item) ? 'season' : null;
@@ -88,6 +104,7 @@ export function notificationJumpTarget(item) {
 // 卡片标签：赛季成就与普通成就解锁分开显示，其余类型沿用固定标签（纯函数）。
 export function notificationKindLabel(item) {
   if (isSeasonalAchievement(item)) return '赛季成就';
+  if (isImportantAnnouncement(item)) return '重要公告';
   return KIND_LABELS[item?.kind] || '通知';
 }
 
@@ -109,6 +126,9 @@ export function describeNotification(item) {
     const rank = Number(payload.rank) || 0;
     const cores = Number(payload.cores) || 0;
     return `赛季 ${payload.season || ''} 结算：第 ${rank} 名，获得 ${cores} 星核`;
+  }
+  if (item?.kind === 'announcement') {
+    return payload.message || payload.title || '收到一条系统公告';
   }
   return '收到一条新通知';
 }
@@ -161,12 +181,13 @@ function notificationCard(item) {
     : '';
   const seasonal = isSeasonalAchievement(item) ? ' seasonal-notification' : '';
   const seasonReward = isSeasonReward(item) ? ' season-reward-notification' : '';
+  const importantAnnouncement = isImportantAnnouncement(item) ? ' important-announcement' : '';
   const jump = notificationJumpTarget(item);
   const action = jump
     ? `<button class="btn small notification-jump" type="button" data-notification-jump="${escapeHtml(jump)}">${escapeHtml(JUMP_SEASON)}</button>`
     : '';
   return `
-    <article class="achievement-card notification-card${rarity}${seasonal}${seasonReward}${unread ? ' unread' : ''}">
+    <article class="achievement-card notification-card${rarity}${seasonal}${seasonReward}${importantAnnouncement}${unread ? ' unread' : ''}">
       <h3>
         <span>${escapeHtml(kind)}</span>
         <span class="achievement-rarity">${escapeHtml(formatTime(item.createdAt))}</span>
