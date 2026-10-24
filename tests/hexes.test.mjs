@@ -72,6 +72,8 @@ test('每个已声明钩子都是函数，且缺省钩子不改变入参', () =>
     for (const [name, hook] of Object.entries(hex.hooks)) {
       assert.equal(typeof hook, 'function', `${hex.id}.hooks.${name} 必须是函数`);
     }
+    // 已实现的海克斯会真实改写入参，数值由各自实现任务的测试覆盖；这里只审计 no-op 桩。
+    if (hex.implemented) continue;
     if (hex.hooks.modifyTowerStats) {
       const stats = { damage: 10 };
       assert.equal(hex.hooks.modifyTowerStats({}, stats, {}), stats);

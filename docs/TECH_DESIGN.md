@@ -232,6 +232,17 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 减速取最强值，刷新持续时间；毒伤取最高 DPS，刷新持续时间。
 - 敌人死亡金币：`round(gold × (1 + wave*0.005) × (1 + goldMul)) + killGold`。
 
+### 4.7 主海克斯运行时（`shared/hexes/`）
+
+十个主海克斯各自一个模块（`shared/hexes/<id>.js`），只通过钩子改模拟层，不互相争抢 `sim.js`。
+`shared/hexes/runtime.js` 的 `HexRuntime` 负责「缺失即跳过、返回值不合法即回退默认」，`sim.js` 只经 `hexCall` / `ctx` 触达。
+
+- 逐塔钩子：`modifyTowerStats`（属性重算末尾）、`buildCost`（建造原价，之后统一套遗物 `costMul` 与下限）、`towerMaxLevel`、`upgradeCost`（数据表外等级由钩子给价）、`allowedEvolutions`（可一次兼得多条进化）。
+- 建造/移除：`canBuild`（显式带塔型时询问）、`onTowerBuilt` / `onTowerUpgraded` / `onTowerRemoved`。
+- 对局/波次：`onRunInit`、`onWaveStart` / `onWaveEnd`（临时 mod 波末清理）。
+- 战斗事件：`onEnemyKilled` / `onLeak` / `onHit`；遗物：`onRelicGained`、`relicOfferCount`、`relicRerollCost`、`relicRerollBonus`、`sellRatio`。
+- `implemented: true` 的定义才会进入开局三选一候选池；未实现的桩保持 no-op，行为与无海克斯一致。
+
 ---
 
 ## 5. 客户端运行时设计
