@@ -1,6 +1,7 @@
 // 固定地图栅格化：把 lane 的 waypoints（[c,r] 数组）展开成 4 邻接 cell 序列，
 // 产出与旧 mapgen（随机 carve）完全兼容的地图对象。
 // 纯数据、纯函数，不调用 RNG；同一份 spec 每次输出完全一致。
+import { validateDestructibles } from '../destructibles.js';
 
 // 与旧 mapgen 保持一致的 lane 配色（渲染层按 lane 取色）。
 export const LANE_COLORS = ['#5ce2d0', '#ffd36b', '#ff6b8a'];
@@ -166,6 +167,11 @@ export function buildFixedMap(spec) {
     }
   }
 
+  const destructibles = cloneMapData(spec.destructibles ?? []);
+  if (!Array.isArray(destructibles)) {
+    throw new MapSpecError('destructibles-invalid', { id, detail: '必须是数组' });
+  }
+
   // blocked 只记岩石与固定阻挡（路径不记 blocked，这与旧 finalize 一致）。
   const blocked = Array.from({ length: rows }, () => Array(cols).fill(false));
   for (const cell of rocks) blocked[cell.r][cell.c] = true;
@@ -223,7 +229,7 @@ export function buildFixedMap(spec) {
     merge,
   };
 
-  return {
+  const map = {
     id,
     name,
     desc: spec.desc || '',
@@ -247,7 +253,24 @@ export function buildFixedMap(spec) {
     buildable,
     rocks,
     blockers,
+    // 固定可破坏物布点：terrain 的 buildable 不扣除它们，占用/可建判定由模拟层（MAP-004）按存活状态决定。
+    destructibles,
   };
+
+  // 布点一旦声明就必须自洽：未声明布点的旧 spec / 合成地图不做额外要求。
+  if (destructibles.length > 0) {
+    const check = validateDestructibles(map);
+    if (!check.ok) {
+      const first = check.errors[0];
+      const label = first.id ?? first.index ?? '';
+      throw new MapSpecError('destructibles-invalid', {
+        id,
+        detail: `${label} ${first.code}${first.detail ? ` ${first.detail}` : ''}`.trim(),
+      });
+    }
+  }
+
+  return map;
 }
 
 // 折线只保留拐点与端点（与旧 mapgen 的 simplify 行为一致）。
