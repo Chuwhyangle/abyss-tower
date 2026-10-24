@@ -60,5 +60,18 @@ export const RING_SPEC = {
     { c: 5, r: 8, size: 0.31, rot: 1.3 },
     { c: 20, r: 2, size: 0.33, rot: 2.2 },
   ],
+  // 固定可破坏物：位置写死，全部落在可建造格，且距出生点/基地 ≥2 格（切比雪夫）。
+  // 3 金脉、2 石碑、2 补给箱（免费）、1 虫巢（免费）、1 诅咒图腾。
+  destructibles: [
+    { id: 'ring-vein-1', type: 'vein', c: 8, r: 2 },
+    { id: 'ring-vein-2', type: 'vein', c: 9, r: 8 },
+    { id: 'ring-vein-3', type: 'vein', c: 17, r: 3 },
+    { id: 'ring-obelisk-1', type: 'obelisk', c: 10, r: 4 },
+    { id: 'ring-obelisk-2', type: 'obelisk', c: 12, r: 6 },
+    { id: 'ring-cache-1', type: 'cache', c: 15, r: 4 },
+    { id: 'ring-cache-2', type: 'cache', c: 19, r: 2 },
+    { id: 'ring-nest-1', type: 'nest', c: 6, r: 5 },
+    { id: 'ring-totem-1', type: 'totem', c: 19, r: 9 },
+  ],
   blockers: [],
 };
