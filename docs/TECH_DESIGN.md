@@ -160,22 +160,24 @@ export const DIFFICULTIES = {
 
 ### 4.3 地图生成（路径图）
 
-- 网格 22×12；每张地图由 1–3 条 lane 组成，每条 lane 从左侧入口出发，可共享汇流段/支路。
-- 6 种原型：`canyon / twin / triple / ring / cross / switchback`；每种原型有 spawn 数、蜿蜒系数、分数倍率。
-- 生成流程：选基地与汇流点 → 生成主路/支路 → 用带约束的随机 DFS 生成各入口到汇流点/基地的路径 → 校验长度差、可建造比例、路径不重叠 → 失败重试 140 次，最终兜底单径蛇形。
+- 网格 22×12；三张固定手工地图（`public/js/shared/maps/`）：裂谷关隘（canyon，单入口）、双牙桥（twin，两入口汇流）、环心遗迹（ring，两入口回廊汇流）。
+- 几何（waypoints/基地/岩石/trait/`scoreMul`）全部写死，由 `rasterize.js` 栅格化为 4 邻接 cell，**与种子无关**。
+- 固定池顺序恒为 canyon → twin → ring；`generateMapCandidates(seed, 3)` 返回这三张的独立副本（`seed` 仅为兼容旧签名保留）。
 - 输出：
   ```js
   {
-    archetype, modifier, meta: { portalCount, scoreMul, merge },
+    id, name, desc, archetype, archetypeName,
+    trait, modifier, meta: { portalCount, scoreMul, merge },
     lanes: [{ id, cells, polyline, length, color }],
     spawns: [{ id, c, r, x, y, color }],
     base, pathCells, buildable, blocked, rocks,
     // 兼容字段：polyline/spawn 指向第一条 lane
   }
   ```
-- `generateMapCandidates(seed, 3)` 生成三张候选；同种子完全一致，至少包含一张单径/双径低复杂度地图。
-- 8 个词缀：`rich / swift / mist / rift / armored / bounty / vista / surge`；`rift` 增加一个入口，`cross` 与 `rift` 组合会自动换词缀避免过度拥挤。
-- 服务端与客户端使用同一生成器；服务端下发完整地图与 `meta`。
+- 固定特性：双牙桥「商路」（`trade`）、环心遗迹「回响」（`echo`），schema 与地图词缀一致；裂谷关隘无特性。
+- 服务端与客户端 import 同一共享模块，禁止复制地图数据；服务端下发完整地图与 `meta`。
+- 旧存档/回放：`ruleset.mapPool !== 'fixed-v1'` 的 run 只读回退 legacy 随机 carve（`legacyGenerateMap`/`candidatePlan`/`buildCandidate` 重建候选），不写库、不崩溃。
+- 旧随机 carve 仅保留给旧存档回退与平衡模拟复用，新对局不再经过随机生成。
 
 ### 4.4 波次生成
 
@@ -269,7 +271,7 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 战斗中途不保存波内状态；刷新后回到该波开始前。
 - 「继续上一局」流程：
   1. 读取快照 → `GET /api/runs/:id` 校验 `status=active`；
-  2. 用种子重新生成地图；
+  2. 按 run 的 `ruleset.mapPool` 取图：新 run 读固定地图池（与种子无关，刷新恢复同一张图）；旧 run 只读回退 legacy 随机 carve；
   3. 恢复塔/金币/生命/遗物；
   4. 服务端波次计数以服务端为准，避免重复领奖。
 - 服务端不可用时提示，不静默丢档。
@@ -380,7 +382,7 @@ leaderboard(
 | PUT | `/api/profile/skins` | `{tower?, enemy?}` | 同 GET；未解锁/错对象 403/400 |
 | POST | `/api/runs` | `{mode, difficulty}` | 见下 |
 | GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls） |
-| POST | `/api/runs/:id/map` | `{index}` | `{map, mapMeta, mapChoice}`；开局前选择三张候选之一 |
+| POST | `/api/runs/:id/map` | `{index}` | `{map, mapMeta, mapChoice}`；开局前选择三张固定地图之一（0..2） |
 | POST | `/api/runs/:id/wave` | `{}` | `{wave, replay, clearedWaves, wavesServed}`；有未清波次时重放当前波；未选地图 409 |
 | POST | `/api/runs/:id/clear` | `{wave}` | `{ok, clearedWaves, wavesServed, nextWave, duplicate?}` |
 | POST | `/api/runs/:id/relics` | `{reroll?:boolean}` | `{wave, offers[{kind,id,fromLevel,toLevel}|{kind,amount}], picked, relics, rerollsUsed, maxRerolls}` |
@@ -400,7 +402,8 @@ leaderboard(
   "mode": "normal",
   "difficulty": "standard",
   "day": "2026-10-22",
-  "map": { "…": "完整地图对象" },
+  "candidates": [{ "…": "三张固定地图（canyon → twin → ring）" }],
+  "ruleset": { "…": "含 mapPool='fixed-v1' 的规则集" },
   "startingGold": 260,
   "baseHp": 20,
   "relics": [],
@@ -413,7 +416,8 @@ leaderboard(
 ```
 
 每日挑战（`mode=daily`）额外返回 `daily: {day, seed, modifiers[{id,name,desc,color}], streak}`；
-服务端在开局时校验 `seed === daily-${day}` 且候选地图词缀与派生组合一致。
+新 run 的 `ruleset.mapPool` 固定写为 `'fixed-v1'`，`modifiers` 即三张固定地图的固定 trait（无 trait 的裂谷关隘不参与），
+不再做「候选地图词缀与种子派生组合一致」的校验。
 
 **结算校验**：
 
@@ -451,8 +455,8 @@ cores = Math.round(
 
 - 日期：`dayKey()` 取服务器本地时区（`YYYY-MM-DD`），`runs.day`、次数上限、榜单与种子统一使用该日期。
 - 种子：`daily-${日期}`；玩家可自选 `difficulty`，不影响地图与波次组合（只影响倍率）。
-- 词缀：`dailyChallenge(day)`（shared/scoring.js）以同一种子复用 `candidatePlan()` 的原型/词缀排列，
-  取前三项作为当日词缀；开局时服务端校验候选地图词缀与派生组合一致，不一致返回 500。
+- 特性：三张固定地图与固定特性对所有玩家一致（`dailyChallenge(day)` 直接从固定地图 trait 派生，
+  不再按种子随机生成词缀）；同一 day/week 的候选、trait 与种子完全一致。
 - 连续参与：`dailyStreak(days, today)` 从今天（今天未参与则从昨天）向前统计连续日期；
   开局的每日远征即计入，与是否结算无关。
 - 每次开始前检查当天已结算次数 < 3。

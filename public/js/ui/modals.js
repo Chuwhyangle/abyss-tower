@@ -1,10 +1,15 @@
 // 通用弹窗：遮罩生命周期、遗物三选一、事件节点、选图、确认框与提示。
 import { RELIC_BY_ID, RARITY, RELIC_LEVEL_LABELS, relicEffectText } from '../shared/data.js';
 import { canAffordEventOption, findEventChain } from '../shared/events.js';
-import { t } from '../i18n.js';
+import { t, tData } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
 import { fmt, modifierName, modifierDesc, mapPreviewSvg, escapeHtml } from './shared.js';
+
+// 固定地图的专有名词按 id 取译名；旧随机地图没有 id 时回退数据表自带名称。
+const mapName = (map) =>
+  map ? tData('map', map.id, 'name', map.name || map.archetypeName) : null;
+const mapDesc = (map) => (map ? tData('map', map.id, 'desc', map.desc || '') : null);
 
 // 遗物草稿的等级分组：fromLevel 为 0 表示新遗物，升级组夹在 1–3 级（纯函数）。
 export function relicDraftLevels(offer) {
@@ -165,30 +170,30 @@ export const modalMethods = {
   },
 
   showMapSelect({ candidates, onChoose, onCancel }) {
+    // 固定地图池：卡片顺序即 canyon → twin → ring，服务端与客户端共用同一份地图数据。
     const cards = candidates
       .map((candidate, index) => {
         const modifier = candidate.modifier;
         const color = modifier?.color || '#9fb0c3';
         const preview = mapPreviewSvg(candidate);
-        const portalCount = candidate.spawns?.length || 1;
-        // 单入口地图即使 meta.merge 指向基地，也不应展示“汇流”文案。
-        const desc =
-          portalCount <= 1
-            ? t('mapSelect.single')
-            : candidate.archetype === 'cross'
-              ? t('mapSelect.cross')
-              : t('mapSelect.merge');
+        const portalCount = candidate.meta?.portalCount || candidate.spawns?.length || 1;
+        const title = mapName(candidate) || candidate.archetypeName || '';
+        const desc = mapDesc(candidate) || candidate.desc || '';
+        // 固定 trait：canyon 没有 trait，明确标注“无固定特性”，不再出现随机词缀文案。
+        const traitName = modifierName(modifier) || t('mapSelect.noTrait');
+        const traitDesc = modifierDesc(modifier) || t('mapSelect.noTraitDesc');
         return `
-          <button class="map-card" data-index="${index}" style="--lane:${color}">
+          <button class="map-card" data-index="${index}" data-map-id="${escapeHtml(candidate.id || candidate.archetype || '')}" style="--lane:${color}">
             <div class="map-preview">${preview}</div>
             <div class="map-card-head">
-              <b>${candidate.archetypeName}</b>
+              <b>${escapeHtml(title)}</b>
               <span class="map-portals">${t('mapSelect.portals', { n: portalCount })}</span>
             </div>
-            <p class="map-desc">${desc}</p>
+            <p class="map-desc">${escapeHtml(desc)}</p>
             <div class="map-mod" style="color:${color}">
-              <b>${modifierName(modifier) || t('mapSelect.noModifier')}</b>
-              <span>${modifierDesc(modifier) || t('mapSelect.standard')}</span>
+              <i class="map-mod-label">${t('mapSelect.trait')}</i>
+              <b>${escapeHtml(traitName)}</b>
+              <span>${escapeHtml(traitDesc)}</span>
             </div>
             <div class="map-foot">
               <span>${t('mapSelect.score', { mul: candidate.meta?.scoreMul?.toFixed(2) || '1.00' })}</span>

@@ -37,7 +37,12 @@ import {
   skillUnlocked,
 } from '../db/skills.mjs';
 import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
-import { generateMapCandidates } from '../../public/js/shared/mapgen.js';
+import {
+  buildCandidate,
+  candidatePlan,
+  generateMapCandidates,
+  legacyGenerateMap,
+} from '../../public/js/shared/mapgen.js';
 import { ENDLESS, generateWave } from '../../public/js/shared/waves.js';
 import {
   findEventOption,
@@ -66,7 +71,6 @@ import {
 import {
   clampFinishPayload,
   computeOutcome,
-  DAILY_MODIFIER_COUNT,
   dailyChallenge,
   dailyStreak,
   dayKey,
@@ -79,6 +83,11 @@ const START_GOLD = 260;
 const START_HP = 20;
 const META_GOLD = 40;
 const META_HP = 3;
+// 固定地图池标识：新 run 写入 ruleset.mapPool，旧 run 缺少该字段时只读回退 legacy carve。
+export const FIXED_MAP_POOL = 'fixed-v1';
+// 固定地图池恒为三张：canyon → twin → ring，mapChoice 仍为 0..2。
+const FIXED_MAP_COUNT = 3;
+
 // 每日挑战固定规则集：不随账号解锁与难度加成变化。
 export const DAILY_RULESET = 'daily-v2';
 export const DAILY_SKILL_LEVEL = 5;
@@ -152,11 +161,41 @@ function difficultyPayload(difficulty) {
   return { ...diff };
 }
 
+// 旧 run 回退（只读）：按改造前 generateMapCandidates(seed, 3) 的调用顺序重建当时的三张候选，
+// 供没有 ruleset.mapPool 的旧存档/回放读取。RNG 顺序由 candidatePlan/buildCandidate 内部固定。
+function legacyMapCandidates(seed, count = FIXED_MAP_COUNT) {
+  const { ids, modifierPool } = candidatePlan(seed, count);
+  return Array.from({ length: count }, (_, index) =>
+    buildCandidate(
+      `${seed}:candidate:${index}`,
+      ids[index % ids.length],
+      modifierPool[index % modifierPool.length],
+      index
+    )
+  );
+}
+
+// 地图候选的唯一入口：新 run 读固定池，旧 ruleset 只读回退 legacy carve。
+// 同一 run 的 serialize/chooseMap/serveWave/replaySummary/settle 都从这里取图，避免字段再次分叉。
+export function mapCandidatesFor(run) {
+  if (run?.ruleset?.mapPool === FIXED_MAP_POOL) {
+    return generateMapCandidates(run.seed, FIXED_MAP_COUNT);
+  }
+  return legacyMapCandidates(run.seed, FIXED_MAP_COUNT);
+}
+
+// 已选地图；mapChoice < 0 表示尚未选图。旧数据取不到候选时退回单张 legacy 地图，绝不抛错。
+function chosenMapFor(run) {
+  if (!run || run.mapChoice < 0) return null;
+  const chosen = mapCandidatesFor(run)[run.mapChoice];
+  if (chosen) return chosen;
+  return run.ruleset?.mapPool === FIXED_MAP_POOL ? null : legacyGenerateMap(run.seed);
+}
+
 export class RunService {
   // 同一份 run 序列化服务 active 与 resource，避免字段再次分叉。
   serialize(run, profile, { withVictory = true } = {}) {
-    const candidates = generateMapCandidates(run.seed, 3);
-    const chosen = run.mapChoice >= 0 ? candidates[run.mapChoice] || null : null;
+    const chosen = chosenMapFor(run);
     const payload = {
       id: run.id,
       mode: run.mode,
@@ -295,6 +334,8 @@ export class RunService {
     const ruleset = {
       v: 1,
       contentVersion: CONTENT_VERSION,
+      // 固定地图池：新 run 一律标注，旧 run 缺省即走 legacy 只读回退。
+      mapPool: FIXED_MAP_POOL,
       skill: { id: skillId, level: skillLevel },
       meta: { startGold: startingGold, baseHp, maxRerolls },
     };
@@ -306,8 +347,9 @@ export class RunService {
           .filter((offer) => offer.kind === 'relic')
           .map((offer) => ({ id: offer.id, level: offer.toLevel }))
       : [];
-    const candidates = generateMapCandidates(seed, (daily || weekly) ? DAILY_MODIFIER_COUNT : 3);
-    // 词缀即候选地图的词缀；校验种子派生结果与实际地图一致。
+    // 固定地图池：所有模式（普通/每日/本周/无尽/变异）都是同一组三张图与固定 trait。
+    const candidates = generateMapCandidates(seed, FIXED_MAP_COUNT);
+    // 词缀即固定地图的 trait（无 trait 的 canyon 不参与）；不再做随机词缀一致性校验。
     const mapModifiers = candidates
       .map((candidate) => candidate.modifier)
       .filter(Boolean)
@@ -317,19 +359,6 @@ export class RunService {
         desc,
         color,
       }));
-    if (daily && !testSeed) {
-      const expected = daily.modifiers.map((modifier) => modifier.id).join(',');
-      const actual = mapModifiers.map((modifier) => modifier.id).join(',');
-      if (actual !== expected) throw new RunError(500, '每日挑战词缀派生不一致');
-    }
-    if (weekly && !testSeed) {
-      const expected = weekly.modifiers.map((modifier) => modifier.id).join(',');
-      const actual = mapModifiers
-        .slice(0, weekly.modifiers.length)
-        .map((modifier) => modifier.id)
-        .join(',');
-      if (actual !== expected) throw new RunError(500, '本周挑战词缀派生不一致');
-    }
 
     const id = crypto.randomBytes(9).toString('base64url');
     const boardKey = boardKeyFor(mode, day);
@@ -397,7 +426,7 @@ export class RunService {
     if (!Number.isInteger(index) || index < 0 || index > 2) {
       throw new RunError(400, '地图编号不合法');
     }
-    const candidates = generateMapCandidates(run.seed, 3);
+    const candidates = mapCandidatesFor(run);
     const chosen = candidates[index];
     if (!chosen) throw new RunError(400, '地图不存在');
     if (run.wavesServed > 0) throw new RunError(409, '远征已经开始，不能更换地图');
@@ -413,7 +442,7 @@ export class RunService {
 
   serveWave(run) {
     if (run.mapChoice < 0) throw new RunError(409, '请先选择地图');
-    const candidates = generateMapCandidates(run.seed, 3);
+    const candidates = mapCandidatesFor(run);
     const mapMeta = candidates[run.mapChoice]?.meta || {};
     // 变异挑战在既有地图词缀上叠加 hpMul/speedMul，不改波次结构与 RNG 顺序。
     const mutationIds = run.ruleset?.mutations?.ids || [];
@@ -636,8 +665,7 @@ export class RunService {
   // 回放摘要只保留决策与结果：种子、地图、遗物、事件节点与波次/结算数据。
   // 不包含任何模拟帧或逐帧状态。
   replaySummary(run, payload) {
-    const chosen =
-      run.mapChoice >= 0 ? generateMapCandidates(run.seed, 3)[run.mapChoice] || null : null;
+    const chosen = chosenMapFor(run);
     const events = Object.entries(run.offers || {})
       .filter(([key]) => key.startsWith('event:'))
       .map(([key, slot]) => {
@@ -674,10 +702,7 @@ export class RunService {
   settle(run, profile, body) {
     const token = run.token;
     const payload = clampFinishPayload(body, run.clearedWaves);
-    const mapMeta =
-      run.mapChoice >= 0
-        ? generateMapCandidates(run.seed, 3)[run.mapChoice]?.meta || null
-        : null;
+    const mapMeta = chosenMapFor(run)?.meta || null;
     const mutationMul = mutationScoreMul(run.ruleset?.mutations?.ids || []);
     const outcome = computeOutcome({
       ...payload,

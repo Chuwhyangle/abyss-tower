@@ -1,5 +1,6 @@
 // 远征生命周期：新开局、选图三选一、续玩恢复、遗物抽取恢复。
-import { generateMap, generateMapCandidates } from '../shared/mapgen.js';
+import { generateMap } from '../shared/mapgen.js';
+import { fixedMapCandidates } from '../shared/maps/index.js';
 import { RELIC_BY_ID } from '../shared/data.js';
 import { Simulation } from '../sim.js';
 import { GameApp } from '../game-app.js';
@@ -62,7 +63,8 @@ export class RunController {
         this.ui.toast('已恢复本次远征的地图选择', 2400);
         return true;
       }
-      const candidates = generateMapCandidates(run.seed, 3);
+      // 固定地图池与种子无关：刷新后仍是同一组三张图（canyon → twin → ring），顺序一致。
+      const candidates = fixedMapCandidates(run.seed);
       if (!candidates.length) {
         store.clearPendingMap();
         return false;

@@ -44,6 +44,22 @@ export default {
   'data.modifier.frenzy.desc': 'Enemy move speed +18%, kill gold +5%, final score +5%',
   'data.modifier.barren.name': 'Barren',
   'data.modifier.barren.desc': 'Kill gold -18%, final score +6%',
+  // Fixed traits of the three handcrafted maps (same schema as random modifiers).
+  'data.modifier.trade.name': 'Trade Route',
+  'data.modifier.trade.desc': 'Kill gold +10%, enemy health +8%',
+  'data.modifier.echo.name': 'Echo',
+  'data.modifier.echo.desc': 'Tower range +8%, enemy move speed +6%',
+
+  // Proper names of the three fixed handcrafted maps (canyon → twin → ring).
+  'data.map.canyon.name': 'Rift Pass',
+  'data.map.canyon.desc':
+    'A single main road folds west to east through the rift — plenty of tower spots and a steady pace.',
+  'data.map.twin.name': 'Twin Fang Bridge',
+  'data.map.twin.desc':
+    'Two fang bridges bite in from the north and south lanes and converge east — hold the merge to cover both.',
+  'data.map.ring.name': 'Ringheart Ruins',
+  'data.map.ring.desc':
+    'Two corridors loop the ruin in opposite directions and join east — the longest route demands two-front coverage.',
 
   'data.tower.arrow.name': 'Bolt Tower',
   'data.tower.cannon.name': 'Cannon Tower',
@@ -205,7 +221,7 @@ export default {
 
   'mapSelect.eyebrow': 'EXPEDITION MAP',
   'mapSelect.title': 'Choose Expedition Map',
-  'mapSelect.note': "The three candidate maps share this run's seed; entrances, merges, and modifiers change your defense plan.",
+  'mapSelect.note': 'The same three fixed maps for every player; each has a fixed trait, and its entrances and merges shape your defense plan.',
   'mapSelect.abandon': 'Abandon Run',
   'mapSelect.preview': 'Map preview',
   'mapSelect.single': 'Single lane with plenty of tower spots',
@@ -214,6 +230,9 @@ export default {
   'mapSelect.portals': '{n} entrances',
   'mapSelect.noModifier': 'No modifier',
   'mapSelect.standard': 'Standard map',
+  'mapSelect.trait': 'Fixed trait',
+  'mapSelect.noTrait': 'No fixed trait',
+  'mapSelect.noTraitDesc': 'Standard rules, no extra modifiers',
   'mapSelect.score': 'Score ×{mul}',
   'mapSelect.pick': 'Choose this map',
 
