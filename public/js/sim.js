@@ -23,7 +23,7 @@ import {
   relicSetTierBonuses,
 } from './shared/effects.js';
 import { RNG } from './shared/rng.js';
-import { BOSS_VARIANTS } from './shared/data/enemies.js';
+import { BOSS_VARIANTS, ENDLESS_BOSS_AFFIXES } from './shared/data/enemies.js';
 import {
   chainsFromHistory,
   normalizeChains,
@@ -302,7 +302,25 @@ export class Simulation {
     const hpMul = hpMulOverride ?? this.waveDef?.hpMul ?? 1;
     const speedMul = this.waveDef?.speedMul || 1;
     const variant = base.boss ? BOSS_VARIANTS[this.waveDef?.bossVariant] || null : null;
+    // 深渊首领词条：仅无尽模式首领波携带，普通模式 waveDef 无此字段 → 命中全为 0。
+    const affixes = base.boss ? this.waveDef?.bossAffixes || null : null;
+    const stacks = (id) => Math.max(0, Math.floor(affixes?.[id] || 0));
     const hp = Math.max(1, Math.round(base.hp * hpMul * (variant?.hpMul || 1)));
+    const shieldStacks = stacks('shield');
+    const splitStacks = stacks('split');
+    const frenzyStacks = stacks('frenzy');
+    const shield =
+      (base.shield || 0) +
+      Math.round(hp * ENDLESS_BOSS_AFFIXES.shield.shieldPct * shieldStacks);
+    const splits =
+      base.splits ||
+      (splitStacks > 0
+        ? {
+            type: ENDLESS_BOSS_AFFIXES.split.splitType,
+            count: ENDLESS_BOSS_AFFIXES.split.splitPerStack * splitStacks,
+          }
+        : null);
+    const frenzyMul = 1 + frenzyStacks * ENDLESS_BOSS_AFFIXES.frenzy.speedPerStack;
     const lane = Math.max(0, Math.min(this.lanes.length - 1, laneIndex || 0));
     const pos = this.posAt(progress, lane);
     this.enemies.push({
@@ -312,7 +330,8 @@ export class Simulation {
       hp,
       maxHp: hp,
       armor: base.armor + (variant?.armorBonus || 0),
-      baseSpeed: base.speed * speedMul * (variant?.speedMul || 1),
+      baseSpeed: base.speed * speedMul * (variant?.speedMul || 1) * frenzyMul,
+      affixes: affixes ? { ...affixes } : null,
       r: base.r,
       gold: base.gold,
       dmg: base.dmg,
@@ -322,9 +341,9 @@ export class Simulation {
       healRange: base.healRange || 0,
       healTimer: 0,
       // 机制型敌人：护盾优先吸收伤害，分裂死亡生成子怪，光环加速友军，远程攻击塔/基地。
-      shield: base.shield || 0,
-      maxShield: base.shield || 0,
-      splits: base.splits || null,
+      shield,
+      maxShield: shield,
+      splits,
       aura: base.aura || null,
       ranged: base.ranged || null,
       rangedTimer: 0,

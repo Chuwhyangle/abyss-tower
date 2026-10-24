@@ -24,6 +24,10 @@ const USAGE = `本地运维 CLI
   disable <username> [--yes]               禁用账号；未加 --yes 时只做 dry-run
   restore <backup> --to <db> [--yes]       从备份恢复到目标库；拒绝覆盖正在使用的库
   settle-season <YYYY-MM> [--yes]          结算赛季并发放星核；未加 --yes 时只做 dry-run
+  announce publish --title <t> --body <b> [--important] [--yes]
+                                           发布公告给所有账号；未加 --yes 时只做 dry-run
+  announce revoke <id> [--yes]             撤回公告（未读清零、保留历史）；未加 --yes 时只做 dry-run
+  announce list [--include-revoked]        列出公告（默认只列生效中的）
 
 通用选项：
   --db <path>    操作的数据库（默认 $DB_PATH 或 server/data/game.db）
@@ -44,6 +48,10 @@ function parseCli(argv) {
       search: { type: 'string' },
       limit: { type: 'string' },
       to: { type: 'string' },
+      title: { type: 'string' },
+      body: { type: 'string' },
+      important: { type: 'boolean', default: false },
+      'include-revoked': { type: 'boolean', default: false },
       yes: { type: 'boolean', default: false },
       json: { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
@@ -308,6 +316,55 @@ async function commandSettleSeason(season, opts) {
   return settleSeason(season, { dryRun: !opts.yes });
 }
 
+// ---------- announce ----------
+
+async function commandAnnounce(args, opts) {
+  const action = args[0] || null;
+  const file = requireDbFile(dbPathFor(opts));
+  // 通知模块在 import 时绑定连接：先把 DB_PATH 指向目标库（同 settle-season）。
+  process.env.DB_PATH = file;
+  const notifications = await import('../server/db/notifications.mjs');
+
+  if (action === 'publish') {
+    if (!opts.title) throw new OpsError('缺少 --title <标题>');
+    if (!opts.body) throw new OpsError('缺少 --body <正文>');
+    let result;
+    try {
+      result = notifications.createAnnouncement(
+        { title: opts.title, body: opts.body, important: opts.important },
+        { dryRun: !opts.yes }
+      );
+    } catch (error) {
+      throw new OpsError(error.message);
+    }
+    return { action, ...result };
+  }
+
+  if (action === 'revoke') {
+    const id = args[1];
+    if (!id) throw new OpsError('用法：node scripts/ops.mjs announce revoke <id> [--yes]');
+    let result;
+    try {
+      result = notifications.revokeAnnouncement(id, { dryRun: !opts.yes });
+    } catch (error) {
+      throw new OpsError(error.message);
+    }
+    if (result.affected === 0) throw new OpsError(`未找到公告：${id}`);
+    return { action, ...result };
+  }
+
+  if (action === 'list') {
+    return {
+      action,
+      items: notifications.listAnnouncements({ includeRevoked: opts['include-revoked'] }),
+    };
+  }
+
+  throw new OpsError(
+    `未知 announce 子命令：${action ?? '(空)'}（可用 publish / revoke / list）`
+  );
+}
+
 // ---------- output ----------
 
 function printHuman(command, result, opts) {
@@ -365,6 +422,44 @@ function printHuman(command, result, opts) {
       console.log(`  #${item.rank}  ${item.accountId}  +${item.cores} 星核`);
     }
     if (result.dryRun) console.log('[dry-run] 加 --yes 执行');
+    return;
+  }
+
+  if (command === 'announce') {
+    if (result.action === 'publish') {
+      const prefix = result.dryRun ? '[dry-run] ' : '';
+      const scope = result.dryRun
+        ? `将发送给 ${result.recipients} 个账号`
+        : `已发送给 ${result.delivered}/${result.recipients} 个账号`;
+      console.log(`${prefix}公告 ${result.id}「${result.title}」：${scope}`);
+      if (result.dryRun) console.log('[dry-run] 加 --yes 执行');
+      return;
+    }
+    if (result.action === 'revoke') {
+      const prefix = result.dryRun ? '[dry-run] ' : '';
+      console.log(
+        `${prefix}撤回公告 ${result.id}：影响 ${result.affected} 条记录，清理未读 ${result.unreadCleared} 条`
+      );
+      if (result.dryRun) console.log('[dry-run] 加 --yes 执行');
+      return;
+    }
+    if (result.action === 'list') {
+      if (!result.items.length) {
+        console.log('没有生效中的公告');
+        return;
+      }
+      for (const item of result.items) {
+        console.log(
+          [
+            item.id,
+            item.important ? '[重要]' : '[普通]',
+            `未读 ${item.unread}/${item.recipients}`,
+            formatTime(item.createdAt),
+            item.title,
+          ].join('  ')
+        );
+      }
+    }
   }
 }
 
@@ -394,6 +489,9 @@ async function main(argv) {
       break;
     case 'settle-season':
       result = await commandSettleSeason(args[0], opts);
+      break;
+    case 'announce':
+      result = await commandAnnounce(args, opts);
       break;
     default:
       throw new OpsError(`未知命令：${command}（用 --help 查看用法）`);

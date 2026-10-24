@@ -1,5 +1,6 @@
 // 通知中心持久化：写入保持幂等，读取按游标分页，90 天前的明细按周归档。
 // 写入失败不阻断结算等主流程；归档同样只影响通知本身。
+import crypto from 'node:crypto';
 import { db, transaction } from './index.mjs';
 import { weekKey } from '../../public/js/shared/scoring.js';
 
@@ -397,4 +398,151 @@ export function markAllRead(accountId, now = Date.now()) {
     if (state.remaining === 0 || state.updated === 0) break;
   }
   return { ok: true, updated, unread: state.remaining, remaining: state.remaining };
+}
+
+// ---------- 公告管理 ----------
+// 公告没有独立表：发布时按 (kind='announcement', dedupe_key=公告 id) 扇出成
+// 每个账号一条通知，因此天然复用已读/未读与偏好逻辑，读取接口无需改动。
+// 撤回只把对应记录标记已读并写入 revokedAt，历史保留但不再计入未读。
+
+const ANNOUNCEMENT_KIND = 'announcement';
+const ANNOUNCEMENT_ID_PREFIX = 'announcement:';
+
+function announcementText(value, label) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) throw new Error(`公告${label}不能为空`);
+  return text;
+}
+
+function announcementId(value) {
+  const text = typeof value === 'string' ? value.trim() : '';
+  if (!text) throw new Error('缺少公告 ID');
+  return text;
+}
+
+function newAnnouncementId(now) {
+  return `${ANNOUNCEMENT_ID_PREFIX}${now.toString(36)}-${crypto.randomBytes(4).toString('hex')}`;
+}
+
+function announcementRecipients() {
+  return db
+    .prepare("SELECT id FROM accounts WHERE status <> 'deleted' ORDER BY created_at, id")
+    .all()
+    .map((row) => row.id);
+}
+
+// 发布公告：普通公告尊重 announcements 偏好，重要公告强制送达（同 notify 的语义）。
+// dryRun 时只统计接收人，不写任何记录。
+export function createAnnouncement(
+  { title, body, important = false, id = null } = {},
+  { dryRun = false, now = Date.now() } = {}
+) {
+  const safeTitle = announcementText(title, '标题');
+  const safeBody = announcementText(body, '正文');
+  const announcementKey = id == null ? newAnnouncementId(now) : announcementId(id);
+  const recipients = announcementRecipients();
+  const summary = {
+    id: announcementKey,
+    title: safeTitle,
+    body: safeBody,
+    important: important === true,
+    recipients: recipients.length,
+  };
+  if (dryRun) return { ...summary, dryRun: true, delivered: 0 };
+
+  let delivered = 0;
+  transaction(() => {
+    for (const accountId of recipients) {
+      const written = notify(
+        accountId,
+        {
+          kind: ANNOUNCEMENT_KIND,
+          dedupeKey: announcementKey,
+          payload: { announcementId: announcementKey, title: safeTitle, body: safeBody },
+          important: important === true,
+        },
+        now
+      );
+      if (written) delivered += 1;
+    }
+  });
+  return { ...summary, dryRun: false, delivered };
+}
+
+// 撤回公告：标记已读（未读清零）+ payload.revokedAt，记录保留在通知历史里。
+export function revokeAnnouncement(id, { dryRun = false, now = Date.now() } = {}) {
+  const announcementKey = announcementId(id);
+  const rows = db
+    .prepare(
+      `SELECT id, payload, read_at
+         FROM account_notifications
+        WHERE kind = ? AND dedupe_key = ?
+        ORDER BY id`
+    )
+    .all(ANNOUNCEMENT_KIND, announcementKey);
+  const result = {
+    id: announcementKey,
+    dryRun,
+    affected: rows.length,
+    unreadCleared: rows.filter((row) => row.read_at == null).length,
+  };
+  if (dryRun || rows.length === 0) return result;
+
+  transaction(() => {
+    const update = db.prepare(
+      `UPDATE account_notifications
+          SET payload = ?, read_at = COALESCE(read_at, ?)
+        WHERE id = ?`
+    );
+    for (const row of rows) {
+      const payload = { ...parsePayload(row.payload), revokedAt: now };
+      update.run(JSON.stringify(payload), now, row.id);
+    }
+  });
+  return result;
+}
+
+// 公告列表：按公告 id 聚合各账号通知，默认只返回未撤回的公告。
+export function listAnnouncements({ includeRevoked = false } = {}) {
+  const rows = db
+    .prepare(
+      `SELECT dedupe_key, payload, created_at, read_at
+         FROM account_notifications
+        WHERE kind = ?
+        ORDER BY created_at DESC, id DESC`
+    )
+    .all(ANNOUNCEMENT_KIND);
+
+  const announcements = new Map();
+  for (const row of rows) {
+    const key = row.dedupe_key;
+    let entry = announcements.get(key);
+    if (!entry) {
+      entry = {
+        id: key,
+        title: '',
+        body: '',
+        important: false,
+        createdAt: Number(row.created_at),
+        recipients: 0,
+        unread: 0,
+        revokedAt: null,
+      };
+      announcements.set(key, entry);
+    }
+    const payload = parsePayload(row.payload);
+    if (!entry.title && typeof payload.title === 'string') entry.title = payload.title;
+    if (!entry.body && typeof payload.body === 'string') entry.body = payload.body;
+    if (payload.important === true) entry.important = true;
+    if (payload.revokedAt != null && entry.revokedAt == null) {
+      entry.revokedAt = Number(payload.revokedAt);
+    }
+    entry.recipients += 1;
+    if (row.read_at == null) entry.unread += 1;
+  }
+
+  return [...announcements.values()]
+    .map((entry) => ({ ...entry, revoked: entry.revokedAt != null }))
+    .filter((entry) => includeRevoked || !entry.revoked)
+    .sort((a, b) => b.createdAt - a.createdAt || (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
 }

@@ -129,7 +129,11 @@ test('各主题模块的导出面保持单一职责', () => {
   assert.deepEqual(Object.keys(constants).sort(), ['MAP_COLS', 'MAP_ROWS', 'MAX_WAVE', 'TILE']);
   assert.deepEqual(Object.keys(difficulties).sort(), ['DIFFICULTIES', 'DIFFICULTY_ORDER', 'getDifficulty']);
   assert.deepEqual(Object.keys(towers).sort(), ['TOWERS', 'TOWER_ORDER', 'towerLevelStats', 'towerUpgradeCost']);
-  assert.deepEqual(Object.keys(enemies).sort(), ['BOSS_SKILLS', 'BOSS_VARIANTS', 'BOSS_VARIANT_ROTATION', 'ENEMIES']);
+  assert.deepEqual(Object.keys(enemies).sort(), [
+    'BOSS_SKILLS', 'BOSS_VARIANTS', 'BOSS_VARIANT_ROTATION',
+    'ENDLESS_BOSS_AFFIXES', 'ENDLESS_BOSS_AFFIX_INTERVAL', 'ENDLESS_BOSS_AFFIX_ROTATION',
+    'ENEMIES',
+  ]);
   assert.deepEqual(Object.keys(caps), ['GLOBAL_MOD_CAPS']);
   assert.deepEqual(Object.keys(skills).sort(), [
     'SKILLS', 'SKILL_LEVEL_COSTS', 'SKILL_ORDER', 'isSkillUnlocked',

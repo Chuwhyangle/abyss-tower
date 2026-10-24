@@ -1,13 +1,40 @@
 // 波次生成：由服务端下发，种子 + 波数决定，客户端无法挑波。
 import { RNG } from './rng.js';
 import { MAX_WAVE, getDifficulty } from './data.js';
-import { BOSS_VARIANT_ROTATION } from './data/enemies.js';
+import {
+  BOSS_VARIANT_ROTATION,
+  ENDLESS_BOSS_AFFIXES,
+  ENDLESS_BOSS_AFFIX_INTERVAL,
+  ENDLESS_BOSS_AFFIX_ROTATION,
+} from './data/enemies.js';
 import { BALANCE } from './config.js';
 
 // 首领变体：每 5 波轮换一次；波次本身就是种子的一部分，所以同种子必然同变体。
 export function selectBossVariant(wave) {
   const bossIndex = Math.max(1, Math.floor(Math.max(1, Math.floor(wave)) / 5));
   return BOSS_VARIANT_ROTATION[(bossIndex - 1) % BOSS_VARIANT_ROTATION.length];
+}
+
+// 无尽模式深渊首领词条：每 10 波按轮换顺序叠一层，单类层数由词条自身的 maxStacks 封顶。
+// 非首领波与普通模式返回 null，调用方据此完全跳过词条逻辑。
+export function selectBossAffixes(wave) {
+  const index = Math.max(1, Math.floor(wave));
+  if (index % 5 !== 0) return null;
+  const layers = Math.min(
+    ENDLESS_BOSS_AFFIX_ROTATION.reduce(
+      (sum, id) => sum + ENDLESS_BOSS_AFFIXES[id].maxStacks,
+      0
+    ),
+    Math.floor(index / ENDLESS_BOSS_AFFIX_INTERVAL)
+  );
+  if (layers <= 0) return null;
+  const affixes = {};
+  for (let i = 0; i < layers; i++) {
+    const id = ENDLESS_BOSS_AFFIX_ROTATION[i % ENDLESS_BOSS_AFFIX_ROTATION.length];
+    const cap = ENDLESS_BOSS_AFFIXES[id].maxStacks;
+    affixes[id] = Math.min(cap, (affixes[id] || 0) + 1);
+  }
+  return affixes;
 }
 
 const POOL = [
@@ -64,6 +91,13 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
   const isBoss = index % 5 === 0;
   // 最终波固定狂暴型，其余首领波按每 5 波轮换。
   const bossVariant = isBoss ? (isFinal ? 'berserk' : selectBossVariant(index)) : null;
+  // 深渊首领：仅无尽模式的首领波叠加词条，每 10 波一层且层数硬上限。
+  const bossAffixes = endless && isBoss ? selectBossAffixes(index) : null;
+  const bossAffixText = bossAffixes
+    ? ENDLESS_BOSS_AFFIX_ROTATION.filter((id) => bossAffixes[id])
+        .map((id) => `${ENDLESS_BOSS_AFFIXES[id].name}×${bossAffixes[id]}`)
+        .join('·')
+    : '';
   const groups = [];
 
   if (isBoss) {
@@ -162,7 +196,14 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
     portals: activePortals,
     modifierId: modifier?.id || null,
     ...(endless ? { endless: true } : {}),
-    label: isFinal ? '最终首领' : isBoss ? '首领波次' : `第 ${index} 波`,
+    ...(bossAffixes ? { bossAffixes, bossAffixText } : {}),
+    label: isFinal
+      ? '最终首领'
+      : isBoss
+        ? bossAffixes
+          ? `深渊首领·${bossAffixText}`
+          : '首领波次'
+        : `第 ${index} 波`,
   };
 }
 
