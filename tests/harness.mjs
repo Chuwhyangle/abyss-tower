@@ -192,6 +192,21 @@ export class Browser {
   }
 }
 
+
+// 并行测试时本地服务可能刚起或短暂抖动：注册请求做有限重试，失败原因保持可见。
+async function fetchWithRetry(url, options, { attempts = 8, delayMs = 150 } = {}) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fetch(url, options);
+    } catch (error) {
+      lastError = error;
+      await sleep(delayMs);
+    }
+  }
+  throw lastError;
+}
+
 export function testUsername(prefix = 'u') {
   const stamp = Date.now().toString(36).slice(-8);
   const random = Math.random().toString(36).slice(2, 6);
@@ -202,7 +217,7 @@ export function testUsername(prefix = 'u') {
 export async function registerAndLogin(base, { username, password } = {}) {
   const user = username || testUsername();
   const pass = password || 'rtd-test-password';
-  const response = await fetch(`${base}/api/auth/register`, {
+  const response = await fetchWithRetry(`${base}/api/auth/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ username: user, password: pass }),
