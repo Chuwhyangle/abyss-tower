@@ -17,6 +17,7 @@ import {
   setOffers,
   setOffersAndRerolls,
   setRelics,
+  setRuleset,
   setWavesServed,
   settleRun,
 } from '../db/runs.mjs';
@@ -74,10 +75,20 @@ import {
   dailyChallenge,
   dailyStreak,
   dayKey,
+  hexScoreMul,
   WEEKLY_SKILL_LEVEL,
   weekKey,
   weeklyChallenge,
 } from '../../public/js/shared/scoring.js';
+import {
+  HEX_BY_ID,
+  HEX_ORDER,
+  HEX_POOL_VERSION,
+  offerHexes,
+  offerHexesFromPool,
+  validateHexChoice,
+} from '../../public/js/shared/hexes.js';
+import { HexRuntime } from '../../public/js/shared/hexes/runtime.js';
 
 const START_GOLD = 260;
 const START_HP = 20;
@@ -87,6 +98,10 @@ const META_HP = 3;
 export const FIXED_MAP_POOL = 'fixed-v1';
 // 固定地图池恒为三张：canyon → twin → ring，mapChoice 仍为 0..2。
 const FIXED_MAP_COUNT = 3;
+// 主海克斯三选一与遗物服务端默认值（遗物类数值由各海克斯钩子覆盖）。
+export const HEX_OFFER_COUNT = 3;
+const RELIC_OFFER_COUNT = 3;
+const RELIC_REROLL_COST = 25;
 
 // 每日挑战固定规则集：不随账号解锁与难度加成变化。
 export const DAILY_RULESET = 'daily-v2';
@@ -192,6 +207,50 @@ function chosenMapFor(run) {
   return run.ruleset?.mapPool === FIXED_MAP_POOL ? null : legacyGenerateMap(run.seed);
 }
 
+// ---------- 主海克斯：开局三选一与已选快照 ----------
+
+// 三选一的派生 seed：每日/本周按 day/week 维度（同组所有人一致），其余模式按本局种子。
+export function hexOfferSeed(run) {
+  if (run?.mode === 'daily') return `daily:${run.day}`;
+  if (run?.mode === 'weekly') return `weekly:${run.day}`;
+  return `run:${run?.seed ?? ''}`;
+}
+
+// 候选池优先取已实现定义；十个实现任务（HEX-004..013）落地前注册表全是桩，
+// 退化为完整注册表，保证 HEX-003 的开局三选一始终有牌可发。
+function hexOfferPool(seed, mode) {
+  const implemented = offerHexes(seed, HEX_OFFER_COUNT, mode);
+  if (implemented.length >= HEX_OFFER_COUNT) return implemented;
+  return offerHexesFromPool(HEX_ORDER, seed, HEX_OFFER_COUNT, mode);
+}
+
+// 同一 run 的 offers 只由 seed/mode 派生：刷新、重进与同一天的每日/本周挑战都得到同一组。
+function hexOffersFor(run) {
+  return hexOfferPool(hexOfferSeed(run), run?.mode || 'normal');
+}
+
+// 已选海克斯（写入 ruleset.hex）；旧 run 没有该字段时返回 null，结算按 1.0 处理。
+export function hexFor(run) {
+  const hex = run?.ruleset?.hex;
+  if (!hex || typeof hex.id !== 'string' || !HEX_BY_ID[hex.id]) return null;
+  return {
+    id: hex.id,
+    offers: Array.isArray(hex.offers) ? [...hex.offers] : [],
+    poolVersion: hex.poolVersion || HEX_POOL_VERSION,
+  };
+}
+
+// serialize/选择校验共用的 offers 入口：已选后锁定为写入时的一组，绝不重新洗牌。
+function hexOffersOf(run) {
+  const chosen = hexFor(run);
+  return chosen ? chosen.offers : hexOffersFor(run);
+}
+
+// 遗物类数值从共享 hex 定义读取：无海克斯时退化为服务端默认值。
+function hexRuntimeFor(run) {
+  return new HexRuntime(hexFor(run)?.id || null);
+}
+
 export class RunService {
   // 同一份 run 序列化服务 active 与 resource，避免字段再次分叉。
   serialize(run, profile, { withVictory = true } = {}) {
@@ -212,6 +271,9 @@ export class RunService {
       mapMeta: chosen?.meta || null,
       relics: normalizeRelicStates(run.relics),
       skill: run.ruleset?.skill || null,
+      // 已选主海克斯（旧 run 为 null）与本次开局的三选一；刷新恢复读同一组。
+      hex: hexFor(run),
+      hexOffers: hexOffersOf(run),
       ruleset: run.ruleset || null,
       mutations: run.ruleset?.mutations || null,
       status: run.status,
@@ -402,6 +464,10 @@ export class RunService {
       difficultyConfig: difficultyPayload(difficulty),
       day,
       candidates,
+      // 主海克斯三选一：每日/本周由 day/week seed 派生，同组所有人一致；其余模式按本局种子。
+      hex: null,
+      hexOffers: hexOffersFor({ seed, mode, day }),
+      hexPoolVersion: HEX_POOL_VERSION,
       startingGold,
       baseHp,
       relics: startRelics,
@@ -422,8 +488,31 @@ export class RunService {
     };
   }
 
-  chooseMap(run, index) {
-    if (!Number.isInteger(index) || index < 0 || index > 2) {
+  // 开局主海克斯：必须在放行波次前选定；重复选择同一 id 幂等，换 id 一律 409。
+  chooseHex(run, hexId) {
+    const id = typeof hexId === 'string' ? hexId.trim() : '';
+    const chosen = hexFor(run);
+    const offers = hexOffersOf(run);
+    if (chosen) {
+      if (chosen.id === id) return { hex: chosen, hexOffers: offers, alreadyChosen: true };
+      throw new RunError(409, '本局海克斯已经选择，不能更换', 'HEX_LOCKED');
+    }
+    if (run.wavesServed > 0) {
+      throw new RunError(409, '远征已经开始，不能选择海克斯', 'HEX_LOCKED');
+    }
+    if (!validateHexChoice(id, offers)) {
+      throw new RunError(400, '选择不在本次海克斯选项中', 'INVALID_HEX');
+    }
+    const ruleset = {
+      ...(run.ruleset || {}),
+      hex: { id, offers: [...offers], poolVersion: HEX_POOL_VERSION },
+    };
+    setRuleset(run.id, JSON.stringify(ruleset));
+    run.ruleset = ruleset;
+    return { hex: hexFor(run), hexOffers: offers, alreadyChosen: false };
+  }
+
+  chooseMap(run, index) {    if (!Number.isInteger(index) || index < 0 || index > 2) {
       throw new RunError(400, '地图编号不合法');
     }
     const candidates = mapCandidatesFor(run);
@@ -451,6 +540,8 @@ export class RunService {
       modifier: composeWaveModifier(mapMeta.modifier || null, mutationIds),
     };
     const endless = run.mode === 'endless';
+    // 未选海克斯的旧流程仍可进行；hex 只作为本局规则从 ruleset 回传。
+    const hex = hexFor(run);
     // 有未结算波次时重放当前波，不推进波次、不重复发奖。
     if (run.clearedWaves < run.wavesServed) {
       const current = run.wavesServed;
@@ -459,6 +550,7 @@ export class RunService {
         replay: true,
         clearedWaves: run.clearedWaves,
         wavesServed: run.wavesServed,
+        hex,
       };
     }
     // 普通/每日模式在第 30 波后结束；无尽模式继续生成递增波次。
@@ -470,6 +562,7 @@ export class RunService {
       replay: false,
       clearedWaves: run.clearedWaves,
       wavesServed: next,
+      hex,
     };
   }
 
@@ -504,6 +597,10 @@ export class RunService {
     }
     const key = String(run.clearedWaves);
     const maxRerolls = maxRerollsFor(profile);
+    // 遗物数量/刷新费用经由共享 hex 定义（遗物吞噬者、赌徒之骰由后续任务填数值）。
+    const hexRuntime = hexRuntimeFor(run);
+    const offerCount = hexRuntime.relicOfferCount(RELIC_OFFER_COUNT);
+    const rerollCost = hexRuntime.relicRerollCost(RELIC_REROLL_COST, run.rerollsUsed);
     let rerollsUsed = run.rerollsUsed;
     const offers = run.offers || {};
 
@@ -540,7 +637,7 @@ export class RunService {
         offers: rollRelicOffers(
           `${run.seed}:relic:${run.clearedWaves}:${rerollsUsed}`,
           relicStates,
-          3,
+          offerCount,
           run.clearedWaves,
           run.mode
         ),
@@ -558,6 +655,8 @@ export class RunService {
       relics: relicStates,
       rerollsUsed,
       maxRerolls,
+      rerollCost,
+      offerCount,
     };
   }
 
@@ -689,6 +788,8 @@ export class RunService {
       },
       skill: run.ruleset?.skill || null,
       mutations: run.ruleset?.mutations || null,
+      // 主海克斯记入回放摘要：旧 run 为 null，读档端按无海克斯处理。
+      hex: hexFor(run),
       relics: normalizeRelicStates(run.relics),
       events,
       waves: {
@@ -704,11 +805,14 @@ export class RunService {
     const payload = clampFinishPayload(body, run.clearedWaves);
     const mapMeta = chosenMapFor(run)?.meta || null;
     const mutationMul = mutationScoreMul(run.ruleset?.mutations?.ids || []);
+    const hex = hexFor(run);
+    // 旧 run 的 ruleset 没有 hex：hexScoreMul 返回 1.0，分数与改动前一致。
+    const hexMul = hexScoreMul(hex?.id);
     const outcome = computeOutcome({
       ...payload,
       wavesServed: run.clearedWaves,
       difficulty: run.difficulty,
-      scoreMul: (mapMeta?.scoreMul || 1) * mutationMul,
+      scoreMul: (mapMeta?.scoreMul || 1) * mutationMul * hexMul,
       mode: run.mode,
     });
     const now = Date.now();
@@ -729,6 +833,7 @@ export class RunService {
       baseHp: payload.baseHp,
       durationMs,
       contentVersion: run.contentVersion,
+      hexId: hex?.id || null,
     };
 
     // 结算与回放摘要在同一事务里落地：任一步失败都不会留下半局记录。
@@ -781,7 +886,7 @@ export class RunService {
       : [];
 
     // 入榜前过基线反作弊：异常成绩直接拒绝入榜但照常结算，可疑成绩钳制后标记。
-    // 变异倍率同步放宽反作弊上下限，否则合法的高倍率成绩会被误判。
+    // 变异/海克斯倍率同步放宽反作弊上下限，否则合法的高倍率成绩会被误判。
     const guard = validateLeaderboardEntry(
       {
         score: outcome.score,
@@ -789,7 +894,7 @@ export class RunService {
         wave: payload.waveReached,
         kills: payload.kills,
       },
-      { scoreMul: mutationMul }
+      { scoreMul: mutationMul * hexMul }
     );
     const guardEvent = {
       runId: run.id,
@@ -889,6 +994,7 @@ export class RunService {
       durationMs,
       skill: run.ruleset?.skill || null,
       mutations: run.ruleset?.mutations || null,
+      hexId: hex?.id || null,
       unlockedSkill: unlockedSkillId || null,
       unlockedSkills,
       dailyAttemptsLeft: run.mode === 'daily' ? dailyAttemptsLeft(token) : null,

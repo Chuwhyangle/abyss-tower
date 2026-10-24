@@ -3,6 +3,7 @@ import {
   startTestServer,
   launchBrowser,
   registerAndLogin,
+  chooseOpeningHex,
 } from './harness.mjs';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
@@ -65,6 +66,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
+    await chooseOpeningHex(browser);
     await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗');
     // 竖屏选图弹窗：卡片可读、在视口内、可滚动到第三张。
     const portraitMapModal = await browser.evaluate(`(() => {
@@ -283,6 +285,7 @@ async function main() {
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗（横屏）');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
+    await chooseOpeningHex(browser);
     await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗（横屏）');
     const landscapeMapModal = await browser.evaluate(`(() => {
       const modal = document.querySelector('.map-modal');

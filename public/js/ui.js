@@ -7,6 +7,7 @@ import { titleMethods } from './ui/title.js';
 import { hudMethods } from './ui/hud.js';
 import { shopMethods } from './ui/shop.js';
 import { modalMethods } from './ui/modals.js';
+import { hexSelectMethods } from './ui/hex-select.js';
 import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
@@ -284,6 +285,7 @@ Object.assign(
   hudMethods,
   shopMethods,
   modalMethods,
+  hexSelectMethods,
   resultMethods,
   settingsMethodsWithMenu,
   panelMethods

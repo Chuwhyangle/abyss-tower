@@ -1,7 +1,7 @@
 // 地图 v2 体验验收：三选一弹窗/预览、放弃与刷新恢复、多入口渲染与 HUD、汇流几何。
 // 使用隔离服务端 + 固定测试种子；拓扑期望从 mapgen 推导，跨种子不变量另行校验。
 import assert from 'node:assert/strict';
-import { startTestServer, launchBrowser, registerAndLogin } from './harness.mjs';
+import { startTestServer, launchBrowser, registerAndLogin, chooseOpeningHex } from './harness.mjs';
 import { generateMapCandidates } from '../public/js/shared/mapgen.js';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
@@ -113,6 +113,7 @@ async function openMapModal(browser) {
   await browser.evaluate(`document.querySelector('#btn-play').click()`);
   await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
   await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
+  await chooseOpeningHex(browser);
   await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗');
 }
 

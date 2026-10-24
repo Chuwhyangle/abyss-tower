@@ -28,10 +28,11 @@ const RUN = {
   ],
 };
 
-// 事件按波次排序，作为唯一规范形态。
+// 事件按波次排序，作为唯一规范形态；v2 起没有主海克斯的局 hexId 规范化为 null。
 const CANONICAL = {
   ...RUN,
   events: [RUN.events[1], RUN.events[0]],
+  hexId: null,
 };
 
 function fnv1a(text) {
@@ -63,7 +64,7 @@ function craft(payload) {
 
 test('往返：编码后可完整解码，且重复编码结果一致', () => {
   const code = encodeRun(RUN);
-  assert.match(code, /^RTD1\./);
+  assert.match(code, /^RTD2\./);
   assert.match(code.split('.')[1], /^[A-Za-z0-9_-]+$/);
   assert.ok(code.length < MAX_REPLAY_CODE_LENGTH);
 
@@ -84,6 +85,7 @@ test('最小对局：缺省遗物与事件解码为空数组', () => {
     mode: 'endless',
     relics: [],
     events: [],
+    hexId: null,
   });
   // 字符串形式的遗物与数组形式的事件同样接受。
   const loose = validateRun({
@@ -142,11 +144,11 @@ test('任意损坏输入都不抛异常，而是返回明确错误码', () => {
 
 test('版本不兼容：前缀版本或 payload 版本不符都被拒绝', () => {
   const valid = encodeRun(RUN);
-  const nextPrefix = valid.replace(/^RTD1\./, 'RTD2.');
+  const nextPrefix = valid.replace(/^RTD2\./, 'RTD3.');
   assert.equal(decodeRun(nextPrefix).code, 'REPLAY_UNSUPPORTED_VERSION');
 
   const payload = {
-    v: 2,
+    v: 3,
     s: RUN.seed,
     m: RUN.mapChoice,
     d: RUN.difficulty,
@@ -158,6 +160,30 @@ test('版本不兼容：前缀版本或 payload 版本不符都被拒绝', () =>
 
   const badVersion = decodeRun(craft({ ...payload, v: 'two' }));
   assert.equal(badVersion.code, 'REPLAY_BAD_PAYLOAD');
+});
+
+test('旧版码（v1）仍可导入：hexId 规范化为 null，且不接受 v2 的 h 字段', () => {
+  const v1Payload = {
+    v: 1,
+    s: RUN.seed,
+    m: RUN.mapChoice,
+    d: RUN.difficulty,
+    o: RUN.mode,
+    r: [],
+    e: [],
+  };
+  const body = bytesToB64Url(new TextEncoder().encode(JSON.stringify(v1Payload)));
+  const legacy = decodeRun(`RTD1.${body}.${checksum(body)}`);
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.run.hexId, null);
+
+  // v1 没有主海克斯字段：带上 h 属于跨版本误读，按未知字段拒绝。
+  const withHexBody = bytesToB64Url(
+    new TextEncoder().encode(JSON.stringify({ ...v1Payload, h: 'glass_cannon' }))
+  );
+  const rejected = decodeRun(`RTD1.${withHexBody}.${checksum(withHexBody)}`);
+  assert.equal(rejected.code, 'REPLAY_UNKNOWN_FIELD');
+  assert.equal(rejected.detail, 'h');
 });
 
 test('未知字段被拒绝，避免跨版本误读', () => {

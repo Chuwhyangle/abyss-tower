@@ -28,6 +28,8 @@ function hydrateReplay(row) {
     map: summary.map || null,
     skill: summary.skill || null,
     mutations: summary.mutations || null,
+    // 主海克斯：旧回放没有该字段 → null，读取端按无海克斯处理。
+    hex: summary.hex || null,
     relics: Array.isArray(summary.relics) ? summary.relics : [],
     events: Array.isArray(summary.events) ? summary.events : [],
     waves: summary.waves || {},

@@ -49,6 +49,11 @@ export function setMapChoice(id, index) {
   db.prepare('UPDATE runs SET map_choice = ? WHERE id = ?').run(index, id);
 }
 
+// 开局选择主海克斯后整体回写 ruleset（hex 与 skill/mapPool 同一份 JSON，避免分叉）。
+export function setRuleset(id, ruleset) {
+  db.prepare('UPDATE runs SET ruleset_json = ? WHERE id = ?').run(ruleset, id);
+}
+
 export function setWavesServed(id, wavesServed) {
   db.prepare('UPDATE runs SET waves_served = ? WHERE id = ?').run(wavesServed, id);
 }

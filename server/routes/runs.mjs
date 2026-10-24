@@ -7,7 +7,7 @@ import {
   weeklyAttemptsLeft,
 } from '../services/run-service.mjs';
 
-const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|relics|relic|events|event|finish|abandon))?$/;
+const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|relics|relic|events|event|finish|abandon))?$/;
 
 export class RunRoutes {
   constructor(service = new RunService()) {
@@ -67,6 +67,7 @@ export class RunRoutes {
     if (ctx.method !== 'POST') return false;
 
     if (action === 'map') return this.map(ctx, run);
+    if (action === 'hex') return this.hex(ctx, run);
     if (action === 'wave') return this.wave(ctx, run);
     if (action === 'clear') return this.clear(ctx, run);
     if (action === 'relics') return this.relics(ctx, run);
@@ -81,6 +82,11 @@ export class RunRoutes {
     const body = await ctx.readJson();
     const index = Math.floor(Number(body.index));
     return this.respond(ctx, () => ctx.json(200, this.service.chooseMap(run, index)));
+  }
+
+  async hex(ctx, run) {
+    const body = await ctx.readJson();
+    return this.respond(ctx, () => ctx.json(200, this.service.chooseHex(run, body.hexId)));
   }
 
   wave(ctx, run) {

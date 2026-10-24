@@ -1,16 +1,20 @@
 // 分享码：把一局的种子、地图选择与关键决策编码成可导入的紧凑字符串。
-// 编码格式（版本 1）：RTD1.<base64url(JSON)>.<fnv1a32 十六进制>
+// 编码格式（版本 2）：RTD2.<base64url(JSON)>.<fnv1a32 十六进制>
 // JSON 字段：v 版本 / s 种子 / m 地图候选序号 / d 难度 / o 模式 /
-//            r [[遗物 id, 等级]] / e [[波次, 事件 id, 选项 id]]
+//            r [[遗物 id, 等级]] / e [[波次, 事件 id, 选项 id]] / h 主海克斯 id（可选）
 //
-// 兼容策略：前缀 RTD<n> 中的 n 就是格式版本。解码器只接受当前 REPLAY_VERSION，
-// 其它版本返回 REPLAY_UNSUPPORTED_VERSION；同一版本内既有字段语义不变，
-// 新增或修改字段必须递增版本号。解码器拒绝未知字段，避免跨版本误读。
+// 兼容策略：前缀 RTD<n> 中的 n 就是格式版本。编码只产出当前 REPLAY_VERSION；
+// 解码接受 v1（无主海克斯，hexId 为 null）与 v2，其它版本返回
+// REPLAY_UNSUPPORTED_VERSION。同一版本内既有字段语义不变，新增或修改字段必须递增版本号。
+// 解码器按版本拒绝未知字段，避免跨版本误读。
 // 完整性：base64url 段附带 FNV-1a 32 位校验和，任何字符损坏都会在解析 JSON 前被拒绝。
 import { DIFFICULTY_ORDER, RELICS, RELIC_BY_ID, RELIC_MAX_LEVEL } from './data.js';
 import { EVENTS, EVENT_WAVES, isEventWave, findEventOption } from './events.js';
+import { HEX_BY_ID } from './hexes.js';
 
-export const REPLAY_VERSION = 1;
+export const REPLAY_VERSION = 2;
+// v1 码仍可导入（旧分享链接不失效）；v1 没有 h 字段，解码后 hexId 为 null。
+export const REPLAY_DECODE_VERSIONS = Object.freeze([1, 2]);
 export const MAX_REPLAY_CODE_LENGTH = 2048;
 
 const REPLAY_PREFIX = 'RTD';
@@ -21,7 +25,9 @@ const MAX_REPLAY_EVENTS = EVENT_WAVES.length;
 // 无尽模式事件无限延续，分享码仍按体积上限截断，避免超出 MAX_REPLAY_CODE_LENGTH。
 const MAX_REPLAY_ENDLESS_EVENTS = 12;
 const MODES = new Set(['normal', 'daily', 'endless']);
-const PAYLOAD_KEYS = new Set(['v', 's', 'm', 'd', 'o', 'r', 'e']);
+const PAYLOAD_KEYS = new Set(['v', 's', 'm', 'd', 'o', 'r', 'e', 'h']);
+// v1 没有主海克斯字段；按版本收紧允许键，跨版本误读仍然会被拒绝。
+const PAYLOAD_KEYS_BY_VERSION = { 1: new Set(['v', 's', 'm', 'd', 'o', 'r', 'e']) };
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const CHECKSUM = /^[0-9a-f]{8}$/;
 const utf8 = new TextDecoder('utf-8', { fatal: true });
@@ -145,6 +151,15 @@ function readEvents(raw, mode = 'normal') {
   return { ok: true, value };
 }
 
+// 主海克斯 id：缺省为 null（旧码/无海克斯局）；给出时必须命中注册表。
+function readHexId(raw) {
+  if (raw === undefined || raw === null || raw === '') return { ok: true, value: null };
+  if (typeof raw !== 'string' || !HEX_BY_ID[raw]) {
+    return fail('REPLAY_INVALID_HEX', 'unknown-id');
+  }
+  return { ok: true, value: raw };
+}
+
 // 唯一的校验入口：编码与解码都走这里，保证两条路径接受完全相同的输入。
 export function validateRun(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -167,16 +182,26 @@ export function validateRun(raw) {
   if (!relics.ok) return relics;
   const events = readEvents(raw.events, mode);
   if (!events.ok) return events;
+  const hexId = readHexId(raw.hexId);
+  if (!hexId.ok) return hexId;
 
   return {
     ok: true,
-    run: { seed, mapChoice, difficulty, mode, relics: relics.value, events: events.value },
+    run: {
+      seed,
+      mapChoice,
+      difficulty,
+      mode,
+      relics: relics.value,
+      events: events.value,
+      hexId: hexId.value,
+    },
   };
 }
 
 /**
  * 生成分享码。非法输入抛出 ReplayError（带机器可读 code）。
- * @param {{seed:string,mapChoice:number,difficulty:string,mode:string,relics?:Array,events?:Array}} raw
+ * @param {{seed:string,mapChoice:number,difficulty:string,mode:string,relics?:Array,events?:Array,hexId?:string|null}} raw
  * @returns {string}
  */
 export function encodeRun(raw) {
@@ -192,6 +217,8 @@ export function encodeRun(raw) {
     r: run.relics.map((relic) => [relic.id, relic.level]),
     e: run.events.map((event) => [event.wave, event.eventId, event.optionId]),
   };
+  // 无海克斯（普通/旧局）不写 h，保持与 v2 的最短编码一致。
+  if (run.hexId) payload.h = run.hexId;
   const body = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
   const code = `${REPLAY_PREFIX}${REPLAY_VERSION}.${body}.${checksumOf(body)}`;
   if (code.length > MAX_REPLAY_CODE_LENGTH) throw new ReplayError('REPLAY_TOO_LONG');
@@ -221,7 +248,8 @@ function decodeUnsafe(code) {
 
   const versionMatch = /^RTD(\d+)$/.exec(prefix);
   if (!versionMatch) return fail('REPLAY_BAD_FORMAT', 'prefix');
-  if (Number(versionMatch[1]) !== REPLAY_VERSION) {
+  const version = Number(versionMatch[1]);
+  if (!REPLAY_DECODE_VERSIONS.includes(version)) {
     return fail('REPLAY_UNSUPPORTED_VERSION', versionMatch[1]);
   }
   if (!body || !CHECKSUM.test(checksum)) return fail('REPLAY_BAD_FORMAT', 'checksum');
@@ -239,10 +267,11 @@ function decodeUnsafe(code) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return fail('REPLAY_BAD_PAYLOAD');
   }
+  const allowedKeys = PAYLOAD_KEYS_BY_VERSION[version] || PAYLOAD_KEYS;
   for (const key of Object.keys(payload)) {
-    if (!PAYLOAD_KEYS.has(key)) return fail('REPLAY_UNKNOWN_FIELD', key);
+    if (!allowedKeys.has(key)) return fail('REPLAY_UNKNOWN_FIELD', key);
   }
-  if (payload.v !== REPLAY_VERSION) {
+  if (payload.v !== version) {
     if (!Number.isInteger(payload.v)) return fail('REPLAY_BAD_PAYLOAD', 'version');
     return fail('REPLAY_UNSUPPORTED_VERSION', String(payload.v));
   }
@@ -254,5 +283,7 @@ function decodeUnsafe(code) {
     mode: payload.o,
     relics: payload.r,
     events: payload.e,
+    // v1 没有 h：missing → null，旧码导入后按无海克斯对局处理。
+    hexId: payload.h,
   });
 }

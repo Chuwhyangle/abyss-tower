@@ -301,6 +301,13 @@ export function createApi({
         body: { index },
       });
     },
+    // 开局主海克斯：服务端校验 id 属于本次三选一，重复提交同一 id 幂等。
+    chooseHex(id, hexId) {
+      return request(`/api/runs/${encodeURIComponent(id)}/hex`, {
+        method: 'POST',
+        body: { hexId },
+      });
+    },
     startWave(id) {
       return request(`/api/runs/${encodeURIComponent(id)}/wave`, { method: 'POST', body: {} });
     },

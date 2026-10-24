@@ -55,7 +55,16 @@ export class RunController {
         ...store.pendingMapData(pending),
         ruleset: run.ruleset || pending.ruleset || null,
         skill: run.ruleset?.skill || pending.skill || null,
+        hex: run.hex || null,
+        hexOffers: run.hexOffers || [],
       };
+      // 海克斯尚未选定：按服务端的同一组 offers 恢复三选一，不重复消耗也不换牌。
+      if (!run.hex && run.hexOffers?.length) {
+        store.savePendingMap(data);
+        this.showHexSelectFlow(data, run.hexOffers);
+        this.ui.toast('已恢复海克斯选择', 2200);
+        return true;
+      }
       if (run.mapChoice >= 0) {
         // 地图已选定但快照未落盘（极端刷新时机）：沿用服务端选择直接开局。
         const selection = await this.api.selectMap(pending.runId, run.mapChoice);
@@ -93,13 +102,7 @@ export class RunController {
         : await this.api.startRun(mode, difficulty, mutations);
       this.store.clearSnapshot();
       this.state.mapChoosing = false;
-      if (data.candidates?.length) {
-        this.store.savePendingMap(data);
-        this.showMapSelectFlow(data, data.candidates);
-      } else {
-        // 兼容旧服务端：直接返回 map
-        this.beginGame(data, null);
-      }
+      this.startSelectionFlow(data);
     } catch (error) {
       this.onRequestError(error, {
         title: '开始远征',
@@ -159,6 +162,54 @@ export class RunController {
     return this.startRun(mode, difficulty, mutations);
   }
 
+  // 开局选择顺序：海克斯三选一 → 地图三选一 → beginGame；旧服务端无海克斯时直接选图。
+  startSelectionFlow(data) {
+    if (!data.hex && data.hexOffers?.length) {
+      this.store.savePendingMap(data);
+      this.showHexSelectFlow(data, data.hexOffers);
+      return;
+    }
+    if (data.candidates?.length) {
+      this.store.savePendingMap(data);
+      this.showMapSelectFlow(data, data.candidates);
+      return;
+    }
+    // 兼容旧服务端：直接返回 map
+    this.beginGame(data, null);
+  }
+
+  // 海克斯确认后不可返回：成功后立刻进入选图；失败停留在同一组 offers。
+  showHexSelectFlow(data, offers) {
+    let submitting = false;
+    this.ui.showHexSelect({
+      offers,
+      onChoose: async (hexId) => {
+        if (submitting) return;
+        submitting = true;
+        try {
+          const selection = await this.api.chooseHex(data.runId, hexId);
+          this.ui.updateHexBadge(selection.hex || hexId);
+          this.ui.closeModal();
+          const next = {
+            ...data,
+            ...selection,
+            ruleset: { ...(data.ruleset || {}), hex: selection.hex },
+          };
+          const candidates = data.candidates || fixedMapCandidates(data.seed);
+          if (candidates.length) this.showMapSelectFlow(next, candidates);
+          else this.beginGame(next, null);
+        } catch (error) {
+          submitting = false;
+          this.ui.toast(error.message, 3000);
+        }
+      },
+      onCancel: async () => {
+        this.ui.closeModal();
+        await this.abandonCurrentRun(data.runId);
+      },
+    });
+  }
+
   // 新开局与刷新恢复共用同一套选图流程。
   showMapSelectFlow(data, candidates) {
     this.state.mapCandidates = candidates;
@@ -193,6 +244,8 @@ export class RunController {
 
     // 技能：等级以服务端 ruleset（开局冻结）为准；续玩时用快照的剩余冷却恢复。
     const ruleset = data.ruleset || snapshot?.ruleset || null;
+    // 主海克斯：ruleset.hex 为服务端权威；旧快照只有 hexId，按同一 id 恢复运行时。
+    const hexId = ruleset?.hex?.id || data.hex?.id || snapshot?.hexId || null;
     // 刷新恢复的变异局也要能在结算后原组合再来一局。
     this.state.lastMutations = ruleset?.mutations?.ids || null;
     const skillBase = ruleset?.skill || data.skill || snapshot?.skill || null;
@@ -227,6 +280,9 @@ export class RunController {
       skill,
       skillReadyAt: skill?.readyAt ?? null,
       skillSpeed: skill?.speed ?? 1,
+      // sim 契约：hex = id 或定义（null = 无海克斯），hexState 为空时按初始状态恢复。
+      hex: hexId,
+      hexState: snapshot?.hexState ?? null,
       ruleset,
       onWaveClear: (wave, info) => this.onWaveClear(wave, info),
       onGameOver: (stats) => this.onGameOver(stats),
@@ -259,6 +315,9 @@ export class RunController {
       mapChoice: data.mapChoice ?? sim.map.index ?? 0,
       mapMeta: data.mapMeta || sim.map.meta || null,
       skill: skill ? { id: skill.id, level: skill.level || 1 } : null,
+      // 分享码与结算都要带上海克斯 id；旧局为 null。
+      hexId: hexId || null,
+      hex: hexId ? { id: hexId } : null,
     };
     this.onAttempts?.(data);
     if (data.daily) state.daily = data.daily;
@@ -270,6 +329,7 @@ export class RunController {
     });
 
     this.ui.showGame({ game: sim, profile: state.profile });
+    this.ui.updateHexBadge(hexId);
     this.onBindCanvas(canvas);
     state.app.start();
     this.store.saveSnapshot(this.stampSkillCooldown(sim.toSnapshot()));
@@ -328,6 +388,9 @@ export class RunController {
         // 开局冻结的技能等级；旧局 ruleset 为 {} → 无技能、不显示按钮。
         ruleset: run.ruleset || null,
         skill: run.ruleset?.skill || null,
+        // 主海克斯：旧局没有该字段 → 无海克斯照常续玩/结算。
+        hex: run.hex || null,
+        hexOffers: run.hexOffers || [],
       };
       this.beginGame(data, snap);
       // 未结算的事件节点优先恢复（快照里只存事件历史，待办事件由波次推导）。

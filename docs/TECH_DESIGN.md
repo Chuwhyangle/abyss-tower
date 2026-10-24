@@ -240,7 +240,7 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 
 ```
 标题页
-  └─(选择难度/每日)→ 整备 prep
+  └─(选择难度/每日)→ 主海克斯三选一 → 地图三选一 → 整备 prep
         ├─(开始下一波)→ 战斗 wave
         │     ├─清波→ 三选一 draft→ 整备
         │     ├─基地生命=0→ 失败结算 over
@@ -249,6 +249,7 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 ```
 
 - `sim.phase ∈ {prep, wave, over}`；`paused` 仅影响波内推进。
+- 主海克斯与地图都必须在一局内选定后不可更换；旧局缺少 `ruleset.hex` 时按无海克斯续玩。
 - 三选一弹窗期间 `paused = true`。
 - 结算弹窗不可关闭，必须选择「再来一局」或「返回大厅」。
 
@@ -272,8 +273,9 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 「继续上一局」流程：
   1. 读取快照 → `GET /api/runs/:id` 校验 `status=active`；
   2. 按 run 的 `ruleset.mapPool` 取图：新 run 读固定地图池（与种子无关，刷新恢复同一张图）；旧 run 只读回退 legacy 随机 carve；
-  3. 恢复塔/金币/生命/遗物；
-  4. 服务端波次计数以服务端为准，避免重复领奖。
+  3. 主海克斯从 `ruleset.hex` 恢复（旧快照回退 `hexId`）；尚未选海克斯时按服务端同一组 `hexOffers` 回到三选一；
+  4. 恢复塔/金币/生命/遗物；
+  5. 服务端波次计数以服务端为准，避免重复领奖。
 - 服务端不可用时提示，不静默丢档。
 
 ### 5.5 渲染
@@ -380,8 +382,9 @@ leaderboard(
 | GET | `/api/profile` | — | `{profile}` |
 | GET | `/api/profile/skins` | — | `{selected, skins[], sets[]}`；`sets` 为套装画廊（成员解锁态与收集进度，纯表现） |
 | PUT | `/api/profile/skins` | `{tower?, enemy?}` | 同 GET；未解锁/错对象 403/400 |
-| POST | `/api/runs` | `{mode, difficulty}` | 见下 |
-| GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls） |
+| POST | `/api/runs` | `{mode, difficulty}` | 见下（含 `hexOffers[3]` 与 `hex:null`） |
+| GET | `/api/runs/:id` | — | `{run}`（含 clearedWaves/wavesServed/inProgress/difficulty/relics 状态/maxRerolls/hex/hexOffers） |
+| POST | `/api/runs/:id/hex` | `{hexId}` | `{hex:{id,offers,poolVersion}, hexOffers, alreadyChosen}`；id ∉ offers 400，选后换 id 409，重复同 id 幂等 |
 | POST | `/api/runs/:id/map` | `{index}` | `{map, mapMeta, mapChoice}`；开局前选择三张固定地图之一（0..2） |
 | POST | `/api/runs/:id/wave` | `{}` | `{wave, replay, clearedWaves, wavesServed}`；有未清波次时重放当前波；未选地图 409 |
 | POST | `/api/runs/:id/clear` | `{wave}` | `{ok, clearedWaves, wavesServed, nextWave, duplicate?}` |
@@ -403,6 +406,9 @@ leaderboard(
   "difficulty": "standard",
   "day": "2026-10-22",
   "candidates": [{ "…": "三张固定地图（canyon → twin → ring）" }],
+  "hex": null,
+  "hexOffers": ["glass_cannon", "swarm", "golden_law"],
+  "hexPoolVersion": "hex-v1",
   "ruleset": { "…": "含 mapPool='fixed-v1' 的规则集" },
   "startingGold": 260,
   "baseHp": 20,
@@ -423,6 +429,7 @@ leaderboard(
 
 - `waveReached = clamp(int, 0, run.cleared_waves)`；进行中的波次不计入结算。
 - `kills ≤ waveReached*600 + 50`；`goldLeft ≤ waveReached*1200 + 600`；`baseHp ≤ 120`。
+- 分数倍率 = 地图 `scoreMul` × 变异倍率 × `hex.scoreMul`（无 hex 时 1.0）；反作弊上下限同步放宽。
 - `victory = cleared_waves >= 30 && waveReached >= 30`；第 30 波中途死亡不算通关。
 - 清波必须显式 `POST /clear`；未确认清波时再次请求波次会重放当前波，不推进、不重复发奖。
 - 服务端按 `run.difficulty` 套用倍率；**不接受客户端传入难度、分数、胜利标记**。

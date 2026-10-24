@@ -24,6 +24,7 @@ const MESSAGES = {
   REPLAY_INVALID_MODE: '模式无效',
   REPLAY_INVALID_RELICS: '遗物数据无效',
   REPLAY_INVALID_EVENTS: '事件数据无效',
+  REPLAY_INVALID_HEX: '海克斯数据无效',
 };
 
 export class ReplayRoutes {

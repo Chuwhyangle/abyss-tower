@@ -280,6 +280,8 @@ export function buildRunPayload(state = {}) {
     mode: run.mode ?? sim.mode,
     relics: (sim.relics || []).map((relic) => [relic.id, relic.level]),
     events: (sim.events || []).map((event) => [event.wave, event.eventId, event.optionId]),
+    // 主海克斯随分享码复现（旧局/未选为 null）。
+    hexId: run.hexId ?? sim.hex?.id ?? null,
   };
   const result = validateRun(payload);
   return result.ok ? { ok: true, run: result.run } : { ok: false, code: result.code };

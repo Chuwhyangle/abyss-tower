@@ -400,7 +400,25 @@ export async function launchBrowser(options = {}) {
 }
 
 // 新开局流程：难度卡片点击后需要从三张地图中选一张。
+// 开局先出现主海克斯三选一：点选第一张并确认。旧服务端没有该弹窗时直接跳过。
+export async function chooseOpeningHex(browser) {
+  await browser.waitFor(
+    `!!document.querySelector('.hex-modal, .map-modal')`,
+    '海克斯/地图选择弹窗'
+  );
+  const isHex = await browser.evaluate(`!!document.querySelector('.hex-modal')`);
+  if (!isHex) return null;
+  const hexId = await browser.evaluate(`(() => {
+    const card = document.querySelector('.hex-card');
+    card.click();
+    return card.dataset.hexId;
+  })()`);
+  await browser.evaluate(`document.querySelector('#btn-confirm-hex').click()`);
+  return hexId;
+}
+
 export async function chooseFirstMap(browser) {
+  await chooseOpeningHex(browser);
   await browser.waitFor(`!!document.querySelector('.map-modal')`, '地图选择弹窗');
   await browser.evaluate(`document.querySelector('.map-card').click()`);
   await browser.waitFor(`!!(window.__rtd && window.__rtd.state.sim)`, '地图加载完成');

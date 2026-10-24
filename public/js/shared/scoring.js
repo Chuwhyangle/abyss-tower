@@ -1,6 +1,7 @@
 // 结算公式与每日挑战派生：前后端共用；服务端为准，客户端只用于本地预览。
 import { MAX_WAVE, getDifficulty } from './data.js';
 import { FIXED_MAPS } from './maps/index.js';
+import { HEX_BY_ID } from './hexes.js';
 
 export const VICTORY_BONUS = 10000;
 export const VICTORY_CORES = 25;
@@ -19,6 +20,13 @@ export const CAPS = {
 
 export function isVictory(waveReached, wavesServed = waveReached) {
   return waveReached >= MAX_WAVE && wavesServed >= MAX_WAVE;
+}
+
+// 主海克斯的分数倍率：未知/缺失（旧 run 没有 hex）一律按 1.0，结算与客户端预览共用。
+export function hexScoreMul(hexId) {
+  const definition = typeof hexId === 'string' ? HEX_BY_ID[hexId] : null;
+  const mul = Number(definition?.scoreMul);
+  return Number.isFinite(mul) && mul > 0 ? mul : 1;
 }
 
 export function computeRawScore({ waveReached, kills, goldLeft, baseHp, victory }) {
