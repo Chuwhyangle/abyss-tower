@@ -105,3 +105,37 @@ export const BOSS_VARIANTS = {
 
 // 普通首领波按此顺序每 5 波轮换；最终波固定为 berserk。
 export const BOSS_VARIANT_ROTATION = ['armored', 'summoner', 'berserk'];
+
+// 无尽模式「深渊首领」词条：每 10 波按轮换顺序叠加一层，每个词条层数硬上限 maxStacks。
+// 词条叠加在现有三变体之上，只影响无尽模式首领波，普通/每日/本周模式不读取。
+export const ENDLESS_BOSS_AFFIXES = {
+  shield: {
+    id: 'shield',
+    name: '渊盾',
+    desc: '每层为深渊首领附加最大生命 12% 的护盾，破盾前本体不掉血。',
+    color: '#6f9fc8',
+    maxStacks: 2,
+    shieldPct: 0.12,
+  },
+  split: {
+    id: 'split',
+    name: '裂变',
+    desc: '每层让深渊首领死亡时额外裂出 1 只裂生虫。',
+    color: '#c46bd6',
+    maxStacks: 2,
+    splitType: 'splitling',
+    splitPerStack: 1,
+  },
+  frenzy: {
+    id: 'frenzy',
+    name: '狂暴',
+    desc: '每层提升深渊首领 8% 移速。',
+    color: '#ff5533',
+    maxStacks: 2,
+    speedPerStack: 0.08,
+  },
+};
+
+// 词条轮换顺序与触发间隔（每 ENDLESS_BOSS_AFFIX_INTERVAL 波叠一层）。
+export const ENDLESS_BOSS_AFFIX_ROTATION = ['shield', 'split', 'frenzy'];
+export const ENDLESS_BOSS_AFFIX_INTERVAL = 10;

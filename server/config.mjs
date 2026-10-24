@@ -3,7 +3,7 @@
 export const AUTH_ENABLED = process.env.AUTH_ENABLED !== '0';
 export const REGISTRATION_MODE =
   process.env.REGISTRATION_MODE === 'closed' ? 'closed' : 'open';
-export const CONTENT_VERSION = process.env.CONTENT_VERSION || 'v1.30.0';
+export const CONTENT_VERSION = process.env.CONTENT_VERSION || 'v1.31.0';
 
 export const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 export const SESSION_ABSOLUTE_MS = 90 * 24 * 60 * 60 * 1000;
