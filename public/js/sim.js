@@ -822,11 +822,14 @@ export class Simulation {
 
   // 最小友方接口：存档内只有存活时长（ttl）与自动攻击最近敌人；
   // 生成时机/数值由海克斯通过 ctx.spawnAlly 决定，模拟层不内置任何具体召唤规则。
+  // 攻击结算二选一：dmg 为固定伤害（走护甲/增伤）；pct 为目标最大生命百分比，
+  // pctBoss 覆盖首领（与技能百分比伤害同语义：不吃护甲/增伤/暴击）。
   spawnAlly(spec = {}) {
     const x = Number(spec.x);
     const y = Number(spec.y);
     if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
     const ttl = Math.max(0, Number(spec.ttl) || 0);
+    const maxHp = Math.max(0, Number(spec.maxHp) || 0);
     const ally = {
       id: this.nextId++,
       kind: typeof spec.kind === 'string' ? spec.kind : 'ally',
@@ -835,6 +838,10 @@ export class Simulation {
       angle: Number.isFinite(spec.angle) ? spec.angle : 0,
       r: Math.max(0.05, Number(spec.r) || 0.25),
       dmg: Math.max(0, Number(spec.dmg) || 0),
+      pct: Math.max(0, Number(spec.pct) || 0),
+      pctBoss: Math.max(0, Number(spec.pctBoss) || 0),
+      maxHp: maxHp > 0 ? maxHp : null,
+      hp: maxHp > 0 ? maxHp : null,
       range: Math.max(0, Number(spec.range) || 0),
       rate: Math.max(0, Number(spec.rate) || 0),
       ttl,
@@ -871,7 +878,10 @@ export class Simulation {
       ally.target = target;
       ally.angle = Math.atan2(target.y - ally.y, target.x - ally.x);
       ally.recoil = 1;
-      if (ally.dmg > 0) this.dealDamage(target, ally.dmg, ally.kind, { noCrit: true });
+      // 百分比路径直接按目标最大生命结算（与 skillPctDamage 同一语义），不走护甲/增伤/命中钩子。
+      const pct = target.boss && ally.pctBoss > 0 ? ally.pctBoss : ally.pct;
+      if (pct > 0) this.skillDamage(target, target.maxHp * pct);
+      else if (ally.dmg > 0) this.dealDamage(target, ally.dmg, ally.kind, { noCrit: true });
       ally.cd = 1 / ally.rate;
     }
     if (this.allies.some((ally) => ally.dead)) {

@@ -109,6 +109,8 @@ export class CombatController {
     data.offers = RelicOffers.normalize(data.offers, sim);
     state.run.maxRerolls = data.maxRerolls ?? state.run.maxRerolls;
     state.run.rerollsUsed = data.rerollsUsed ?? 0;
+    // 刷新费由服务端按主海克斯给（遗物吞噬者为 0）；旧响应没有该字段时沿用默认 25。
+    if (Number.isFinite(Number(data.rerollCost))) state.run.rerollCost = Number(data.rerollCost);
 
     if (data.picked) {
       sim.pendingDraft = false;
@@ -132,6 +134,7 @@ export class CombatController {
       offers: data.offers,
       rerolls: { used: state.run.rerollsUsed, max: state.run.maxRerolls },
       gold: sim.gold,
+      cost: state.run.rerollCost,
     });
   }
 
@@ -169,7 +172,8 @@ export class CombatController {
   async rerollRelics() {
     const { state } = this;
     const sim = state.sim;
-    const cost = 25;
+    // 与草稿面板同源：服务端给的刷新费（遗物吞噬者免费），旧状态回退 25。
+    const cost = Number.isFinite(Number(state.run.rerollCost)) ? Number(state.run.rerollCost) : 25;
     if (!sim) return;
     if (sim.gold < cost) return this.ui.toast('金币不足，无法刷新');
     if (state.run.rerollsUsed >= state.run.maxRerolls) return this.ui.toast('刷新次数已用完');
@@ -180,6 +184,7 @@ export class CombatController {
       sim.gold -= cost;
       state.run.rerollsUsed = data.rerollsUsed;
       state.run.maxRerolls = data.maxRerolls;
+      if (Number.isFinite(Number(data.rerollCost))) state.run.rerollCost = Number(data.rerollCost);
       state.currentOffers = data.offers;
       sim.save();
       state.app.emitHud(true);
@@ -188,6 +193,7 @@ export class CombatController {
         offers: data.offers,
         rerolls: { used: state.run.rerollsUsed, max: state.run.maxRerolls },
         gold: sim.gold,
+        cost,
       });
     } catch (error) {
       this.ui.toast(error.message, 2800);

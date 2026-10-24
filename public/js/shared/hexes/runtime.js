@@ -107,7 +107,7 @@ export class HexRuntime {
     return next >= 0 ? next : base;
   }
 
-  // 刷新次数加成（在账号解锁给定的基础上叠加，如赌徒之骰 +1）。
+  // 刷新次数上限：基础次数（解锁/模式/变异算完后）交给海克斯加码，服务端 relicOffers/serialize 共用。
   relicRerollBonus(base) {
     const next = Math.floor(toFinite(this.call('relicRerollBonus', base), base));
     return next >= 0 ? next : base;
