@@ -6,10 +6,16 @@ import {
   RELICS,
   RELIC_BY_ID,
   RELIC_LEVEL_LABELS,
+  RELIC_MAX_LEVEL,
   TOWERS,
   relicModsAtLevel,
 } from './shared/data.js';
-import { RELIC_SET_BONUSES } from './shared/effects.js';
+import {
+  RELIC_SET_BONUSES,
+  effectPeriodicInfo,
+  relicSetMaxPieces,
+  relicSetTierBonuses,
+} from './shared/effects.js';
 import { iconSvg } from './render/canvas-shapes.js';
 
 const PANEL_ID = 'relic-codex-panel';
@@ -144,8 +150,16 @@ const STYLE = `
   .codex-card.rarity-epic .codex-rarity { color: #c88bff; }
   .codex-set { color: var(--muted, #8fa3b2); }
   .codex-desc { margin: 0 0 8px; font-size: 12.5px; }
+  .codex-period,
+  .codex-set-progress {
+    margin: 0 0 6px;
+    font-size: 11.5px;
+    color: var(--muted, #8fa3b2);
+  }
+  .codex-period { color: var(--gold, #ffd36b); }
   .codex-levels { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
   .codex-levels li { display: flex; gap: 8px; font-size: 12px; }
+  .codex-levels li[data-current='true'] { color: var(--gold, #ffd36b); font-weight: 600; }
   .codex-level {
     flex: 0 0 auto;
     color: var(--gold, #ffd36b);
@@ -254,6 +268,51 @@ function setName(setId) {
   return tOr(`codex.set.${setId}`, RELIC_SET_BONUSES[setId]?.name || setId);
 }
 
+// 回合型遗物的触发周期（只读查询，周期本身由效果注册表声明）；非回合型返回空数组。
+export function relicPeriodInfo(relicOrId, level = 1) {
+  const infos = [];
+  for (const [key, value] of Object.entries(relicModsAtLevel(relicOrId, level))) {
+    if (typeof value !== 'number' || !value) continue;
+    const periodic = effectPeriodicInfo(key);
+    if (periodic) infos.push({ key, value, ...periodic });
+  }
+  return infos;
+}
+
+export function periodicText(relicOrId, level = 1) {
+  const periods = [...new Set(relicPeriodInfo(relicOrId, level).map((info) => info.period))]
+    .sort((a, b) => a - b);
+  return periods.map((period) => t('codex.period', { period })).join(t('codex.effectJoiner'));
+}
+
+// 套装进度：只统计已收录的不同遗物；分母取共享数据里的最高档位（当前为 4）。
+export function setProgress(setId, discovered = []) {
+  if (!setId || !RELIC_SET_BONUSES[setId]) return null;
+  const known = discovered instanceof Set ? discovered : new Set(discovered || []);
+  const owned = RELICS.filter((relic) => relic.set === setId && known.has(relic.id)).length;
+  const total = relicSetMaxPieces(setId);
+  const pieces = Math.min(owned, total);
+  return {
+    id: setId,
+    name: setName(setId),
+    owned,
+    pieces,
+    total,
+    activeTiers: relicSetTierBonuses(setId, owned),
+    text: t('codex.setProgress', { name: setName(setId), pieces, total }),
+  };
+}
+
+// 等级对比：Ⅰ→Ⅲ 的数值文案全部来自 relicModsAtLevel 的共享等级因子。
+export function levelComparison(relicOrId, currentLevel = 1) {
+  return Array.from({ length: RELIC_MAX_LEVEL }, (_, index) => ({
+    level: index + 1,
+    label: RELIC_LEVEL_LABELS[index],
+    current: index + 1 === currentLevel,
+    summary: effectSummary(relicOrId, index + 1),
+  }));
+}
+
 export function filterRelics(relics, { rarity = 'all', set = 'all', query = '', discovered = [] } = {}) {
   const known = discovered instanceof Set ? discovered : new Set(discovered || []);
   const needle = String(query ?? '').trim().toLowerCase();
@@ -288,7 +347,7 @@ export function groupByRarity(relics) {
   })).filter((group) => group.items.length > 0);
 }
 
-export function renderRelicCard(relic, known) {
+export function renderRelicCard(relic, known, { discovered = [], currentLevel = 1 } = {}) {
   const rarity = RARITY[relic.rarity] ? relic.rarity : 'common';
   const name = tOr(`codex.relic.${relic.id}.name`, relic.name);
   const setTag = relic.set
@@ -308,20 +367,30 @@ export function renderRelicCard(relic, known) {
       </article>`;
   }
   const desc = tOr(`codex.relic.${relic.id}.desc`, relic.desc);
-  const levels = [1, 2, 3]
+  const period = periodicText(relic.id);
+  const progress = setProgress(relic.set, discovered);
+  const levels = levelComparison(relic.id, currentLevel)
     .map(
-      (level) => `
-        <li>
-          <span class="codex-level">${escapeHtml(RELIC_LEVEL_LABELS[level - 1])}</span>
-          <span>${escapeHtml(effectSummary(relic.id, level))}</span>
+      ({ label, summary, level, current }) => `
+        <li data-level="${level}"${current ? ' data-current="true"' : ''}>
+          <span class="codex-level">${escapeHtml(label)}</span>
+          <span>${escapeHtml(summary)}</span>
         </li>`
     )
     .join('');
+  const periodLine = period
+    ? `<p class="codex-period">${escapeHtml(period)}</p>`
+    : '';
+  const progressLine = progress
+    ? `<p class="codex-set-progress">${escapeHtml(progress.text)}</p>`
+    : '';
   return `
     <article class="codex-card rarity-${rarity}" data-relic-id="${escapeHtml(relic.id)}" data-known="true">
       ${head}
       <p class="codex-desc">${escapeHtml(desc)}</p>
-      <ul class="codex-levels">${levels}</ul>
+      ${periodLine}
+      ${progressLine}
+      <ul class="codex-levels" aria-label="${escapeHtml(t('codex.levelCompare'))}">${levels}</ul>
     </article>`;
 }
 
@@ -338,7 +407,9 @@ export function renderCodex({ relics = RELICS, discovered = [], filters = {} } =
             <section class="codex-group" data-rarity="${group.rarity}">
               <h3 class="codex-group-title">${escapeHtml(group.name)} · ${group.items.length}</h3>
               <div class="codex-grid">
-                ${group.items.map((relic) => renderRelicCard(relic, known.has(relic.id))).join('')}
+                ${group.items
+                  .map((relic) => renderRelicCard(relic, known.has(relic.id), { discovered: known }))
+                  .join('')}
               </div>
             </section>`
         )
