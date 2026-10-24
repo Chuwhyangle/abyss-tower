@@ -2,9 +2,11 @@
 import {
   DEFAULT_NOTIFICATION_PAGE,
   MAX_NOTIFICATION_PAGE,
+  NOTIFICATION_READ_BATCH_SIZE,
   archiveOld,
   list as listNotifications,
   markAllRead,
+  markReadBatch,
   readPrefs,
   writePrefs,
 } from '../db/notifications.mjs';
@@ -40,8 +42,12 @@ export class NotificationRoutes {
     return ctx.json(200, page);
   }
 
-  readAll(ctx) {
-    return ctx.json(200, markAllRead(ctx.token));
+  // 默认只处理一批（响应带 remaining 供客户端续批）；all=true 时循环到未读清零。
+  async readAll(ctx) {
+    const body = await ctx.readJson();
+    if (body?.all === true) return ctx.json(200, markAllRead(ctx.token));
+    const result = markReadBatch(ctx.token, NOTIFICATION_READ_BATCH_SIZE);
+    return ctx.json(200, { ok: true, ...result, unread: result.remaining });
   }
 
   getPrefs(ctx) {

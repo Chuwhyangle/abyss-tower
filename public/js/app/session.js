@@ -11,12 +11,18 @@ export class SessionController {
     this.store = store;
   }
 
+  // 开局/放弃/结算返回的挑战次数统一写回状态，避免各入口各写一份。
+  applyAttempts({ dailyAttemptsLeft = null, weeklyAttemptsLeft = null } = {}) {
+    if (dailyAttemptsLeft != null) this.state.dailyLeft = dailyAttemptsLeft;
+    if (weeklyAttemptsLeft != null) this.state.weeklyLeft = weeklyAttemptsLeft;
+  }
+
   // silent 用于结算后的资料同步：离线时不提示、不写日志。
   async refreshProfile({ silent = false } = {}) {
     try {
       const res = await this.api.session();
       this.state.profile = res.profile;
-      this.state.dailyLeft = res.dailyAttemptsLeft;
+      this.applyAttempts(res);
       this.state.daily = res.daily || null;
     } catch (error) {
       if (silent) return;
@@ -140,7 +146,7 @@ export class SessionController {
       try {
         const res = await this.api.session(name);
         this.state.profile = res.profile;
-        this.state.dailyLeft = res.dailyAttemptsLeft;
+        this.applyAttempts(res);
         this.state.daily = res.daily || null;
         this.showTitle();
       } catch (error) {

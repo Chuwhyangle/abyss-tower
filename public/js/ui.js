@@ -11,6 +11,7 @@ import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
 import { MenuBackground, menuTheme, createMenuCanvas } from './render/menu-background.js';
+import { battleTransition } from './render/transition.js';
 import { loadSettings } from './settings.js';
 
 class UI {
@@ -99,7 +100,11 @@ class UI {
     this.el.board.onclick = () => this.handlers.onBoard?.('normal');
     this.el.help.onclick = () => this.handlers.onHelp?.();
     this.el.quit.onclick = () => this.handlers.onQuit?.();
-    this.el.nextWave.onclick = () => this.handlers.onNextWave?.();
+    // 过场结束才允许开波：点击先同步结束过场，再走既有开波流程。
+    this.el.nextWave.onclick = () => {
+      battleTransition.skip();
+      this.handlers.onNextWave?.();
+    };
     this.el.sound.onclick = () => this.handlers.onSound?.();
     if (this.el.btnSkill) this.el.btnSkill.onclick = () => this.handlers.onSkill?.();
 
@@ -163,6 +168,7 @@ class UI {
     audio.startMusic('menu');
     this.el.title.hidden = false;
     this.el.game.hidden = true;
+    battleTransition.cancel();
     this.hideBossBanner();
     this.playViewEnter(this.el.title);
     this.closeModal();
@@ -243,6 +249,7 @@ class UI {
     audio.startMusic('battle');
     this.el.title.hidden = true;
     this.el.game.hidden = false;
+    battleTransition.play();
     this._bossBannerWave = null;
     this.hideBossBanner();
     this.playViewEnter(this.el.game);

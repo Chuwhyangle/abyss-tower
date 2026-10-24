@@ -268,7 +268,8 @@ async function main() {
       rows: document.querySelectorAll('#lb-list .lb-row').length,
       empty: !!document.querySelector('#lb-list .lb-empty'),
     })`);
-    if (board.modes !== 2) throw new Error(`排行榜模式标签异常：${board.modes}`);
+    // 排行榜已支持普通/无尽/每日/本周四个模式。
+    if (board.modes !== 4) throw new Error(`排行榜模式标签异常：${board.modes}`);
     await browser.screenshot(path.join(OUT_DIR, 'rtd-flow-04-board.png'));
     await browser.evaluate(`document.querySelector('#lb-close').click()`);
     await browser.waitFor(

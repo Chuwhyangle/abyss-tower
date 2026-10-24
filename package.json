@@ -9,6 +9,7 @@
     "dev": "node --watch --no-warnings server/index.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:changed": "node --no-warnings scripts/test-changed.mjs --run",
+    "test:timing": "node --no-warnings scripts/test-timing.mjs",
     "coverage": "node --no-warnings scripts/coverage.mjs",
     "coverage:check": "node --no-warnings scripts/coverage.mjs --check",
     "check:syntax": "find public/js server tests scripts -type f \\( -name '*.js' -o -name '*.mjs' \\) -print0 | xargs -0 -r -n1 node --check",

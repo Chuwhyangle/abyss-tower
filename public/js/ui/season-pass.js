@@ -3,6 +3,13 @@
 const PANEL_ID = 'season-pass-panel';
 const LIST_ID = 'season-pass-list';
 const BUTTON_ID = 'btn-season-pass';
+const BADGE_ID = 'season-pass-badge';
+const CLAIM_ALL_ID = 'season-pass-claim-all';
+const CLAIM_ALL_BUTTON_ID = 'season-pass-claim-all-btn';
+const CLAIM_ALL_NOTE_ID = 'season-pass-claim-all-note';
+
+// 一键领取后只在新渲染的轨道上播放一次动效；减少动效时直接呈现。
+let pendingCelebration = null;
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -41,7 +48,7 @@ function claimButton(item) {
 function card(item) {
   const state = item.claimed ? '已领取' : item.complete ? '可领取' : '进行中';
   return `
-    <article class="achievement-card rarity-common${item.claimed ? ' unlocked' : ''}">
+    <article class="achievement-card rarity-common${item.claimed ? ' unlocked' : ''}" data-milestone="${escapeHtml(item.id)}">
       <h3>
         <span>${escapeHtml(item.name)}</span>
         <span class="achievement-rarity">${escapeHtml(state)}</span>
@@ -80,6 +87,84 @@ function sourcesBlock(data) {
     </article>`;
 }
 
+function prefersReducedMotion() {
+  return globalThis.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches === true;
+}
+
+// 领取动效只作用于本次新领取的卡片；减少动效或环境不支持时直接呈现已领取状态。
+function celebrate(list, ids) {
+  if (!ids?.size) return;
+  const reduced = prefersReducedMotion() || typeof list.animate !== 'function';
+  for (const node of list.querySelectorAll('[data-milestone]')) {
+    if (!ids.has(node.dataset.milestone)) continue;
+    node.classList.add('unlocked');
+    if (reduced) continue;
+    node.animate(
+      [
+        { transform: 'scale(1)', boxShadow: '0 0 0 rgba(255, 210, 120, 0)' },
+        { transform: 'scale(1.03)', boxShadow: '0 0 24px rgba(255, 210, 120, 0.55)' },
+        { transform: 'scale(1)', boxShadow: '0 0 0 rgba(255, 210, 120, 0)' },
+      ],
+      { duration: 640, easing: 'ease-out' }
+    );
+  }
+}
+
+// 一键领取工具条动态挂到列表面板：面板容器已在大厅标记里，不新增样式表与模板。
+function ensureToolbar(panel) {
+  let bar = panel.querySelector(`#${CLAIM_ALL_ID}`);
+  if (bar) return bar;
+  const list = panel.querySelector(`#${LIST_ID}`);
+  if (!list) return null;
+  bar = document.createElement('div');
+  bar.id = CLAIM_ALL_ID;
+  bar.className = 'bounty-actions';
+  bar.innerHTML = `
+    <button id="${CLAIM_ALL_BUTTON_ID}" class="btn small primary" type="button" disabled>一键领取</button>
+    <span id="${CLAIM_ALL_NOTE_ID}" class="achievement-hint" aria-live="polite"></span>`;
+  list.parentNode.insertBefore(bar, list);
+  bar.querySelector(`#${CLAIM_ALL_BUTTON_ID}`).addEventListener('click', () => claimAll(panel));
+  return bar;
+}
+
+function updateClaimAll(data) {
+  const panel = document.getElementById(PANEL_ID);
+  const bar = panel && ensureToolbar(panel);
+  if (!bar) return;
+  const button = bar.querySelector(`#${CLAIM_ALL_BUTTON_ID}`);
+  const note = bar.querySelector(`#${CLAIM_ALL_NOTE_ID}`);
+  const count = Math.max(0, Math.floor(Number(data?.claimableCount) || 0));
+  if (button) {
+    button.disabled = count === 0;
+    button.textContent = count > 0 ? `一键领取（${count}）` : '一键领取';
+  }
+  if (note) note.textContent = count > 0 ? `${count} 个里程碑可领取` : '暂无未领取里程碑';
+}
+
+function ensureBadge(button) {
+  let badge = button.querySelector(`#${BADGE_ID}`);
+  if (badge) return badge;
+  // 复用通知角标的定位与配色，入口按钮需要相对定位上下文。
+  button.classList.add('notification-bell');
+  badge = document.createElement('span');
+  badge.id = BADGE_ID;
+  badge.className = 'notifications-badge';
+  badge.hidden = true;
+  badge.textContent = '0';
+  button.appendChild(badge);
+  return badge;
+}
+
+function applyBadge(count) {
+  const button = document.getElementById(BUTTON_ID);
+  if (!button) return;
+  const badge = ensureBadge(button);
+  const value = Math.max(0, Math.floor(Number(count) || 0));
+  badge.textContent = value > 99 ? '99+' : String(value);
+  badge.hidden = value === 0;
+  button.setAttribute('aria-label', value > 0 ? `通行证（${value} 个可领取）` : '通行证');
+}
+
 function render(panel, data) {
   const list = panel.querySelector(`#${LIST_ID}`);
   const milestones = Array.isArray(data?.milestones) ? data.milestones : [];
@@ -91,6 +176,9 @@ function render(panel, data) {
       : '';
     progress.textContent = `${data?.label || ''} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
   }
+  updateClaimAll(data);
+  applyBadge(data?.claimableCount);
+
   if (!milestones.length) {
     list.innerHTML = `${sourcesBlock(data)}<p class="achievement-hint">暂无里程碑</p>`;
     return;
@@ -99,6 +187,8 @@ function render(panel, data) {
   for (const button of list.querySelectorAll('[data-claim]')) {
     button.addEventListener('click', () => claim(panel, button.dataset.claim));
   }
+  celebrate(list, pendingCelebration);
+  pendingCelebration = null;
 }
 
 async function claim(panel, milestoneId) {
@@ -124,6 +214,34 @@ async function claim(panel, milestoneId) {
   }
 }
 
+// 一键领取：请求发出前先禁用按钮，避免连点重复提交；服务端仍在事务内幂等兜底。
+async function claimAll(panel) {
+  const bar = ensureToolbar(panel);
+  const button = bar?.querySelector(`#${CLAIM_ALL_BUTTON_ID}`);
+  const note = bar?.querySelector(`#${CLAIM_ALL_NOTE_ID}`);
+  if (!button || button.disabled) return;
+
+  button.disabled = true;
+  try {
+    const response = await fetch('/api/season-pass/claim-all', {
+      method: 'POST',
+      credentials: 'same-origin',
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error || '领取失败');
+    const cores = document.getElementById('cores');
+    const balance = Number(data?.wallet?.cores);
+    if (cores && Number.isFinite(balance)) cores.textContent = String(balance);
+    const awarded = Array.isArray(data?.awarded) ? data.awarded : [];
+    pendingCelebration = new Set(awarded.map((item) => item?.id).filter(Boolean));
+    await load(panel);
+  } catch (error) {
+    pendingCelebration = null;
+    if (button) button.disabled = false;
+    if (note) note.textContent = error.message || '领取失败';
+  }
+}
+
 async function load(panel) {
   const list = panel.querySelector(`#${LIST_ID}`);
   list.innerHTML = '<p class="achievement-hint">加载中…</p>';
@@ -141,11 +259,26 @@ async function load(panel) {
   }
 }
 
+// 角标在进入大厅时就刷新，未打开面板也能看到可领取数量；失败不阻塞大厅。
+async function refreshBadge() {
+  try {
+    const response = await fetch('/api/season-pass', { credentials: 'same-origin' });
+    if (!response.ok) return;
+    const data = await response.json();
+    applyBadge(data?.claimableCount);
+    updateClaimAll(data);
+  } catch {
+    /* 角标刷新失败不提示 */
+  }
+}
+
 function install() {
   const button = document.getElementById(BUTTON_ID);
   const panel = document.getElementById(PANEL_ID);
   if (!button || !panel) return;
   const close = panel.querySelector('#btn-season-pass-close');
+  ensureBadge(button);
+  ensureToolbar(panel);
 
   const setOpen = (open) => {
     panel.hidden = !open;
@@ -154,6 +287,8 @@ function install() {
 
   button.addEventListener('click', () => setOpen(panel.hidden));
   close?.addEventListener('click', () => setOpen(false));
+
+  refreshBadge();
 }
 
 if (document.readyState === 'loading') {

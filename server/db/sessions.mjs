@@ -52,6 +52,39 @@ export function touchSession(session) {
   return nextExpires;
 }
 
+// 会话列表只暴露展示所需字段；IP 由调用方传入哈希值，原始 IP 从不落库。
+export function listAccountSessions(accountId, currentTokenHash = null) {
+  const rows = db
+    .prepare(
+      `SELECT id, token_hash, created_at, last_used_at, expires_at, ip_hash, user_agent
+         FROM account_sessions
+        WHERE account_id = ? AND revoked_at IS NULL AND expires_at > ?
+        ORDER BY last_used_at DESC, created_at DESC`
+    )
+    .all(accountId, Date.now());
+  return rows.map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    lastUsedAt: row.last_used_at,
+    expiresAt: row.expires_at,
+    ipHash: row.ip_hash,
+    userAgent: row.user_agent,
+    current: Boolean(currentTokenHash) && row.token_hash === currentTokenHash,
+  }));
+}
+
+export function revokeOthers(accountId, currentTokenHash) {
+  if (!currentTokenHash) return 0;
+  const result = db
+    .prepare(
+      `UPDATE account_sessions
+          SET revoked_at = ?
+        WHERE account_id = ? AND revoked_at IS NULL AND token_hash <> ?`
+    )
+    .run(Date.now(), accountId, String(currentTokenHash));
+  return Number(result.changes || 0);
+}
+
 export function revokeSession(sessionId) {
   if (!sessionId) return;
   db.prepare(

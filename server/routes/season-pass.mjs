@@ -1,5 +1,9 @@
 // 赛季通行证接口：读取当前赛季积分轨道，领取已完成里程碑。
-import { claimSeasonPassMilestone, seasonPassSummary } from '../db/season_pass.mjs';
+import {
+  claimAllSeasonPassMilestones,
+  claimSeasonPassMilestone,
+  seasonPassSummary,
+} from '../db/season_pass.mjs';
 
 const FAILURE = {
   UNKNOWN_MILESTONE: [404, '里程碑不存在', 'UNKNOWN_MILESTONE'],
@@ -11,6 +15,7 @@ export class SeasonPassRoutes {
   register(router) {
     router.add('GET', '/api/season-pass', (ctx) => this.list(ctx));
     router.add('POST', '/api/season-pass/claim', (ctx) => this.claim(ctx));
+    router.add('POST', '/api/season-pass/claim-all', (ctx) => this.claimAll(ctx));
   }
 
   list(ctx) {
@@ -23,6 +28,15 @@ export class SeasonPassRoutes {
     const result = claimSeasonPassMilestone(ctx.token, milestoneId);
     if (!result.ok) {
       const [status, message, code] = FAILURE[result.code] || [400, '无法领取该里程碑', result.code];
+      return ctx.fail(status, message, code);
+    }
+    return ctx.json(200, result);
+  }
+
+  claimAll(ctx) {
+    const result = claimAllSeasonPassMilestones(ctx.token);
+    if (!result.ok) {
+      const [status, message, code] = FAILURE[result.code] || [400, '无法领取里程碑', result.code];
       return ctx.fail(status, message, code);
     }
     return ctx.json(200, result);

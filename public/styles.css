@@ -443,7 +443,8 @@ button {
 .diff-card:focus-visible,
 .map-card:focus-visible,
 .text-input:focus-visible,
-.setting-field select:focus-visible {
+.setting-control select:focus-visible,
+.setting-reset:focus-visible {
   outline: 2px solid var(--focus-ring);
   outline-offset: 2px;
 }
@@ -1648,52 +1649,150 @@ kbd {
   font-size: 10.5px;
 }
 
-/* 画质设置 */
+/* 设置页：分区（画面/音频/辅助/账号），每项带说明与重置 */
+
+.settings-sections {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.settings-section {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.settings-section > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--text);
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
+}
+
+.settings-section > summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-section > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+.settings-section-title {
+  font-weight: 600;
+}
+
+.settings-section-count {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
 
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 16px;
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 0 12px 8px;
 }
 
-.setting-field {
+.setting-row {
   display: grid;
-  gap: 5px;
-  color: var(--muted);
-  font-size: 11.5px;
-  letter-spacing: 0.04em;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 9px 0;
+  border-top: 1px solid rgba(120, 160, 175, 0.12);
 }
 
-.setting-field select {
-  padding: 9px 10px;
+.setting-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.setting-label {
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.setting-desc {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.setting-control {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.setting-control select {
+  padding: 7px 9px;
   border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #0a1218;
+  border-radius: var(--radius-sm);
+  background: var(--surface-deep);
   color: var(--text);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 12px;
   outline: none;
 }
 
-.setting-field select:focus {
+.setting-control select:focus {
   border-color: rgba(255, 211, 107, 0.5);
 }
 
-.setting-check {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid rgba(120, 160, 175, 0.16);
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.02);
-  color: #c6d5df;
-  font-size: 12.5px;
+.setting-control input[type="range"] {
+  width: 132px;
+  accent-color: var(--gold);
+}
+
+.setting-range-value {
+  min-width: 30px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-align: right;
 }
 
 .setting-check input {
   accent-color: var(--gold);
+}
+
+.setting-static {
+  max-width: 240px;
+  color: var(--muted);
+  font-size: 11.5px;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.setting-reset {
+  padding: 4px 7px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.setting-reset:hover {
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.setting-reset:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 
 .settings-presets {
@@ -3226,7 +3325,7 @@ body.is-touch .rotate-hint {
 :root[data-contrast="high"] .relic-card,
 :root[data-contrast="high"] .diff-card,
 :root[data-contrast="high"] .map-card,
-:root[data-contrast="high"] .setting-field select,
+:root[data-contrast="high"] .setting-control select,
 :root[data-contrast="high"] .text-input {
   border-color: var(--line);
   border-width: 2px;
@@ -3313,6 +3412,53 @@ body.is-touch .rotate-hint {
   }
 }
 
+/* ============ 大厅→战斗过场 ============ */
+/* 程序化遮罩：淡出大厅 → 地图轮廓展开 → 揭开战场；不加载素材，也不拦截输入。 */
+.battle-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 420;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface-deep) 94%, transparent);
+  opacity: 0;
+  transition: opacity var(--duration-slow) var(--ease-standard);
+}
+
+.battle-transition[data-phase="fade"],
+.battle-transition[data-phase="expand"] {
+  opacity: 1;
+}
+
+.battle-transition[data-phase="reveal"] {
+  opacity: 0;
+  transition-duration: var(--duration-base);
+}
+
+.battle-transition-map {
+  width: min(78vmin, 620px);
+  aspect-ratio: 11 / 6;
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: var(--radius-md);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--gold) 22%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--gold) 22%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--gold) 12%, transparent);
+  opacity: 0.25;
+  transform: scale(0.55);
+  transition:
+    transform 360ms var(--ease-standard),
+    opacity var(--duration-slow) var(--ease-standard);
+}
+
+.battle-transition[data-phase="expand"] .battle-transition-map,
+.battle-transition[data-phase="reveal"] .battle-transition-map {
+  opacity: 0.85;
+  transform: scale(1);
+}
+
 /* ============ 无障碍：系统要求减少动效 ============ */
 /* 尊重 prefers-reduced-motion：关闭位移动画与长过渡，保留即时状态变化。 */
 @media (prefers-reduced-motion: reduce) {
@@ -3348,5 +3494,11 @@ body.is-touch .rotate-hint {
   .result-unlocks,
   .result-record {
     animation: none !important;
+  }
+
+  /* 过场：直接显示战场，遮罩不播放淡出与展开。 */
+  .battle-transition {
+    animation: none !important;
+    transition: none !important;
   }
 }

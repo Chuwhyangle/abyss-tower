@@ -8,6 +8,8 @@ export const NOTIFICATION_LIMIT = 20;
 export const DEFAULT_NOTIFICATION_PAGE = 20;
 export const MAX_NOTIFICATION_PAGE = 50;
 export const NOTIFICATION_ARCHIVE_DAYS = 90;
+// 批量已读的单批上限：路由与客户端都引用这里，避免两处各自定义。
+export const NOTIFICATION_READ_BATCH_SIZE = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const ARCHIVE_NAMESPACE = 'notifications';
 const ARCHIVE_KEY = 'archive';
@@ -340,13 +342,38 @@ export function archiveOld(accountId, days = NOTIFICATION_ARCHIVE_DAYS, now = Da
   });
 }
 
-// 全部标记已读：只影响本人未读记录，返回实际更新条数。
-export function markAllRead(accountId, now = Date.now()) {
+function normalizeBatchSize(limit) {
+  const size = Math.floor(Number(limit));
+  return Number.isFinite(size) && size > 0 ? size : NOTIFICATION_READ_BATCH_SIZE;
+}
+
+// 单批已读：只挑本人最旧的未读记录更新，返回本批条数与剩余未读数。
+// 批次边界用 read_at IS NULL 收窄，重复或并发调用都不会重复计数。
+export function markReadBatch(accountId, limit = NOTIFICATION_READ_BATCH_SIZE, now = Date.now()) {
+  if (!accountId) return { updated: 0, remaining: 0 };
   const result = db
     .prepare(
       `UPDATE account_notifications SET read_at = ?
-        WHERE account_id = ? AND read_at IS NULL`
+        WHERE id IN (
+          SELECT id FROM account_notifications
+           WHERE account_id = ? AND read_at IS NULL
+           ORDER BY created_at ASC, id ASC
+           LIMIT ?
+        )`
     )
-    .run(now, accountId);
-  return { ok: true, updated: Number(result.changes) || 0, unread: 0 };
+    .run(now, accountId, normalizeBatchSize(limit));
+  return { updated: Number(result.changes) || 0, remaining: countUnread(accountId) };
+}
+
+// 全部标记已读：按批循环直到未读清零，返回累计更新条数（保留旧调用方的响应形状）。
+export function markAllRead(accountId, now = Date.now()) {
+  let updated = 0;
+  let state = { updated: 0, remaining: 0 };
+  // 上限防御：理论上每轮至少更新一条，异常数据下也不会无限循环。
+  for (let round = 0; round < 100_000; round++) {
+    state = markReadBatch(accountId, NOTIFICATION_READ_BATCH_SIZE, now);
+    updated += state.updated;
+    if (state.remaining === 0 || state.updated === 0) break;
+  }
+  return { ok: true, updated, unread: state.remaining, remaining: state.remaining };
 }

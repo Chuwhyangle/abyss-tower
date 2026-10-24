@@ -1,6 +1,11 @@
 // 远征接口：只做身份读取、参数解析、调用领域服务与响应序列化。
 import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-limit.mjs';
-import { RunError, RunService } from '../services/run-service.mjs';
+import {
+  RunError,
+  RunService,
+  dailyAttemptsLeft,
+  weeklyAttemptsLeft,
+} from '../services/run-service.mjs';
 
 const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|relics|relic|events|event|finish|abandon))?$/;
 
@@ -51,6 +56,8 @@ export class RunRoutes {
     const run = this.service.ownRun(runId, ctx.token);
     if (!run) return ctx.fail(404, '远征不存在');
 
+    // 放弃是幂等的：已结束的远征再次放弃仍返回 200，且不会把已结算状态改回 abandoned。
+    if (action === 'abandon' && ctx.method === 'POST') return this.abandon(ctx, run);
     if (action === 'info' && ctx.method === 'GET') {
       return ctx.json(200, {
         run: this.service.serialize(run, ctx.profile, { withVictory: true }),
@@ -67,7 +74,6 @@ export class RunRoutes {
     if (action === 'events') return this.events(ctx, run);
     if (action === 'event') return this.event(ctx, run);
     if (action === 'finish') return this.finish(ctx, run);
-    if (action === 'abandon') return this.abandon(ctx, run);
     return false;
   }
 
@@ -122,8 +128,21 @@ export class RunRoutes {
     );
   }
 
+  // 放弃接口：返回本局模式对应的剩余次数，供界面在二次确认后与标题页保持一致。
+  // 只有进行中的远征才改写状态；重复放弃（abandoned）或已结算（finished）保持原状态。
   abandon(ctx, run) {
-    return this.respond(ctx, () => ctx.json(200, this.service.abandon(run)));
+    return this.respond(ctx, () => {
+      const active = run.status === 'active';
+      if (active) this.service.abandon(run);
+      return ctx.json(200, {
+        ok: true,
+        status: active ? 'abandoned' : run.status,
+        alreadyAbandoned: !active,
+        dailyAttemptsLeft: run.mode === 'daily' ? dailyAttemptsLeft(ctx.token) : null,
+        weeklyAttemptsLeft:
+          run.mode === 'weekly' ? weeklyAttemptsLeft(ctx.token, run.day) : null,
+      });
+    });
   }
 
   respond(ctx, action, failureAction = null) {

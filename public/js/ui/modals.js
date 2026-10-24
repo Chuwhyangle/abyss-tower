@@ -19,6 +19,45 @@ export function supplyAmount(offer) {
   return Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
 }
 
+// 放弃确认文案：按模式说明代价，并给出该模式剩余次数（纯函数）。
+export function abandonConfirmCopy(mode, { dailyLeft = null, weeklyLeft = null } = {}) {
+  if (mode === 'daily') {
+    const left = Number.isFinite(dailyLeft) ? `今日剩余 ${dailyLeft} 次。` : '';
+    return {
+      title: '放弃每日挑战？',
+      text: `放弃后本局不会结算，进度将丢失。${left}每日次数只统计已完成的挑战。`,
+      confirmText: '放弃本局',
+    };
+  }
+  if (mode === 'weekly') {
+    const left = Number.isFinite(weeklyLeft) ? `本周剩余 ${weeklyLeft} 次。` : '';
+    return {
+      title: '放弃本周挑战？',
+      text: `放弃后本局不会结算，进度将丢失。${left}本周次数只统计已完成的挑战。`,
+      confirmText: '放弃本局',
+    };
+  }
+  if (mode === 'endless') {
+    return {
+      title: '放弃无尽远征？',
+      text: '放弃后本局不会结算，当前波次进度将丢失。',
+      confirmText: '放弃本局',
+    };
+  }
+  if (mode === 'mutated') {
+    return {
+      title: '放弃变异挑战？',
+      text: '放弃后本局不会结算，当前波次进度将丢失。',
+      confirmText: '放弃本局',
+    };
+  }
+  return {
+    title: '放弃远征？',
+    text: '放弃后本局不会结算，当前波次进度将丢失。',
+    confirmText: '放弃本局',
+  };
+}
+
 export const modalMethods = {
   // ---------- 弹窗 ----------
 
