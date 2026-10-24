@@ -41,6 +41,10 @@ export const RELICS = [
   { id: 'desperado', name: '亡命之徒', rarity: 'common', set: 'reserve', desc: '基地生命低于 40% 时全体伤害 +10%', mods: { lowHpDmg: 0.1 } },
   { id: 'goldencoffer', name: '黄金宝库', rarity: 'common', set: 'reserve', desc: '金币 ≥ 400 时全体伤害 +7%', mods: { richDmg: 0.07 } },
   { id: 'openfield', name: '旷野火力', rarity: 'common', set: 'reserve', desc: '可建造空位 ≥ 8 时全体伤害 +8%', mods: { emptySlotDmg: 0.08 } },
+  { id: 'harvestsickle', name: '收割镰刀', rarity: 'common', desc: '每 2 波结束时获得 6 金币', mods: { waveGold2: 6 } },
+  { id: 'emberclock', name: '余烬节拍', rarity: 'common', desc: '每 3 波结束时恢复 1 点基地生命', mods: { waveHeal3: 1 } },
+  { id: 'frostlattice', name: '霜晶格栅', rarity: 'common', set: 'frost', desc: '霜塔伤害 +12%，减速强度 +3%', mods: { dmg: { frost: 0.12 }, slow: 0.03 } },
+  { id: 'gambitseal', name: '赌誓封印', rarity: 'common', set: 'gambit', desc: '基地生命低于 40% 时全体伤害 +9%', mods: { lowHpDmg: 0.09 } },
 
   { id: 'powder', name: '火药桶', rarity: 'rare', desc: '炮台伤害 +20%，溅射范围 +35%', mods: { dmg: { cannon: 0.2 }, splash: 0.35 } },
   { id: 'frostheart', name: '极寒之心', rarity: 'rare', set: 'frost', desc: '减速效果 +15%，持续时间 +30%', mods: { slow: 0.15, slowDur: 0.3 } },
@@ -64,6 +68,10 @@ export const RELICS = [
   { id: 'bloodybanner', name: '血色战旗', rarity: 'rare', desc: '基地生命低于 40% 时全体伤害 +17%', mods: { lowHpDmg: 0.17 } },
   { id: 'lightsentry', name: '轻装哨戒', rarity: 'rare', desc: '可建造空位 ≥ 8 时全体伤害 +14%', mods: { emptySlotDmg: 0.14 } },
   { id: 'bloodmoney', name: '血色财富', rarity: 'rare', desc: '基地生命低于 40% 时全体伤害 +10%，金币 ≥ 400 时全体伤害 +10%', mods: { lowHpDmg: 0.1, richDmg: 0.1 } },
+  { id: 'tideglass', name: '潮汐沙漏', rarity: 'rare', desc: '每 3 波结束时获得 14 金币', mods: { waveGold3: 14 } },
+  { id: 'metronome', name: '战律节拍', rarity: 'rare', desc: '每 4 波结束时恢复 2 点基地生命', mods: { waveHeal4: 2 } },
+  { id: 'starcycle', name: '星轨轮转', rarity: 'rare', set: 'synergy', desc: '每 5 波结束时恢复 3 点基地生命', mods: { waveHeal5: 3 } },
+  { id: 'moonlitvault', name: '月影金库', rarity: 'rare', desc: '每 5 波结束时获得 18 金币', mods: { waveGold5: 18 } },
 
   { id: 'warlord', name: '战争领主', rarity: 'epic', desc: '所有防御塔伤害 +18%', mods: { dmgAll: 0.18 } },
   { id: 'warhorn', name: '战争号角', rarity: 'epic', desc: '所有防御塔攻击速度 +25%', mods: { fireRate: 0.25 } },
@@ -78,6 +86,8 @@ export const RELICS = [
   { id: 'starforge', name: '星铸炉心', rarity: 'epic', set: 'synergy', desc: '全体伤害 +8%，毒伤 +12%，减速强度 +3%', mods: { dmgAll: 0.08, dot: 0.12, slow: 0.03 } },
   { id: 'midasthrone', name: '迈达斯王座', rarity: 'epic', set: 'reserve', desc: '金币 ≥ 400 时全体伤害 +22%', mods: { richDmg: 0.22 } },
   { id: 'palaceguard', name: '空庭守卫', rarity: 'epic', desc: '可建造空位 ≥ 8 时全体伤害 +24%', mods: { emptySlotDmg: 0.24 } },
+  { id: 'eternalhourglass', name: '永恒沙漏', rarity: 'epic', desc: '每 5 波结束时获得 35 金币', mods: { waveGold5: 35 } },
+  { id: 'stormpulse', name: '雷暴脉冲', rarity: 'epic', desc: '所有防御塔伤害 +10%，攻击速度 +10%', mods: { dmgAll: 0.1, fireRate: 0.1 } },
 ];
 
 export const RELIC_BY_ID = Object.fromEntries(RELICS.map((r) => [r.id, r]));

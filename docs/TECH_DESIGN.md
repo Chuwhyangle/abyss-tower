@@ -668,7 +668,8 @@ account_achievements(
 - **落库时序**：`POST /api/runs/:id/finish` 在同一结算流程内先更新 `player_stats`，再调用 `unlockAchievements`，保证成就看到的是「本局已计入」的统计。
 - **幂等**：主键 + `INSERT OR IGNORE`，重复结算不会重复解锁或重复发奖。
 - **进度模型**：带 `target` 的成就额外提供 `progress(ctx)`，判定统一为 `progress(ctx) >= target`；`achievementProgress()` 返回 `{current, target}` 并封顶到 target。摘要接口用 `careerStats()` + 每日挑战统计重建只读上下文（`run` 为空），已解锁成就的进度直接显示为完成。
-- **接口**：`GET /api/achievements` 返回 `{total, unlockedCount, groups[], achievements[]}`；每项含 `id/title/desc/condition/group/groupName/rarity/rarityName/hidden/unlocked/unlockedAt/progress`。未解锁的隐藏成就只返回 `title: "???"`、`desc: ""`、`condition: "???"`、`progress: null`，真实描述不下发；结算响应可附带本次新增成就用于即时提示。
+- **接口**：`GET /api/achievements` 返回 `{total, unlockedCount, groups[], achievements[], seasonal, seasonalHistory[]}`；每项含 `id/title/desc/condition/group/groupName/rarity/rarityName/hidden/unlocked/unlockedAt/progress`。未解锁的隐藏成就只返回 `title: "???"`、`desc: ""`、`condition: "???"`、`progress: null`，真实描述不下发；结算响应可附带本次新增成就用于即时提示。`seasonal` 为 `{season, endsAt, daysLeft, ended, total, unlockedCount, achievements[]}`：赛季成就条目与普通成就同构（`group: "season"`），`endsAt/daysLeft/ended` 由服务端按赛季月末边界计算，客户端据此显示剩余天数与赛季结束状态。
+- **通知**：解锁成就时写入通知中心（`kind: "achievement"`）；赛季成就条目附带 `seasonal: true` / `season`，客户端据此使用「赛季成就」样式。通知写入遵循用户偏好，关闭「成就通知」后只停止新增未读，不影响成就解锁本身。
 - **扩展规则**：新增成就只加定义与（必要时）判定上下文字段，不改表；累计/组合类成就必须基于服务端统计判定，禁止客户端上报解锁。
 - **验收**：`node --test tests/achievements.test.mjs tests/achievements-depth.test.mjs`（AC-102）。
 

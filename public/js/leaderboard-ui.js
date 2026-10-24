@@ -110,6 +110,20 @@ const STYLE = `
     border-radius: 999px;
     padding: 1px 6px;
   }
+  .lb-name .lb-suspect {
+    font-style: normal;
+    font-size: 10px;
+    color: #ffb36b;
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    padding: 1px 6px;
+    cursor: help;
+  }
+  .lb-suspect-note {
+    margin: 8px 4px 0;
+    font-size: 12px;
+    color: var(--muted, #8fa3b2);
+  }
   .lb-diff {
     font-size: 10px;
     letter-spacing: 0.08em;
@@ -196,6 +210,9 @@ function renderShell(panel) {
       <div class="lb-diffs">${difficultyButtons}</div>
     </div>
     <div id="lb-list" class="lb-list"><p class="lb-hint">正在读取排行榜…</p></div>
+    <p id="lb-suspect-note" class="lb-suspect-note" hidden>
+      标有「待复核」的成绩数据存在异常，正在复核；复核期间照常参与排名。
+    </p>
     <div class="lb-foot">
       <button id="lb-prev" class="btn small ghost" disabled>上一页</button>
       <span id="lb-page" class="lb-page"></span>
@@ -269,18 +286,28 @@ function renderRows(panel, data) {
     summary.textContent = '你还没有成绩';
   }
 
+  const note = panel.querySelector('#lb-suspect-note');
+  if (note) note.hidden = !entries.some((entry) => entry.suspect);
+
   if (!entries.length) {
     list.innerHTML = '<p class="lb-empty">还没有记录，去拿下第一名。</p>';
   } else {
     list.innerHTML = entries
       .map((entry) => {
         const rank = Number(entry.rank) || 0;
+        // 徽标只对服务端标记为可疑的成绩显示，说明放在 title 里供悬停查看。
+        const suspectBadge = entry.suspect
+          ? `<em class="lb-suspect" title="${escapeHtml(
+              entry.suspectReason || '本局数据存在异常，正在复核'
+            )}">待复核</em>`
+          : '';
         return `
           <div class="lb-row ${entry.isMe ? 'me' : ''}">
             <span class="lb-rank ${rank > 0 && rank <= 3 ? 'top' : ''}">${rank || '—'}</span>
             <span class="lb-name">
               ${escapeHtml(entry.name)}
               ${entry.title ? `<span class="player-title-badge">${escapeHtml(entry.title)}</span>` : ''}
+              ${suspectBadge}
               ${entry.victory ? `<em class="win-mark" title="已通关">${iconSvg('victory')}</em>` : ''}
               ${entry.isMe ? '<em class="me-mark">我</em>' : ''}
               <span class="lb-diff" style="color:${difficultyColor(entry.difficulty)}">${escapeHtml(
@@ -313,6 +340,8 @@ async function load(panel) {
   STATE.loading = true;
   const list = panel.querySelector('#lb-list');
   list.innerHTML = '<p class="lb-hint">正在读取排行榜…</p>';
+  const note = panel.querySelector('#lb-suspect-note');
+  if (note) note.hidden = true;
   setPagingBusy(panel, true);
   const params = new URLSearchParams({
     mode: STATE.mode,

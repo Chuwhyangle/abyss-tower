@@ -90,6 +90,7 @@ const PURE_EXPORTS = {
   'shop.js': ['orderedShopTowers', 'shopCardAffordable', 'clampRelicLevel', 'relicChipView'],
   'modals.js': ['relicDraftLevels', 'supplyAmount', 'abandonConfirmCopy'],
   'result.js': ['formatResultScore', 'resultBestWave'],
+  'panels.js': ['seasonPanelView'],
 };
 
 const SHARED_EXPORTS = [

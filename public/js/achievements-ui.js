@@ -1,6 +1,7 @@
 // 大厅成就面板：只读取服务端判定的结果，不在客户端做任何解锁判断。
 // 视觉样式统一放在 public/styles.css，使用 V21-007 的设计令牌。
 import { t, tOr } from './i18n.js';
+import { seasonPanelView } from './ui/panels.js';
 import { iconSvg } from './render/canvas-shapes.js';
 
 function progressBar(item) {
@@ -80,8 +81,18 @@ function groupSections(data, items) {
     .join('');
 }
 
+// 本赛季状态文案：结束与进行中必须是两种可区分的读法，都带中英双语。
+function seasonStatusText(seasonal) {
+  const view = seasonPanelView(seasonal);
+  if (view.endsAt == null) return '';
+  if (view.ended) return tOr('achievements.seasonEnded', '本赛季已结束 / Season ended');
+  return tOr('achievements.seasonDaysLeft', '剩余 {days} 天 / {days} days left', {
+    days: view.daysLeft,
+  });
+}
+
 // 赛季区块与普通分组共用卡片/进度条结构，只是标题由服务端赛季 id 派生。
-function seasonSection(title, items, { history = false } = {}) {
+function seasonSection(title, items, { history = false, meta = '' } = {}) {
   if (!items.length) return '';
   const unlocked = items.filter((item) => item.unlocked).length;
   const total = items.length;
@@ -90,6 +101,7 @@ function seasonSection(title, items, { history = false } = {}) {
     <section class="achievement-group${history ? ' achievement-group-history' : ''}" data-group="${history ? 'season-history' : 'season'}">
       <div class="achievement-group-head">
         <h3 class="achievement-group-title">${escapeHtml(title)}<span class="achievement-group-count">${unlocked} / ${total}</span></h3>
+        ${meta ? `<p class="achievement-hint achievement-season-meta">${escapeHtml(meta)}</p>` : ''}
         <div class="achievement-group-meter" role="progressbar" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${unlocked}">
           <span style="width:${pct}%"></span>
         </div>
@@ -104,7 +116,8 @@ function seasonalSections(data) {
   const history = Array.isArray(data?.seasonalHistory) ? data.seasonalHistory : [];
   const currentBlock = seasonSection(
     tOr('achievements.seasonCurrent', '本赛季 · {season}', { season: seasonal?.season || '' }),
-    current
+    current,
+    { meta: seasonStatusText(seasonal) }
   );
   const historyBlock = history
     .map((entry) =>

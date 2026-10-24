@@ -14,6 +14,7 @@ import {
 } from './shared/data.js';
 import {
   applyEffect,
+  applyPeriodicWaveEffects,
   clampMods,
   conditionSnapshot,
   createMods,
@@ -374,6 +375,8 @@ export class Simulation {
     const reward = Math.round(this.waveDef.reward * goldMul);
     const interest = this.mods.interest ? Math.floor(this.gold * this.mods.interest) : 0;
     this.gold += reward + interest;
+    // 回合型遗物在波末按注册表周期结算；纯状态读写，不消耗随机数。
+    const periodic = applyPeriodicWaveEffects(this, this.wave);
     const cleared = this.wave;
     this.waveDef = null;
     this.clearedWave = cleared;
@@ -393,7 +396,7 @@ export class Simulation {
     this.towerOverdrive = null;
     for (const tower of this.towers) this.clearTowerOverdrive(tower);
     // 快照由调用方在服务端确认清波后写入，避免清波未确认时重复领奖。
-    this.opts.onWaveClear?.(cleared, { reward, interest });
+    this.opts.onWaveClear?.(cleared, { reward, interest, periodic });
   }
 
   gameOver(victory) {

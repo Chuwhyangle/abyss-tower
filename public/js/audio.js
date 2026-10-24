@@ -6,6 +6,13 @@ import {
   normalizeVolume,
   saveSettings,
 } from './settings.js';
+import {
+  AMBIENCE_BIOME_IDS,
+  AMBIENCE_KIND_BY_BIOME,
+  AMBIENCE_KIND_BY_WEATHER,
+  AMBIENCE_WEATHER_IDS,
+  resolveAmbience,
+} from './shared/ambience.js';
 
 // 混音总线：master ← sfx / music。各总线增益由 0–100 的音量设置换算。
 const MASTER_VOLUME = 0.45;
@@ -33,39 +40,64 @@ export const AMBIENCE_KINDS = Object.freeze({
   water: Object.freeze({ id: 'water', name: '水滴', noise: true, filter: 900, bed: 0.12, drip: true }),
 });
 
-// 六个群系全部有映射；kind 决定合成方式，freqs 是底层振荡器的基频。
-export const AMBIENCE_PROFILES = Object.freeze({
-  canyon: Object.freeze({ kind: 'wind', freqs: [55, 82.5], level: 1 }),
-  twin: Object.freeze({ kind: 'water', freqs: [196, 293.66], level: 0.9 }),
-  triple: Object.freeze({ kind: 'drone', freqs: [41.2, 61.74], level: 1 }),
-  ring: Object.freeze({ kind: 'drone', freqs: [49, 73.42], level: 0.95 }),
-  cross: Object.freeze({ kind: 'wind', freqs: [46.25, 69.3], level: 0.9 }),
-  switchback: Object.freeze({ kind: 'wind', freqs: [51.91, 77.78], level: 1.05 }),
+// 六个群系全部有映射；音色来自 shared/ambience.js 的氛围预设（单一事实来源），
+// 这里只保留程序化合成的基频与电平。
+const AMBIENCE_FREQS = Object.freeze({
+  canyon: Object.freeze([55, 82.5]),
+  twin: Object.freeze([196, 293.66]),
+  triple: Object.freeze([41.2, 61.74]),
+  ring: Object.freeze([49, 73.42]),
+  cross: Object.freeze([46.25, 69.3]),
+  switchback: Object.freeze([51.91, 77.78]),
+});
+const AMBIENCE_LEVELS = Object.freeze({
+  canyon: 1,
+  twin: 0.9,
+  triple: 1,
+  ring: 0.95,
+  cross: 0.9,
+  switchback: 1.05,
 });
 
-// 天气覆盖音色：与 render/background-renderer.js 的 WEATHER_IDS 一一对应。
-export const AMBIENCE_WEATHER = Object.freeze({
-  rain: Object.freeze({ kind: 'water', levelMul: 1.1 }),
-  fog: Object.freeze({ kind: 'wind', levelMul: 0.85 }),
-  meteor: Object.freeze({ kind: 'drone', levelMul: 1.15 }),
-});
+export const AMBIENCE_PROFILES = Object.freeze(
+  Object.fromEntries(
+    AMBIENCE_BIOME_IDS.map((biome) => [
+      biome,
+      Object.freeze({
+        kind: AMBIENCE_KIND_BY_BIOME[biome],
+        freqs: AMBIENCE_FREQS[biome],
+        level: AMBIENCE_LEVELS[biome],
+      }),
+    ])
+  )
+);
 
-// 纯函数：群系决定基础音色，天气覆盖音色与电平。未知群系回退 canyon。
+// 天气覆盖音色：kind 来自共享预设，levelMul 是音频层的混音系数。
+const AMBIENCE_WEATHER_LEVELS = Object.freeze({ rain: 1.1, fog: 0.85, meteor: 1.15 });
+export const AMBIENCE_WEATHER = Object.freeze(
+  Object.fromEntries(
+    AMBIENCE_WEATHER_IDS.map((weather) => [
+      weather,
+      Object.freeze({
+        kind: AMBIENCE_KIND_BY_WEATHER[weather],
+        levelMul: AMBIENCE_WEATHER_LEVELS[weather],
+      }),
+    ])
+  )
+);
+
+// 纯函数：群系决定基础音色，天气覆盖音色与电平。未知输入由共享预设回退。
 export function ambienceFor(mapMeta, weather = null) {
-  const archetype = mapMeta?.archetype;
-  const biome = Object.prototype.hasOwnProperty.call(AMBIENCE_PROFILES, archetype)
-    ? archetype
-    : 'canyon';
-  const base = AMBIENCE_PROFILES[biome];
-  const overlay = AMBIENCE_WEATHER[weather] || null;
-  const kind = overlay?.kind || base.kind;
+  const preset = resolveAmbience(mapMeta?.archetype, weather, 'full');
+  const base = AMBIENCE_PROFILES[preset.biome];
+  const overlay = preset.weather ? AMBIENCE_WEATHER[preset.weather] : null;
   return Object.freeze({
-    biome,
-    weather: overlay ? weather : null,
-    kind,
+    biome: preset.biome,
+    weather: overlay ? preset.weather : null,
+    kind: preset.ambienceKind,
     freqs: base.freqs,
     level: AMBIENCE_VOLUME * base.level * (overlay?.levelMul ?? 1),
-    key: `${biome}:${kind}:${overlay ? weather : 'none'}`,
+    key: preset.ambienceId,
   });
 }
 

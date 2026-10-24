@@ -12,6 +12,32 @@ import { t } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { fmt, diffName, enemyName, escapeHtml } from './shared.js';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+const SEASON_KEY_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+// 成就页「本赛季」分组的时间轴：优先用服务端 endsAt，缺省时按赛季 id 推导月末边界（纯函数）。
+// daysLeft 向上取整 —— 赛季最后一天仍显示「剩 1 天」，到 endsAt 才切换为已结束。
+export function seasonPanelView(seasonal, now = Date.now()) {
+  const season = typeof seasonal?.season === 'string' ? seasonal.season : '';
+  const match = SEASON_KEY_RE.exec(season);
+  const supplied = Number(seasonal?.endsAt);
+  const endsAt =
+    Number.isFinite(supplied) && supplied > 0
+      ? supplied
+      : match
+        ? new Date(Number(match[1]), Number(match[2]), 1).getTime()
+        : null;
+  if (endsAt == null) return { season: null, endsAt: null, daysLeft: null, ended: true };
+  const at = Number(now);
+  const ended = !Number.isFinite(at) || at >= endsAt;
+  return {
+    season,
+    endsAt,
+    ended,
+    daysLeft: ended ? 0 : Math.max(1, Math.ceil((endsAt - at) / DAY_MS)),
+  };
+}
+
 export const panelMethods = {
   showLeaderboard({ mode = 'normal', entries = [], day = '' }) {
     const rows = entries.length

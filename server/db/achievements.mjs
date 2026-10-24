@@ -1,5 +1,5 @@
 // 成就持久化：读取已解锁状态，按结算上下文幂等写入新解锁。
-import { db } from './index.mjs';
+import { db, transaction } from './index.mjs';
 import { careerStats } from './stats.mjs';
 import { seasonBounds, seasonOf } from './leaderboard.mjs';
 import { readSelectedSkill, readSkillLevels, skillUnlocked } from './skills.mjs';
@@ -19,10 +19,18 @@ import {
   seasonalAchievementsFor,
 } from '../../public/js/shared/achievements.js';
 import { SKILL_ORDER } from '../../public/js/shared/data.js';
+import {
+  SEASON_POINT_LEDGER_NAMESPACE,
+  SEASON_POINT_SOURCES,
+  seasonAchievementUnlockPoints,
+  seasonBonusLedgerKey,
+} from '../../public/js/shared/season-pass.js';
 import { notify } from './notifications.mjs';
+import { syncSeasonPassPointsInTx } from './season_pass.mjs';
 
 const COSMETIC_NAMESPACE = 'cosmetics';
 const SELECTED_COSMETIC_KEY = 'selected';
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 // 外观 id → 授予它的成就，接口据此展示来源。
 const COSMETIC_SOURCES = (() => {
@@ -51,6 +59,33 @@ function writeCosmeticUnlocks(accountId, achievementIds, now) {
     const value = JSON.stringify({ achievementId, unlockedAt: now });
     if (reward.title) insert.run(accountId, COSMETIC_NAMESPACE, cosmeticKey('title', reward.title), value, now);
     if (reward.frame) insert.run(accountId, COSMETIC_NAMESPACE, cosmeticKey('frame', reward.frame), value, now);
+  }
+}
+
+// 解锁加成写入独立账本：键里带赛季与成就 id，主键冲突即视为已发，不会重复计分。
+function writeAchievementBonusLedger(accountId, achievementIds, season, now) {
+  const insert = db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO NOTHING`
+  );
+  for (const achievementId of achievementIds) {
+    const rarity = achievementOf(achievementId)?.rarity;
+    const points = seasonAchievementUnlockPoints(rarity);
+    if (points <= 0) continue;
+    insert.run(
+      accountId,
+      SEASON_POINT_LEDGER_NAMESPACE,
+      seasonBonusLedgerKey(season, achievementId),
+      JSON.stringify({
+        source: SEASON_POINT_SOURCES.ACHIEVEMENT_BONUS,
+        points,
+        achievementId,
+        rarity,
+        updatedAt: now,
+      }),
+      now
+    );
   }
 }
 
@@ -284,7 +319,7 @@ function seasonContext(accountId, now = Date.now()) {
 }
 
 // 进度所需的上下文与结算时保持一致，但 run 为空：本局专属的进度只能从结算响应看到。
-function progressContext(accountId, unlocked) {
+function progressContext(accountId, unlocked, now = Date.now()) {
   const career = careerStats(accountId);
   const byDifficulty = {};
   for (const item of career.byDifficulty) {
@@ -311,7 +346,7 @@ function progressContext(accountId, unlocked) {
     skillAbyssWins: skillAbyssWins(accountId),
     noDamageWins: flawless.wins,
     abyssFlawlessWins: flawless.abyssWins,
-    season: seasonContext(accountId),
+    season: seasonContext(accountId, now),
     unlocked,
   };
 }
@@ -366,10 +401,17 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
      VALUES (?, ?, ?)`
   );
   const now = Date.now();
-  for (const id of added) insert.run(accountId, id, now);
-  writeCosmeticUnlocks(accountId, added, now);
+  const unlockSeason = seasonOf(now);
+  // 解锁、外观、加成账本与通行证积分同事务：任一失败都不会留下半套状态。
+  transaction(() => {
+    for (const id of added) insert.run(accountId, id, now);
+    writeCosmeticUnlocks(accountId, added, now);
+    if (unlockSeason) writeAchievementBonusLedger(accountId, added, unlockSeason, now);
+    syncSeasonPassPointsInTx(accountId, now);
+  });
   for (const id of added) {
     const achievement = achievementOf(id);
+    const seasonal = parseSeasonalAchievementId(id);
     notify(accountId, {
       kind: 'achievement',
       dedupeKey: `achievement:${id}`,
@@ -377,6 +419,8 @@ export function unlockAchievements(accountId, { run = null, stats = null } = {})
         achievementId: id,
         title: achievement?.title || id,
         rarity: achievement?.rarity || null,
+        // 赛季成就复用成就通知通道；标记让客户端换用「赛季成就」样式。
+        ...(seasonal ? { seasonal: true, season: seasonal.season, templateId: seasonal.templateId } : {}),
       },
     }, now);
   }
@@ -406,8 +450,14 @@ function seasonalItem(template, season, seasonCtx, id, unlockedAt) {
   };
 }
 
-function seasonalSummary(seasonCtx, unlocked) {
+// 赛季分组附带剩余天数：客户端据此显示「剩 N 天」与赛季结束状态，不必自己解析日历。
+function seasonalSummary(seasonCtx, unlocked, now = Date.now()) {
   const season = seasonCtx?.key || null;
+  const bounds = season ? seasonBounds(season) : null;
+  const endsAt = bounds ? bounds.end : null;
+  const ended = endsAt == null ? false : now >= endsAt;
+  const daysLeft =
+    endsAt == null ? null : ended ? 0 : Math.max(1, Math.ceil((endsAt - now) / DAY_MS));
   const achievements = season
     ? seasonalAchievementsFor(season).map((template) => {
         const id = seasonalAchievementId(season, template.id);
@@ -416,6 +466,9 @@ function seasonalSummary(seasonCtx, unlocked) {
     : [];
   return {
     season,
+    endsAt,
+    daysLeft,
+    ended,
     total: achievements.length,
     unlockedCount: achievements.filter((item) => item.unlocked).length,
     achievements,
@@ -444,9 +497,9 @@ function seasonalHistory(accountId, currentSeason, unlocked) {
     }));
 }
 
-export function achievementSummary(accountId) {
+export function achievementSummary(accountId, now = Date.now()) {
   const unlocked = listUnlocked(accountId);
-  const ctx = progressContext(accountId, new Set(unlocked.keys()));
+  const ctx = progressContext(accountId, new Set(unlocked.keys()), now);
   const achievements = ACHIEVEMENTS.map((achievement) => {
     const isUnlocked = unlocked.has(achievement.id);
     // 未解锁的隐藏成就只返回占位，描述与条件都不外泄。
@@ -482,7 +535,7 @@ export function achievementSummary(accountId) {
     unlockedCount: achievements.filter((item) => item.unlocked).length,
     groups,
     achievements,
-    seasonal: seasonalSummary(ctx.season, unlocked),
+    seasonal: seasonalSummary(ctx.season, unlocked, now),
     seasonalHistory: seasonalHistory(accountId, ctx.season?.key || null, unlocked),
   };
 }

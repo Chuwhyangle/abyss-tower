@@ -127,7 +127,8 @@ test('套装完整：5 套、每套 4–6 件、2/4 件阈值、标签均已注�
   for (const setId of NEW_SETS) {
     assert.ok(RELIC_SET_BONUSES[setId], `新增套装 ${setId} 未注册`);
     const pieces = RELICS.filter((relic) => relic.set === setId);
-    assert.equal(pieces.length, 5, `${setId} 应有 5 件遗物`);
+    // V50-003：三套 5 件套装补全到 6 件。
+    assert.equal(pieces.length, 6, `${setId} 应有 6 件遗物`);
   }
   for (const [setId, set] of Object.entries(RELIC_SET_BONUSES)) {
     assert.ok(set.name && set.name.length > 0, `${setId} 缺少名称`);

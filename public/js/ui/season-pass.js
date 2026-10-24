@@ -60,19 +60,29 @@ function card(item) {
     </article>`;
 }
 
+// 来源类型兜底文案：以服务端 label 为准，来源新增时旧前端也不会显示成「对局积分」。
+const SOURCE_FALLBACK_LABELS = Object.freeze({
+  match: '对局积分',
+  bounty: '赛季悬赏',
+  achievement: '成就奖励',
+  achievementBonus: '成就解锁加成',
+});
+
 // 积分来源明细：服务端返回 sources；旧接口只给总分时按对局积分占位，避免明细凭空消失。
 function sourceItem(item) {
   const at = Number(item?.updatedAt);
   const when = Number.isFinite(at) && at > 0
     ? ` · ${new Date(at).toLocaleDateString('zh-CN')}`
     : '';
-  return `<li><span>${escapeHtml(item?.label || '对局积分')}</span><span>${fmt(item?.points)}${escapeHtml(when)}</span></li>`;
+  const source = String(item?.source || 'match');
+  const label = escapeHtml(item?.label || SOURCE_FALLBACK_LABELS[source] || '对局积分');
+  return `<li data-source="${escapeHtml(source)}"><span>${label}</span><span>${fmt(item?.points)}${escapeHtml(when)}</span></li>`;
 }
 
 function sourcesBlock(data) {
   const sources = Array.isArray(data?.sources) && data.sources.length
     ? data.sources
-    : [{ source: 'match', label: '对局积分', points: data?.points }];
+    : [{ source: 'match', label: SOURCE_FALLBACK_LABELS.match, points: data?.points }];
   const total = sources.reduce((sum, item) => sum + (Number(item?.points) || 0), 0);
   const detail = total > 0
     ? `<ul class="season-pass-source-list">${sources.map(sourceItem).join('')}</ul>`

@@ -2,6 +2,7 @@
 // 只在构造/画质变更时执行，结果是一张离屏 canvas。
 import { TILE } from '../shared/data.js';
 import { RNG } from '../shared/rng.js';
+import { AMBIENCE_TINTS, resolveAmbience } from '../shared/ambience.js';
 import { Palette } from './palette.js';
 
 const T = TILE;
@@ -138,13 +139,9 @@ const PHASE_BY_MODIFIER = Object.freeze({
   mist: 'dawn', dusk: 'dusk', starlit: 'night', rift: 'dusk', surge: 'day',
 });
 
-// 昼夜色调：全屏低透明度叠加，alpha 上限 0.08，路径与单位轮廓仍然最清晰。
-export const DAY_PHASES = Object.freeze({
-  dawn: Object.freeze({ id: 'dawn', name: '黎明', color: '255, 190, 140', alpha: 0.05 }),
-  day: Object.freeze({ id: 'day', name: '白昼', color: '255, 244, 210', alpha: 0.02 }),
-  dusk: Object.freeze({ id: 'dusk', name: '黄昏', color: '255, 150, 110', alpha: 0.07 }),
-  night: Object.freeze({ id: 'night', name: '夜晚', color: '70, 100, 170', alpha: 0.08 }),
-});
+// 昼夜色调：数据定义在 shared/ambience.js 的氛围预设里，这里只做再导出，
+// 保持既有导入路径不变。
+export const DAY_PHASES = AMBIENCE_TINTS;
 export const DAY_PHASE_IDS = Object.freeze(Object.keys(DAY_PHASES));
 
 export function modifierIdOf(mapMeta) {
@@ -407,8 +404,15 @@ export class BackgroundRenderer {
     // 生物群系地表遗迹：不同原型各自的氛围道具
     if (decor !== 'off') this.drawBiomeProps(g, map, P, rng, decor, excluded);
 
-    // 生物群系氛围光点：数量由场景上限与画质档位共同约束（低配约 35%）。
-    const motes = ambientParticleBudget(decor, scene.particles.max);
+    // 氛围预设：群系 × 天气决定色调/粒子；低配只保留色调（粒子清零）。
+    const meta = game.mapMeta || map.meta || {};
+    const weatherSeed = game.seed ?? map.seed;
+    const weather = weatherLayer(meta, weatherSeed, decor);
+    const preset = resolveAmbience(map?.archetype, weather.weather, decor);
+
+    // 生物群系氛围光点：高配按场景上限，低配/关闭档位由预设清零。
+    const motes =
+      preset.quality === 'full' ? ambientParticleBudget(decor, scene.particles.max) : 0;
     for (let i = 0; i < motes; i++) {
       const x = rng.float() * width;
       const y = rng.float() * height;
@@ -419,13 +423,20 @@ export class BackgroundRenderer {
     }
 
     // 昼夜色调 + 天气层：只读地图元数据/种子；粒子排除路径格，不遮挡路线与敌人轮廓。
-    const meta = game.mapMeta || map.meta || {};
-    const weatherSeed = game.seed ?? map.seed;
-    const weather = weatherLayer(meta, weatherSeed, decor);
-    this.drawDayNightTint(g, width, height, weather.tint);
-    if (weather.particles > 0) {
+    // 低配只画预设里的色调，天气粒子数为 0。
+    this.drawDayNightTint(g, width, height, preset.tint);
+    if (preset.particleCount > 0) {
       // 独立 RNG：天气粒子的随机序列不改变既有背景烘焙的取数顺序。
-      this.drawWeather(g, width, height, map, P, new RNG(`${weatherSeed}:${weather.weather}`), weather, excluded);
+      this.drawWeather(
+        g,
+        width,
+        height,
+        map,
+        P,
+        new RNG(`${weatherSeed}:${weather.weather}`),
+        { ...weather, particles: preset.particleCount },
+        excluded
+      );
     }
 
     // 边缘暗角
