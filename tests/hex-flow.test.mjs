@@ -223,13 +223,15 @@ test('刷新恢复：不重复消耗、不换 offers，波次回传同一海克�
 test('遗物候选与刷新费用走共享海克斯钩子（默认值 3 / 25）', async () => {
   const created = await createRun(TOKEN);
   const { runId, hexOffers: offers } = created.data;
-  // 选一张不改遗物默认值的海克斯：遗物吞噬者会改候选数/刷新费/刷新次数（另由
-  // tests/hex-relic-devourer.test.mjs 覆盖），这里只验「无相关海克斯时的默认值」。
-  const hexId = offers.find(
-    (id) => typeof HEX_BY_ID[id]?.hooks?.relicOfferCount !== 'function'
+  // 本用例只验证「不改遗物参数的海克斯」走默认值 3 / 25 / 1：
+  // 黄金律法（HEX-007）刷新半价、遗物吞噬者（HEX-008）改候选数/刷新费/次数，
+  // 分别由 tests/hex-golden-law.test.mjs 与 tests/hex-relic-devourer.test.mjs 覆盖。
+  const relicHooks = ['onRelicGained', 'relicOfferCount', 'relicRerollCost', 'relicRerollBonus'];
+  const plainHex = offers.find(
+    (id) => !relicHooks.some((name) => typeof HEX_BY_ID[id]?.hooks?.[name] === 'function')
   );
-  assert.ok(hexId, `三选一应含一张不改遗物默认值的海克斯：${offers.join(',')}`);
-  await api(`/api/runs/${runId}/hex`, { method: 'POST', body: { hexId } });
+  assert.ok(plainHex, `三选一应含一张不改遗物默认值的海克斯：${offers.join(',')}`);
+  await api(`/api/runs/${runId}/hex`, { method: 'POST', body: { hexId: plainHex } });
   await api(`/api/runs/${runId}/map`, { method: 'POST', body: { index: 0 } });
   await api(`/api/runs/${runId}/wave`, { method: 'POST', body: {} });
   await api(`/api/runs/${runId}/clear`, { method: 'POST', body: { wave: 1 } });
