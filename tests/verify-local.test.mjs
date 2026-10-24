@@ -15,6 +15,7 @@ const EXPECTED_STEPS = [
   'npm run check:imports',
   'npm run check:version',
   'npm test',
+  'npm run coverage:changed',
 ];
 
 const STEP_NAMES = EXPECTED_STEPS.map((step) => step.replace(/^npm run /, '').replace(/^npm /, ''));
@@ -70,7 +71,7 @@ test('verify:local 按固定顺序串联全部本地检查', () => {
   }
 });
 
-test('全部子步骤通过时按顺序执行到全量测试', (t) => {
+test('全部子步骤通过时按顺序执行到最后一步', (t) => {
   const dir = makeFixture(t);
   const { result, steps } = runChain(dir);
 
@@ -95,10 +96,10 @@ test('中间子步骤失败时停止并指出步骤名', (t) => {
   assert.match(`${result.stdout}${result.stderr}`, /check:style/);
 });
 
-test('全量测试失败是最后一步，失败后无后续步骤', (t) => {
+test('全量测试失败后不再执行覆盖率门禁', (t) => {
   const dir = makeFixture(t);
   const { result, steps } = runChain(dir, { VERIFY_FAIL: 'test' });
 
   assert.notEqual(result.status, 0);
-  assert.deepEqual(steps, STEP_NAMES);
+  assert.deepEqual(steps, STEP_NAMES.slice(0, -1));
 });

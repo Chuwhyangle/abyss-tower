@@ -335,6 +335,19 @@ export function relicSetTierBonuses(setId, pieces) {
   return getRelicSet(setId).tiers.filter((tier) => count >= tier.pieces);
 }
 
+// 只读查询：效果键的周期声明；非回合型返回 null。图鉴等只读界面用它展示触发周期。
+export function effectPeriodicInfo(key) {
+  const entry = getEffect(key);
+  return entry.periodic
+    ? { period: entry.periodic.period, timing: entry.periodic.timing }
+    : null;
+}
+
+// 只读查询：套装最高档位件数，作为图鉴进度的分母（当前套装均为 4）。
+export function relicSetMaxPieces(setId) {
+  return Math.max(0, ...getRelicSet(setId).tiers.map((tier) => tier.pieces));
+}
+
 // 套装加成文案，例如「猎手同盟 2 件：攻击速度 +6%」；多档用；分隔。
 export function relicSetBonusText(setId, pieces) {
   const set = getRelicSet(setId);

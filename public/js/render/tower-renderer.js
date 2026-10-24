@@ -77,6 +77,98 @@ export function skinOutlineBudget(decorations) {
   return SKIN_OUTLINE_BUDGET[decorations] || SKIN_OUTLINE_BUDGET.light;
 }
 
+// 进化路线的视觉语言：每条路线一套「轮廓 + 符文」组合，全部程序化绘制、零素材。
+// 同族三条路线的轮廓与符文两两不同；跨族的（形状, 符文）组合也不重复，共 24 条路线。
+// radius 上限 25（塔位半格 24 附近），保证小尺寸下不压住相邻塔位与射程提示。
+export const EVOLUTION_SILHOUETTE_KINDS = Object.freeze([
+  'hex',
+  'star',
+  'blade',
+  'gear',
+  'wave',
+  'spike',
+  'crown',
+]);
+
+export const EVOLUTION_RUNE_KINDS = Object.freeze([
+  'chevron',
+  'triangle',
+  'diamond',
+  'bar',
+  'cross',
+  'dot',
+]);
+
+export const EVOLUTION_VISUAL_RADIUS = 25;
+
+function evolutionVisualDef(family, route, shape, rune) {
+  return Object.freeze({
+    family,
+    route,
+    shape,
+    rune,
+    radius: EVOLUTION_VISUAL_RADIUS,
+  });
+}
+
+export const EVOLUTION_VISUALS = Object.freeze({
+  'arrow-longbow': evolutionVisualDef('arrow', 0, 'crown', 'chevron'),
+  'arrow-rapid': evolutionVisualDef('arrow', 1, 'spike', 'bar'),
+  'arrow-ranger': evolutionVisualDef('arrow', 2, 'wave', 'dot'),
+
+  'cannon-siege': evolutionVisualDef('cannon', 0, 'gear', 'cross'),
+  'cannon-barrage': evolutionVisualDef('cannon', 1, 'spike', 'triangle'),
+  'cannon-mortar': evolutionVisualDef('cannon', 2, 'wave', 'chevron'),
+
+  'frost-deepfreeze': evolutionVisualDef('frost', 0, 'star', 'diamond'),
+  'frost-icelance': evolutionVisualDef('frost', 1, 'blade', 'chevron'),
+  'frost-blizzard': evolutionVisualDef('frost', 2, 'hex', 'dot'),
+
+  'arc-storm': evolutionVisualDef('arc', 0, 'spike', 'cross'),
+  'arc-overload': evolutionVisualDef('arc', 1, 'gear', 'diamond'),
+  'arc-conductor': evolutionVisualDef('arc', 2, 'hex', 'triangle'),
+
+  'poison-virulent': evolutionVisualDef('poison', 0, 'wave', 'diamond'),
+  'poison-blight': evolutionVisualDef('poison', 1, 'blade', 'bar'),
+  'poison-miasma': evolutionVisualDef('poison', 2, 'crown', 'dot'),
+
+  'banner-horn': evolutionVisualDef('banner', 0, 'star', 'chevron'),
+  'banner-standard': evolutionVisualDef('banner', 1, 'crown', 'bar'),
+  'banner-drum': evolutionVisualDef('banner', 2, 'hex', 'cross'),
+
+  'shock-quake': evolutionVisualDef('shock', 0, 'gear', 'bar'),
+  'shock-glacier': evolutionVisualDef('shock', 1, 'star', 'cross'),
+  'shock-resonance': evolutionVisualDef('shock', 2, 'blade', 'triangle'),
+
+  'sniper-piercer': evolutionVisualDef('sniper', 0, 'spike', 'diamond'),
+  'sniper-marksman': evolutionVisualDef('sniper', 1, 'star', 'bar'),
+  'sniper-overwatch': evolutionVisualDef('sniper', 2, 'gear', 'triangle'),
+});
+
+// 未知/缺失进化 id 的回退：仍有轮廓可取，渲染不中断。
+export const DEFAULT_EVOLUTION_VISUAL = evolutionVisualDef('unknown', -1, 'hex', 'dot');
+
+export function evolutionVisual(id) {
+  return (id && EVOLUTION_VISUALS[id]) || DEFAULT_EVOLUTION_VISUAL;
+}
+
+// 画质预算：off 只留静态轮廓；light 追加内层轮廓，仍不出现符文粒子；
+// full 才在轮廓外绕塔旋转符文。三档开销单调递增。
+export const EVOLUTION_VISUAL_BUDGET = Object.freeze({
+  off: Object.freeze({ tier: 'off', outline: true, inner: false, runes: 0, spin: false }),
+  light: Object.freeze({ tier: 'light', outline: true, inner: true, runes: 0, spin: false }),
+  full: Object.freeze({ tier: 'full', outline: true, inner: true, runes: 3, spin: true }),
+});
+
+export function evolutionVisualBudget(decorations) {
+  return EVOLUTION_VISUAL_BUDGET[decorations] || EVOLUTION_VISUAL_BUDGET.light;
+}
+
+// 单塔进化的绘制开销（描边次数 + 符文数），用于断言预算单调。
+export function evolutionVisualCost(budget = EVOLUTION_VISUAL_BUDGET.full) {
+  return (budget.outline ? 1 : 0) + (budget.inner ? 1 : 0) + budget.runes;
+}
+
 // recoil 是模拟层已有的瞬时字段；渲染只读取并换算成像素位移，不回写。
 export function towerRecoilAmount(recoil, type, variant = TOWER_ANIM_VARIANTS.full) {
   if (!variant.recoil.enabled) return 0;
@@ -244,31 +336,15 @@ export class TowerRenderer {
         }
       }
 
-      // 进化标识：专属色外环 + 三枚绕塔旋转的符文。
+      // 进化标识：每条路线独有的轮廓 + 符文组合，开销随画质档位递增。
       if (evolution) {
-        const spin = time * 0.9;
-        g.save();
-        g.strokeStyle = Palette.hexToRgba(accent, 0.8);
-        g.lineWidth = 1.8;
-        g.setLineDash([5, 4]);
-        g.beginPath();
-        g.arc(0, 0, 26, spin, spin + Math.PI * 1.5);
-        g.stroke();
-        g.setLineDash([]);
-        g.fillStyle = accent;
-        for (let i = 0; i < 3; i++) {
-          const a = -spin * 0.6 + (i / 3) * Math.PI * 2;
-          const rx = Math.cos(a) * 24;
-          const ry = Math.sin(a) * 24;
-          g.beginPath();
-          g.moveTo(rx, ry - 2.6);
-          g.lineTo(rx + 2.6, ry);
-          g.lineTo(rx, ry + 2.6);
-          g.lineTo(rx - 2.6, ry);
-          g.closePath();
-          g.fill();
-        }
-        g.restore();
+        this.drawEvolutionMark(
+          g,
+          time,
+          evolutionVisual(evolution.id),
+          evolutionVisualBudget(settings.decorations),
+          accent
+        );
       }
 
       // 炮塔：整机后退 + 高配追加炮管回缩，二者都只读模拟层已有的 recoil。
@@ -299,6 +375,170 @@ export class TowerRenderer {
       }
       g.restore();
     }
+  }
+
+  // 进化标识：先描路线专属轮廓，再按预算叠内层轮廓与绕塔符文。
+  // 调用时坐标系已平移到塔心并缩放，这里只画相对几何。
+  drawEvolutionMark(g, time, visual, budget, color) {
+    const spin = budget.spin ? time * 0.9 : 0;
+    g.save();
+
+    g.strokeStyle = Palette.hexToRgba(color, 0.8);
+    g.lineWidth = 1.8;
+    if (budget.spin) g.setLineDash([5, 4]);
+    if (budget.outline) {
+      this.traceEvolutionSilhouette(g, visual.shape, visual.radius, spin);
+      g.stroke();
+    }
+    if (budget.spin) g.setLineDash([]);
+
+    if (budget.inner) {
+      g.strokeStyle = Palette.hexToRgba(color, 0.4);
+      g.lineWidth = 1;
+      this.traceEvolutionSilhouette(g, visual.shape, visual.radius - 3.5, -spin * 0.5);
+      g.stroke();
+    }
+
+    if (budget.runes > 0) {
+      g.fillStyle = color;
+      const orbit = visual.radius - 3;
+      for (let i = 0; i < budget.runes; i++) {
+        const a = -spin * 0.6 + (i / budget.runes) * Math.PI * 2;
+        this.drawEvolutionRune(g, visual.rune, Math.cos(a) * orbit, Math.sin(a) * orbit, a);
+      }
+    }
+
+    g.restore();
+  }
+
+  // 路线轮廓：闭合路径，调用方负责 stroke。未知形状回退六边形。
+  traceEvolutionSilhouette(g, kind, radius, rotation = 0) {
+    const r = radius;
+    g.beginPath();
+    if (kind === 'hex') {
+      for (let i = 0; i < 6; i++) {
+        const a = rotation + (i / 6) * Math.PI * 2;
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    } else if (kind === 'star') {
+      // 四角星：内外半径交替。
+      for (let i = 0; i < 8; i++) {
+        const a = rotation + (i / 8) * Math.PI * 2;
+        const rr = i % 2 === 0 ? r : r * 0.62;
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    } else if (kind === 'blade') {
+      // 柳叶形：上下两尖、两侧内收。
+      g.moveTo(0, -r);
+      g.quadraticCurveTo(r * 0.9, 0, 0, r);
+      g.quadraticCurveTo(-r * 0.9, 0, 0, -r);
+    } else if (kind === 'gear') {
+      // 八齿齿轮：十六个顶点深浅交替。
+      for (let i = 0; i < 16; i++) {
+        const a = rotation + (i / 16) * Math.PI * 2;
+        const rr = i % 2 === 0 ? r : r * 0.78;
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    } else if (kind === 'wave') {
+      // 十二瓣波纹：半径随正弦起伏。
+      for (let i = 0; i <= 24; i++) {
+        const a = rotation + (i / 24) * Math.PI * 2;
+        const rr = r * (0.86 + 0.14 * Math.sin((i / 24) * Math.PI * 2 * 12));
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    } else if (kind === 'spike') {
+      // 三枚锐刺：深内凹，远看也能区分。
+      for (let i = 0; i < 6; i++) {
+        const a = rotation + (i / 6) * Math.PI * 2;
+        const rr = i % 2 === 0 ? r : r * 0.35;
+        const px = Math.cos(a) * rr;
+        const py = Math.sin(a) * rr;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    } else if (kind === 'crown') {
+      // 三峰王冠：三个外凸圆峰，峰间内凹。
+      for (let i = 0; i <= 3; i++) {
+        const a = rotation + (i / 3) * Math.PI * 2;
+        const px = Math.cos(a) * r * 0.82;
+        const py = Math.sin(a) * r * 0.82;
+        if (i === 0) {
+          g.moveTo(px, py);
+        } else {
+          const mid = a - Math.PI / 3;
+          g.quadraticCurveTo(Math.cos(mid) * r * 1.24, Math.sin(mid) * r * 1.24, px, py);
+        }
+      }
+    } else {
+      for (let i = 0; i < 6; i++) {
+        const a = rotation + (i / 6) * Math.PI * 2;
+        const px = Math.cos(a) * r;
+        const py = Math.sin(a) * r;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    }
+    g.closePath();
+  }
+
+  // 单枚符文：以落点为原点朝外朝向，纯 path 填充。
+  drawEvolutionRune(g, kind, x, y, angle = 0) {
+    const s = 2.8;
+    g.save();
+    g.translate(x, y);
+    g.rotate(angle + Math.PI / 2);
+    if (kind === 'chevron') {
+      g.beginPath();
+      g.moveTo(-s, -s * 0.7);
+      g.lineTo(0, s * 0.4);
+      g.lineTo(s, -s * 0.7);
+      g.lineTo(s, -s * 0.1);
+      g.lineTo(0, s * 1.1);
+      g.lineTo(-s, -s * 0.1);
+      g.closePath();
+      g.fill();
+    } else if (kind === 'triangle') {
+      g.beginPath();
+      g.moveTo(0, -s);
+      g.lineTo(s, s);
+      g.lineTo(-s, s);
+      g.closePath();
+      g.fill();
+    } else if (kind === 'diamond') {
+      g.beginPath();
+      g.moveTo(0, -s);
+      g.lineTo(s, 0);
+      g.lineTo(0, s);
+      g.lineTo(-s, 0);
+      g.closePath();
+      g.fill();
+    } else if (kind === 'bar') {
+      g.beginPath();
+      g.rect(-s * 0.45, -s, s * 0.9, s * 2);
+      g.closePath();
+      g.fill();
+    } else if (kind === 'cross') {
+      g.beginPath();
+      g.rect(-s, -s * 0.4, s * 2, s * 0.8);
+      g.closePath();
+      g.fill();
+      g.beginPath();
+      g.rect(-s * 0.4, -s, s * 0.8, s * 2);
+      g.closePath();
+      g.fill();
+    } else {
+      g.beginPath();
+      g.arc(0, 0, s * 0.75, 0, Math.PI * 2);
+      g.closePath();
+      g.fill();
+    }
+    g.restore();
   }
 
   // 停摆表现：压暗塔身、环绕电弧、外圈剩余时间弧（调用时已平移到塔心）。

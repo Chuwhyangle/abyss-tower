@@ -22,6 +22,25 @@ const PAGE_SIZE = 20;
 const ARCHIVE_TITLE = '归档摘要 / Archive summary';
 const LOAD_MORE = '加载更多 / Load more';
 const LOADING = '加载中…';
+const JUMP_SEASON = '查看赛季 / View season';
+
+const STYLE_ID = 'notifications-season-reward-style';
+const STYLE = `
+  .notification-card.season-reward-notification {
+    border-left: 3px solid var(--gold, #ffd36b);
+  }
+  .notification-card .notification-jump {
+    margin-top: var(--space-2, 8px);
+  }
+`;
+
+function ensureStyle() {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLE;
+  document.head.appendChild(style);
+}
 
 // 分页状态：面板只有一个，首次加载整体替换，加载更多时累积。
 const pageState = { cursor: null, items: [], unread: 0, archive: null };
@@ -54,6 +73,16 @@ export function formatTime(ts) {
 // 赛季成就复用成就通知通道：payload.seasonal 标记决定独立的「赛季成就」样式（纯函数）。
 export function isSeasonalAchievement(item) {
   return item?.kind === 'achievement' && item?.payload?.seasonal === true;
+}
+
+// 赛季奖励通知由结算写入 kind='season'，卡片使用独立样式并可跳转赛季面板（纯函数）。
+export function isSeasonReward(item) {
+  return item?.kind === 'season';
+}
+
+// 通知的跳转目标：赛季奖励 → 赛季面板，其余类型不跳转（纯函数）。
+export function notificationJumpTarget(item) {
+  return isSeasonReward(item) ? 'season' : null;
 }
 
 // 卡片标签：赛季成就与普通成就解锁分开显示，其余类型沿用固定标签（纯函数）。
@@ -131,14 +160,20 @@ function notificationCard(item) {
     ? ` rarity-${item.payload.rarity}`
     : '';
   const seasonal = isSeasonalAchievement(item) ? ' seasonal-notification' : '';
+  const seasonReward = isSeasonReward(item) ? ' season-reward-notification' : '';
+  const jump = notificationJumpTarget(item);
+  const action = jump
+    ? `<button class="btn small notification-jump" type="button" data-notification-jump="${escapeHtml(jump)}">${escapeHtml(JUMP_SEASON)}</button>`
+    : '';
   return `
-    <article class="achievement-card notification-card${rarity}${seasonal}${unread ? ' unread' : ''}">
+    <article class="achievement-card notification-card${rarity}${seasonal}${seasonReward}${unread ? ' unread' : ''}">
       <h3>
         <span>${escapeHtml(kind)}</span>
         <span class="achievement-rarity">${escapeHtml(formatTime(item.createdAt))}</span>
         <span class="achievement-state">${unread ? '未读' : '已读'}</span>
       </h3>
       <p>${escapeHtml(describeNotification(item))}</p>
+      ${action}
     </article>`;
 }
 
@@ -428,6 +463,11 @@ async function savePrefs(section) {
   }
 }
 
+function openSeasonPanel() {
+  if (document.getElementById('season-panel')?.hidden === false) return;
+  document.getElementById('btn-season')?.click();
+}
+
 function install() {
   const button = document.getElementById('btn-notifications');
   const panel = document.getElementById('notifications-panel');
@@ -435,6 +475,15 @@ function install() {
   const close = panel.querySelector('#btn-notifications-close');
   const readAll = panel.querySelector('#btn-notifications-read');
   const prefs = ensurePrefsSection(panel);
+  ensureStyle();
+  // 事件委托挂在列表容器上：分页重渲染后跳转按钮无需重新绑定。
+  panel.querySelector('#notifications-list')?.addEventListener('click', (event) => {
+    const jump = event.target?.closest?.('[data-notification-jump]');
+    if (!jump) return;
+    if (jump.dataset.notificationJump !== 'season') return;
+    setOpen(false);
+    openSeasonPanel();
+  });
 
   const setOpen = (open) => {
     panel.hidden = !open;
