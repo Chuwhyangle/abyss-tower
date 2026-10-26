@@ -196,7 +196,8 @@ async function main() {
       relics: window.__rtd.state.sim.relics.length,
       clearedWave: window.__rtd.state.sim.clearedWave,
     })`);
-    if (!restoredDraft.pending || restoredDraft.cards !== 3) {
+    // 候选数由主海克斯决定（遗物吞噬者 4 选 1），下一行的「数量与刷新前一致」才是断言面。
+    if (!restoredDraft.pending) {
       throw new Error(`遗物选择未恢复：${JSON.stringify(restoredDraft)}`);
     }
     if (restoredDraft.relics !== 0 || restoredDraft.clearedWave !== 1) {

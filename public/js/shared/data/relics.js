@@ -11,6 +11,7 @@ export const RARITY = {
 
 // 按模式调整遗物稀有度抽取权重（纯数据）。普通模式沿用 RARITY 原值，保持既有序列；
 // 无尽模式是长局，提高稀有/史诗占比，让后期三选一更有价值。
+// gambler 是赌徒之骰的「完全随机」档：三档稀有度权重相等，等价于在全部可抽遗物里均匀抽取。
 export const MODE_RARITY_WEIGHTS = Object.freeze({
   normal: Object.freeze({
     common: RARITY.common.weight,
@@ -18,6 +19,7 @@ export const MODE_RARITY_WEIGHTS = Object.freeze({
     epic: RARITY.epic.weight,
   }),
   endless: Object.freeze({ common: 46, rare: 34, epic: 20 }),
+  gambler: Object.freeze({ common: 1, rare: 1, epic: 1 }),
 });
 
 export function rarityWeightForMode(rarity, mode = 'normal') {
