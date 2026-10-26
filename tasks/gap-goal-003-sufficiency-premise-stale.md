@@ -1,7 +1,7 @@
 ---
 id: gap-goal-003-sufficiency-premise-stale
 title: GOAL-003 退出条件覆盖裁定：AC-008/AC-009 已越权写入目标库，两条合取项均已覆盖（勿再加重复 AC）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
