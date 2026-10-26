@@ -1,7 +1,7 @@
 // 首领变体 BGM：变体→曲目映射、66% / 33% 阶段强度层、总线电平约束与关闭音乐设置。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
@@ -178,7 +178,13 @@ test('阶段阈值与 sim 的 66% / 33% 阶段线一致', () => {
   assert.equal(bossMusicPhase(Number.NaN), 1);
   assert.equal(bossMusicPhase(undefined), 1);
 
-  const sim = readSource('public/js/sim.js');
+  // 阶段线在 sim 状态根或下沉的系统模块中，两处都要与音频阈值同步。
+  const sim = [
+    readSource('public/js/sim.js'),
+    ...readdirSync(join(root, 'public/js/sim'))
+      .filter((name) => name.endsWith('.js'))
+      .map((name) => readSource(`public/js/sim/${name}`)),
+  ].join('\n');
   assert.match(sim, /ratio <= 0\.66/, 'sim 阶段线变更后需要同步音频阈值');
   assert.match(sim, /ratio <= 0\.33/, 'sim 阶段线变更后需要同步音频阈值');
 });

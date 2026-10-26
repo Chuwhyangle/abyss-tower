@@ -6,7 +6,7 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, releasePort, waitForHealth } from './test-server.mjs';
+import { allocatePort, releasePort, startServer } from './test-server.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -32,66 +32,20 @@ export const HARNESS_TIMEOUTS = Object.freeze({
   registerDelayMs: envNumber('HARNESS_REGISTER_DELAY_MS', 200),
 });
 
+// 启动/换端口重试的机制在 tests/test-server.mjs 的共享起动器里；这里只做参数接线，
+// 超时与重试默认值保持历史值（HARNESS_* 环境变量仍可覆盖）。
 export async function startTestServer({ seedHeader = false, dbPath = null, env = {} } = {}) {
-  let lastError = '';
-  for (let attempt = 0; attempt < HARNESS_TIMEOUTS.startAttempts; attempt++) {
-    const port = await allocatePort();
-    const databasePath =
-      dbPath || path.join(os.tmpdir(), `rtd-test-${process.pid}-${Date.now()}-${port}.db`);
-    const child = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
-      cwd: ROOT,
-      env: {
-        ...process.env,
-        PORT: String(port),
-        HOST: '127.0.0.1',
-        DB_PATH: databasePath,
-        ALLOW_TEST_SEED: seedHeader ? '1' : '0',
-        AUTH_ENABLED: '1',
-        REGISTRATION_MODE: 'open',
-        DB_BACKUP: '0',
-        ...env,
-      },
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-    let log = '';
-    child.stdout.on('data', (chunk) => { log += chunk; });
-    child.stderr.on('data', (chunk) => { log += chunk; });
-
-    const base = `http://127.0.0.1:${port}`;
-    try {
-      await waitForHealth({
-        base,
-        port,
-        child,
-        log: () => log,
-        attempts: HARNESS_TIMEOUTS.healthAttempts,
-        intervalMs: HARNESS_TIMEOUTS.healthIntervalMs,
-      });
-    } catch {
-      lastError = log;
-      if (child.exitCode == null) child.kill('SIGKILL');
-      releasePort(port);
-      continue;
-    }
-    return {
-      base,
-      port,
-      dbPath: databasePath,
-      log: () => log,
-      async stop() {
-        if (child.exitCode == null) child.kill('SIGTERM');
-        for (let j = 0; j < HARNESS_TIMEOUTS.stopAttempts && child.exitCode == null; j++) {
-          await sleep(HARNESS_TIMEOUTS.stopIntervalMs);
-        }
-        if (child.exitCode == null) child.kill('SIGKILL');
-        releasePort(port);
-        for (const suffix of ['', '-wal', '-shm']) {
-          try { fs.rmSync(`${databasePath}${suffix}`, { force: true }); } catch { /* ignore */ }
-        }
-      },
-    };
-  }
-  throw new Error(`测试服务未能启动：${lastError}`);
+  return startServer({
+    cwd: ROOT,
+    seedHeader,
+    dbPath,
+    env,
+    attempts: HARNESS_TIMEOUTS.startAttempts,
+    healthAttempts: HARNESS_TIMEOUTS.healthAttempts,
+    healthIntervalMs: HARNESS_TIMEOUTS.healthIntervalMs,
+    stopAttempts: HARNESS_TIMEOUTS.stopAttempts,
+    stopIntervalMs: HARNESS_TIMEOUTS.stopIntervalMs,
+  });
 }
 
 export async function findPageTarget(debugPort) {

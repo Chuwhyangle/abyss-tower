@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { AUTH_ENABLED, CONTENT_VERSION, REGISTRATION_MODE } from '../config.mjs';
-import { db } from '../db/index.mjs';
+import { db, readActiveRunCount, readDatabasePageInfo, readMigrationCounters } from '../db/index.mjs';
 import { DIAGNOSTICS_LIMIT, errorLog } from '../http/error-log.mjs';
 
 const LOOPBACK_ADDRESSES = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1']);
@@ -95,8 +95,7 @@ function countMigrationFiles() {
 function readDatabaseSize(database) {
   return (
     attempt(() => {
-      const pageCount = Number(database.prepare('PRAGMA page_count').get()?.page_count);
-      const pageSize = Number(database.prepare('PRAGMA page_size').get()?.page_size);
+      const { pageCount, pageSize } = readDatabasePageInfo(database);
       if (!Number.isFinite(pageCount) || !Number.isFinite(pageSize)) return null;
       return pageCount * pageSize;
     }) ?? null
@@ -112,11 +111,7 @@ function readMigrationStats(database, total) {
     pending: null,
   };
   attempt(() => {
-    const row = database
-      .prepare(
-        'SELECT COUNT(*) AS applied, MAX(version) AS latest, MAX(applied_at) AS applied_at FROM schema_migrations'
-      )
-      .get();
+    const row = readMigrationCounters(database);
     if (!row) return;
     const applied = Number(row.applied);
     const latest = Number(row.latest);
@@ -134,9 +129,7 @@ function readMigrationStats(database, total) {
 function countActiveRuns(database) {
   return (
     attempt(() => {
-      const row = database
-        .prepare("SELECT COUNT(*) AS active FROM runs WHERE status = 'active'")
-        .get();
+      const row = readActiveRunCount(database);
       const active = Number(row?.active);
       return Number.isFinite(active) ? active : null;
     }) ?? null

@@ -4,7 +4,6 @@
 // 再走真实的 beginWave/completeWave 路径，不直接调用钩子伪造状态。
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,7 +19,7 @@ import { rarityWeightForMode, MODE_RARITY_WEIGHTS } from '../public/js/shared/da
 import { offerHexes } from '../public/js/shared/hexes.js';
 import { HexRuntime } from '../public/js/shared/hexes/runtime.js';
 import { hexScoreMul } from '../public/js/shared/scoring.js';
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 import gamblersDice, {
   GAMBLER_COSTS,
   GAMBLER_FORTUNES,
@@ -370,13 +369,12 @@ test('遗物：gambler 模式忽略稀有度权重，与三档等权抽取一致
 
 // ---------- 服务端实盘：create → 选赌徒之骰 → 第 1 波 → 遗物 draft ----------
 
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-gamblers-dice-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'gamblers-dice-token-0001';
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', body, headers = {} } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
@@ -403,26 +401,14 @@ function gamblerSeedHeader() {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      ALLOW_TEST_SEED: '1',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    seedHeader: true,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

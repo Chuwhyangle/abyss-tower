@@ -11,6 +11,7 @@ export const RULES = Object.freeze({
   FIXED_DB_PATH: 'fixed-db-path',
   REPO_WRITE: 'repo-write',
   SHARED_USERNAME: 'shared-username',
+  RAW_SERVER_SPAWN: 'raw-server-spawn',
 });
 
 export const RULE_HINTS = Object.freeze({
@@ -19,7 +20,13 @@ export const RULE_HINTS = Object.freeze({
   [RULES.FIXED_DB_PATH]: '数据库路径写死，多个测试进程会共用同一文件；改用 os.tmpdir() + pid + 时间戳',
   [RULES.REPO_WRITE]: '测试写入仓库目录，会改动工作区并在并行时互相覆盖；改写到临时目录',
   [RULES.SHARED_USERNAME]: '多个测试文件共用同一个固定用户名，共享数据库时会互相污染；改用随机用户名',
+  [RULES.RAW_SERVER_SPAWN]: '直接 spawn server/index.mjs 没有换端口重试，首次端口被抢就整文件 hookFailed；改用 tests/test-server.mjs 的 startServer()',
 });
+
+// 唯一允许直接拉起 server/index.mjs 的文件：它就是把「分配 → 启动 → 换端口重试」封装起来的地方。
+const SERVER_STARTER_FILE = 'tests/test-server.mjs';
+const SPAWN_CALL = /\b(?:spawn|spawnSync|execFile|execFileSync|execSync|fork|exec)\s*\(/g;
+const SERVER_ENTRY = /server\/index\.mjs/;
 
 // 手工 CLI（不在 npm test 里跑）本就会写仓库文档，默认不参与 repo-write 判定。
 const MANUAL_TOOLS = new Set(['balance-sim.mjs', 'balance-sweep.mjs', 'dynamic-perf.mjs']);
@@ -253,7 +260,6 @@ function findRepoWrites(source, masked, file, lineIndex, suppressed, findings) {
 }
 
 const USERNAME_LITERAL = /\b(?:username|userName|USERNAME)\s*[:=]\s*(['"])([^'"\n]+)\1/g;
-
 function collectUsernames(masked, file, lineIndex, suppressed, usernames) {
   for (const match of masked.matchAll(USERNAME_LITERAL)) {
     const value = match[2].trim();
@@ -262,6 +268,26 @@ function collectUsernames(masked, file, lineIndex, suppressed, usernames) {
     if (suppressed.has(line)) continue;
     if (!usernames.has(value)) usernames.set(value, []);
     usernames.get(value).push({ file, line });
+  }
+}
+
+// 直接 spawn 服务入口会被端口抢占打成整文件 hookFailed：这类启动必须走共享起动器。
+// 只看 spawn 家族调用的实参，普通字符串/文档路径里的 server/index.mjs 不算。
+function findRawServerSpawns(masked, file, lineIndex, suppressed, findings) {
+  if (file.replace(/\\/g, '/') === SERVER_STARTER_FILE) return;
+  for (const match of masked.matchAll(SPAWN_CALL)) {
+    const openIndex = match.index + match[0].length - 1;
+    const args = callArguments(masked, openIndex);
+    if (!SERVER_ENTRY.test(args)) continue;
+    pushFinding(
+      findings,
+      suppressed,
+      lineIndex,
+      file,
+      match.index,
+      RULES.RAW_SERVER_SPAWN,
+      '直接 spawn server/index.mjs 启动服务（无换端口重试）'
+    );
   }
 }
 
@@ -275,6 +301,7 @@ export function scanSources(entries, { includeTools = false } = {}) {
     findPorts(masked, file, lineIndex, suppressed, findings);
     findPortGuesses(masked, file, lineIndex, suppressed, findings);
     findFixedDbPaths(masked, file, lineIndex, suppressed, findings);
+    findRawServerSpawns(masked, file, lineIndex, suppressed, findings);
     if (includeTools || !MANUAL_TOOLS.has(path.basename(file))) {
       findRepoWrites(source, masked, file, lineIndex, suppressed, findings);
     }

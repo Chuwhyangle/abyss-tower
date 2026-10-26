@@ -2,18 +2,17 @@
 // 伪造/跨榜游标拒绝、旧版无游标请求兼容，以及缓存按赛季/模式隔离。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-lb-paging-${process.pid}-${Date.now()}.db`);
 
 // 必须在导入 db 模块前指向测试库，导入会建立连接并执行迁移。
@@ -40,7 +39,6 @@ const CACHE_DAY = '2026-10-02';
 const TOKEN = 'lb-paging-0001';
 
 let server = null;
-let serverLog = '';
 
 function shiftSeason(season, delta) {
   const [year, month] = season.split('-').map(Number);
@@ -97,26 +95,13 @@ function seedEntry({
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(async () => {

@@ -1,26 +1,24 @@
 // 服务端接口测试：启动独立端口 + 临时数据库，覆盖开局/波次/遗物/结算/排行/每日/通关。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import { clampFinishPayload, computeOutcome, dayKey } from '../public/js/shared/scoring.js';
 import { DIFFICULTIES, SKILLS, TOWER_ORDER } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-api-test-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'api-test-token-0001';
 const OTHER = 'api-test-token-0002';
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', token = TOKEN, body } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
@@ -40,26 +38,13 @@ async function startRun(mode, difficulty, token = TOKEN, extra = {}) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {
