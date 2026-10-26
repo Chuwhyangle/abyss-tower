@@ -1,18 +1,17 @@
 // 无尽榜赛季化测试：赛季归属、波次优先排序、旧数据兼容与普通/无尽榜隔离。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-endless-lb-${process.pid}-${Date.now()}.db`);
 
 // 必须在导入 db 模块前指向测试库，导入会建立连接并执行迁移。
@@ -52,7 +51,6 @@ function seasonMidpoint(season) {
 }
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', token, body } = {}) {
   const headers = {};
@@ -174,26 +172,13 @@ function names(entries) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(async () => {

@@ -1,13 +1,12 @@
 // 悬赏任务：周期派生稳定、进度计算、边界时区、幂等领取与非法领取拒绝。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import {
   BOUNTIES_PER_PERIOD,
@@ -25,8 +24,8 @@ import { weekKey } from '../public/js/shared/scoring.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-bounties-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-bounties-server-${process.pid}-${Date.now()}.db`);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const TOKEN = 'bounties-test-token-01';
 const EMPTY_TOKEN = 'bounties-test-token-02';
 
@@ -41,7 +40,6 @@ let bountySummary = null;
 let claimBounty = null;
 
 let server = null;
-let serverLog = '';
 
 function removeDb(file) {
   for (const suffix of ['', '-wal', '-shm']) {
@@ -126,26 +124,13 @@ before(async () => {
   // 再加一局深渊通关：让「通关深渊」类目标也能完成，避免每日目标随派生结果不可领取。
   insertFinishedRun({ id: 'run-abyss', difficulty: 'abyss' });
 
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: SERVER_DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: SERVER_DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

@@ -15,16 +15,25 @@ import {
 
 const MAX_CAUSE_TESTS = 5;
 
+// failureType 是分辨「用例断言坏了」和「整文件 hookFailed（如 EADDRINUSE）」的唯一线索；
+// 证据路径保证失败轮可以离线复查原始 TAP，不用重跑。
+function evidenceSuffix(round) {
+  const types = (round.failureTypes ?? []).filter(Boolean);
+  const typed = types.length > 0 ? `；failureType=${types.join('、')}` : '';
+  const path = round.evidencePath ? `；证据 ${round.evidencePath}` : '';
+  return `${typed}${path}`;
+}
+
 export function causeLine(round) {
   if (round.status === 'timeout') {
-    return `CAUSE=full suite timed out on run ${round.round}（${round.detail || '超过时限'}）`;
+    return `CAUSE=full suite timed out on run ${round.round}（${round.detail || '超过时限'}）${evidenceSuffix(round)}`;
   }
   if (round.status === 'error') {
-    return `CAUSE=full suite errored on run ${round.round}（${round.detail || '未产出 TAP 汇总'}）`;
+    return `CAUSE=full suite errored on run ${round.round}（${round.detail || '未产出 TAP 汇总'}）${evidenceSuffix(round)}`;
   }
   const names = (round.failedTests ?? []).slice(0, MAX_CAUSE_TESTS).map((name) => String(name));
   const suffix = names.length > 0 ? `：${names.join('、')}` : '';
-  return `CAUSE=full suite failed on run ${round.round}（${round.fail} 项失败${suffix}）`;
+  return `CAUSE=full suite failed on run ${round.round}（${round.fail} 项失败${suffix}）${evidenceSuffix(round)}`;
 }
 
 function usage() {

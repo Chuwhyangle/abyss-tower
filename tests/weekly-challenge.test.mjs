@@ -1,13 +1,12 @@
 // 本周挑战：ISO 周键、派生稳定、独立榜单与每周次数上限。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import {
   WEEKLY_MODIFIER_COUNT,
@@ -22,13 +21,12 @@ import { FIXED_TRAITS } from '../public/js/shared/maps/index.js';
 import { TOWER_ORDER } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-weekly-test-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'weekly-test-token-0001';
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', body } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
@@ -55,26 +53,13 @@ function finish(runId) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

@@ -1,13 +1,12 @@
 // 悬赏深度：40+ 目标池、三档难度分层、每周一次刷新、同周期可复现与旧进度保留。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import {
   BOUNTIES_PER_PERIOD,
@@ -29,8 +28,8 @@ import {
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-bounty-depth-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-bounty-depth-server-${process.pid}-${Date.now()}.db`);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 
 const REFRESH_TOKEN = 'bounty-depth-refresh-01';
 const PRESERVE_TOKEN = 'bounty-depth-preserve-01';
@@ -49,7 +48,6 @@ let bountySummary = null;
 let refreshBounties = null;
 
 let server = null;
-let serverLog = '';
 
 function removeDb(file) {
   for (const suffix of ['', '-wal', '-shm']) {
@@ -132,26 +130,13 @@ before(async () => {
   insertFinishedRun({ id: 'depth-run-0', accountId: REFRESH_TOKEN });
   insertFinishedRun({ id: 'depth-run-1', accountId: REFRESH_TOKEN, difficulty: 'abyss' });
 
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: SERVER_DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: SERVER_DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {
