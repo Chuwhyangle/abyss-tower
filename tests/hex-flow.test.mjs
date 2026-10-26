@@ -2,13 +2,12 @@
 // 走真实 HTTP 服务（隔离端口 + 临时数据库），覆盖 RunRoutes 正则与 RunService 状态迁移。
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 import { computeOutcome, hexScoreMul } from '../public/js/shared/scoring.js';
 import { HEXES, HEX_BY_ID, HEX_POOL_VERSION } from '../public/js/shared/hexes.js';
 import { decodeRun, encodeRun } from '../public/js/shared/replay.js';
@@ -16,8 +15,8 @@ import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-hex-flow-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'hex-flow-token-0001';
 const OTHER = 'hex-flow-token-0002';
@@ -30,7 +29,6 @@ const API_SOURCE = read('public/js/api.js');
 const STYLES = read('public/styles.css');
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', token = TOKEN, body } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
@@ -79,25 +77,13 @@ async function playFirstWave(token, { hexId, data: existing } = {}) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

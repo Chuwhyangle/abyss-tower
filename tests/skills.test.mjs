@@ -2,24 +2,22 @@
 // 使用独立端口 + 临时数据库；测试进程直连同一个 SQLite 文件做少量数据准备。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import { dayKey } from '../public/js/shared/scoring.js';
 import { SKILLS, TOWER_ORDER, skillStats } from '../public/js/shared/data.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-skills-test-${process.pid}-${Date.now()}.db`);
 
 let server = null;
-let serverLog = '';
 let dbModule = null;
 
 async function api(pathname, { method = 'GET', token, body } = {}) {
@@ -77,28 +75,15 @@ async function playWaves(token, runId, maxWave = 30) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
   const health = await fetch(`${BASE}/api/health`).catch(() => null);
-  if (!health?.ok) throw new Error(`测试服务未能启动：${serverLog}`);
+  if (!health?.ok) throw new Error(`测试服务未能启动：${server.log()}`);
 
   // 同一个临时库：WAL 下允许多连接，仅用于准备星核/统计。
   process.env.DB_PATH = DB;

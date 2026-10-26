@@ -1,7 +1,7 @@
 ---
 id: gap-stability-gate-evidence-and-startup-retry
 title: 稳定性门禁失败证据落盘 + 直接自起服务测试的启动重试收口（AC-007）
-status: ready
+status: done
 labels:
   - gap
 parent: null
@@ -109,17 +109,17 @@ check-stability: 第 3/3 轮 … 20.38s（ok）
 
 ## Acceptance Criteria
 
-- [ ] 构造一个含抛错 `before()` 的夹具，`node scripts/check-stability.mjs --rounds=1 --root=<tmp> --files=<夹具>` 退出码为 1，stderr 的 `CAUSE=` 行含 `hookFailed` 与该轮证据文件路径，且该 `.tap` 文件确实落盘（可 grep 到 `failureType: 'hookFailed'`）
-- [ ] `tests/check-stability.test.mjs` 新增用例覆盖「失败轮落盘 + failureType 进 CAUSE」，`node --no-warnings --test tests/check-stability.test.mjs` 通过
-- [ ] 注入「第一次尝试端口被占」后共享起动器仍能成功启动（换到新端口），`node --no-warnings --test tests/test-server.test.mjs` 通过
-- [ ] `node scripts/test-isolation-audit.mjs` 对 `tests/` 输出 0 条 `raw-server-spawn` 违规，`node --no-warnings --test tests/test-isolation-audit.test.mjs` 的正/负例通过
-- [ ] 30 个直接自起服务的测试文件全部改用共享起动器：`grep -rn "spawn(process.execPath, \['--no-warnings', 'server/index.mjs'\]" tests/*.test.mjs` 无输出
-- [ ] `node scripts/check-stability.mjs --rounds=3` 连续 3 次 exit 0（共 9 轮，无 `CAUSE=`）
-- [ ] `npm test` 全绿
+- [x] 构造一个含抛错 `before()` 的夹具，`node scripts/check-stability.mjs --rounds=1 --root=<tmp> --files=<夹具>` 退出码为 1，stderr 的 `CAUSE=` 行含 `hookFailed` 与该轮证据文件路径，且该 `.tap` 文件确实落盘（可 grep 到 `failureType: 'hookFailed'`）
+- [x] `tests/check-stability.test.mjs` 新增用例覆盖「失败轮落盘 + failureType 进 CAUSE」，`node --no-warnings --test tests/check-stability.test.mjs` 通过
+- [x] 注入「第一次尝试端口被占」后共享起动器仍能成功启动（换到新端口），`node --no-warnings --test tests/test-server.test.mjs` 通过
+- [x] `node scripts/test-isolation-audit.mjs` 对 `tests/` 输出 0 条 `raw-server-spawn` 违规，`node --no-warnings --test tests/test-isolation-audit.test.mjs` 的正/负例通过
+- [x] 30 个直接自起服务的测试文件全部改用共享起动器：`grep -rn "spawn(process.execPath, \['--no-warnings', 'server/index.mjs'\]" tests/*.test.mjs` 无输出
+- [x] `node scripts/check-stability.mjs --rounds=3` 连续 3 次 exit 0（共 9 轮，无 `CAUSE=`）
+- [x] `npm test` 全绿
 
 ## Definition of Done
 
-- [ ] 下一次门禁失败时，只看 `.quay/stability/*.tap` 就能定位到具体文件、用例与 `failureType`，无需重跑
-- [ ] 「端口被抢」有可注入的自动化证据，不依赖概率；任一直启文件在首次端口丢失时仍能正常跑完
-- [ ] 门禁判定没有被放宽：仍然「任一轮失败 → exit 1」，且没有轮级重跑
-- [ ] 9 轮全量无失败、无 `CAUSE=`
+- [x] 下一次门禁失败时，只看 `.quay/stability/*.tap` 就能定位到具体文件、用例与 `failureType`，无需重跑
+- [x] 「端口被抢」有可注入的自动化证据，不依赖概率；任一直启文件在首次端口丢失时仍能正常跑完
+- [x] 门禁判定没有被放宽：仍然「任一轮失败 → exit 1」，且没有轮级重跑
+- [x] 9 轮全量无失败、无 `CAUSE=`

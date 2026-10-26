@@ -1,4 +1,4 @@
-// 测试服务器运行时：端口分配（内核分配 + 租约）与启动就绪校验。
+// 测试服务器运行时：端口分配（内核分配 + 租约）、启动就绪校验与共享起动器的换端口重试。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,6 +13,7 @@ import {
   leaseDir,
   pruneLeases,
   releasePort,
+  startServer,
   waitForHealth,
 } from './test-server.mjs';
 
@@ -112,4 +113,84 @@ test('harness 不再用随机段猜端口', () => {
   const source = fs.readFileSync(path.join(ROOT, 'tests', 'harness.mjs'), 'utf8');
   assert.doesNotMatch(source, /function randomPort/);
   assert.match(source, /allocatePort\(/);
+});
+
+test('startServer 首次尝试端口被占时换端口重试并成功启动', async () => {
+  // 确定性注入：第一次尝试 spawn 之前，把分配到的端口用另一个 HTTP 服务占住，
+  // 子进程 listen() 必然 EADDRINUSE 退出；起动器必须换端口重试而不是把失败当成功。
+  const blocker = http.createServer((req, res) => {
+    res.writeHead(503, { 'content-type': 'application/json' });
+    res.end('{"ok":false,"blocker":true}');
+  });
+  const attempts = [];
+  let server = null;
+  try {
+    server = await startServer({
+      env: { AUTH_ENABLED: '0' },
+      healthAttempts: 100,
+      healthIntervalMs: 50,
+      onAttempt: async ({ attempt, port }) => {
+        attempts.push(port);
+        if (attempt > 0) return;
+        await new Promise((resolve, reject) => {
+          blocker.once('error', reject);
+          blocker.listen(port, '127.0.0.1', resolve);
+        });
+      },
+    });
+
+    assert.equal(attempts.length, 2, `应重试一次，实际尝试端口：${attempts.join(',')}`);
+    assert.equal(server.attempts, 2);
+    assert.notEqual(server.port, attempts[0], '重试必须换到新端口');
+    assert.equal(server.port, attempts[1]);
+
+    const health = await fetch(`${server.base}/api/health`);
+    assert.equal(health.status, 200);
+    assert.equal((await health.json()).ok, true);
+    assert.equal(server.exitCode, null, '成功启动的应该是存活的子进程');
+  } finally {
+    if (server) await server.stop();
+    await new Promise((resolve) => blocker.close(resolve));
+  }
+});
+
+test('startServer 重试耗尽后抛出最后一次启动日志', async () => {
+  // 每次尝试都占住当次分配到的端口，直到重试次数用尽。
+  const blockers = [];
+  try {
+    await assert.rejects(
+      startServer({
+        attempts: 2,
+        healthAttempts: 3,
+        healthIntervalMs: 20,
+        env: { AUTH_ENABLED: '0' },
+        onAttempt: async ({ port }) => {
+          const blocker = http.createServer((req, res) => {
+            res.writeHead(503);
+            res.end();
+          });
+          blockers.push(blocker);
+          await new Promise((resolve, reject) => {
+            blocker.once('error', reject);
+            blocker.listen(port, '127.0.0.1', resolve);
+          });
+        },
+      }),
+      /测试服务未能启动/
+    );
+    assert.equal(blockers.length, 2, '两次尝试都应在 spawn 前被注入端口占用');
+  } finally {
+    for (const blocker of blockers) await new Promise((resolve) => blocker.close(resolve));
+  }
+});
+
+test('startServer 的 stop() 结束子进程并清掉临时库', async () => {
+  const server = await startServer({ env: { AUTH_ENABLED: '0' } });
+  const dbPath = server.dbPath;
+  assert.equal(server.exitCode, null);
+  assert.equal(fs.existsSync(dbPath), true);
+  await server.stop();
+  assert.notEqual(server.exitCode, null, 'stop() 之后子进程应已退出');
+  assert.equal(fs.existsSync(dbPath), false, 'stop() 应清理临时数据库');
+  assert.equal(fs.existsSync(path.join(leaseDir(), `${server.port}.json`)), false, 'stop() 应释放端口租约');
 });

@@ -118,6 +118,31 @@ test('固定用户名只在跨文件复用时才算共享', () => {
   assert.equal(acrossFiles.filter((finding) => finding.rule === RULES.SHARED_USERNAME).length, 3);
 });
 
+test('命中：测试直接 spawn server/index.mjs（无换端口重试）', () => {
+  const source = fixture([
+    "server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], { cwd: ROOT }); // isolation-audit-ignore",
+    "const child = spawnSync(process.execPath, ['--no-warnings', 'server/index.mjs'], {}); // isolation-audit-ignore",
+  ]);
+  const findings = scan(source);
+  assert.deepEqual(findings.map((finding) => finding.rule), [RULES.RAW_SERVER_SPAWN, RULES.RAW_SERVER_SPAWN]);
+  assert.deepEqual(findings.map((finding) => finding.line), [1, 2]);
+});
+
+test('放行：共享起动器、非启动引用与共享起动器自身', () => {
+  // spawn(process.execPath, ['--no-warnings', 'server/index.mjs']) 只出现在注释里不算违规
+  const source = fixture([
+    'server = await startServer({ cwd: ROOT, dbPath: DB });',
+    "assert.equal(checkLink(root, 'README.md', 'server/index.mjs'), null);",
+    "const entry = 'server/index.mjs';",
+  ]);
+  assert.deepEqual(scan(source), []);
+
+  const starterSource = fixture([
+    "const child = spawn(execPath, ['--no-warnings', 'server/index.mjs'], { cwd }); // isolation-audit-ignore",
+  ]);
+  assert.deepEqual(scan(starterSource, 'tests/test-server.mjs'), []);
+});
+
 test('报告含文件与行号；无风险时明确说明', () => {
   const dirty = formatReport({
     scanned: 2,

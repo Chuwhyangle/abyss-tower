@@ -1,22 +1,20 @@
 // 生涯统计：注册登录 → 无对局零值 → 2 局（1 胜 1 负）聚合正确 → 未登录 401 且不泄露他人数据。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB_PATH = path.join(os.tmpdir(), `rtd-stats-${process.pid}-${Date.now()}.db`);
 
 let server = null;
-let serverLog = '';
 let cookie = '';
 
 function api(pathname, { method = 'GET', body, as = cookie } = {}) {
@@ -83,27 +81,16 @@ async function playRun({ waves, survive }) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
+    dbPath: DB_PATH,
     env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH,
       AUTH_ENABLED: '1',
       REGISTRATION_MODE: 'open',
-      DB_BACKUP: '0',
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(async () => {

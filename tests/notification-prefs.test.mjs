@@ -2,7 +2,6 @@
 // 以及偏好读写接口与客户端开关接线。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,13 +9,13 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-notif-prefs-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-notif-prefs-server-${process.pid}-${Date.now()}.db`);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const ALICE = 'notif-prefs-alice-01';
 const BOB = 'notif-prefs-bob-01';
 
@@ -34,7 +33,6 @@ let normalizePrefs = null;
 let DEFAULT_NOTIFICATION_PREFS = null;
 
 let server = null;
-let serverLog = '';
 let serverDb = null;
 
 function removeDb(file) {
@@ -98,26 +96,13 @@ before(async () => {
   seedAccount(ALICE);
   seedAccount(BOB);
 
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: SERVER_DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: SERVER_DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 
   await api('/api/notifications', { token: ALICE });
   await api('/api/notifications', { token: BOB });

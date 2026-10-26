@@ -1,16 +1,28 @@
-// 测试服务器运行时：端口分配与启动就绪校验。
+// 测试服务器运行时：端口分配、启动就绪校验与「换端口重试」的共享起动器。
 // 端口不再从固定段里猜：交给内核分配，再用租约文件避免同机测试进程重复选中同一个端口。
 // 就绪判定必须闭环：子进程已退出就立刻失败，不能把「任意 200」当成自己拉起的服务。
+// 内核临时端口段包含全部非特权端口，「先 listen(0) 再 close 再交给子进程」之间必然有
+// TOCTOU 窗口：唯一可靠的办法是启动失败后换端口重试，因此所有自起服务的测试都必须走这里。
+import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
+
+export const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 const LEASE_TTL_MS = 30 * 60 * 1000;
 const DEFAULT_ATTEMPTS = 20;
 const DEFAULT_HEALTH_ATTEMPTS = 100;
 const DEFAULT_HEALTH_INTERVAL_MS = 100;
+
+export const DEFAULT_SERVER_ATTEMPTS = 20;
+export const DEFAULT_SERVER_HEALTH_ATTEMPTS = 100;
+export const DEFAULT_SERVER_HEALTH_INTERVAL_MS = 100;
+export const DEFAULT_STOP_ATTEMPTS = 40;
+export const DEFAULT_STOP_INTERVAL_MS = 50;
 
 // 同机不同用户各用一份租约目录，避免 /tmp 权限与残留互相影响。
 export function leaseDir() {
@@ -139,4 +151,122 @@ export async function waitForHealth({
   }
   const exit = child ? `exitCode=${child.exitCode ?? '运行中'}` : '无子进程';
   throw new Error(`测试服务未能启动（${base}，${exit}）：\n${log()}`);
+}
+
+function removeDbFiles(file) {
+  for (const suffix of ['', '-wal', '-shm']) {
+    try {
+      fs.rmSync(`${file}${suffix}`, { force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// 已启动的测试服务：对外暴露端口/基址/日志与停止能力，并保留子进程的 kill / exitCode，
+// 让调用方原有的清理代码（server.kill('SIGTERM')、server.exitCode == null）语义不变。
+export class TestServer {
+  constructor({
+    port,
+    base,
+    dbPath,
+    child,
+    log,
+    attempts,
+    stopAttempts = DEFAULT_STOP_ATTEMPTS,
+    stopIntervalMs = DEFAULT_STOP_INTERVAL_MS,
+  }) {
+    this.port = port;
+    this.base = base;
+    this.dbPath = dbPath;
+    this.child = child;
+    this.attempts = attempts;
+    this.log = log;
+    this.stopAttempts = stopAttempts;
+    this.stopIntervalMs = stopIntervalMs;
+  }
+
+  get exitCode() {
+    return this.child.exitCode;
+  }
+
+  kill(signal = 'SIGTERM') {
+    if (this.child.exitCode == null) this.child.kill(signal);
+  }
+
+  async stop() {
+    const child = this.child;
+    if (child.exitCode == null) child.kill('SIGTERM');
+    for (let i = 0; i < this.stopAttempts && child.exitCode == null; i += 1) {
+      await sleep(this.stopIntervalMs);
+    }
+    if (child.exitCode == null) child.kill('SIGKILL');
+    releasePort(this.port);
+    removeDbFiles(this.dbPath);
+  }
+}
+
+// allocate → spawn → waitForHealth，失败就换端口重试；所有自起服务的测试共用这一条路径。
+// `onAttempt({ attempt, port, dbPath })` 在每次 spawn 之前 await，供测试确定性地注入「端口被占」。
+export async function startServer({
+  cwd = REPO_ROOT,
+  dbPath = null,
+  seedHeader = false,
+  env = {},
+  attempts = DEFAULT_SERVER_ATTEMPTS,
+  healthAttempts = DEFAULT_SERVER_HEALTH_ATTEMPTS,
+  healthIntervalMs = DEFAULT_SERVER_HEALTH_INTERVAL_MS,
+  stopAttempts = DEFAULT_STOP_ATTEMPTS,
+  stopIntervalMs = DEFAULT_STOP_INTERVAL_MS,
+  execPath = process.execPath,
+  onAttempt = null,
+} = {}) {
+  let lastError = '';
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const port = await allocatePort();
+    const databasePath =
+      dbPath || path.join(os.tmpdir(), `rtd-test-${process.pid}-${Date.now()}-${port}.db`);
+    if (onAttempt) await onAttempt({ attempt, port, dbPath: databasePath });
+    const child = spawn(execPath, ['--no-warnings', 'server/index.mjs'], {
+      cwd,
+      env: {
+        ...process.env,
+        PORT: String(port),
+        HOST: '127.0.0.1',
+        DB_PATH: databasePath,
+        ALLOW_TEST_SEED: seedHeader ? '1' : '0',
+        AUTH_ENABLED: '1',
+        REGISTRATION_MODE: 'open',
+        DB_BACKUP: '0',
+        ...env,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    let log = '';
+    child.stdout.on('data', (chunk) => { log += chunk; });
+    child.stderr.on('data', (chunk) => { log += chunk; });
+
+    const base = `http://127.0.0.1:${port}`;
+    try {
+      await waitForHealth({ base, port, child, log: () => log, attempts: healthAttempts, intervalMs: healthIntervalMs });
+    } catch {
+      lastError = log;
+      if (child.exitCode == null) child.kill('SIGKILL');
+      releasePort(port);
+      continue;
+    }
+
+    const server = new TestServer({
+      port,
+      base,
+      dbPath: databasePath,
+      child,
+      log: () => log,
+      attempts: attempt + 1,
+      stopAttempts,
+      stopIntervalMs,
+    });
+    return server;
+  }
+  throw new Error(`测试服务未能启动：${lastError}`);
 }

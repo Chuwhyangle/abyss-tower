@@ -1,13 +1,12 @@
 // 赛季通行证：里程碑定义、积分边界、旧数据计入、跨赛季重置、幂等领取与接口接线。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import {
   SEASON_PASS_BY_ID,
@@ -21,8 +20,8 @@ import { COSMETIC_TITLES } from '../public/js/shared/achievements.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-season-pass-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-season-pass-server-${process.pid}-${Date.now()}.db`);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const TOKEN = 'season-pass-test-token-01';
 const EMPTY_TOKEN = 'season-pass-test-token-02';
 const BOUNDARY_TOKEN = 'season-pass-test-token-03';
@@ -43,7 +42,6 @@ let seasonBounds = null;
 let unlockedCosmetics = null;
 
 let server = null;
-let serverLog = '';
 let inSeasonAt = 0;
 let prevSeasonAt = 0;
 let currentSeason = null;
@@ -131,26 +129,13 @@ before(async () => {
   // 阈值边界账号：先差 1 分，再加 1 分跨过首个里程碑。
   insertFinishedRun({ id: 'sp-boundary-a', accountId: BOUNDARY_TOKEN, score: 9999 });
 
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: SERVER_DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: SERVER_DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

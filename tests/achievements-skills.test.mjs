@@ -1,13 +1,12 @@
 // V22-004 技能养成 × 成就联动：升级/选择触发成就、幂等、未解锁技能不触发、判定失败不影响技能接口。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import {
   ACHIEVEMENTS,
@@ -17,12 +16,11 @@ import {
 } from '../public/js/shared/achievements.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-ach-skills-${process.pid}-${Date.now()}.db`);
 
 let server = null;
-let serverLog = '';
 let dbModule = null;
 
 async function api(pathname, { method = 'GET', token, body } = {}) {
@@ -84,28 +82,15 @@ async function upgrade(token, skillId, expectedLevel) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
   const health = await fetch(`${BASE}/api/health`).catch(() => null);
-  if (!health?.ok) throw new Error(`测试服务未能启动：${serverLog}`);
+  if (!health?.ok) throw new Error(`测试服务未能启动：${server.log()}`);
 
   process.env.DB_PATH = DB;
   dbModule = await import('../server/db.mjs');
