@@ -1,7 +1,7 @@
 ---
 id: gap-goal-001-exit-condition-test-coverage
 title: GOAL-001 退出条件「全量测试通过」的目标级 AC 覆盖裁定（AC-005 已被越权写入目标库）
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
@@ -64,3 +64,6 @@ GOAL-001（上游基线合并与开发基线确认）的退出条件是一个合
 - [ ] GOAL-001 的目标级 AC 集合与退出条件的两个合取项一一对应，AC-005 的去留已在目标库体现（待外部）
 - [ ] 下一轮 `goal-round` 中 GOAL-001 不再因「无 `## 退出条件`」短路，且充分性键已随 AC 集合变化而重置（待外部）
 - [ ] 若确认需要再改目标库，改动经任务 ABI 或人工 `goal_write` 完成并记录在 Notes（待外部）
+
+
+人 2026-10-26 裁定：认可新增 AC（AC-005/006/007/008/009/010），方案已在目标库落地；本提案任务关闭。
