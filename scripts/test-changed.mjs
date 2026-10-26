@@ -13,6 +13,7 @@ const TEST_FILE = /^tests\/[^/]+\.test\.mjs$/;
 // 共享文件：改动会影响面过广，直接回退全量。
 export const SHARED_RULES = [
   { match: 'public/js/sim.js', reason: 'sim.js 是确定性战斗核心，影响面覆盖全量' },
+  { match: 'public/js/sim/', reason: 'sim/ 系统模块是确定性战斗核心，影响面覆盖全量' },
   { match: 'public/js/shared/', reason: 'shared/ 为前后端共享模块，影响面覆盖全量' },
   { match: 'server/index.mjs', reason: '服务端入口，多个集成测试共同启动' },
   { match: 'server/data/', reason: '运行时数据目录被集成测试共用' },
