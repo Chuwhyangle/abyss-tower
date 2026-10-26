@@ -54,9 +54,46 @@ export function buildRoundArgs({ concurrency = null, files = [] } = {}) {
   return args;
 }
 
+// 失败轮唯一能定因的线索在原始 TAP 的 failureType 里（如 hookFailed / cancelledByParent），
+// 汇总行只有用例名，所以必须从完整 TAP 聚合。
+export function parseTapFailureTypes(text) {
+  const types = [];
+  for (const match of String(text ?? '').matchAll(/failureType:\s*'([^']+)'/g)) {
+    if (!types.includes(match[1])) types.push(match[1]);
+  }
+  return types;
+}
+
+export function evidenceFileName(round, at = new Date()) {
+  const stamp = at.toISOString().replace(/[:.]/g, '-');
+  return `round-${round}-${stamp}.tap`;
+}
+
+export function defaultEvidenceDir(root = REPO_ROOT) {
+  return path.join(root, '.quay', 'stability');
+}
+
+// 落盘失败轮的原始 TAP 与 stderr：事后只看证据文件就能定位文件、用例与 failureType，无需重跑。
+export function writeRoundEvidence({ dir, round, status, durationMs, stdout, stderr, at = new Date() }) {
+  fs.mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, evidenceFileName(round, at));
+  const body = [
+    `# stability evidence · round ${round}`,
+    `# status: ${status}`,
+    `# generatedAt: ${at.toISOString()}`,
+    `# durationMs: ${Math.round(Number(durationMs) || 0)}`,
+    '# ---------- stdout (TAP) ----------',
+    String(stdout ?? ''),
+    '# ---------- stderr ----------',
+    String(stderr ?? ''),
+    '',
+  ].join('\n');
+  fs.writeFileSync(file, body);
+  return file;
+}
+
 // 稳定性的分母是“轮次”：一轮里只要有一个用例失败，这一轮就算不稳定。
-export function summarizeRounds(rounds) {
-  const list = Array.isArray(rounds) ? rounds : [];
+export function summarizeRounds(rounds) {  const list = Array.isArray(rounds) ? rounds : [];
   const passed = list.filter((round) => round.status === 'ok').length;
   const failed = list.length - passed;
   const failures = new Map();
@@ -94,16 +131,17 @@ export function formatPercent(ratio) {
 
 function roundLine(round) {
   const seconds = `${(Number(round.durationMs) / 1000).toFixed(2)}s`;
+  const evidence = round.evidencePath ? `，证据 ${round.evidencePath}` : '';
   if (round.status === 'ok') {
     return `  轮次 ${round.round}: ✓ 通过 ${seconds}（${round.tests} 项）`;
   }
   if (round.status === 'timeout') {
-    return `  轮次 ${round.round}: ✗ 超时 ${seconds}（${round.detail || '超过时限'}）`;
+    return `  轮次 ${round.round}: ✗ 超时 ${seconds}（${round.detail || '超过时限'}${evidence}）`;
   }
   if (round.status === 'error') {
-    return `  轮次 ${round.round}: ✗ 异常 ${seconds}（${round.detail || '未产出 TAP 汇总'}）`;
+    return `  轮次 ${round.round}: ✗ 异常 ${seconds}（${round.detail || '未产出 TAP 汇总'}${evidence}）`;
   }
-  return `  轮次 ${round.round}: ✗ 失败 ${seconds}（${round.pass} 通过 / ${round.fail} 失败）`;
+  return `  轮次 ${round.round}: ✗ 失败 ${seconds}（${round.pass} 通过 / ${round.fail} 失败${evidence}）`;
 }
 
 export function formatReport(report, { concurrency = null, testFiles = 0 } = {}) {
@@ -182,7 +220,14 @@ function usage() {
   ].join('\n');
 }
 
-export function runRound(round, { root = REPO_ROOT, files, concurrency = null, timeoutMs = DEFAULT_TIMEOUT_MS, execPath = process.execPath } = {}) {
+export function runRound(round, {
+  root = REPO_ROOT,
+  files,
+  concurrency = null,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+  execPath = process.execPath,
+  evidenceDir = null,
+} = {}) {
   // 若本进程自身由 node --test 启动，NODE_TEST_CONTEXT 会让子进程进入测试子进程模式、不产出汇总。
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
@@ -195,8 +240,11 @@ export function runRound(round, { root = REPO_ROOT, files, concurrency = null, t
     maxBuffer: 64 * 1024 * 1024,
   });
   const durationMs = Number(process.hrtime.bigint() - started) / 1e6;
-  const summary = parseTapSummary(result.stdout ?? '');
-  const failedTests = parseTapFailures(result.stdout ?? '');
+  const stdout = result.stdout ?? '';
+  const stderr = result.stderr ?? '';
+  const summary = parseTapSummary(stdout);
+  const failedTests = parseTapFailures(stdout);
+  const failureTypes = parseTapFailureTypes(stdout);
 
   let status = 'ok';
   let detail = '';
@@ -205,13 +253,30 @@ export function runRound(round, { root = REPO_ROOT, files, concurrency = null, t
     detail = `超过 ${Math.round(timeoutMs / 1000)}s 被终止`;
   } else if (!summary.ok) {
     status = 'error';
-    detail = summary.error || (result.stderr ?? '').trim().split('\n').slice(-3).join(' ');
+    detail = summary.error || stderr.trim().split('\n').slice(-3).join(' ');
   } else if (summary.fail > 0) {
     status = 'fail';
     detail = `${summary.fail} 项失败`;
   } else if (result.status !== 0) {
     status = 'error';
     detail = `退出码 ${result.status}${result.signal ? `（${result.signal}）` : ''}`;
+  }
+
+  // 判定语义不变：任一轮非 ok 都返回失败，不做轮级重跑；只是把该轮的原始证据留下来。
+  let evidencePath = null;
+  if (status !== 'ok') {
+    try {
+      evidencePath = writeRoundEvidence({
+        dir: evidenceDir ?? defaultEvidenceDir(root),
+        round,
+        status,
+        durationMs,
+        stdout,
+        stderr,
+      });
+    } catch (error) {
+      console.error(`test-stability: 失败证据落盘失败：${error.message}`);
+    }
   }
 
   return {
@@ -222,6 +287,8 @@ export function runRound(round, { root = REPO_ROOT, files, concurrency = null, t
     pass: summary.pass,
     fail: summary.fail,
     failedTests,
+    failureTypes,
+    evidencePath,
     detail,
   };
 }

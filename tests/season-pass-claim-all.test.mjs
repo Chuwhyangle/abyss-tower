@@ -1,7 +1,6 @@
 // 赛季通行证一键领取：部分已领只补剩余、重复点击幂等、事务失败整批回滚、接口与界面接线。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,15 +8,15 @@ import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import { SEASON_PASS_MILESTONES } from '../public/js/shared/season-pass.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-claim-all-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-claim-all-server-${process.pid}-${Date.now()}.db`);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 
 const PARTIAL_TOKEN = 'claim-all-partial-01';
 const ALL_TOKEN = 'claim-all-everything-01';
@@ -39,7 +38,6 @@ let seasonOf = null;
 let seasonBounds = null;
 
 let server = null;
-let serverLog = '';
 let inSeasonAt = 0;
 
 function removeDb(file) {
@@ -141,26 +139,13 @@ before(async () => {
   insertFinishedRun(db, { id: 'ca-rollback', accountId: ROLLBACK_TOKEN, score: 180000 });
   seedAccount(EMPTY_TOKEN);
 
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: SERVER_DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: SERVER_DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

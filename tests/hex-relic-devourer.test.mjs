@@ -4,7 +4,6 @@
 // 末尾一段起真实 HTTP 服务验证服务端 relicOffers/serialize 读到同一组钩子。
 import test, { after, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -15,7 +14,7 @@ import { generateMap } from '../public/js/shared/mapgen.js';
 import { HEX_BY_ID, offerHexes } from '../public/js/shared/hexes.js';
 import { HexRuntime } from '../public/js/shared/hexes/runtime.js';
 import relicDevourer from '../public/js/shared/hexes/relic-devourer.js';
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 const HEX = 'relic_devourer';
 const SEED = 'hex-relic-devourer-seed';
@@ -177,13 +176,12 @@ test('无海克斯时行为完全不变', () => {
 
 // ---------- 服务端：relicOffers / serialize 读到同一组钩子 ----------
 
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-hex-devourer-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'hex-devourer-token-0001';
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', body } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
@@ -210,26 +208,14 @@ function fixedSeedOfferingDevourer() {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      ALLOW_TEST_SEED: '1',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    seedHeader: true,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

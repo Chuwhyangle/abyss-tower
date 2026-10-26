@@ -2,7 +2,6 @@
 // 以及接口 all=true 分批直到未读清零。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -11,13 +10,13 @@ import { DatabaseSync } from 'node:sqlite';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const UNIT_DB = path.join(os.tmpdir(), `rtd-notif-batch-unit-${process.pid}-${Date.now()}.db`);
 const SERVER_DB = path.join(os.tmpdir(), `rtd-notif-batch-server-${process.pid}-${Date.now()}.db`);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const ALICE = 'notif-batch-alice-01';
 const BOB = 'notif-batch-bob-01';
 
@@ -33,7 +32,6 @@ let NOTIFICATION_READ_BATCH_SIZE = 0;
 
 let server = null;
 let serverDb = null;
-let serverLog = '';
 
 function removeDb(file) {
   for (const suffix of ['', '-wal', '-shm']) {
@@ -110,26 +108,13 @@ before(async () => {
   seedAccount(ALICE);
   seedAccount(BOB);
 
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: SERVER_DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: SERVER_DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 
   // 先让服务端建好两个账号，再直接向服务端库写入 >1 批的未读通知。
   await api('/api/notifications', { token: ALICE });

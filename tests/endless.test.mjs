@@ -1,14 +1,13 @@
 // 无尽模式：第 30 波后继续生成、曲线硬上限、独立计分与独立排行榜、旧存档兼容。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 
 import { BALANCE } from '../public/js/shared/config.js';
 import { MAX_WAVE } from '../public/js/shared/data.js';
@@ -134,14 +133,13 @@ test('旧存档兼容：普通档仍按 30 波收敛，无尽档保留更高波�
 
 // ---------- 服务端：续波、结算与独立排行榜 ----------
 
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB = path.join(os.tmpdir(), `rtd-endless-test-${process.pid}-${Date.now()}.db`);
 const TOKEN = 'endless-test-token-0001';
 const OTHER = 'endless-test-token-0002';
 
 let server = null;
-let serverLog = '';
 
 async function api(pathname, { method = 'GET', token = TOKEN, body } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
@@ -190,26 +188,13 @@ function backdateRun(runId, ms = 4 * 60 * 1000) {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH: DB,
-      AUTH_ENABLED: '0',
-      DB_BACKUP: '0',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    dbPath: DB,
+    env: { AUTH_ENABLED: '0' },
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(() => {

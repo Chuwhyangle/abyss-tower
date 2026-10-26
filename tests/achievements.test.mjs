@@ -1,14 +1,13 @@
 // 成就系统：注册登录 → 完成一局 → 解锁「首次远征」；重复结算不重复插入；接口结构正确。
 import test, { before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, waitForHealth } from './test-server.mjs';
+import { startServer } from './test-server.mjs';
 import { ACHIEVEMENT_BY_ID } from '../public/js/shared/achievements.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,12 +43,11 @@ const LEGACY_IDS = [
 ];
 const GROUPS = new Set(['clear', 'build', 'challenge', 'collect']);
 const RARITIES = new Set(['common', 'rare', 'epic']);
-const PORT = await allocatePort();
-const BASE = `http://127.0.0.1:${PORT}`;
+let PORT = 0;
+let BASE = '';
 const DB_PATH = path.join(os.tmpdir(), `rtd-achievements-${process.pid}-${Date.now()}.db`);
 
 let server = null;
-let serverLog = '';
 let cookie = '';
 let accountId = '';
 
@@ -111,27 +109,16 @@ async function playOneRun() {
 }
 
 before(async () => {
-  server = spawn(process.execPath, ['--no-warnings', 'server/index.mjs'], {
+  server = await startServer({
     cwd: ROOT,
+    dbPath: DB_PATH,
     env: {
-      ...process.env,
-      PORT: String(PORT),
-      HOST: '127.0.0.1',
-      DB_PATH,
       AUTH_ENABLED: '1',
       REGISTRATION_MODE: 'open',
-      DB_BACKUP: '0',
     },
-    stdio: ['ignore', 'pipe', 'pipe'],
   });
-  server.stdout.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-  server.stderr.on('data', (chunk) => {
-    serverLog += chunk;
-  });
-
-  await waitForHealth({ base: BASE, port: PORT, child: server, log: () => serverLog });
+  PORT = server.port;
+  BASE = server.base;
 });
 
 after(async () => {
