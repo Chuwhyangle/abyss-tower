@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { db } from '../db/index.mjs';
+import { countAuthEvents, insertAuthEvent } from '../db/accounts.mjs';
 
 const MINUTE_MS = 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
@@ -69,43 +69,7 @@ export function recordAuthEvent({
   userAgent = null,
   detail = {},
 }) {
-  db.prepare(
-    `INSERT INTO auth_events
-       (account_id, username_norm, event, ip_hash, user_agent, detail, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
-  ).run(
-    accountId,
-    usernameNorm,
-    event,
-    ipHash,
-    userAgent ? String(userAgent).slice(0, 300) : null,
-    JSON.stringify(detail || {}),
-    Date.now()
-  );
-}
-
-function countEvents(
-  event,
-  since,
-  { accountId = null, usernameNorm = null, ipHash = null } = {}
-) {
-  const conditions = ['event = ?', 'created_at >= ?'];
-  const params = [event, since];
-  if (accountId != null) {
-    conditions.push('account_id = ?');
-    params.push(accountId);
-  }
-  if (usernameNorm != null) {
-    conditions.push('username_norm = ?');
-    params.push(usernameNorm);
-  }
-  if (ipHash != null) {
-    conditions.push('ip_hash = ?');
-    params.push(ipHash);
-  }
-  return db
-    .prepare(`SELECT COUNT(*) AS c FROM auth_events WHERE ${conditions.join(' AND ')}`)
-    .get(...params).c;
+  insertAuthEvent({ accountId, usernameNorm, event, ipHash, userAgent, detail });
 }
 
 function policyFor(action) {
@@ -123,7 +87,7 @@ export function actionRateLimited(
   const since = Date.now() - policy.windowMs;
   const exceeded = (max, selector) => {
     if (max == null || !selector) return false;
-    return countEvents(policy.event, since, selector) >= max;
+    return countAuthEvents(policy.event, since, selector) >= max;
   };
   const limited =
     exceeded(policy.maxPerAccount, accountId != null ? { accountId } : null) ||

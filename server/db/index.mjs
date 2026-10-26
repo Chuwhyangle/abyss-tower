@@ -147,3 +147,25 @@ db.prepare(
   `DELETE FROM account_sessions
     WHERE expires_at < ? OR (revoked_at IS NOT NULL AND revoked_at < ?)`
 ).run(cleanupNow - 7 * 24 * 60 * 60 * 1000, cleanupNow - 7 * 24 * 60 * 60 * 1000);
+
+// ---------- 只读诊断原语 ----------
+// 接受注入的数据库句柄（测试可传入降级替身），路由层只负责 HTTP 形状与降级。
+
+export function readDatabasePageInfo(database = db) {
+  return {
+    pageCount: Number(database.prepare('PRAGMA page_count').get()?.page_count),
+    pageSize: Number(database.prepare('PRAGMA page_size').get()?.page_size),
+  };
+}
+
+export function readMigrationCounters(database = db) {
+  return database
+    .prepare(
+      'SELECT COUNT(*) AS applied, MAX(version) AS latest, MAX(applied_at) AS applied_at FROM schema_migrations'
+    )
+    .get();
+}
+
+export function readActiveRunCount(database = db) {
+  return database.prepare("SELECT COUNT(*) AS active FROM runs WHERE status = 'active'").get();
+}

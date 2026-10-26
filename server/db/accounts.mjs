@@ -220,3 +220,119 @@ export function ensureLegacyAccount(token) {
   addAlias('legacy_token', aliasHash, account.id);
   return account;
 }
+
+// ---------- 认证事件仓储 ----------
+// 限流与安全审计共用的追加式流水；写入方只关心事件语义，SQL 收在这里。
+export function insertAuthEvent({
+  accountId = null,
+  usernameNorm = null,
+  event,
+  ipHash = null,
+  userAgent = null,
+  detail = {},
+  createdAt = Date.now(),
+}) {
+  db.prepare(
+    `INSERT INTO auth_events
+       (account_id, username_norm, event, ip_hash, user_agent, detail, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    accountId,
+    usernameNorm,
+    event,
+    ipHash,
+    // User-Agent 只用于排查，截断后再落库，避免超长头撑大事件表。
+    userAgent ? String(userAgent).slice(0, 300) : null,
+    JSON.stringify(detail || {}),
+    createdAt
+  );
+}
+
+// 限流计数：同一事件的失败次数按账号/用户名/IP 分桶统计，桶之间互不影响。
+export function countAuthEvents(
+  event,
+  since,
+  { accountId = null, usernameNorm = null, ipHash = null } = {}
+) {
+  const conditions = ['event = ?', 'created_at >= ?'];
+  const params = [event, since];
+  if (accountId != null) {
+    conditions.push('account_id = ?');
+    params.push(accountId);
+  }
+  if (usernameNorm != null) {
+    conditions.push('username_norm = ?');
+    params.push(usernameNorm);
+  }
+  if (ipHash != null) {
+    conditions.push('ip_hash = ?');
+    params.push(ipHash);
+  }
+  return db
+    .prepare(`SELECT COUNT(*) AS c FROM auth_events WHERE ${conditions.join(' AND ')}`)
+    .get(...params).c;
+}
+
+// ---------- 档案仓储：玩家键值、进度、外观与账号维度的对局汇总 ----------
+// 档案接口与其它域共用这些原语；解析/归一/校验仍留在各自的领域层。
+
+export function readPlayerKv(accountId, namespace, key) {
+  return (
+    db
+      .prepare(
+        'SELECT value_json, updated_at FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?'
+      )
+      .get(accountId, namespace, key) || null
+  );
+}
+
+// 键值写入为整值覆盖；updatedAt 由调用方给出，用于「最后修改优先」的比较。
+export function writePlayerKv(accountId, namespace, key, valueJson, updatedAt = Date.now()) {
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json,
+       updated_at = excluded.updated_at`
+  ).run(accountId, namespace, key, valueJson, updatedAt);
+}
+
+export function listPlayerProgress(accountId, type = null) {
+  const columns =
+    'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ?';
+  const statement = type
+    ? db.prepare(`${columns} AND progress_type = ?`)
+    : db.prepare(columns);
+  return type ? statement.all(accountId, type) : statement.all(accountId);
+}
+
+export function listUnlockedAchievementIds(accountId) {
+  return db
+    .prepare('SELECT achievement_id FROM account_achievements WHERE account_id = ?')
+    .all(accountId)
+    .map((row) => row.achievement_id);
+}
+
+// 数据导出：只返回账号自己的对局摘要，不含种子/规则集等内部字段。
+export function listAccountRuns(accountId) {
+  return db
+    .prepare(
+      `SELECT id, mode, board_key, difficulty, day, status, victory, score,
+              wave_reached, kills, duration_ms, created_at, finished_at
+         FROM runs WHERE account_id = ? ORDER BY created_at DESC`
+    )
+    .all(accountId);
+}
+
+// 每日挑战历史：按天聚合本人已完成每日对局的最佳成绩与参与次数。
+export function listDailyRunBests(accountId, sinceDay) {
+  return db
+    .prepare(
+      `SELECT day, MAX(score) AS best_score, MAX(wave_reached) AS best_wave,
+              COUNT(*) AS attempts, MAX(finished_at) AS last_played_at
+         FROM runs
+        WHERE account_id = ? AND mode = 'daily' AND status = 'finished' AND day >= ?
+        GROUP BY day`
+    )
+    .all(accountId, sinceDay);
+}

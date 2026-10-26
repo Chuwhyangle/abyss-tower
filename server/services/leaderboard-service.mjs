@@ -1,0 +1,176 @@
+// 排行榜领域服务：请求参数归一、复核说明与响应组装都在这里；
+// 榜单 SQL 与排序口径仍由仓储层（server/db/leaderboard.mjs）提供，路由只做 HTTP 适配。
+import { AUTH_ENABLED } from '../config.mjs';
+import { DIFFICULTIES } from '../../public/js/shared/data.js';
+import {
+  mutationKey,
+  mutationScoreMul,
+  mutationSummary,
+  validateMutationSelection,
+} from '../../public/js/shared/mutations.js';
+import { dayKey, isWeekKey, weekKey } from '../../public/js/shared/scoring.js';
+import {
+  MAX_BOARD_PAGE_SIZE,
+  MAX_CURSOR_PAGE_SIZE,
+  accountBoardSummary,
+  countBoard,
+  isSeasonKey,
+  listBoard,
+  listEntries,
+  listSeasons,
+  seasonBounds,
+  seasonOf,
+  seasonResultFor,
+  validateLeaderboardEntry,
+} from '../db/leaderboard.mjs';
+
+const DEFAULT_SIZE = 20;
+// 已知榜单模式；未识别的取值一律落到普通榜，与旧接口的兜底口径一致。
+const MODES = new Set(['daily', 'weekly', 'endless', 'mutated']);
+
+// 玩家可见的复核说明：只描述哪类数据对不上，不出现任何阈值或内部规则名。
+const SUSPECT_REASON_TEXT = {
+  kills_clamped: '击杀数与波次数据不符',
+  score_too_high: '分数与波次、击杀数据不符',
+  score_too_low: '分数与波次、击杀数据不符',
+};
+const SUSPECT_REASON_FALLBACK = '本局数据存在异常，正在复核';
+
+function boundedInt(raw, fallback, max) {
+  const parsed = Math.floor(Number(raw));
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(1, Math.min(max, parsed));
+}
+
+function failure(status, message, code) {
+  return { ok: false, status, message, code };
+}
+
+// 可疑标记以入库时的判定为准；这里只按当前数据补一条规则级说明，不改排序、不改名次。
+function annotateSuspect(entries, scoreMul) {
+  return entries.map((entry) => {
+    if (!entry.suspect) return { ...entry, suspect: false, suspectReason: null };
+    const { flags } = validateLeaderboardEntry(entry, { scoreMul });
+    const flag = flags.find((item) => SUSPECT_REASON_TEXT[item]);
+    return {
+      ...entry,
+      suspect: true,
+      suspectReason: SUSPECT_REASON_TEXT[flag] || SUSPECT_REASON_FALLBACK,
+    };
+  });
+}
+
+export class LeaderboardService {
+  // 读取榜单：返回 { ok: true, body } 或带 HTTP 语义的领域错误，由路由转成响应。
+  board(params, { accountId = null } = {}) {
+    const requestedMode = params.get('mode');
+    const mode = MODES.has(requestedMode) ? requestedMode : 'normal';
+
+    // 变异榜：组合非法直接拒绝，不做静默回退，避免查到错误的榜。
+    let mutationIds = null;
+    if (mode === 'mutated') {
+      const selection = validateMutationSelection(params.get('mutations'));
+      if (!selection.ok) return failure(400, selection.error, 'INVALID_MUTATION_COMBO');
+      mutationIds = selection.ids;
+    }
+
+    // 周榜的 day 维度是 ISO 周键；变异榜是规范化组合；非法或缺失时回退当前维度。
+    const requestedDay = params.get('day');
+    const day =
+      mode === 'mutated'
+        ? mutationKey(mutationIds)
+        : mode === 'weekly'
+          ? (isWeekKey(requestedDay) ? requestedDay : weekKey())
+          : requestedDay || dayKey();
+
+    const requested = params.get('difficulty');
+    const difficulty = requested && Object.hasOwn(DIFFICULTIES, requested) ? requested : null;
+    const includeUnclaimed = !AUTH_ENABLED;
+
+    // 赛季默认当前自然月；非法参数回退当前赛季，不报错。
+    // mode=endless 与普通榜共用赛季参数：赛季既是查询区间，也是榜单 key（endless:<season>）。
+    const currentSeason = seasonOf();
+    const requestedSeason = params.get('season');
+    const season = isSeasonKey(requestedSeason) ? requestedSeason : currentSeason;
+    const bounds = seasonBounds(season);
+    const seasonList = new Set(listSeasons());
+    seasonList.add(currentSeason);
+    seasonList.add(season);
+
+    // 带 cursor 或 limit 的请求走游标分页；两者都没有时保持旧版 page/size 行为不变。
+    const cursorRaw = params.get('cursor');
+    const limitRaw = params.get('limit');
+    let entries;
+    let page;
+    let size;
+    let nextCursor = null;
+    if (cursorRaw || limitRaw != null) {
+      size = boundedInt(limitRaw, DEFAULT_SIZE, MAX_CURSOR_PAGE_SIZE);
+      const paged = listEntries({
+        mode,
+        day,
+        season,
+        difficulty,
+        includeUnclaimed,
+        cursor: cursorRaw || null,
+        limit: size,
+        accountId,
+      });
+      // 非法/跨榜游标直接拒绝，不回退到首页，避免看起来“翻页成功”却读错数据。
+      if (!paged) return failure(400, '非法游标', 'INVALID_CURSOR');
+      entries = paged.entries;
+      nextCursor = paged.nextCursor;
+      page = Math.floor(paged.offset / size) + 1;
+    } else {
+      page = boundedInt(params.get('page'), 1, Number.MAX_SAFE_INTEGER);
+      size = boundedInt(params.get('size'), DEFAULT_SIZE, MAX_BOARD_PAGE_SIZE);
+      entries = listBoard(mode, day, {
+        includeUnclaimed,
+        limit: size,
+        offset: (page - 1) * size,
+        difficulty,
+        accountId,
+        season,
+      });
+    }
+
+    // 变异倍率同时用于复核说明的重新判定，避免合法的高倍率成绩被标成异常。
+    const scoreMul = mutationIds ? mutationScoreMul(mutationIds) : 1;
+    entries = annotateSuspect(entries, scoreMul);
+    const total = countBoard(mode, day, { includeUnclaimed, difficulty, season });
+    const me = accountBoardSummary(accountId, mode, day, {
+      includeUnclaimed,
+      difficulty,
+      season,
+    });
+
+    return {
+      ok: true,
+      body: {
+        mode,
+        day,
+        week: mode === 'weekly' ? day : null,
+        mutations: mutationIds ? mutationSummary(mutationIds) : null,
+        mutationScoreMul: mutationIds ? scoreMul : null,
+        page,
+        size,
+        difficulty,
+        total,
+        totalPages: Math.max(1, Math.ceil(total / size)),
+        entries,
+        nextCursor,
+        me,
+        season,
+        seasons: [...seasonList].sort().reverse(),
+        seasonStart: dayKey(new Date(bounds.start)),
+        seasonEnd: dayKey(new Date(bounds.end - 1)),
+      },
+    };
+  }
+
+  // 个人赛季结算结果：只暴露本人名次与奖励，结算本身由 CLI 显式触发。
+  seasonResult(accountId, season) {
+    if (!isSeasonKey(season)) return failure(400, '非法赛季：应为 YYYY-MM', 'INVALID_SEASON');
+    return { ok: true, body: { season, result: seasonResultFor(accountId, season) } };
+  }
+}
