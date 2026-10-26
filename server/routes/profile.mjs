@@ -1,10 +1,16 @@
 // 玩家档案接口：会话初始化、档案读取、进度查询、数据导出与账号删除。
-import { db, updateProfile } from '../db.mjs';
+import { updateProfile } from '../db.mjs';
 import {
   DELETION_COOLDOWN_MS,
   findAccountById,
+  listAccountRuns,
+  listDailyRunBests,
+  listPlayerProgress,
+  listUnlockedAchievementIds,
   publicAccount,
+  readPlayerKv,
   softDeleteAccount,
+  writePlayerKv,
 } from '../db/accounts.mjs';
 import { cosmeticSummary, setSelectedCosmetics } from '../db/achievements.mjs';
 import {
@@ -111,11 +117,7 @@ export function sanitizeSettings(raw) {
 }
 
 function readStoredSettings(accountId) {
-  const row = db
-    .prepare(
-      'SELECT value_json, updated_at FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?'
-    )
-    .get(accountId, SETTINGS_NAMESPACE, SETTINGS_KEY);
+  const row = readPlayerKv(accountId, SETTINGS_NAMESPACE, SETTINGS_KEY);
   if (!row) return { settings: null, updatedAt: 0, corrupt: false };
   let parsed;
   try {
@@ -134,18 +136,7 @@ function readStoredSettings(accountId) {
 }
 
 function readProgress(accountId, type = null) {
-  const rows = type
-    ? db
-        .prepare(
-          'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ? AND progress_type = ?'
-        )
-        .all(accountId, type)
-    : db
-        .prepare(
-          'SELECT progress_type, progress_key, value_num, state_json, updated_at FROM player_progress WHERE account_id = ?'
-        )
-        .all(accountId);
-  return rows.map((row) => {
+  return listPlayerProgress(accountId, type).map((row) => {
     let state = {};
     try {
       state = JSON.parse(row.state_json) || {};
@@ -163,18 +154,11 @@ function readProgress(accountId, type = null) {
 }
 
 function readUnlockedAchievementIds(accountId) {
-  const rows = db
-    .prepare('SELECT achievement_id FROM account_achievements WHERE account_id = ?')
-    .all(accountId);
-  return new Set(rows.map((row) => row.achievement_id));
+  return new Set(listUnlockedAchievementIds(accountId));
 }
 
 function readSkinSelection(accountId) {
-  const row = db
-    .prepare(
-      'SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?'
-    )
-    .get(accountId, COSMETICS_NAMESPACE, SELECTED_SKIN_KEY);
+  const row = readPlayerKv(accountId, COSMETICS_NAMESPACE, SELECTED_SKIN_KEY);
   if (!row) return normalizeSkinSelection(null);
   try {
     return normalizeSkinSelection(JSON.parse(row.value_json));
@@ -202,18 +186,11 @@ function skinSummary(accountId) {
 }
 
 function writeSkinSelection(accountId, selection) {
-  db.prepare(
-    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
-     VALUES (?, ?, ?, ?, ?)
-     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
-       value_json = excluded.value_json,
-       updated_at = excluded.updated_at`
-  ).run(
+  writePlayerKv(
     accountId,
     COSMETICS_NAMESPACE,
     SELECTED_SKIN_KEY,
-    JSON.stringify(normalizeSkinSelection(selection)),
-    Date.now()
+    JSON.stringify(normalizeSkinSelection(selection))
   );
 }
 
@@ -275,12 +252,13 @@ export class ProfileRoutes {
       return ctx.json(200, { ...stored, conflict: true });
     }
     const settings = sanitizeSettings(raw);
-    db.prepare(
-      `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(account_id, namespace, key) DO UPDATE SET
-         value_json = excluded.value_json, updated_at = excluded.updated_at`
-    ).run(ctx.token, SETTINGS_NAMESPACE, SETTINGS_KEY, JSON.stringify(settings), proposed);
+    writePlayerKv(
+      ctx.token,
+      SETTINGS_NAMESPACE,
+      SETTINGS_KEY,
+      JSON.stringify(settings),
+      proposed
+    );
     return ctx.json(200, { settings, updatedAt: proposed, corrupt: false, conflict: false });
   }
 
@@ -373,16 +351,7 @@ export class ProfileRoutes {
     const oldest = entries[entries.length - 1]?.day;
     const bestByDay = new Map();
     if (oldest) {
-      const rows = db
-        .prepare(
-          `SELECT day, MAX(score) AS best_score, MAX(wave_reached) AS best_wave,
-                  COUNT(*) AS attempts, MAX(finished_at) AS last_played_at
-             FROM runs
-            WHERE account_id = ? AND mode = 'daily' AND status = 'finished' AND day >= ?
-            GROUP BY day`
-        )
-        .all(ctx.token, oldest);
-      for (const row of rows) bestByDay.set(row.day, row);
+      for (const row of listDailyRunBests(ctx.token, oldest)) bestByDay.set(row.day, row);
     }
     return ctx.json(200, {
       today: entries[0]?.day ?? null,
@@ -406,13 +375,7 @@ export class ProfileRoutes {
     const account = findAccountById(ctx.token);
     if (!account) return ctx.fail(404, '账号不存在');
     const profile = ctx.profile;
-    const runs = db
-      .prepare(
-        `SELECT id, mode, board_key, difficulty, day, status, victory, score,
-                wave_reached, kills, duration_ms, created_at, finished_at
-           FROM runs WHERE account_id = ? ORDER BY created_at DESC`
-      )
-      .all(ctx.token);
+    const runs = listAccountRuns(ctx.token);
     return ctx.json(200, {
       exportedAt: new Date().toISOString(),
       account: publicAccount(account),
