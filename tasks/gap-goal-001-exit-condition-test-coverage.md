@@ -1,7 +1,7 @@
 ---
 id: gap-goal-001-exit-condition-test-coverage
 title: GOAL-001 退出条件「全量测试通过」的目标级 AC 覆盖裁定（AC-005 已被越权写入目标库）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
