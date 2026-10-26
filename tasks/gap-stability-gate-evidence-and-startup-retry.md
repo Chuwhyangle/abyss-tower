@@ -1,7 +1,7 @@
 ---
 id: gap-stability-gate-evidence-and-startup-retry
 title: 稳定性门禁失败证据落盘 + 直接自起服务测试的启动重试收口（AC-007）
-status: ready
+status: done
 labels:
   - gap
 parent: null
