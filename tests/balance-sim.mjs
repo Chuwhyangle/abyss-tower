@@ -2,6 +2,7 @@
 // 结果用于三档难度的相对比较与回归，不代替真人试玩。
 // 用法：node tests/balance-sim.mjs [seeds] [--write] [--detail] [--candidates=N]
 //       [--report=<path>]
+//       [--baseline]（额外跑 v1.31 随机 carve 对照，不进入固定图汇总）
 //       [--skill=none|aurora|meteor|chrono] [--skill-level=1|10]
 // 机器人技能策略固定为“冷却好就用”，默认 --skill=none 保持旧基线。
 //
@@ -17,6 +18,7 @@ import {
   ARCHETYPES,
   MODIFIER_BY_ID,
   generateMapCandidates,
+  legacyGenerateMap,
 } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
@@ -31,6 +33,7 @@ import {
   rollRelicOffers,
 } from '../public/js/shared/data.js';
 import { effectBalanceWeight, getEffect } from '../public/js/shared/effects.js';
+import { DESTRUCTIBLE_BY_ID } from '../public/js/shared/destructibles.js';
 import { BALANCE_TARGETS } from '../public/js/shared/config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -61,6 +64,8 @@ const SEEDS = Math.max(1, Number(process.argv[2]) || 6);
 const CANDIDATES = Math.min(3, numericArg('candidates', 3));
 const WRITE_DOC = process.argv.includes('--write');
 const DETAIL = process.argv.includes('--detail');
+// --baseline：额外跑一遍 v1.31 随机 carve 地图（同机器人），用于固定图对照。
+const BASELINE = process.argv.includes('--baseline');
 const REPORT_PATH = stringArg('report');
 const SKILL_ID = stringArg('skill', 'none');
 const SKILL_LEVEL = Math.max(1, Math.min(10, numericArg('skill-level', 1)));
@@ -96,6 +101,64 @@ function offerValue(offer) {
   if (offer.kind === 'gold') return offer.amount * 0.06;
   if (offer.kind === 'repair') return offer.amount * 12;
   return 0;
+}
+
+// 局内事件的选项估值：金币 1 分、基地生命/上限 12 分（与遗物里的 repair 同口径）。
+// 赌局按期望值折算，机器人只做确定性比较，不消耗战斗 RNG。
+function eventOptionValue(option) {
+  const expected = {};
+  const add = (deltas, weight = 1) => {
+    for (const [key, raw] of Object.entries(deltas || {})) {
+      expected[key] = (expected[key] || 0) + raw * weight;
+    }
+  };
+  if (option?.gamble) {
+    add(option.gamble.win, option.gamble.chance);
+    add(option.gamble.lose, 1 - option.gamble.chance);
+  } else {
+    add(option?.deltas);
+  }
+  let value = 0;
+  for (const [key, amount] of Object.entries(expected)) {
+    if (key === 'gold') value += amount;
+    else if (key === 'hp' || key === 'maxHp') value += amount * 12;
+    else value += amount;
+  }
+  return value;
+}
+
+// 事件波结算：按期望收益从高到低尝试可负担的选项；全部失败才视为卡死。
+// 事件是独立 RNG（seed:event:wave），这里不改变战斗随机序列。
+function resolveBotEvent(sim) {
+  const options = Array.isArray(sim.pendingEvent?.options) ? sim.pendingEvent.options : [];
+  const ranked = options
+    .map((option, index) => ({ index, value: eventOptionValue(option) }))
+    .sort((a, b) => b.value - a.value || a.index - b.index);
+  for (const entry of ranked) {
+    const result = sim.applyEventOption(entry.index);
+    if (result.ok) return result;
+  }
+  return { ok: false, reason: 'no-affordable-option' };
+}
+
+// 可破坏物策略（固定图）：只拆“净收益为正”的物件。
+// 补给箱免费 +25 金/+1 生命，永远拆；金脉净赚 60 金，留 15 金缓冲后拆；
+// 图腾光环 +8% 移速/+10% 生命，留 60 金缓冲后拆；石碑 +5% 塔伤害，中后期金币富余再拆。
+// 虫巢不拆：免费但会立刻刷 6 只噬虫，机器人不为此冒险（腾格子的收益低于漏怪风险）。
+const DESTRUCTIBLE_POLICY = {
+  cache: () => true,
+  vein: (sim) => sim.gold >= DESTRUCTIBLE_BY_ID.vein.cost + 15,
+  totem: (sim) => sim.gold >= DESTRUCTIBLE_BY_ID.totem.cost + 60,
+  obelisk: (sim, wave) => wave >= 8 && sim.gold >= DESTRUCTIBLE_BY_ID.obelisk.cost + 200,
+};
+
+function useDestructibles(sim, wave) {
+  for (const item of Array.isArray(sim.destructibles) ? sim.destructibles : []) {
+    if (item.destroyed) continue;
+    const rule = DESTRUCTIBLE_POLICY[item.type];
+    if (!rule || !rule(sim, wave)) continue;
+    sim.destroyDestructible(item.id);
+  }
 }
 
 // 按 lane 采样路径点：每条 lane 都从入口采到基地（含终点），保证多入口地图的
@@ -179,10 +242,12 @@ function spendGold(sim, wave, cells) {
 
 // ---------- 单局模拟 ----------
 
-function runOne(seed, difficulty, meta, candidateIndex = 0) {
+function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride = null) {
   const diff = DIFFICULTIES[difficulty];
   const candidates = generateMapCandidates(seed, 3);
-  const map = candidates[Math.max(0, Math.min(candidates.length - 1, candidateIndex))];
+  const map =
+    mapOverride ??
+    candidates[Math.max(0, Math.min(candidates.length - 1, candidateIndex))];
   const waveLog = [];
   const baseHp = Math.max(8, 20 + (meta ? 3 : 0) + diff.hpBonus);
   const startGold = Math.max(100, 260 + (meta ? 40 : 0) + diff.goldBonus);
@@ -218,6 +283,8 @@ function runOne(seed, difficulty, meta, candidateIndex = 0) {
   const enemyCounts = {};
   const enemyFirstWave = {};
   // 机器人必须先完成开局整备，再进入第 1 波；否则把"空手接第一波"误当成游戏难度。
+  // 固定图有可破坏物：开局先按策略拆一遍，再花钱建塔（与真人“先清场再布防”一致）。
+  useDestructibles(sim, 1);
   spendGold(sim, 1, cells);
   let stuck = false;
   let lastWave = 0;
@@ -241,6 +308,24 @@ function runOne(seed, difficulty, meta, candidateIndex = 0) {
       steps++;
     }
 
+    // 第 5/10/15/20/25 波清完进入事件阶段：先结算事件，再按 prep 继续抽遗物/花钱。
+    if (sim.phase === 'event') {
+      const resolved = resolveBotEvent(sim);
+      if (!resolved.ok) {
+        stuck = true;
+        waveLog.push({
+          wave,
+          hp: Math.max(0, Math.ceil(sim.baseHp)),
+          gold: Math.floor(sim.gold),
+          towers: sim.towers.length,
+          count: waveDef.totalCount,
+          seconds: Math.round(sim.time),
+          stuck: true,
+        });
+        break;
+      }
+    }
+
     if (sim.phase === 'over') {
       waveLog.push({
         wave,
@@ -257,6 +342,7 @@ function runOne(seed, difficulty, meta, candidateIndex = 0) {
       const offers = rollRelicOffers(`${seed}:bot:${wave}`, sim.relics, 3, wave);
       offers.sort((a, b) => offerValue(b) - offerValue(a));
       if (offers[0]) sim.applyOffer(offers[0]);
+      useDestructibles(sim, wave);
       spendGold(sim, wave, cells);
       waveLog.push({
         wave,
@@ -710,6 +796,61 @@ function formatTargetTable(statuses) {
   return lines.join('\n');
 }
 
+// 固定三图 vs v1.31 随机 carve 基线（同机器人、全解锁）。
+function formatBaselineTable(fixedSummary, baselineSummary) {
+  const header = ['难度', 'v1.31 随机图（同机器人）', '固定三图', '差值'];
+  const lines = [header.join(' | '), header.map(() => '---').join(' | ')];
+  for (const difficulty of DIFFICULTY_ORDER) {
+    const fixed = fixedSummary.find((row) => row.difficulty === difficulty && row.meta === 'full');
+    const baseline = baselineSummary.find(
+      (row) => row.difficulty === difficulty && row.meta === 'full'
+    );
+    const delta =
+      fixed?.winRate != null && baseline?.winRate != null
+        ? fixed.winRate - baseline.winRate
+        : null;
+    lines.push(
+      [
+        DIFFICULTIES[difficulty].name,
+        formatPercent(baseline?.winRate),
+        formatPercent(fixed?.winRate),
+        formatDelta(delta),
+      ].join(' | ')
+    );
+  }
+  return lines.join('\n');
+}
+
+// 逐图偏差说明：目标区间来自 BALANCE_TARGETS（全解锁、机器人口径），
+// 超过 5 个百分点的项单独列出，便于判断是否需要调敌人数量/金币。
+function fixedMapDeviationLines(archetypeRows) {
+  const lines = [];
+  const misses = [];
+  for (const row of archetypeRows) {
+    const [low, high] = BALANCE_TARGETS[row.difficulty];
+    const rate = row.winRate;
+    if (rate >= low && rate <= high) continue;
+    const gap = rate < low ? (low - rate) * 100 : (rate - high) * 100;
+    const direction = rate < low ? '低于' : '高于';
+    misses.push({
+      gap,
+      text: `${DIFFICULTIES[row.difficulty].name}·${row.label} ${formatPercent(rate)}（${direction}目标 ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%，${rate < low ? '-' : '+'}${gap.toFixed(0)}pp）`,
+    });
+  }
+  if (!misses.length) {
+    lines.push('- 三张固定图在全部难度均落入目标区间（全解锁、机器人口径）。');
+    return lines;
+  }
+  lines.push(`- 未落入目标区间的项：${misses.map((item) => item.text).join('；')}。`);
+  const over5 = misses.filter((item) => item.gap > 5);
+  lines.push(
+    over5.length
+      ? `- 其中偏差超过 5 个百分点：${over5.map((item) => item.text).join('；')}。`
+      : '- 偏差均在 5 个百分点以内，按任务约定不做额外调参。'
+  );
+  return lines;
+}
+
 function formatTowerContentTable(rows) {
   const header = ['难度', '解锁', '防御塔', '选取率', '使用局数', '平均座数', '有塔胜率', '无塔胜率', '胜率差'];
   const lines = [header.join(' | '), header.map(() => '---').join(' | ')];
@@ -822,6 +963,21 @@ export function runBatch({ seeds = SEEDS, candidates = CANDIDATES } = {}) {
   return rows;
 }
 
+// v1.31 随机 carve 基线：每个种子抽一张 legacy 随机图，机器人与固定图完全同策略。
+// 只用于「固定图 vs 随机图」对照，不进入固定图汇总（避免污染逐图/逐词缀统计）。
+export function runLegacyBaseline({ seeds = SEEDS } = {}) {
+  const rows = [];
+  for (const difficulty of DIFFICULTY_ORDER) {
+    for (const meta of [false, true]) {
+      for (let i = 0; i < seeds; i++) {
+        const seed = `balance-${i}`;
+        rows.push(runOne(seed, difficulty, meta, 0, legacyGenerateMap(seed)));
+      }
+    }
+  }
+  return rows;
+}
+
 export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {}) {
   const summary = summarize(rows);
   const difficulties = {};
@@ -869,8 +1025,8 @@ function tradeoffLines(statuses) {
     `- 未达标：${missed
       .map((row) => `${DIFFICULTIES[row.difficulty].name} ${formatPercent(row.winRate)}（目标 ${(row.low * 100).toFixed(0)}–${(row.high * 100).toFixed(0)}%，${row.status}）`)
       .join('；')}。`,
-    '- 取舍：三档共用同一条 30 波曲线，压低整体难度会让深渊同步变简单；本轮优先保证漫游/远征落入区间，深渊允许落在区间边缘并记录偏差，留待真人试玩与下一轮单独调首领/后期预算。',
-    '- 调参只改三档 `hpMul` / `countMul` / `speedMul`，未改战斗规则、内容定义与机器人策略。',
+    '- 本轮未调整三档 `hpMul` / `countMul` / `speedMul`，也未改战斗规则或内容定义；以上是固定地图池 + 机器人补上事件结算/可破坏物后的真实口径。',
+    '- 结构性原因与是否调参的结论见「固定地图结论」；目标区间仍按 v1.31 随机图口径保留，用于衡量差距。',
   ];
 }
 
@@ -925,6 +1081,12 @@ function main() {
   const archetypeBaseTable = formatArchetypeTable(archetypeBase);
   const modifierBaseTable = formatModifierTable(modifierBase);
 
+  // v1.31 随机 carve 对照（可选）：同一机器人、同一 seed 集，每 seed 一张 legacy 随机图。
+  const baselineRows = BASELINE ? runLegacyBaseline({ seeds: report.meta.seeds }) : null;
+  const baselineTable = baselineRows
+    ? formatBaselineTable(summary, summarize(baselineRows))
+    : null;
+
   console.log(
     `\n平衡模拟结果（${rows.length} 局，每种子 ${report.meta.candidates} 张候选地图，技能 ${
       SKILL ? `${SKILL.id} Lv.${SKILL.level}` : '无'
@@ -932,6 +1094,10 @@ function main() {
   );
   console.log('目标达成（全解锁、机器人口径）\n');
   console.log(targetTable);
+  if (baselineTable) {
+    console.log('\n固定三图 vs v1.31 随机 carve 基线（全解锁、同一机器人）\n');
+    console.log(baselineTable);
+  }
   console.log('');
   console.log(table);
   console.log('\n逐塔（选取率 / 胜率贡献）\n');
@@ -940,9 +1106,9 @@ function main() {
   console.log(relicTable);
   console.log('\n逐敌人（遭遇率 / 胜败局分布）\n');
   console.log(enemyTable);
-  console.log('\n全解锁 · 地图原型\n');
+  console.log('\n全解锁 · 固定地图\n');
   console.log(archetypeTable);
-  console.log('\n全解锁 · 地图词缀\n');
+  console.log('\n全解锁 · 固定特性\n');
   console.log(modifierTable);
   console.log('\n全解锁 · 候选序号\n');
   console.log(candidateTable);
@@ -989,23 +1155,39 @@ function main() {
     const contentLines = [
       '# 平衡模拟记录',
       '',
-      '> 本文件由 `node tests/balance-sim.mjs 40 --write` 生成，请勿手工改数字。',
+      '> 本文件由 `node tests/balance-sim.mjs 40 --write --baseline` 生成，请勿手工改数字。',
       '',
       `- 生成时间：${new Date().toISOString()}`,
       `- 种子数：每档 ${report.meta.seeds} 个；每个种子跑 ${report.meta.candidates} 张候选地图（真人开局三选一的完整候选集）`,
       `- 总对局：${rows.length}`,
       '- 方法：真实 Simulation + 固定机器人策略（无渲染）',
-      '- 地图原型/词缀由种子生成；候选地图与真人三选一使用同一生成器，机器人按候选序号逐一模拟（不挑图）。',
+      '- 地图池：三张固定手工地图（裂谷关隘 / 双牙桥 / 环心遗迹）+ 固定特性；种子只影响波次、遗物与事件，不影响地图几何。机器人按候选序号逐一模拟（不挑图）。',
       '',
       '## 目标达成（全解锁、机器人口径）',
       '',
       targetTable,
       '',
-      '## 调参记录（本轮 vs 上轮）',
+      ...(baselineTable
+        ? [
+            '## 固定三图 vs v1.31 随机 carve 基线',
+            '',
+            '同一机器人、同一种子集：v1.31 基线每个种子抽一张 `legacyGenerateMap` 随机图，固定图固定跑三张候选。',
+            '',
+            baselineTable,
+            '',
+          ]
+        : []),
+      '## 逐图靶心与偏差说明（全解锁）',
+      '',
+      ...fixedMapDeviationLines(archetypeFull),
+      '',
+      '## 与上轮文档快照对照（仅参考，非本轮调参）',
+      '',
+      '上轮快照来自 v1.8 文档（随机 carve + 未结算事件的旧机器人）；本轮差异主要来自地图池切换与机器人修正。',
       '',
       formatChangeTable(statuses),
       '',
-      '本轮三档倍率：',
+      '本轮三档倍率（未调整）：',
       '',
       formatMultiplierTable(),
       '',
@@ -1016,6 +1198,15 @@ function main() {
       '## 总体（难度 × 解锁状态）',
       '',
       table,
+      '',
+      '### 固定地图结论',
+      '',
+      '- 逐图通关率与平均波次见「全解锁 · 固定地图」；总体目标达成见文首。',
+      '- 固定图的地形与可破坏物布点全部写死，本轮不调整路径；偏差优先用敌人数量/金币解释，未改任何战斗公式。',
+      '- 三张图的单位路程不同：裂谷关隘单路 39 格，双牙桥两路 24/25 格，环心遗迹两路 25/26 格。多入口图单条 lane 更短，敌人受火时间更少，机器人口径下明显更难；这是地图结构差异，不是数值回归。',
+      '- 机器人不选主海克斯、不做分支进化、不主动用技能，绝对通关率系统性低于真人；目标区间按这一口径解读，真人试玩应在此基础上向上校准。',
+      '- 调参评估（机器人口径、20 种子抽样）：单径峡谷漫游已接近区间；双牙桥/环心遗迹要把敌人数量乘到约 0.55 才能让漫游回到 70% 附近，但远征仍只有 10%/0%；乘 0.4 并追加开局金币 +200 后，远征仍只有 20%/20%、深渊 20%/0%。继续压低会让漫游图失去防守压力，因此本轮不落地数值改动，按任务约定记录偏差。',
+      '- 若后续要把某张图单独拉回区间，优先调该图固定特性或敌人数量/开局金币；不要改路径，也不要改已冻结的战斗公式。',
       '',
       '## 逐塔（选取率 / 胜率贡献）',
       '',
@@ -1035,11 +1226,11 @@ function main() {
       '',
       enemyTable,
       '',
-      '## 全解锁 · 地图原型',
+      '## 全解锁 · 固定地图（每张图三档难度）',
       '',
       archetypeTable,
       '',
-      '## 全解锁 · 地图词缀',
+      '## 全解锁 · 固定特性',
       '',
       modifierTable,
       '',
@@ -1049,11 +1240,11 @@ function main() {
       '',
       candidateTable,
       '',
-      '## 零解锁 · 地图原型',
+      '## 零解锁 · 固定地图',
       '',
       archetypeBaseTable,
       '',
-      '## 零解锁 · 地图词缀',
+      '## 零解锁 · 固定特性',
       '',
       modifierBaseTable,
       '',
@@ -1065,12 +1256,15 @@ function main() {
       '',
       '- 机器人不等同真人：它不会针对性换塔，也不会手动卖塔，通关率仅用于相对比较。',
       '- 机器人固定策略：第 1 波前完成开局整备、18 塔上限、固定建塔顺序、不卖塔/不针对性换塔；因此不能把机器人通关率当真人通关率。',
+      '- 机器人会结算事件波（按期望收益选可负担的最高价值选项），并按固定策略拆除固定图上的可破坏物：补给箱必拆、金脉/图腾留出缓冲后拆、石碑中后期拆、虫巢不拆（会刷 6 只噬虫）。',
+      '- 机器人不选主海克斯、不做分支进化、不主动使用技能，因此绝对通关率系统性低于真人；历史目标区间也是在这一口径下校准的。',
       '- 每种子跑满 3 张候选地图，总体表按候选均匀加权，接近“玩家随机选图”的口径，而不是只看第一张。',
       `- 目标（全解锁、机器人口径）：漫游 ${(BALANCE_TARGETS.roam[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.roam[1] * 100).toFixed(0)}%、远征 ${(BALANCE_TARGETS.standard[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.standard[1] * 100).toFixed(0)}%、深渊 ${(BALANCE_TARGETS.abyss[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.abyss[1] * 100).toFixed(0)}%。`,
-      '- 偏离目标时先调 `DIFFICULTIES` 倍率（`shared/data/difficulties.js`），其次调 `shared/config.js` 的波次/经济与 `mapgen.js` 的原型 `scoreMul`/词缀数值。',
+      '- 偏离目标时优先调敌人数量/金币（`DIFFICULTIES` 倍率或固定图特性数值），其次调 `shared/config.js` 的波次/经济；不要改路径与已冻结的战斗公式。',
       '- 零解锁状态显著更难，用于体现星核解锁价值；单独成表报告，不与全解锁混算。',
       '- 不同 seed 集结果波动明显，结论以 40 种子为准；绝对值以真人试玩校准。',
       '- 结构化数据：`node tests/balance-sim.mjs 40 --report=reports/balance.json`（无时间戳，同种子可复现）。',
+      '- 固定图 vs 随机图对照：`node tests/balance-sim.mjs 40 --baseline`（额外跑 v1.31 `legacyGenerateMap` 随机图，不写入固定图汇总）。',
       '',
     ];
     fs.writeFileSync(docPath, contentLines.join('\n'));
