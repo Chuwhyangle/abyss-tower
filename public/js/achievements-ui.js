@@ -3,6 +3,9 @@
 import { t, tOr } from './i18n.js';
 import { seasonPanelView } from './ui/panels.js';
 import { iconSvg } from './render/canvas-shapes.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
 
 function progressBar(item) {
   const progress = item.progress;
@@ -157,47 +160,39 @@ function render(panel, data) {
   list.innerHTML = banner + seasonalSections(data) + groupSections(data, items);
 }
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function loadAchievements() {
+  return api.request('/api/achievements');
 }
 
-async function load(panel) {
+function showLoading(panel) {
   const list = panel.querySelector('#achievements-list');
   list.innerHTML = `<p class="achievement-hint">${t('achievements.loading')}</p>`;
-  try {
-    const response = await fetch('/api/achievements', { credentials: 'same-origin' });
-    if (response.status === 401) {
-      list.innerHTML = emptyState(t('achievements.login'));
-      return;
-    }
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || t('achievements.error'));
-    render(panel, data);
-  } catch (error) {
-    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error.message || t('achievements.error'))}</p>`;
+}
+
+function showFailure(panel, error) {
+  const list = panel.querySelector('#achievements-list');
+  if (!list) return;
+  if (error?.status === 401) {
+    list.innerHTML = emptyState(t('achievements.login'));
+    return;
   }
+  list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || t('achievements.error'))}</p>`;
 }
 
 function install() {
   const button = document.getElementById('btn-achievements');
   const panel = document.getElementById('achievements-panel');
   if (!button || !panel) return;
-  const close = panel.querySelector('#btn-achievements-close');
 
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) load(panel);
-  };
-
-  button.addEventListener('click', () => setOpen(panel.hidden));
-  close?.addEventListener('click', () => setOpen(false));
-  document.addEventListener('i18n:change', () => {
-    if (!panel.hidden) load(panel);
+  createPanel({
+    id: 'achievements-panel',
+    trigger: button,
+    closeSelector: '#btn-achievements-close',
+    refreshOnLocale: true,
+    load: loadAchievements,
+    render: (node, data) => render(node, data),
+    loading: showLoading,
+    failed: showFailure,
   });
 }
 

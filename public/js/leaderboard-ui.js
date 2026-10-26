@@ -1,8 +1,13 @@
 // 排行榜面板：服务端分页 / 难度筛选 / 个人排名，只消费接口聚合结果。
 import { DIFFICULTIES, DIFFICULTY_ORDER } from './shared/data.js';
 import { iconSvg } from './render/canvas-shapes.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
+import { fmt } from './ui/shared.js';
 
 const PANEL_ID = 'leaderboard-panel';
+const STYLE_ID = 'leaderboard-ui-style';
 const PAGE_SIZE = 10;
 
 const STATE = {
@@ -150,32 +155,10 @@ const STYLE = `
   .lb-page { font-size: 12px; color: var(--muted, #8fa3b2); }
 `;
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[ch]);
-}
-
-function fmt(n) {
-  return Number(n || 0).toLocaleString('en-US');
-}
-
 // 无尽榜以波次为主、用时为辅展示；用时统一成 m:ss，避免每行长度跳动。
 function fmtDuration(ms) {
   const total = Math.max(0, Math.floor(Number(ms || 0) / 1000));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
-}
-
-function ensureStyle() {
-  if (document.getElementById('leaderboard-ui-style')) return;
-  const style = document.createElement('style');
-  style.id = 'leaderboard-ui-style';
-  style.textContent = STYLE;
-  document.head.appendChild(style);
 }
 
 function difficultyName(id) {
@@ -186,7 +169,7 @@ function difficultyColor(id) {
   return DIFFICULTIES[id]?.color || DIFFICULTIES.standard.color;
 }
 
-function renderShell(panel) {
+function buildShell() {
   const difficultyButtons = [
     `<button class="lb-checks active" data-difficulty="">全部</button>`,
     ...DIFFICULTY_ORDER.map(
@@ -194,11 +177,11 @@ function renderShell(panel) {
     ),
   ].join('');
 
-  panel.innerHTML = `
+  return `
     <div class="lb-head">
       <h2>排行榜</h2>
       <span id="lb-summary" class="lb-summary"></span>
-      <button id="lb-close" class="icon-btn" title="关闭排行榜">${iconSvg('close')}</button>
+      <button id="lb-close" class="icon-btn" data-panel-close type="button" title="关闭排行榜">${iconSvg('close')}</button>
     </div>
     <div class="lb-controls">
       <div class="lb-tabs">
@@ -214,22 +197,22 @@ function renderShell(panel) {
       标有「待复核」的成绩数据存在异常，正在复核；复核期间照常参与排名。
     </p>
     <div class="lb-foot">
-      <button id="lb-prev" class="btn small ghost" disabled>上一页</button>
+      <button id="lb-prev" class="btn small ghost" type="button" disabled>上一页</button>
       <span id="lb-page" class="lb-page"></span>
-      <button id="lb-next" class="btn small ghost" disabled>下一页</button>
+      <button id="lb-next" class="btn small ghost" type="button" disabled>下一页</button>
     </div>
   `;
+}
 
-  panel.querySelector('#lb-close').addEventListener('click', () => {
-    panel.hidden = true;
-  });
+// 面板骨架只负责开关与加载；这里的控件接线通过 onMount 一次性完成。
+function bindControls(panel, controller) {
   panel.querySelectorAll('[data-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       if (STATE.mode === button.dataset.mode) return;
       STATE.mode = button.dataset.mode;
       resetPaging();
       markActive(panel);
-      load(panel);
+      controller.reload();
     });
   });
   panel.querySelectorAll('[data-difficulty]').forEach((button) => {
@@ -238,13 +221,13 @@ function renderShell(panel) {
       STATE.difficulty = button.dataset.difficulty;
       resetPaging();
       markActive(panel);
-      load(panel);
+      controller.reload();
     });
   });
   panel.querySelector('#lb-prev').addEventListener('click', () => {
     if (STATE.loading || STATE.index <= 0) return;
     STATE.index -= 1;
-    load(panel);
+    controller.reload();
   });
   panel.querySelector('#lb-next').addEventListener('click', () => {
     if (STATE.loading || !STATE.nextCursor) return;
@@ -252,7 +235,7 @@ function renderShell(panel) {
     STATE.cursors = STATE.cursors.slice(0, STATE.index + 1);
     STATE.cursors.push(STATE.nextCursor);
     STATE.index += 1;
-    load(panel);
+    controller.reload();
   });
 }
 
@@ -326,6 +309,7 @@ function renderRows(panel, data) {
   STATE.nextCursor = data.nextCursor || null;
   panel.querySelector('#lb-page').textContent =
     `第 ${data.page || STATE.index + 1} / ${STATE.totalPages} 页 · 共 ${Number(data.total) || 0} 条`;
+  STATE.loading = false;
   setPagingBusy(panel, false);
 }
 
@@ -335,14 +319,27 @@ function setPagingBusy(panel, busy) {
   panel.querySelector('#lb-next').disabled = busy || !STATE.nextCursor;
 }
 
-async function load(panel) {
-  if (STATE.loading) return;
+function showLoading(panel) {
   STATE.loading = true;
   const list = panel.querySelector('#lb-list');
   list.innerHTML = '<p class="lb-hint">正在读取排行榜…</p>';
   const note = panel.querySelector('#lb-suspect-note');
   if (note) note.hidden = true;
   setPagingBusy(panel, true);
+}
+
+function showFailure(panel, error) {
+  STATE.loading = false;
+  const list = panel.querySelector('#lb-list');
+  if (!list) return;
+  list.innerHTML =
+    error?.status === 401
+      ? '<p class="lb-hint">请先登录后查看排行榜。</p>'
+      : `<p class="lb-hint">${escapeHtml(error?.message || '读取排行榜失败')}</p>`;
+  setPagingBusy(panel, false);
+}
+
+async function loadPage() {
   const params = new URLSearchParams({
     mode: STATE.mode,
     limit: String(PAGE_SIZE),
@@ -350,46 +347,29 @@ async function load(panel) {
   if (STATE.difficulty) params.set('difficulty', STATE.difficulty);
   const cursor = STATE.cursors[STATE.index];
   if (cursor) params.set('cursor', cursor);
-  try {
-    const response = await fetch(`/api/leaderboard?${params}`, {
-      credentials: 'same-origin',
-    });
-    const data = await response.json().catch(() => null);
-    if (response.status === 401) {
-      list.innerHTML = '<p class="lb-hint">请先登录后查看排行榜。</p>';
-      return;
-    }
-    if (!response.ok) throw new Error(data?.error || '读取排行榜失败');
-    renderRows(panel, data);
-  } catch (error) {
-    list.innerHTML = `<p class="lb-hint">${escapeHtml(error.message || '读取排行榜失败')}</p>`;
-  } finally {
-    STATE.loading = false;
-    setPagingBusy(panel, false);
-  }
+  return api.request(`/api/leaderboard?${params}`);
 }
 
 function install() {
   const panel = document.getElementById(PANEL_ID);
   const trigger = document.getElementById('btn-board');
   if (!panel || !trigger) return;
-  ensureStyle();
-  renderShell(panel);
 
-  // 旧版排行榜由大厅 UI 的 onclick 打开弹窗；这里在捕获阶段接管同一个按钮，
+  // 旧版排行榜由大厅 UI 的 onclick 打开弹窗；拦截模式在捕获阶段接管同一个按钮，
   // 用增强面板替代，避免两个排行榜界面同时出现。
-  document.addEventListener(
-    'click',
-    (event) => {
-      if (!event.target.closest?.(`#${trigger.id}`)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      panel.hidden = !panel.hidden;
-      if (!panel.hidden) load(panel);
-    },
-    true
-  );
+  createPanel({
+    id: PANEL_ID,
+    trigger,
+    style: STYLE,
+    styleId: STYLE_ID,
+    html: buildShell(),
+    interceptClicks: true,
+    load: loadPage,
+    render: (node, data) => renderRows(node, data),
+    loading: showLoading,
+    failed: showFailure,
+    onMount: (node, controller) => bindControls(node, controller),
+  });
 }
 
 if (document.readyState === 'loading') {

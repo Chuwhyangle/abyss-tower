@@ -360,5 +360,5 @@ test('一键领取按钮、角标与减少动效接线齐备', () => {
   assert.match(SEASON_PASS_UI, /prefers-reduced-motion/, '未处理减少动效偏好');
   assert.match(SEASON_PASS_UI, /data-milestone/, '领取动效缺少里程碑定位标记');
   assert.match(SEASON_PASS_UI, /\.animate\(/, '缺少领取动效');
-  assert.match(SEASON_PASS_UI, /credentials: 'same-origin'/, '请求未携带同源凭据');
+  assert.match(SEASON_PASS_UI, /api\.request\('\/api\/season-pass\/claim-all'/, '请求未走统一 API 客户端');
 });

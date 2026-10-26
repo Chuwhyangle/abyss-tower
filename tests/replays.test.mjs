@@ -211,8 +211,8 @@ test('结算页回放面板：脚本接入、摘要拉取、时间线与转义�
   assert.match(INDEX_HTML, /src="\/js\/replay-ui\.js"/, '结算页未加载回放面板脚本');
   assert.match(REPLAY_UI, /\/api\/replays/, '回放面板未走回放接口');
   assert.match(REPLAY_UI, /credentials: 'same-origin'/, '请求未携带同源凭据');
-  assert.match(REPLAY_UI, /response\.status === 401/, '未处理未登录');
-  assert.match(REPLAY_UI, /function escapeHtml/, '缺少 HTML 转义');
+  assert.match(REPLAY_UI, /status === 401/, '未处理未登录');
+  assert.match(REPLAY_UI, /import \{ escapeHtml \} from '\.\/ui\/kit\/dom\.js'/, '应复用统一 HTML 转义');
   assert.match(REPLAY_UI, /data-replay-id/, '缺少回放选择项标记');
   assert.match(REPLAY_UI, /\.result-modal \.result/, '未挂载到结算弹窗');
   assert.match(REPLAY_UI, /buildTimeline/, '缺少时间线构建');

@@ -2,17 +2,11 @@
 // 视觉样式统一放在 public/styles.css，使用 V21-007 的设计令牌。
 import { t, tData } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
 
 const RECENT_LIMIT = 10;
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function percent(rate) {
   return `${Math.round((Number(rate) || 0) * 100)}%`;
@@ -127,38 +121,39 @@ function render(body, data) {
   body.innerHTML = `${renderTotals(totals)}${renderDifficulties(byDifficulty)}${renderRecent(recent)}`;
 }
 
-async function load(panel) {
+function loadStats() {
+  return api.request('/api/stats');
+}
+
+function showLoading(panel) {
   const body = panel.querySelector('#stats-body');
   body.innerHTML = `<p class="career-hint">${t('career.loading')}</p>`;
-  try {
-    const response = await fetch('/api/stats', { credentials: 'same-origin' });
-    if (response.status === 401) {
-      body.innerHTML = emptyState(t('career.login'));
-      return;
-    }
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || t('career.error'));
-    render(body, data);
-  } catch (error) {
-    body.innerHTML = `<p class="career-hint">${escapeHtml(error.message || t('career.error'))}</p>`;
+}
+
+function showFailure(panel, error) {
+  const body = panel.querySelector('#stats-body');
+  if (!body) return;
+  if (error?.status === 401) {
+    body.innerHTML = emptyState(t('career.login'));
+    return;
   }
+  body.innerHTML = `<p class="career-hint">${escapeHtml(error?.message || t('career.error'))}</p>`;
 }
 
 function install() {
   const button = document.getElementById('btn-stats');
   const panel = document.getElementById('stats-panel');
   if (!button || !panel) return;
-  const close = panel.querySelector('#btn-stats-close');
 
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) load(panel);
-  };
-
-  button.addEventListener('click', () => setOpen(panel.hidden));
-  close?.addEventListener('click', () => setOpen(false));
-  document.addEventListener('i18n:change', () => {
-    if (!panel.hidden) load(panel);
+  createPanel({
+    id: 'stats-panel',
+    trigger: button,
+    closeSelector: '#btn-stats-close',
+    refreshOnLocale: true,
+    load: loadStats,
+    render: (node, data) => render(node.querySelector('#stats-body'), data),
+    loading: showLoading,
+    failed: showFailure,
   });
 }
 

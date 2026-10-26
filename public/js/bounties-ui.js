@@ -1,15 +1,10 @@
 // 大厅悬赏面板：只展示服务端派生的目标与进度，领取由服务端幂等判定。
 // 视觉沿用成就面板的既有样式，不新增样式表。
-const PERIOD_LABELS = { daily: '每日', weekly: '每周', season: '赛季' };
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+const PERIOD_LABELS = { daily: '每日', weekly: '每周', season: '赛季' };
 
 function progressBar(item) {
   const target = Math.max(0, Number(item.target) || 0);
@@ -91,19 +86,16 @@ function render(panel, data) {
 async function claim(panel, bountyId) {
   const list = panel.querySelector('#bounties-list');
   try {
-    const response = await fetch(`/api/bounties/${encodeURIComponent(bountyId)}/claim`, {
+    const data = await api.request(`/api/bounties/${encodeURIComponent(bountyId)}/claim`, {
       method: 'POST',
-      credentials: 'same-origin',
     });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '领取失败');
     const cores = document.getElementById('cores');
     if (cores && Number.isFinite(Number(data?.balance))) cores.textContent = String(data.balance);
-    await load(panel);
+    await controller?.reload();
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = escapeHtml(error.message || '领取失败');
+    note.textContent = error?.message || '领取失败';
     list.prepend(note);
   }
 }
@@ -112,51 +104,50 @@ async function refreshBoard(panel) {
   if (!window.confirm('刷新会更换本周悬赏目标，每周仅限一次，确认刷新？')) return;
   const list = panel.querySelector('#bounties-list');
   try {
-    const response = await fetch('/api/bounties/refresh', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '刷新失败');
-    await load(panel);
+    await api.request('/api/bounties/refresh', { method: 'POST' });
+    await controller?.reload();
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = escapeHtml(error.message || '刷新失败');
+    note.textContent = error?.message || '刷新失败';
     list.prepend(note);
   }
 }
 
-async function load(panel) {
-  const list = panel.querySelector('#bounties-list');
-  list.innerHTML = '<p class="achievement-hint">加载中…</p>';
-  try {
-    const response = await fetch('/api/bounties', { credentials: 'same-origin' });
-    if (response.status === 401) {
-      list.innerHTML = '<p class="achievement-hint">登录后可查看悬赏</p>';
-      return;
-    }
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || '加载失败');
-    render(panel, data);
-  } catch (error) {
-    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error.message || '加载失败')}</p>`;
-  }
+function loadBounties() {
+  return api.request('/api/bounties');
 }
+
+function showLoading(panel) {
+  panel.querySelector('#bounties-list').innerHTML = '<p class="achievement-hint">加载中…</p>';
+}
+
+function showFailure(panel, error) {
+  const list = panel.querySelector('#bounties-list');
+  if (!list) return;
+  if (error?.status === 401) {
+    list.innerHTML = '<p class="achievement-hint">登录后可查看悬赏</p>';
+    return;
+  }
+  list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || '加载失败')}</p>`;
+}
+
+let controller = null;
 
 function install() {
   const button = document.getElementById('btn-bounties');
   const panel = document.getElementById('bounties-panel');
   if (!button || !panel) return;
-  const close = panel.querySelector('#btn-bounties-close');
 
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) load(panel);
-  };
-
-  button.addEventListener('click', () => setOpen(panel.hidden));
-  close?.addEventListener('click', () => setOpen(false));
+  controller = createPanel({
+    id: 'bounties-panel',
+    trigger: button,
+    closeSelector: '#btn-bounties-close',
+    load: loadBounties,
+    render: (node, data) => render(node, data),
+    loading: showLoading,
+    failed: showFailure,
+  });
 }
 
 if (document.readyState === 'loading') {

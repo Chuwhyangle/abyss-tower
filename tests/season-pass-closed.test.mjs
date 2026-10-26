@@ -313,8 +313,8 @@ test('面板接线：终态文案与历史赛季切换', () => {
   assert.match(ui, /已错过/, '缺少达标未领取的终态状态');
   assert.match(ui, /readOnly/, '未消费只读终态标记');
   assert.match(ui, /item\.claimed/, '未展示领取状态');
-  assert.match(ui, /credentials: 'same-origin'/, '请求未携带同源凭据');
-  assert.match(ui, /response\.status === 401/, '未处理未登录');
+  assert.match(ui, /api\.request\(/, '请求未走统一 API 客户端');
+  assert.match(ui, /status === 401/, '未处理未登录');
 });
 
 test('零第三方依赖：新增与改动的模块只使用相对导入', () => {

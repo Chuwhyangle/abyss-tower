@@ -1,17 +1,11 @@
 // UI 公共工具：文案取值、数字格式化、图标注入与 HTML 转义，供 ui/ 各面板复用。
 import { SKILLS, skillStats, skillUnlockText } from '../shared/data.js';
 import { t, tData, tOr } from '../i18n.js';
-import { iconSvg } from '../render/canvas-shapes.js';
+
+// 转义与图标注入只有一份实现，放在 ui/kit/dom.js；这里转出以兼容既有导入。
+export { escapeHtml, hydrateIcons } from './kit/dom.js';
 
 export const $ = (id) => document.getElementById(id);
-
-// 静态页面用 data-icon 占位，初始化时统一注入程序化图标，避免在 HTML 里散落字符图标。
-export function hydrateIcons(root = document) {
-  root.querySelectorAll('[data-icon]').forEach((node) => {
-    const markup = iconSvg(node.dataset.icon);
-    if (markup) node.innerHTML = markup;
-  });
-}
 
 export const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
@@ -130,13 +124,4 @@ export function mapPreviewSvg(map) {
     ${spawns}
     ${base}
   </svg>`;
-}
-
-export function escapeHtml(text) {
-  return String(text)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }

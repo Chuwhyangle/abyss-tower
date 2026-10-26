@@ -3,6 +3,8 @@
 // 文案自持中英双语，跟随 i18n 当前语言；不依赖样式表（面板样式随模块注入）。
 import { MAX_REPLAY_CODE_LENGTH, validateRun } from './shared/replay.js';
 import { getLocale } from './i18n.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
 
 const API_URL = '/api/replay';
 const STYLE_ID = 'share-ui-style';
@@ -233,16 +235,6 @@ function fill(template, params = {}) {
   );
 }
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[ch]);
-}
-
 // 错误码 → 可读文案；未知错误码回退到通用提示，绝不把裸错误码抛给玩家。
 export function errorText(code, locale = getLocale()) {
   const copy = copyFor(locale);
@@ -314,19 +306,12 @@ export async function copyToClipboard(text, { clipboard, select } = {}) {
 
 async function postReplay(body) {
   try {
-    const response = await fetch(API_URL, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok || !data?.ok) {
-      return { ok: false, code: data?.code || null, status: response.status };
-    }
+    const data = await api.request(API_URL, { method: 'POST', body });
+    if (!data?.ok) return { ok: false, code: data?.code || null, status: 200 };
     return { ok: true, data };
-  } catch {
-    return { ok: false, code: null, offline: true };
+  } catch (error) {
+    if (!error?.status) return { ok: false, code: null, offline: true };
+    return { ok: false, code: error.data?.code || null, status: error.status };
   }
 }
 

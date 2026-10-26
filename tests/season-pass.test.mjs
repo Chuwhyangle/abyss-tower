@@ -366,12 +366,12 @@ test('面板与路由接线齐备', () => {
   assert.match(INDEX_HTML, /src="\/js\/ui\/season-pass\.js"/, '通行证脚本未加载');
 
   assert.match(SEASON_PASS_UI, /#season-pass-list|season-pass-list/, '缺少里程碑列表容器');
-  assert.match(SEASON_PASS_UI, /function escapeHtml/, '缺少 HTML 转义');
+  assert.match(SEASON_PASS_UI, /import \{ escapeHtml \} from '\.\/kit\/dom\.js'/, '应复用统一 HTML 转义');
   assert.match(SEASON_PASS_UI, /role="progressbar"/, '进度条缺少可访问性角色');
   assert.match(SEASON_PASS_UI, /data-claim=/, '缺少领取按钮标记');
   assert.match(SEASON_PASS_UI, /\/api\/season-pass\/claim/, '领取未走通行证接口');
-  assert.match(SEASON_PASS_UI, /credentials: 'same-origin'/, '请求未携带同源凭据');
-  assert.match(SEASON_PASS_UI, /response\.status === 401/, '未处理未登录');
+  assert.match(SEASON_PASS_UI, /api\.request\(/, '请求未走统一 API 客户端');
+  assert.match(SEASON_PASS_UI, /status === 401/, '未处理未登录');
   assert.match(SEASON_PASS_UI, /item\.claimed/, '未展示领取状态');
 
   assert.match(ROUTES_INDEX, /import \{ SeasonPassRoutes \} from '\.\/season-pass\.mjs'/);

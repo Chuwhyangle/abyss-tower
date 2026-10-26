@@ -45,7 +45,7 @@ test('详情页接线：分享码走 /api/replay，提供生成与复制时间�
   assert.match(SOURCE, /data-replay-copy/, '缺少「复制时间线」入口');
   assert.match(SOURCE, /credentials: 'same-origin'/, '分享请求未携带同源凭据');
   assert.match(SOURCE, /i18n:change/, '切换语言时应刷新文案');
-  assert.match(SOURCE, /function escapeHtml/, '缺少 HTML 转义');
+  assert.match(SOURCE, /import \{ escapeHtml \} from '\.\/ui\/kit\/dom\.js'/, '应复用统一 HTML 转义');
   assert.doesNotMatch(SOURCE, /from\s+['"](?!\.)/, '不得引入第三方/裸模块');
 });
 

@@ -5,6 +5,8 @@ import { RELIC_BY_ID } from './shared/data.js';
 import { validateRun } from './shared/replay.js';
 import { getLocale } from './i18n.js';
 import { copyToClipboard, errorText } from './share-ui.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
 
 const API_URL = '/api/replays';
 const SHARE_API_URL = '/api/replay';
@@ -201,16 +203,6 @@ function fill(template, params = {}) {
   return String(template).replace(/\{(\w+)\}/g, (match, key) =>
     Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match
   );
-}
-
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[ch]);
 }
 
 function fmt(n) {
@@ -478,13 +470,16 @@ class ReplayUI {
     const list = section.querySelector('[data-replay-list]');
     const detail = section.querySelector('[data-replay-detail]');
     try {
-      const response = await fetch(replayUrl(), { credentials: 'same-origin' });
-      const data = await response.json().catch(() => null);
-      if (response.status === 401) {
-        list.innerHTML = `<span class="replay-empty">${escapeHtml(copy.authRequired)}</span>`;
-        return;
+      let data;
+      try {
+        data = await api.request(replayUrl());
+      } catch (error) {
+        if (error?.status === 401) {
+          list.innerHTML = `<span class="replay-empty">${escapeHtml(copy.authRequired)}</span>`;
+          return;
+        }
+        throw error;
       }
-      if (!response.ok) throw new Error(data?.error || copy.loadFailed);
       this.replays = Array.isArray(data?.replays) ? data.replays : [];
       if (!this.replays.length) {
         list.innerHTML = `<span class="replay-empty">${escapeHtml(copy.empty)}</span>`;
@@ -519,13 +514,16 @@ class ReplayUI {
     });
     detail.innerHTML = `<p class="replay-empty">${escapeHtml(copy.timelineLoading)}</p>`;
     try {
-      const response = await fetch(replayUrl(id), { credentials: 'same-origin' });
-      const data = await response.json().catch(() => null);
-      if (response.status === 401) {
-        detail.innerHTML = `<p class="replay-empty">${escapeHtml(copy.authRequired)}</p>`;
-        return;
+      let data;
+      try {
+        data = await api.request(replayUrl(id));
+      } catch (error) {
+        if (error?.status === 401) {
+          detail.innerHTML = `<p class="replay-empty">${escapeHtml(copy.authRequired)}</p>`;
+          return;
+        }
+        throw error;
       }
-      if (!response.ok) throw new Error(data?.error || copy.loadFailed);
       if (this.selectedId !== id) return;
       this.renderDetail(detail, data.replay || {});
     } catch (error) {

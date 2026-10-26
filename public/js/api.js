@@ -220,6 +220,11 @@ export function createApi({
   }
 
   return {
+    // 通用请求薄封装：UI 面板统一走这里，复用 same-origin 凭据、JSON 解析、重试与
+    // HTTP 错误映射（ApiError.status/code），不再各自拼 fetch。
+    request(path, options = {}) {
+      return request(path, options);
+    },
     async config() {
       const config = await request('/api/config');
       legacyMode = !config.authEnabled;

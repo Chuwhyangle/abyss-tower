@@ -2,8 +2,13 @@
 // 数据全部来自排行榜接口聚合结果，客户端不做排名计算；无结算时展示明确占位。
 import { t } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
+import { fmt } from './ui/shared.js';
 
 const PANEL_ID = 'season-panel';
+const STYLE_ID = 'season-ui-style';
 const BODY_ID = 'season-body';
 const SEASON_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
 
@@ -97,26 +102,12 @@ const STYLE = `
   }
 `;
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[ch]);
-}
-
 function pad2(value) {
   return String(value).padStart(2, '0');
 }
 
 function validSeason(season) {
   return typeof season === 'string' && SEASON_KEY_RE.test(season);
-}
-
-function fmt(n) {
-  return Number(n || 0).toLocaleString('en-US');
 }
 
 // 上一个月对应的赛季键；非法输入返回 null，避免面板因脏数据崩溃。
@@ -207,20 +198,12 @@ export function renderSeasonPanel({ season, result, me, remainingMs } = {}) {
   return `${lastResultBlock(result)}${current}`;
 }
 
-function ensureStyle() {
-  if (document.getElementById('season-ui-style')) return;
-  const style = document.createElement('style');
-  style.id = 'season-ui-style';
-  style.textContent = STYLE;
-  document.head.appendChild(style);
-}
-
-function renderShell(panel) {
-  panel.innerHTML = `
+function buildShell() {
+  return `
     <div class="season-head">
       <h2>${escapeHtml(t('season.title'))}</h2>
       <span class="season-tag">${escapeHtml(t('season.current'))}</span>
-      <button id="btn-season-close" class="icon-btn" type="button" title="${escapeHtml(
+      <button id="btn-season-close" class="icon-btn" data-panel-close type="button" title="${escapeHtml(
         t('season.close')
       )}" aria-label="${escapeHtml(t('season.close'))}">${iconSvg('close')}</button>
     </div>
@@ -228,62 +211,60 @@ function renderShell(panel) {
   `;
 }
 
-async function fetchJson(url) {
-  const response = await fetch(url, { credentials: 'same-origin' });
-  const data = await response.json().catch(() => null);
-  if (response.status === 401) {
-    const error = new Error(t('season.login'));
-    error.code = 'unauthenticated';
-    throw error;
-  }
-  if (!response.ok) throw new Error(data?.error || t('season.error'));
-  return data;
-}
-
-async function load(panel) {
+function showLoading(panel) {
   const body = panel.querySelector(`#${BODY_ID}`);
   body.innerHTML = `<p class="season-hint">${escapeHtml(t('season.loading'))}</p>`;
-  try {
-    const board = await fetchJson('/api/leaderboard?mode=normal&size=1');
-    const season = board?.season;
-    const previous = previousSeason(season);
-    let result = null;
-    if (previous) {
-      const payload = await fetchJson(
-        `/api/leaderboard/seasons/${encodeURIComponent(previous)}/result`
-      );
-      result = payload?.result || null;
-    }
-    body.innerHTML = renderSeasonPanel({
-      season,
-      result,
-      me: board?.me || null,
-      remainingMs: seasonEndMs(season) - Date.now(),
-    });
-  } catch (error) {
-    body.innerHTML = `
-      <div class="season-empty" role="status">
-        <p>${escapeHtml(error.message || t('season.error'))}</p>
-      </div>`;
+}
+
+function showFailure(panel, error) {
+  const body = panel.querySelector(`#${BODY_ID}`);
+  const message = error?.status === 401 ? t('season.login') : error?.message || t('season.error');
+  body.innerHTML = `
+    <div class="season-empty" role="status">
+      <p>${escapeHtml(message)}</p>
+    </div>`;
+}
+
+async function loadSeason() {
+  const board = await api.request('/api/leaderboard?mode=normal&size=1');
+  const season = board?.season;
+  const previous = previousSeason(season);
+  let result = null;
+  if (previous) {
+    const payload = await api.request(
+      `/api/leaderboard/seasons/${encodeURIComponent(previous)}/result`
+    );
+    result = payload?.result || null;
   }
+  return { board, season, result };
+}
+
+function renderSeason(panel, { board, season, result }) {
+  const body = panel.querySelector(`#${BODY_ID}`);
+  body.innerHTML = renderSeasonPanel({
+    season,
+    result,
+    me: board?.me || null,
+    remainingMs: seasonEndMs(season) - Date.now(),
+  });
 }
 
 function install() {
   const panel = document.getElementById(PANEL_ID);
   const trigger = document.getElementById('btn-season');
   if (!panel || !trigger) return;
-  ensureStyle();
-  renderShell(panel);
 
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) load(panel);
-  };
-
-  trigger.addEventListener('click', () => setOpen(panel.hidden));
-  panel.querySelector('#btn-season-close')?.addEventListener('click', () => setOpen(false));
-  document.addEventListener('i18n:change', () => {
-    if (!panel.hidden) load(panel);
+  createPanel({
+    id: PANEL_ID,
+    trigger,
+    style: STYLE,
+    styleId: STYLE_ID,
+    html: buildShell(),
+    refreshOnLocale: true,
+    load: loadSeason,
+    render: renderSeason,
+    loading: showLoading,
+    failed: showFailure,
   });
 }
 

@@ -189,6 +189,10 @@ test('面板模块只依赖 shared.js，模块间无循环依赖', () => {
   }
 
   const shared = read(`${UI_DIR}/shared.js`);
-  assert.doesNotMatch(shared, /from\s+'\.\//, 'shared.js 不得依赖同级面板模块');
+  // shared.js 允许依赖 ui/kit/ 基础层（转义/图标只有一份实现），但不得依赖同级面板模块。
+  const sharedSiblings = [...shared.matchAll(/from\s+'(\.[^']+)'/g)]
+    .map((match) => match[1])
+    .filter((specifier) => specifier.startsWith('./') && !specifier.startsWith('./kit/'));
+  assert.deepEqual(sharedSiblings, [], 'shared.js 不得依赖同级面板模块');
   assert.doesNotMatch(read(FACADE), /from\s+'\.\/ui\/ui\.js'/, '门面不得反向依赖自身');
 });

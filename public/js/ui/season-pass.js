@@ -1,5 +1,9 @@
 // 大厅赛季通行证面板：展示服务端派生的积分轨道，领取由服务端幂等判定。
 // 视觉沿用成就面板的既有样式，不新增样式表。
+import { api } from '../api.js';
+import { escapeHtml } from './kit/dom.js';
+import { createPanel } from './kit/panel.js';
+
 const PANEL_ID = 'season-pass-panel';
 const LIST_ID = 'season-pass-list';
 const BUTTON_ID = 'btn-season-pass';
@@ -13,15 +17,6 @@ const HISTORY_ID = 'season-pass-history';
 let pendingCelebration = null;
 // null 表示当前赛季；选中历史赛季时只读展示终态。
 let activeSeason = null;
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 function fmt(value) {
   return Number(value || 0).toLocaleString('en-US');
@@ -259,14 +254,10 @@ function render(panel, data) {
 async function claim(panel, milestoneId) {
   const list = panel.querySelector(`#${LIST_ID}`);
   try {
-    const response = await fetch('/api/season-pass/claim', {
+    const data = await api.request('/api/season-pass/claim', {
       method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ id: milestoneId }),
+      body: { id: milestoneId },
     });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '领取失败');
     const cores = document.getElementById('cores');
     const balance = Number(data?.wallet?.cores);
     if (cores && Number.isFinite(balance)) cores.textContent = String(balance);
@@ -288,12 +279,7 @@ async function claimAll(panel) {
 
   button.disabled = true;
   try {
-    const response = await fetch('/api/season-pass/claim-all', {
-      method: 'POST',
-      credentials: 'same-origin',
-    });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '领取失败');
+    const data = await api.request('/api/season-pass/claim-all', { method: 'POST' });
     const cores = document.getElementById('cores');
     const balance = Number(data?.wallet?.cores);
     if (cores && Number.isFinite(balance)) cores.textContent = String(balance);
@@ -315,25 +301,21 @@ async function load(panel) {
     ? `/api/season-pass?season=${encodeURIComponent(season)}`
     : '/api/season-pass';
   try {
-    const response = await fetch(url, { credentials: 'same-origin' });
-    if (response.status === 401) {
+    const data = await api.request(url);
+    render(panel, data);
+  } catch (error) {
+    if (error?.status === 401) {
       list.innerHTML = '<p class="achievement-hint">登录后可查看赛季通行证</p>';
       return;
     }
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || '加载失败');
-    render(panel, data);
-  } catch (error) {
-    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error.message || '加载失败')}</p>`;
+    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || '加载失败')}</p>`;
   }
 }
 
 // 角标在进入大厅时就刷新，未打开面板也能看到可领取数量；失败不阻塞大厅。
 async function refreshBadge() {
   try {
-    const response = await fetch('/api/season-pass', { credentials: 'same-origin' });
-    if (!response.ok) return;
-    const data = await response.json();
+    const data = await api.request('/api/season-pass');
     applyBadge(data?.claimableCount);
     updateClaimAll(data);
   } catch {
@@ -345,20 +327,18 @@ function install() {
   const button = document.getElementById(BUTTON_ID);
   const panel = document.getElementById(PANEL_ID);
   if (!button || !panel) return;
-  const close = panel.querySelector('#btn-season-pass-close');
   ensureBadge(button);
   ensureToolbar(panel);
 
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) {
+  createPanel({
+    id: PANEL_ID,
+    trigger: button,
+    closeSelector: '#btn-season-pass-close',
+    onOpen: (node) => {
       activeSeason = null;
-      load(panel);
-    }
-  };
-
-  button.addEventListener('click', () => setOpen(panel.hidden));
-  close?.addEventListener('click', () => setOpen(false));
+      load(node);
+    },
+  });
 
   refreshBadge();
 }

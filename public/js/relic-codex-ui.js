@@ -17,6 +17,8 @@ import {
   relicSetTierBonuses,
 } from './shared/effects.js';
 import { iconSvg } from './render/canvas-shapes.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
 
 const PANEL_ID = 'relic-codex-panel';
 const LIST_ID = 'relic-codex-list';
@@ -169,15 +171,6 @@ const STYLE = `
   .codex-card[data-known='false'] .codex-levels { display: none; }
 `;
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[ch]);
-}
 
 function storageOf() {
   try {
@@ -447,15 +440,16 @@ function readSnapshot(storage = storageOf()) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { credentials: 'same-origin' });
-  const data = await response.json().catch(() => null);
-  if (response.status === 401) {
-    const error = new Error(t('codex.login'));
-    error.code = 'unauthenticated';
+  try {
+    return await api.request(url);
+  } catch (error) {
+    if (error?.status === 401) {
+      const authError = new Error(t('codex.login'));
+      authError.code = 'unauthenticated';
+      throw authError;
+    }
     throw error;
   }
-  if (!response.ok) throw new Error(data?.error || t('codex.error'));
-  return data;
 }
 
 // 只读既有接口：最近 10 局结算 + 当前对局；任何单局读取失败都不影响整体图鉴。

@@ -319,6 +319,16 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - iOS Safari 不支持网页强制旋转/全屏，作为平台限制记录，不承诺自动横屏。
 - 画布 `touch-action:none`，商店 `pan-x`；移动端默认低配画质，但画质不参与模拟。
 
+### 5.8 UI kit 与统一 API 客户端
+
+- `public/js/ui/kit/dom.js` 是全站唯一的 `escapeHtml` 实现，并提供 `html` 模板（插值自动转义）；
+  `ui/shared.js` 仅做兼容转出，各面板不得再自建转义函数。
+- `public/js/ui/kit/panel.js` 提供 `createPanel`：统一大厅面板的注册、触发器/关闭按钮、Esc 关闭、
+  焦点归还、`aria-busy` 加载态与加载失败回调；面板只保留自己的 `load` / `render` 业务逻辑。
+- `public/js/api.js` 的 `api.request(path, { method, body })` 是 UI 层访问接口的唯一入口，统一
+  `credentials: 'same-origin'`、JSON 解析、幂等重试与 `ApiError`（`status` / `code`）映射；
+  UI 面板不得直接 `fetch('/api…')`。面板按 `error.status === 401` 给出登录提示。
+
 ---
 
 ## 6. 服务端设计

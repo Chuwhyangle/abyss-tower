@@ -2,6 +2,9 @@
 // 未解锁的外观只作为目标提示，不能点击选择；本模块不参与任何战斗数值。
 import { tOr } from './i18n.js';
 import { setActiveSkins } from './shared/skins.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
 
 const ENDPOINT = '/api/profile/cosmetics';
 const SKINS_ENDPOINT = '/api/profile/skins';
@@ -49,38 +52,8 @@ let currentSkins = null;
 let panel = null;
 let body = null;
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function ensureStyles() {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = STYLE;
-  document.head.appendChild(style);
-}
-
-async function request(method = 'GET', payload = null, pathname = ENDPOINT) {
-  const response = await fetch(pathname, {
-    method,
-    credentials: 'same-origin',
-    headers: payload ? { 'content-type': 'application/json' } : {},
-    body: payload ? JSON.stringify(payload) : undefined,
-  });
-  const data = await response.json().catch(() => null);
-  if (!response.ok) {
-    const error = new Error(data?.error || tOr('cosmetics.error', '外观加载失败'));
-    error.code = data?.code || null;
-    error.status = response.status;
-    throw error;
-  }
-  return data;
+function request(method = 'GET', payload = null, pathname = ENDPOINT) {
+  return api.request(pathname, { method, body: payload ?? undefined });
 }
 
 function setStatus(message) {
@@ -361,18 +334,17 @@ function install() {
   body = document.getElementById('cosmetics-body');
   const trigger = document.getElementById('btn-cosmetics');
   if (!panel || !body || !trigger) return;
-  ensureStyles();
+  createPanel({
+    id: 'cosmetics-panel',
+    trigger,
+    closeSelector: '#btn-cosmetics-close',
+    style: STYLE,
+    styleId: STYLE_ID,
+    onOpen: () => load(),
+  });
   refreshBadge();
   refreshSkins();
 
-  const close = document.getElementById('btn-cosmetics-close');
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) load();
-  };
-
-  trigger.addEventListener('click', () => setOpen(panel.hidden));
-  close?.addEventListener('click', () => setOpen(false));
   body.addEventListener('click', (event) => {
     const button = event.target.closest('button[data-kind]');
     if (!button || button.disabled) return;

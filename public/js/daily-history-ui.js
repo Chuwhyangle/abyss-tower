@@ -2,8 +2,13 @@
 import { MODIFIER_BY_ID } from './shared/mapgen.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { tData } from './i18n.js';
+import { api } from './api.js';
+import { escapeHtml } from './ui/kit/dom.js';
+import { createPanel } from './ui/kit/panel.js';
+import { fmt } from './ui/shared.js';
 
 const PANEL_ID = 'daily-history-panel';
+const STYLE_ID = 'daily-history-ui-style';
 const TRIGGER_ID = 'btn-daily-history';
 const HISTORY_DAYS = 14;
 
@@ -67,40 +72,15 @@ const STYLE = `
   }
 `;
 
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;',
-  })[ch]);
-}
-
-function fmt(n) {
-  return Number(n || 0).toLocaleString('en-US');
-}
-
-function ensureStyle() {
-  if (document.getElementById('daily-history-ui-style')) return;
-  const style = document.createElement('style');
-  style.id = 'daily-history-ui-style';
-  style.textContent = STYLE;
-  document.head.appendChild(style);
-}
-
-function renderShell(panel) {
-  panel.innerHTML = `
+function buildShell() {
+  return `
     <div class="dh-head">
       <h2>每日挑战 · 历史</h2>
       <span id="dh-summary" class="dh-summary"></span>
-      <button id="dh-close" class="icon-btn" type="button" title="关闭每日历史">${iconSvg('close')}</button>
+      <button id="dh-close" class="icon-btn" data-panel-close type="button" title="关闭每日历史">${iconSvg('close')}</button>
     </div>
     <div id="dh-list" class="dh-list"><p class="dh-hint">正在读取每日历史…</p></div>
   `;
-  panel.querySelector('#dh-close').addEventListener('click', () => {
-    panel.hidden = true;
-  });
 }
 
 function modifierChips(ids) {
@@ -144,35 +124,40 @@ function renderRows(panel, data) {
     .join('');
 }
 
-async function load(panel) {
+function showLoading(panel) {
+  panel.querySelector('#dh-list').innerHTML = '<p class="dh-hint">正在读取每日历史…</p>';
+}
+
+function showFailure(panel, error) {
   const list = panel.querySelector('#dh-list');
-  list.innerHTML = '<p class="dh-hint">正在读取每日历史…</p>';
-  try {
-    const response = await fetch(`/api/daily/history?days=${HISTORY_DAYS}`, {
-      credentials: 'same-origin',
-    });
-    const data = await response.json().catch(() => null);
-    if (response.status === 401) {
-      panel.querySelector('#dh-summary').textContent = '';
-      list.innerHTML = '<p class="dh-hint">请先登录后查看每日历史。</p>';
-      return;
-    }
-    if (!response.ok) throw new Error(data?.error || '读取每日历史失败');
-    renderRows(panel, data);
-  } catch (error) {
-    list.innerHTML = `<p class="dh-hint">${escapeHtml(error.message || '读取每日历史失败')}</p>`;
+  if (!list) return;
+  if (error?.status === 401) {
+    const summary = panel.querySelector('#dh-summary');
+    if (summary) summary.textContent = '';
+    list.innerHTML = '<p class="dh-hint">请先登录后查看每日历史。</p>';
+    return;
   }
+  list.innerHTML = `<p class="dh-hint">${escapeHtml(error?.message || '读取每日历史失败')}</p>`;
+}
+
+function loadHistory() {
+  return api.request(`/api/daily/history?days=${HISTORY_DAYS}`);
 }
 
 function install() {
   const panel = document.getElementById(PANEL_ID);
   const trigger = document.getElementById(TRIGGER_ID);
   if (!panel || !trigger) return;
-  ensureStyle();
-  renderShell(panel);
-  trigger.addEventListener('click', () => {
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) load(panel);
+  createPanel({
+    id: PANEL_ID,
+    trigger,
+    style: STYLE,
+    styleId: STYLE_ID,
+    html: buildShell(),
+    load: loadHistory,
+    render: (node, data) => renderRows(node, data),
+    loading: showLoading,
+    failed: showFailure,
   });
 }
 

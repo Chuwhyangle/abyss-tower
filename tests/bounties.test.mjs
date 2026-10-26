@@ -359,11 +359,11 @@ test('大厅悬赏面板：入口、容器、进度与领取接线齐备', () =>
   assert.match(INDEX_HTML, /src="\/js\/bounties-ui\.js"/, '悬赏面板脚本未加载');
 
   assert.match(BOUNTIES_UI, /#bounties-list/, '缺少悬赏列表容器');
-  assert.match(BOUNTIES_UI, /function escapeHtml/, '缺少 HTML 转义');
+  assert.match(BOUNTIES_UI, /import \{ escapeHtml \} from '\.\/ui\/kit\/dom\.js'/, '应复用统一 HTML 转义');
   assert.match(BOUNTIES_UI, /role="progressbar"/, '进度条缺少可访问性角色');
   assert.match(BOUNTIES_UI, /data-claim=/, '缺少领取按钮标记');
   assert.match(BOUNTIES_UI, /\/api\/bounties\//, '领取未走悬赏接口');
-  assert.match(BOUNTIES_UI, /credentials: 'same-origin'/, '请求未携带同源凭据');
-  assert.match(BOUNTIES_UI, /response\.status === 401/, '未处理未登录');
+  assert.match(BOUNTIES_UI, /api\.request\(/, '请求未走统一 API 客户端');
+  assert.match(BOUNTIES_UI, /status === 401/, '未处理未登录');
   assert.match(BOUNTIES_UI, /item\.claimed/, '未展示领取状态');
 });

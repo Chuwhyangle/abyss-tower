@@ -1,5 +1,8 @@
 // 大厅通知中心：顶部铃铛展示未读数，面板按游标分页列出通知、展示 90 天归档摘要，
 // 并支持一键全部已读。通知内容完全由服务端生成，客户端只负责展示与标记已读。
+import { api } from '../api.js';
+import { escapeHtml } from './kit/dom.js';
+import { createPanel } from './kit/panel.js';
 
 const KIND_LABELS = {
   achievement: '成就解锁',
@@ -45,25 +48,8 @@ const STYLE = `
   }
 `;
 
-function ensureStyle() {
-  if (document.getElementById(STYLE_ID)) return;
-  const style = document.createElement('style');
-  style.id = STYLE_ID;
-  style.textContent = STYLE;
-  document.head.appendChild(style);
-}
-
 // 分页状态：面板只有一个，首次加载整体替换，加载更多时累积。
 const pageState = { cursor: null, items: [], unread: 0, archive: null };
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
 
 // 通知时间格式化：非法或缺失时间戳返回空串，由卡片留空（纯函数）。
 export function formatTime(ts) {
@@ -284,13 +270,12 @@ function updateBadge(unread) {
 async function fetchSummary(cursor = null) {
   const query = new URLSearchParams({ limit: String(PAGE_SIZE) });
   if (cursor) query.set('cursor', cursor);
-  const response = await fetch(`/api/notifications?${query.toString()}`, {
-    credentials: 'same-origin',
-  });
-  if (response.status === 401) return null;
-  const data = await response.json().catch(() => null);
-  if (!response.ok) throw new Error(data?.error || '加载失败');
-  return data;
+  try {
+    return await api.request(`/api/notifications?${query.toString()}`);
+  } catch (error) {
+    if (error?.status === 401) return null;
+    throw error;
+  }
 }
 
 async function refreshBadge() {
@@ -375,14 +360,10 @@ async function markAllRead(panel) {
   try {
     // 服务端每批最多处理固定条数；批次上限防御客户端与服务端不一致时的死循环。
     for (let round = 0; round < 10_000; round++) {
-      const response = await fetch('/api/notifications/read', {
+      const data = await api.request('/api/notifications/read', {
         method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ all: false }),
+        body: { all: false },
       });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(data?.error || '操作失败');
       done += Math.max(0, Number(data?.updated) || 0);
       remaining = normalizeUnread(data?.remaining ?? data?.unread);
       updateBadge(remaining);
@@ -443,13 +424,11 @@ function setPrefsStatus(section, text) {
 
 async function loadPrefs(section) {
   try {
-    const response = await fetch('/api/notifications/prefs', { credentials: 'same-origin' });
-    if (response.status === 401) return;
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '加载失败');
+    const data = await api.request('/api/notifications/prefs');
     applyPrefs(section, data?.prefs);
     setPrefsStatus(section, '');
   } catch (error) {
+    if (error?.status === 401) return;
     setPrefsStatus(section, `${PREFS_ERROR}: ${error.message || ''}`);
   }
 }
@@ -463,14 +442,10 @@ async function savePrefs(section) {
     input.disabled = true;
   });
   try {
-    const response = await fetch('/api/notifications/prefs', {
+    const data = await api.request('/api/notifications/prefs', {
       method: 'PUT',
-      credentials: 'same-origin',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ prefs }),
+      body: { prefs },
     });
-    const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.error || '保存失败');
     applyPrefs(section, data?.prefs);
     setPrefsStatus(section, PREFS_SAVED);
   } catch (error) {
@@ -493,30 +468,28 @@ function install() {
   const button = document.getElementById('btn-notifications');
   const panel = document.getElementById('notifications-panel');
   if (!button || !panel) return;
-  const close = panel.querySelector('#btn-notifications-close');
   const readAll = panel.querySelector('#btn-notifications-read');
   const prefs = ensurePrefsSection(panel);
-  ensureStyle();
+  const controller = createPanel({
+    id: 'notifications-panel',
+    trigger: button,
+    closeSelector: '#btn-notifications-close',
+    style: STYLE,
+    styleId: STYLE_ID,
+    onOpen: (node) => {
+      load(node);
+      loadPrefs(prefs);
+    },
+  });
   // 事件委托挂在列表容器上：分页重渲染后跳转按钮无需重新绑定。
   panel.querySelector('#notifications-list')?.addEventListener('click', (event) => {
     const jump = event.target?.closest?.('[data-notification-jump]');
     if (!jump) return;
     if (jump.dataset.notificationJump !== 'season') return;
-    setOpen(false);
+    controller.close();
     openSeasonPanel();
   });
 
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    button.setAttribute('aria-expanded', String(open));
-    if (open) {
-      load(panel);
-      loadPrefs(prefs);
-    }
-  };
-
-  button.addEventListener('click', () => setOpen(panel.hidden));
-  close?.addEventListener('click', () => setOpen(false));
   readAll?.addEventListener('click', () => markAllRead(panel));
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') refreshBadge();
