@@ -1,7 +1,7 @@
 ---
 id: gap-goal-002-exit-condition-stability-gate-coverage
 title: GOAL-002 退出条件「稳定性门禁可运行且通过」的目标级 AC 覆盖裁定（AC-007 已被越权写入目标库）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
