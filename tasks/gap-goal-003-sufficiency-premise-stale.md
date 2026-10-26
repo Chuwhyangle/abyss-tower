@@ -1,7 +1,7 @@
 ---
 id: gap-goal-003-sufficiency-premise-stale
 title: GOAL-003 退出条件覆盖裁定：AC-008/AC-009 已越权写入目标库，两条合取项均已覆盖（勿再加重复 AC）
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
@@ -73,3 +73,6 @@ GOAL-003（地图 2.0：三张固定可复用地图与可破坏物）的退出�
 - [ ] GOAL-003 的目标级 AC 集合与退出条件两个合取项一一对应，AC-008/AC-009 的去留已在目标库体现 (待外部)
 - [ ] 下一轮 `goal-round` 中 GOAL-003 不再因「无 `## 退出条件`」短路，且充分性键已随 body + AC 集合变化而重置 (待外部)
 - [ ] 本任务自身未写 goal-store：立案过程只读 `goal_get` / `goal_list`，未调用 `goal_write`，也未改 `goals/*.md`；任何 goal 文件改动均可归因于 driver 下一轮 flip，而非本任务
+
+
+人 2026-10-26 裁定：认可新增 AC（AC-005/006/007/008/009/010），方案已在目标库落地；本提案任务关闭。
