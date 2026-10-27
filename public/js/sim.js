@@ -109,6 +109,8 @@ export class Simulation {
     this.skillCastState = null;
     // 技能表现事件独立于 sim.effects，避免被画质过滤与 320 上限吞掉。
     this.skillFx = [];
+    // 结构化命中事件：只读观测流，反馈/画质开关不影响其产出（shared/impact-events.js）。
+    this.impactEvents = [];
     // 按模拟时间结算的技能事件（陨星落点等）。
     this.skillPending = [];
     this.stasis = null;

@@ -2,6 +2,7 @@
 import { BALANCE } from '../shared/config.js';
 import { ENEMIES } from '../shared/data.js';
 import { conditionSnapshot, hitBonuses } from '../shared/effects.js';
+import { pushImpactEvent } from '../shared/impact-events.js';
 
 export class CombatSystem {
   constructor(sim) {
@@ -11,7 +12,14 @@ export class CombatSystem {
   dealDamage(enemy, base, towerType, opts = {}) {
     if (enemy.dead) return 0;
     const hit = this.sim.computeHit(base, towerType, enemy, opts);
-    const dealt = this.sim.damage(enemy, hit.dmg, { ignoreArmor: opts.ignoreArmor, crit: hit.crit });
+    // 事件字段随伤害一起透传：weapon 默认取塔类型/盟友种类，towerId 只属于塔的攻击。
+    const dealt = this.sim.damage(enemy, hit.dmg, {
+      ignoreArmor: opts.ignoreArmor,
+      crit: hit.crit,
+      weapon: opts.weapon ?? towerType,
+      source: opts.source ?? 'tower',
+      towerId: opts.tower?.id ?? null,
+    });
     // 命中钩子：只有塔的攻击会带上出手的塔；盟友/技能命中以 tower = null 传入。
     if (this.sim.hexRuntime.active) {
       this.sim.hexCall('onHit', enemy, opts.tower || null, dealt, this.sim.hexCtx);
@@ -37,9 +45,16 @@ export class CombatSystem {
 
   damage(enemy, amount, opts = {}) {
     if (enemy.dead) return 0;
+    // 事件保留入参原值：护甲前、未含易伤乘区的「原始伤害」。
+    const rawAmount = amount;
     let final = amount;
+    // 护甲减免与护盾吸收都记录到事件里：事后仍可还原这次命中的构成。
+    let armorAbsorbed = 0;
     if (!opts.ignoreArmor) {
-      final = Math.max(1, final - enemy.armor * (1 - (this.sim.mods.armorPierce || 0)));
+      const reduced = Math.max(1, final - enemy.armor * (1 - (this.sim.mods.armorPierce || 0)));
+      // 1 点伤害下限可能让「减免」为负，事件里按 0 记（下限抬高的伤害照常进 hpLost）。
+      armorAbsorbed = Math.max(0, final - reduced);
+      final = reduced;
     }
     if (this.sim.mods.frostDmgBonus && this.sim.time < enemy.slowUntil) {
       final *= 1 + this.sim.mods.frostDmgBonus;
@@ -56,12 +71,15 @@ export class CombatSystem {
       final *= 1 + enemy.skillVuln;
     }
     // 护盾先于本体吸收伤害；本体在盾破前不掉血。
+    let shieldAbsorbed = 0;
     if (enemy.shield > 0) {
       const absorbed = Math.min(enemy.shield, final);
       enemy.shield -= absorbed;
       final -= absorbed;
+      shieldAbsorbed = absorbed;
     }
     enemy.hp -= final;
+    const lethal = enemy.hp <= 0;
     if (!opts.dot) enemy.hitFlash = 1;
 
     if (!opts.silent && (final >= 12 || opts.crit)) {
@@ -74,7 +92,24 @@ export class CombatSystem {
         { key: opts.crit || final >= 60 }
       );
     }
-    if (enemy.hp <= 0) this.sim.killEnemy(enemy);
+    // 事件与 silent/dot/floatersMode/effectsLevel 完全解耦：反馈开关只影响消费端。
+    // 先记事件再结算死亡：击杀钩子可能连锁产生后续事件。
+    pushImpactEvent(this.sim, {
+      t: this.sim.time,
+      x: enemy.x,
+      y: enemy.y,
+      target: { id: enemy.id, type: enemy.type },
+      weapon: opts.weapon,
+      source: opts.source,
+      towerId: opts.towerId ?? null,
+      amount: rawAmount,
+      armorAbsorbed,
+      shieldAbsorbed,
+      hpLost: final,
+      crit: opts.crit === true,
+      lethal,
+    });
+    if (lethal) this.sim.killEnemy(enemy);
     return final;
   }
 

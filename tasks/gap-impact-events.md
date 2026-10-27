@@ -1,7 +1,7 @@
 ---
 id: gap-impact-events
 title: 结构化命中事件：每次伤害产出事件且反馈开关不改变模拟与 RNG
-status: ready
+status: done
 labels:
   - gap
 parent: null
