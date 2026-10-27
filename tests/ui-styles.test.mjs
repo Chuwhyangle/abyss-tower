@@ -16,21 +16,32 @@ const HTML = read('public/index.html');
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // 取行首选择器的规则体（支持选择器里的伪类与点号）。返回大括号内的文本。
-function ruleBody(source, selector) {
-  const pattern = new RegExp(`(?:^|\\n)\\s*${escapeRegExp(selector)}\\s*\\{`, 'm');
-  const match = pattern.exec(source);
-  assert.ok(match, `缺少选择器 ${selector}`);
-  const start = match.index + match[0].length;
-  let depth = 1;
-  let index = start;
-  while (index < source.length && depth > 0) {
-    const char = source[index];
-    if (char === '{') depth += 1;
-    else if (char === '}') depth -= 1;
-    index += 1;
+// 同名选择器可能在 @media 块里被覆盖，这里返回全部出现处——字号下限要逐条看。
+function ruleBodies(source, selector) {
+  const pattern = new RegExp(`(?:^|\\n)\\s*${escapeRegExp(selector)}\\s*\\{`, 'g');
+  const bodies = [];
+  let match;
+  while ((match = pattern.exec(source))) {
+    const start = match.index + match[0].length;
+    let depth = 1;
+    let index = start;
+    while (index < source.length && depth > 0) {
+      const char = source[index];
+      if (char === '{') depth += 1;
+      else if (char === '}') depth -= 1;
+      index += 1;
+    }
+    assert.equal(depth, 0, `选择器 ${selector} 的大括号未闭合`);
+    bodies.push(source.slice(start, index - 1));
+    pattern.lastIndex = index;
   }
-  assert.equal(depth, 0, `选择器 ${selector} 的大括号未闭合`);
-  return source.slice(start, index - 1);
+  return bodies;
+}
+
+function ruleBody(source, selector) {
+  const [body] = ruleBodies(source, selector);
+  assert.ok(body !== undefined, `缺少选择器 ${selector}`);
+  return body;
 }
 
 test('设计令牌在 :root 中集中定义', () => {
@@ -152,6 +163,77 @@ test('系统开启减少动效时关闭动画与过渡', () => {
   assert.match(block, /animation-duration:\s*0\.01ms\s*!important/);
   assert.match(block, /transition-duration:\s*0\.01ms\s*!important/);
   assert.match(block, /scroll-behavior:\s*auto\s*!important/);
+});
+
+// 字号下限（AC-027）：可见正文最小 12px，桌面与移动视口同一口径。
+// 采集侧（tests/visual-scenes.mjs）只豁免 .key（快捷键角标）与 .glyph（图标字形），
+// 这里逐个选择器对齐；移动媒体块的覆盖值同样要满足下限，否则下一次浏览器读数就会掉回去。
+const FONT_FLOOR_PX = 12;
+
+function resolveFontSize(value, root) {
+  const raw = String(value).trim();
+  const token = /^var\((--[\w-]+)\)$/.exec(raw);
+  const resolved = token
+    ? new RegExp(`${escapeRegExp(token[1])}\\s*:\\s*([^;]+);`).exec(root)?.[1]
+    : raw;
+  const px = /^([\d.]+)px$/.exec(String(resolved ?? '').trim());
+  return px ? Number(px[1]) : null;
+}
+
+test('可见正文字号不低于 12px 下限（含移动 HUD 与技能卡覆盖）', () => {
+  const root = ruleBody(CSS, ':root');
+  const floor = resolveFontSize('var(--text-min)', root);
+  assert.ok(floor !== null, ':root 缺少 --text-min 下限令牌');
+  assert.ok(floor >= FONT_FLOOR_PX, `--text-min 为 ${floor}px，低于 ${FONT_FLOOR_PX}px 下限`);
+
+  const selectors = [
+    // 标题页：技能卡与页脚
+    '.logo-kicker',
+    '.footnote',
+    '.stat-cell span',
+    '.skill-cards-head .eyebrow',
+    '.skill-cards-head .muted',
+    '.skill-role',
+    '.skill-desc',
+    '.skill-summary',
+    '.skill-actions .btn',
+    '.skill-lock',
+    '.skill-max',
+    // 战斗 HUD / 商店：基础规则与移动媒体块的覆盖值都要满足
+    '.stat-label',
+    '.stat-max',
+    '.diff-badge',
+    '.speed-btn',
+    '.hex-badge',
+    '.hex-badge-mul',
+    '.tower-card .name',
+    '.tower-card .cost',
+    '.tower-card .lock',
+    '#btn-relics-mobile',
+    '.toast',
+    // 难度弹窗技能条（移动端）
+    '.skill-chip',
+    '.skill-chip .chip-glyph',
+    '.skill-chip .chip-level',
+  ];
+
+  for (const selector of selectors) {
+    const bodies = ruleBodies(CSS, selector);
+    assert.ok(bodies.length > 0, `缺少选择器 ${selector}`);
+    const declarations = bodies
+      .map((body) => /font-size:\s*([^;]+);/.exec(body))
+      .filter(Boolean)
+      .map((match) => match[1].trim());
+    assert.ok(declarations.length > 0, `${selector} 未声明 font-size`);
+    for (const value of declarations) {
+      const px = resolveFontSize(value, root);
+      assert.ok(px !== null, `${selector} 的 font-size 无法解析：${value}`);
+      assert.ok(
+        px >= FONT_FLOOR_PX,
+        `${selector} 的 font-size 为 ${px}px，低于 ${FONT_FLOOR_PX}px 下限（${value}）`
+      );
+    }
+  }
 });
 
 test('页面使用语义标签并补齐 aria 标注', () => {
