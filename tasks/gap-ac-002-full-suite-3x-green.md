@@ -1,7 +1,7 @@
 ---
 id: gap-ac-002-full-suite-3x-green
 title: AC-002 复验：TEST_MAP 修复落地后连续 3 次全量测试 0 失败
-status: todo
+status: ready
 labels:
   - gap
   - defect
