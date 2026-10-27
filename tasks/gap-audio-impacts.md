@@ -1,7 +1,7 @@
 ---
 id: gap-audio-impacts
 title: 八种武器命中音效：可区分音色、并发限流与压缩限幅总线
-status: ready
+status: done
 labels:
   - gap
 parent: null
