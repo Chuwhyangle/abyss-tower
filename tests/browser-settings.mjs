@@ -175,6 +175,11 @@ async function main() {
     await chooseFirstMap(browser);
     const before = await browser.evaluate(`window.__rtd.state.app.paused`);
     if (before !== false) throw new Error('新开局不应处于暂停');
+    // 战斗层实际拿到的画质：自动高配的光晕与震屏已开启。
+    const inGameSettings = await browser.evaluate(`window.__rtd.state.app.settings`);
+    if (inGameSettings.glow !== true || inGameSettings.shake !== true || inGameSettings.fps !== 60) {
+      throw new Error(`战斗层未应用高配画质：${JSON.stringify(inGameSettings)}`);
+    }
 
     await browser.evaluate(`document.querySelector('#btn-settings-game').click()`);
     await browser.waitFor(`!!document.querySelector('.settings-modal')`, '局内设置弹窗');
