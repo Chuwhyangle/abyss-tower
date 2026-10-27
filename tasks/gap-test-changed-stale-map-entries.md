@@ -48,20 +48,22 @@ AC-005 的 criterion 是 `node --test --test-concurrency=2 tests/*.test.mjs`、e
 
 ## Acceptance Criteria
 
-- [ ] `node --test tests/test-changed.test.mjs` exit 0
-- [ ] `node --test --test-concurrency=2 tests/*.test.mjs` exit 0（即 AC-005 的 criterion 本身）
-- [ ] `grep -cE "scripts/(deploy-smoke|playtest-check|release-check|rogue2-accept)\.mjs" scripts/test-changed.mjs` 输出 `0`
-- [ ] `grep -oP "(?<=match: ')[^']+" scripts/test-changed.mjs | while read -r m; do [ -e "$m" ] || echo "MISSING: $m"; done` 无输出
-- [ ] `grep -qE 'existsSync\(path\.join\(ROOT, rule\.match\)\)' tests/test-changed.test.mjs` exit 0（匹配项存在性断言已加入）
+- [x] `node --test tests/test-changed.test.mjs` exit 0
+- [x] `node --test --test-concurrency=2 tests/*.test.mjs` exit 0（即 AC-005 的 criterion 本身）
+- [x] `grep -cE "scripts/(deploy-smoke|playtest-check|release-check|rogue2-accept)\.mjs" scripts/test-changed.mjs` 输出 `0`
+- [x] `grep -oP "(?<=match: ')[^']+" scripts/test-changed.mjs | while read -r m; do [ -e "$m" ] || echo "MISSING: $m"; done` 无输出
+- [x] `grep -qE 'existsSync\(path\.join\(ROOT, rule\.match\)\)' tests/test-changed.test.mjs` exit 0（匹配项存在性断言已加入）
 
 ## Definition of Done
 
-- [ ] 在本次改动所在的 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不只看单次绿，也不靠重跑掩盖偶发失败）
-- [ ] `TEST_MAP` 与仓库实际文件一致：每条 `match` 与每个映射目标测试都真实存在；新增的 `match` 存在性断言会让任何一次「只删脚本、不删映射」的 revert 在 CI 里立刻变红，而不是像 `14fec37` 这样静默留在主干上
-- [ ] `git log --oneline -- scripts/test-changed.mjs` 中可见本次修复提交（是已提交的改动，而不是只存在于工作区的绿）
+- [x] 在本次改动所在的 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不只看单次绿，也不靠重跑掩盖偶发失败）
+- [x] `TEST_MAP` 与仓库实际文件一致：每条 `match` 与每个映射目标测试都真实存在；新增的 `match` 存在性断言会让任何一次「只删脚本、不删映射」的 revert 在 CI 里立刻变红，而不是像 `14fec37` 这样静默留在主干上
+- [x] `git log --oneline -- scripts/test-changed.mjs` 中可见本次修复提交（是已提交的改动，而不是只存在于工作区的绿）
 
 ## Notes
 
 - 复现与判定命令均以仓库根为 cwd；AC-005 的 criterion 与 `package.json` 的 `scripts.test` 逐字一致。
 - 本轮三次重跑读数：第一次 `pass 1625 / fail 2`（第二条失败未能留存名称，未复现），第二、三次均为 `pass 1626 / fail 1`（同一条）。修复后若仍出现非零退出，先取 `not ok` 行定位，不要以「重跑绿了」收尾。
 - 该 revert 是有意为之（人工撤销 v2.0 读数器），因此正确方向是删除映射，而不是把 4 个脚本恢复回来。
+- **执行记录（2026-10-27）**：开工时发现 4 条失效映射已由另一任务的提交 `8d0651a`（「fix(test-changed): 移除 revert 残留的 4 条 TEST_MAP 失效映射」，其提交信息明确写着把「match 存在性断言」留给本任务）先行删除。因此本任务实际交付的是剩下的两件事：① `tests/test-changed.test.mjs` 补 `assert.ok(fs.existsSync(path.join(ROOT, rule.match)), \`${rule.match} 不存在\`)`（提交 `793ad3b`），让「只删脚本、不删映射」的 revert 立刻变红；② AC-005 条件的重新复验——在 `793ad3b` 上连续两次全量 suite 均 `1643/1643 pass, exit 0`，合并 develop 后（`c596ed8`）再跑一次仍 `1643/1643 pass, exit 0`。
+- AC-4 的 `match` 存在性普查里 `server/data/` 是运行期目录（内容全被 gitignore、git worktree 里没有空目录），全新 worktree 首次执行会报 `MISSING: server/data/`；跑过一次全量 suite（测试自己创建该目录）后即为空输出，与主 checkout 现状一致。`server/data/` 属 `SHARED_RULES`，不在本任务新增断言覆盖的 `TEST_MAP` 范围内。
