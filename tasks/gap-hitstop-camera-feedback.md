@@ -1,7 +1,7 @@
 ---
 id: gap-hitstop-camera-feedback
 title: hitstop 与定向震屏、镜头冲击：受设置护栏且不改变模拟与 RNG
-status: todo
+status: ready
 labels:
   - gap
 parent: null
