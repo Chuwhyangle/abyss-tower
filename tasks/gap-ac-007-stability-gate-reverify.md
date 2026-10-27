@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-stability-gate-reverify
 title: AC-007 复验：TEST_MAP 失效映射修复落地后稳定性门禁连续 3 轮 exit 0
-status: ready
+status: done
 labels:
   - gap
   - defect
