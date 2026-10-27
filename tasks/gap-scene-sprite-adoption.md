@@ -75,7 +75,6 @@ AC-031 的 criterion 是 `node tests/browser-sprite-scenes.mjs`（expect exit 0�
 - `tasks/gap-scene-sprite-adoption.md`
 - `docs/ASSET_PIPELINE.md`
 - `docs/ART_DIRECTION.md`
-- `docs/TECH_DESIGN.md`
 - `public/js/shared/scene-sprites.js` (new)
 - `public/js/render/sprite-pipeline.js`
 - `public/js/render.js`
@@ -100,3 +99,4 @@ AC-031 的 criterion 是 `node tests/browser-sprite-scenes.mjs`（expect exit 0�
 - DPR 的唯一权威是 `Renderer.applyDpr()`；DOM 场景取 `url(id)` 时由管线按已配置的 DPR 选变体，模块内不得自己读 `window.devicePixelRatio`。
 - 回退必须静默：每个缺失 id 只 `console.warn` 一次（由管线负责），场景层不得额外刷屏，也不得使用 `console.log`（`scripts/style-check.mjs` 规则）。
 - 本 AC 的 criterion 是浏览器脚本而非 `npm test` 覆盖的用例，因此 DoD 里的实跑读数（stdout 的 id 集 / 计数 / 截图路径）是必要证据，不能只用单测代替。
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
