@@ -26,6 +26,9 @@ import { SnapshotMapper } from './sim/snapshot-mapper.js';
 import { TowerSystem } from './sim/tower-system.js';
 import { WaveDirector } from './sim/wave-director.js';
 
+// 高潮演出事件的环形上限：低频事件，16 条足以覆盖任何一帧内的积压。
+const CULMINATION_RING_MAX = 16;
+
 export class Simulation {
   constructor(opts) {
     this.opts = opts;
@@ -112,6 +115,12 @@ export class Simulation {
     this.skillFx = [];
     // 结构化命中事件：只读观测流，反馈/画质开关不影响其产出（shared/impact-events.js）。
     this.impactEvents = [];
+    // 高潮演出事件（漏怪 / 清波 / 首领死亡）：同样是只读观测流，只记录不参与结算。
+    // 环形上限由 addCulmination 维护；`recordCulminations === false` 时整条通道关闭
+    // （表现层零接触对局的对照实验用），关闭时序列化状态与开启时逐字节一致。
+    this.culminations = [];
+    this.culminationSeq = 0;
+    this.recordCulminations = opts.recordCulminations !== false;
     // 按模拟时间结算的技能事件（陨星落点等）。
     this.skillPending = [];
     this.stasis = null;
@@ -423,6 +432,18 @@ export class Simulation {
   setVisualQuality({ effects, floaters } = {}) {
     if (effects) this.effectsLevel = effects;
     if (floaters) this.floatersMode = floaters;
+  }
+
+  // 高潮演出：只追加观测记录，不调用 RNG、不读写结算、不播声音。
+  // seq 全局严格递增，渲染层按 seq 增量消费；超过环形上限丢最旧的一条。
+  addCulmination(kind, meta = {}) {
+    if (!this.recordCulminations) return null;
+    const entry = { seq: ++this.culminationSeq, kind, at: this.time, ...meta };
+    this.culminations.push(entry);
+    if (this.culminations.length > CULMINATION_RING_MAX) {
+      this.culminations.splice(0, this.culminations.length - CULMINATION_RING_MAX);
+    }
+    return entry;
   }
 
   addEffect(effect) {

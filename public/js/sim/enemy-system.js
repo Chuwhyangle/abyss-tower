@@ -272,6 +272,13 @@ export class EnemySystem {
     this.sim.shake = Math.min(16, this.sim.shake + 7);
     this.sim.addEffect({ kind: 'leak', x: enemy.x, y: enemy.y, ttl: 0.5 });
     this.sim.addFloater(enemy.x, enemy.y - 0.4, `-${enemy.dmg}`, '#ff6b6b', true, { key: true });
+    // 高潮演出事件：只记录（含漏怪后的基地生命），结算与音效保持原有顺序。
+    this.sim.addCulmination('leak', {
+      damage: enemy.dmg,
+      baseHp: this.sim.baseHp,
+      x: enemy.x,
+      y: enemy.y,
+    });
     this.sim.playSound('hurt');
     this.sim.hexCall('onLeak', enemy, this.sim.hexCtx);
   }

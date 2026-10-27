@@ -181,6 +181,8 @@ export class WaveDirector {
     const cleared = this.sim.wave;
     this.sim.waveDef = null;
     this.sim.clearedWave = cleared;
+    // 高潮演出事件：结算完成后、回调前记录，reward/interest 与实际入账一致。
+    this.sim.addCulmination('waveClear', { wave: cleared, reward, interest });
 
     // 无尽模式不清算通关：第 30 波后继续生成递增波次，直到基地被摧毁。
     if (this.sim.mode !== 'endless' && cleared >= MAX_WAVE) {

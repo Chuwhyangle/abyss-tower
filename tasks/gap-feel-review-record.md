@@ -1,7 +1,7 @@
 ---
 id: gap-feel-review-record
 title: 打击感语义评审记录：前后对照 contact sheet + 全新上下文评审结论
-status: todo
+status: ready
 labels:
   - gap
 parent: null

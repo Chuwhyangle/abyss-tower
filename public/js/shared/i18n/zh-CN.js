@@ -1524,6 +1524,14 @@ export default {
   'audio.ambience.water': '水滴',
   'hudUi.mutationChallenge': '变异挑战',
 
+  // ---- 高潮演出（漏怪 / 清波 / 首领死亡，AC-017）----
+  'feel.culmination.leak.title': '基地受损',
+  'feel.culmination.leak.detail': '漏怪 −{damage} 生命 · 剩余 {baseHp}',
+  'feel.culmination.waveClear.title': '第 {wave} 波清除',
+  'feel.culmination.waveClear.detail': '奖励 +{reward} 金币 · 利息 +{interest}',
+  'feel.culmination.bossKill.title': '首领陨落',
+  'feel.culmination.bossKill.detail': '{name} 已被击败',
+
   // ---- Season pass rewards / cosmetic names ----
   'seasonPass.seasonValue': '{year} 年 {month} 月',
   'seasonPass.rewardCores': '{n} 星核',

@@ -168,6 +168,11 @@ export class CombatSystem {
     if (enemy.boss) {
       this.sim.shake = Math.min(14, this.sim.shake + 10);
       this.sim.addFloater(enemy.x, enemy.y - 0.6, `+${gold}`, '#ffd36b', true, { key: true });
+      // 「是不是首领」由模拟侧显式记录，渲染层不再按死亡特效半径反推。
+      this.sim.addCulmination('bossKill', {
+        type: enemy.type,
+        name: ENEMIES[enemy.type]?.name || enemy.type,
+      });
       this.sim.playSound('bossKill');
     } else {
       this.sim.playSound('kill');

@@ -36,7 +36,8 @@ const SYSTEMS = [
 
 // 导出面快照：Simulation.prototype 的公共方法集合，拆分前后必须完全一致。
 const EXPORT_SURFACE = [
-  'addEffect', 'addFloater', 'addRelic', 'addSkillFx', 'applyDestructibleEffect', 'applyEventOption',
+  'addCulmination', 'addEffect', 'addFloater', 'addRelic', 'addSkillFx', 'applyDestructibleEffect',
+  'applyEventOption',
   'applyOffer', 'applyTowerOverdrive', 'auraBuffFor', 'beginWave', 'buildPath', 'canBuild', 'canEvolve',
   'castAurora', 'castBossSkill', 'castChrono', 'castMeteor', 'castSkill', 'cleanup', 'clearTowerOverdrive',
   'completeWave', 'computeHit', 'computePendingEvent', 'computeTowerStats', 'constructor',

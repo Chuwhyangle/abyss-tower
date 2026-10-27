@@ -67,6 +67,8 @@ export class GameApp {
     this.renderer = new Renderer(canvas, sim, this.settings);
     // 镜头反馈：只作用于表现；reduced-motion / 关闭震屏时运动分量为 0，保留命中闪光。
     this.reducedMotion = detectReducedMotion(globalThis.document);
+    // 演出层与镜头共用同一份 reduced-motion 判定（系统偏好变更时两处一起刷新）。
+    this.renderer.setReducedMotion(this.reducedMotion);
     this.feedback = new CameraFeedback({
       settings: this.settings,
       reducedMotion: this.reducedMotion,
@@ -108,6 +110,7 @@ export class GameApp {
     this._onMotionPreference = (event) => {
       this.reducedMotion = event?.matches === true;
       this.feedback.setSettings(this.settings, { reducedMotion: this.reducedMotion });
+      this.renderer.setReducedMotion(this.reducedMotion);
     };
     this._motionQuery =
       typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(MOTION_QUERY) : null;
@@ -190,7 +193,12 @@ export class GameApp {
     this.impactFeedback.consume(sim.impactEvents || []);
     // 命中音效层：同一事件源，限流/压缩只作用于表现，不改变模拟与结算。
     audio.followCombatImpacts(sim, performance.now());
-    sim.updateVisuals(raw);
+    // 慢动作只缩放视觉 dt（特效/飘字衰减与演出播放），模拟步进仍按固定步长推进；
+    // reduced-motion / 关闭震屏时演出层恒返回 1，视觉节奏与常态一致。
+    const visualTimeScale = Number(this.renderer?.visualTimeScale);
+    const visualDt =
+      Number.isFinite(visualTimeScale) && visualTimeScale > 0 ? raw * visualTimeScale : raw;
+    sim.updateVisuals(visualDt);
     m.simMs += performance.now() - simStarted;
 
     // 渲染层只接收算好的镜头变换：旧 game.shake（漏怪/首领死亡等无命中事件的来源）
