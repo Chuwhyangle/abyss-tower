@@ -42,7 +42,13 @@ export class EnemySystem {
       enemy.angle = pos.angle;
 
       if (!stasisActive && now < enemy.poisonUntil && enemy.poisonDps > 0) {
-        this.sim.damage(enemy, enemy.poisonDps * dt, { ignoreArmor: true, silent: true, dot: true });
+        this.sim.damage(enemy, enemy.poisonDps * dt, {
+          ignoreArmor: true,
+          silent: true,
+          dot: true,
+          weapon: 'poison',
+          source: 'dot',
+        });
         if (Math.random() < dt * 2.2) {
           this.sim.addEffect({ kind: 'poison', x: enemy.x, y: enemy.y - 0.15, ttl: 0.5 });
         }
@@ -332,8 +338,9 @@ export class EnemySystem {
       ally.recoil = 1;
       // 百分比路径直接按目标最大生命结算（与 skillPctDamage 同一语义），不走护甲/增伤/命中钩子。
       const pct = target.boss && ally.pctBoss > 0 ? ally.pctBoss : ally.pct;
-      if (pct > 0) this.sim.skillDamage(target, target.maxHp * pct);
-      else if (ally.dmg > 0) this.sim.dealDamage(target, ally.dmg, ally.kind, { noCrit: true });
+      if (pct > 0) {
+        this.sim.skillDamage(target, target.maxHp * pct, { source: 'ally', weapon: ally.kind });
+      } else if (ally.dmg > 0) this.sim.dealDamage(target, ally.dmg, ally.kind, { noCrit: true, source: 'ally' });
       ally.cd = 1 / ally.rate;
     }
     if (this.sim.allies.some((ally) => ally.dead)) {

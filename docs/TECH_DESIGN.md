@@ -232,6 +232,33 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 减速取最强值，刷新持续时间；毒伤取最高 DPS，刷新持续时间。
 - 敌人死亡金币：`round(gold × (1 + wave*0.005) × (1 + goldMul)) + killGold`。
 
+#### 结构化命中事件（`shared/impact-events.js`，AC-012）
+
+每次实际扣血都在两个伤害汇点产出**只读**事件，写入 `sim.impactEvents`：
+
+- 汇点一：`CombatSystem.damage()` —— 塔攻击、溅射、连锁电弧、盟友固定伤害、中毒跳伤。
+- 汇点二：`SkillSystem.skillDamage()` —— 技能百分比伤害、解冻碎晶、陨星余烬、熔火灼烧跳伤；盟友的百分比攻击也走这里，事件标 `source: 'ally'`。
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `t` | number | 命中时的 `sim.time` |
+| `x` / `y` | number | 目标当时的坐标 |
+| `target.id` / `target.type` | number / string | 受伤敌人 id 与类型键 |
+| `weapon` | string | 塔类型 / `ally.kind` / `'arc'` / `'poison'` / 技能 id |
+| `source` | string | `'tower'` / `'ally'` / `'skill'` / `'burn'` / `'dot'` |
+| `towerId` | number \| null | 出手塔 id（塔攻击才有） |
+| `amount` | number | 进入护甲/护盾前的伤害 |
+| `armorAbsorbed` | number | 护甲减免量（`ignoreArmor` 时为 0；1 点伤害下限使其不为负，抬高部分计入 `hpLost`） |
+| `shieldAbsorbed` | number | 护盾吸收量（技能伤害路径恒为 0） |
+| `hpLost` | number | 实际从 `enemy.hp` 扣除的数值（含致死过杀；盾未破时为 0） |
+| `crit` | boolean | 是否暴击 |
+| `lethal` | boolean | 本次命中是否致死 |
+
+- 环形上限 `IMPACT_EVENT_LIMIT = 240`，超出裁掉最旧事件；`sim.impactEvents` 在构造器初始化。
+- **不入存档/HUD 快照**（`shared/snapshot.js` 是显式字段清单，不序列化该数组）；不读画质/飘字设置、不消耗任何 RNG、不改变任何伤害数值与击杀结算。
+- 反馈关闭（`setVisualQuality({ effects:'off', floaters:'off' })`）时事件照常逐次产出，只是消费端（渲染/音频/飘字）表现不同；同 seed 的「全开」「全关」两局模拟状态与 `combatRng` 序列逐字节一致。
+- 不新增 `Simulation.prototype` 方法：`pushImpactEvent(sim, event)` 是纯函数，导出面（`tests/sim-systems.test.mjs` 的 `EXPORT_SURFACE`）保持不变。
+
 ### 4.7 主海克斯运行时（`shared/hexes/`）
 
 十个主海克斯各自一个模块（`shared/hexes/<id>.js`），只通过钩子改模拟层，不互相争抢 `sim.js`。

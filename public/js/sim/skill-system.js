@@ -1,5 +1,6 @@
 // 主动技能：冷却/释放、极光冻结、陨星落点、时停与全塔过载。
 import { SKILLS, skillStats } from '../shared/data.js';
+import { pushImpactEvent } from '../shared/impact-events.js';
 import { RNG } from '../shared/rng.js';
 
 // 主动技能常量：落点间距、预警时长、余烬连锁范围。
@@ -478,11 +479,29 @@ export class SkillSystem {
     return enemy.maxHp * pct * (enemy.boss ? bossFactor : 1);
   }
 
-  skillDamage(enemy, amount, { dot = false } = {}) {
+  skillDamage(enemy, amount, { dot = false, source = null, weapon = null } = {}) {
     if (!enemy || enemy.dead || !(amount > 0)) return 0;
     enemy.hp -= amount;
+    const lethal = enemy.hp <= 0;
     if (!dot) enemy.hitFlash = 1;
-    if (enemy.hp <= 0) this.sim.killEnemy(enemy);
+    // 先记事件再结算死亡：击杀钩子可能连锁产生后续事件。
+    // 技能伤害不走护甲/护盾/暴击，事件里这两项恒为 0；灼烧跳伤另标 source='burn'。
+    pushImpactEvent(this.sim, {
+      t: this.sim.time,
+      x: enemy.x,
+      y: enemy.y,
+      target: { id: enemy.id, type: enemy.type },
+      weapon: weapon ?? this.sim.skill?.id ?? 'skill',
+      source: source ?? (dot ? 'burn' : 'skill'),
+      towerId: null,
+      amount,
+      armorAbsorbed: 0,
+      shieldAbsorbed: 0,
+      hpLost: amount,
+      crit: false,
+      lethal,
+    });
+    if (lethal) this.sim.killEnemy(enemy);
     return amount;
   }
 
