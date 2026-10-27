@@ -1,7 +1,7 @@
 ---
 id: DOCS-002
 title: 肉鸽养成 2.0 设计重基：把 v1.9 口径对齐 70 遗物现状
-status: todo
+status: ready
 labels:
   - docs
 parent: null
