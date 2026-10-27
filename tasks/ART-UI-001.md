@@ -1,7 +1,7 @@
 ---
 id: ART-UI-001
 title: HUD/文案可读性与 i18n 收口
-status: todo
+status: superseded
 labels:
   - feat
 parent: null
@@ -66,3 +66,6 @@ goal_ac: AC-026
 ## Notes
 
 与精灵化不冲突：本任务只修字号、对比度、文案与双语，不引入任何贴图。`public/js/settings.js` 与 `gap-auto-quality-default` 有文件重叠，调度器按 Touches 串行即可。不修改 `docs/PRD.md` / `docs/TECH_DESIGN.md`，避免继续占用文档热点；设计增量写在本任务 Notes，由后续文档整合任务统一吸收。
+
+
+与 goal driver 依 AC-026 自动生成的 gap-i18n-coverage-zero-hardcode 重叠；i18n 与 UI 字体下限已分别由 gap-i18n-coverage-zero-hardcode / gap-ui-readability-font-floor 认领，本任务退役。
