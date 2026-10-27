@@ -1,7 +1,7 @@
 ---
 id: gap-scene-sprite-adoption
 title: 场景精灵接入矩阵：四场景 × 两视口走精灵 + 缺资源场景级回退（AC-031）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
