@@ -1,7 +1,7 @@
 ---
 id: gap-background-atmosphere-gate
 title: 背景与氛围机械闸：让 art 套件见证氛围层与分带层次，并证明它会变红
-status: ready
+status: done
 labels:
   - gap
 parent: null
