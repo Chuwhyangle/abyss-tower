@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "generator": "scripts/build-sprite-atlas.mjs",
+  "atlases": {
+    "probe-atlas": {
+      "json": "/assets/sprites/probe/probe-atlas.json",
+      "images": {
+        "1": "/assets/sprites/probe/probe.png",
+        "2": "/assets/sprites/probe/probe@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 16
+      }
+    }
+  },
+  "entries": [
+    {
+      "id": "fx/probe",
+      "path": "public/assets/sprites/probe/probe.png",
+      "src": "/assets/sprites/probe/probe.png",
+      "srcs": {
+        "1": "/assets/sprites/probe/probe.png",
+        "2": "/assets/sprites/probe/probe@2x.png"
+      },
+      "size": {
+        "w": 32,
+        "h": 16
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 2,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "probe-atlas",
+      "frame": "probe-idle-0",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    }
+  ]
+}

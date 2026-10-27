@@ -15,6 +15,7 @@ import { EffectRenderer } from './render/effect-renderer.js';
 import { FloaterRenderer } from './render/floater-renderer.js';
 import { OverlayRenderer } from './render/overlay-renderer.js';
 import { SkillRenderer } from './render/skill-renderer.js';
+import { SpritePipeline } from './render/sprite-pipeline.js';
 
 const T = TILE;
 
@@ -28,6 +29,10 @@ export class Renderer {
     this.H = game.map.rows * T;
     this.palette = biomePalette(game.map, this.settings);
     this.applyDpr();
+    // 精灵管线：DPR 由上面的 applyDpr() 唯一决定，管线不自己读 window.devicePixelRatio。
+    // 预载是旁路（永不 reject）；缺资源时 draw() 返回 false，实体层继续程序化绘制。
+    this.sprites = new SpritePipeline({ dpr: this.dpr });
+    if (typeof window !== 'undefined') this.sprites.preload();
     this.time = 0;
     this.fpsFrames = 0;
     this.fpsSince = 0;
@@ -68,6 +73,13 @@ export class Renderer {
     this.canvas.width = Math.round(this.W * this.dpr);
     this.canvas.height = Math.round(this.H * this.dpr);
     this.canvas.style.aspectRatio = `${this.W} / ${this.H}`;
+    // DPR 的唯一权威在这里：管线只跟随重选变体，不另读 devicePixelRatio。
+    this.sprites?.configure({ dpr: this.dpr });
+  }
+
+  // 释放精灵管线持有的图片引用；之后管线 draw() 一律返回 false。
+  dispose() {
+    this.sprites?.dispose();
   }
 
   applySettings(settings) {

@@ -1,7 +1,7 @@
 ---
 id: gap-entity-sprite-coverage
 title: 单位精灵覆盖：六类实体独立精灵与 ≥2 状态动画（AC-023）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
@@ -74,7 +74,6 @@ AC-023 的 criterion 是 `node --test tests/sprite-coverage.test.mjs`，该文�
 
 - `tasks/gap-entity-sprite-coverage.md`
 - `docs/ASSET_PIPELINE.md`
-- `docs/TECH_DESIGN.md`
 - `public/js/render/sprite-coverage.js` (new)
 - `public/js/render.js`
 - `public/js/render/tower-renderer.js`
@@ -99,3 +98,4 @@ AC-023 的 criterion 是 `node --test tests/sprite-coverage.test.mjs`，该文�
 - 管线是基础设施：实体渲染器只接收注入的 `SpritePipeline`，自己不加载图片；`new Image` 只允许出现在管线模块内，`tests/render-animations.test.mjs:192` 的约束不变。
 - 精灵是**替换形体**而不是叠加：`draw()` 返回 `true` 时跳过对应的程序化形体绘制（否则会双重描边、且每帧 drawImage 预算翻倍）；覆盖层（射程圈、血条、首领名、受击闪白、选中框）照旧。
 - 命中/飘字/音效逻辑不写、不读本任务新增状态；`sim` 的状态字段是只读输入，禁止为了让动画更好看而改模拟层或 RNG 调用顺序。
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。

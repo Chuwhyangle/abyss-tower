@@ -81,8 +81,6 @@ GOAL-006 退出条件要求「机械视觉检查通过：单位与背景对比�
 
 ## Touches
 
-- `docs/PRD.md`
-- `docs/TECH_DESIGN.md`
 - `public/index.html`
 - `public/js/i18n.js`
 - `public/js/api.js`
@@ -121,3 +119,7 @@ GOAL-006 退出条件要求「机械视觉检查通过：单位与背景对比�
 - `tests/replay-share.test.mjs`
 - `tests/settings-panel.test.mjs`
 - `tasks/gap-i18n-coverage-zero-hardcode.md`
+
+## Notes
+
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。

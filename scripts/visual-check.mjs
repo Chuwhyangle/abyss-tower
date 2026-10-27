@@ -8,18 +8,29 @@ import { fileURLToPath } from 'node:url';
 
 import { decodePng } from './lib/png.mjs';
 import {
+  bandStats,
   contrastRatio,
+  decorationDelta,
+  decorationMonotonic,
   differenceStats,
   evaluateSuite,
   regionStats,
   silhouetteCoverage,
   unitContrast,
 } from './lib/visual-metrics.mjs';
+import { weatherLayer } from '../public/js/render/background-renderer.js';
 import { capture, resolveQuality } from '../tests/visual-scenes.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const SUITES = Object.freeze(['feel', 'art', 'ui', 'mobile']);
-export const INJECTIONS = Object.freeze(['no-feedback', 'effects-invisible']);
+// feel 注入作用于表现层；art 注入作用于背景/单位层，全部只存在于测试 shim。
+export const INJECTIONS = Object.freeze([
+  'no-feedback',
+  'effects-invisible',
+  'units-hidden',
+  'flat-background',
+  'decor-noop',
+]);
 
 const FALLBACK_UI_BG = [10, 16, 20, 1];
 
@@ -77,6 +88,18 @@ export function feelMetrics(result) {
   };
 }
 
+function decodeDataUrl(value) {
+  if (!value) return null;
+  const comma = value.indexOf(',');
+  if (comma < 0) return null;
+  return decodePng(Buffer.from(value.slice(comma + 1), 'base64'));
+}
+
+// 背景画布（离屏烘焙）与截图尺度不同，背景类指标只在背景画布自己的矩形内比较。
+function imageRect(image) {
+  return image ? { x: 0, y: 0, width: image.width, height: image.height } : { x: 0, y: 0, width: 0, height: 0 };
+}
+
 export function artMetrics(result) {
   const frame = result.frames.find((item) => item.id === result.metricsFrame);
   if (!frame) throw new Error('采集结果缺少指标帧');
@@ -84,16 +107,37 @@ export function artMetrics(result) {
   const enemyPoints = toScreenPoints(payload.enemies, payload);
   const towerPoints = toScreenPoints(payload.towers, payload);
   const boxes = toScreenBoxes(payload.enemies, payload);
-  const background = payload.backgroundPng ? decodePng(Buffer.from(payload.backgroundPng.split(',')[1], 'base64')) : null;
+  const background = decodeDataUrl(payload.backgroundPng);
   const backgroundStats = background
-    ? regionStats(background, { x: 0, y: 0, width: background.width, height: background.height })
+    ? regionStats(background, imageRect(background))
     : { levels: 0, stdLuma: 0 };
+  const bands = background ? bandStats(background, imageRect(background), 3) : [];
+  // 三档烘焙：当前帧背景（受注入影响）vs 关闭档 / 高配 / 低配。
+  const fullBackground = decodeDataUrl(payload.backgroundFullPng) || background;
+  const lightBackground = decodeDataUrl(payload.backgroundLightPng);
+  const offBackground = decodeDataUrl(payload.backgroundOffPng);
+  const offRect = imageRect(offBackground);
+  const atmosphereByTier = {
+    off: 0,
+    light: lightBackground && offBackground ? decorationDelta(lightBackground, offBackground, offRect) : 0,
+    full: fullBackground && offBackground ? decorationDelta(fullBackground, offBackground, offRect) : 0,
+  };
+  const weather = payload.mapMeta
+    ? weatherLayer(payload.mapMeta, payload.seed, payload.decorations || 'full')
+    : null;
   return {
     unitBackgroundDeltaE: unitContrast(frame.image, enemyPoints.slice(0, 16)).meanDeltaE,
     towerBackgroundDeltaE: unitContrast(frame.image, towerPoints.slice(0, 12)).meanDeltaE,
     silhouetteCoverage: silhouetteCoverage(frame.image, boxes.slice(0, 16)).meanCoverage,
     backgroundLevels: backgroundStats.levels,
     backgroundLumaSpread: backgroundStats.stdLuma,
+    backgroundBands: bands,
+    atmosphereContribution: background && offBackground
+      ? decorationDelta(background, offBackground, imageRect(background))
+      : 0,
+    atmosphereByTier,
+    decorMonotonic: decorationMonotonic(atmosphereByTier.off, atmosphereByTier.light, atmosphereByTier.full),
+    weather: weather ? { ...weather, biome: payload.mapMeta?.archetype || 'canyon' } : null,
     canvas: canvasRect(payload),
   };
 }
@@ -185,7 +229,7 @@ export function printReport(report, { log = console.log } = {}) {
     log(`  [${result.suite}] ${result.ok ? 'PASS' : 'FAIL'}`);
     for (const check of result.checks) {
       const mark = check.ok ? '✔' : '✘';
-      log(`    ${mark} ${check.label}: ${formatValue(check.value)}（阈值 ${check.threshold}）${check.detail ? ` · ${check.detail}` : ''}`);
+      log(`    ${mark} ${check.name}: ${formatValue(check.value)}（阈值 ${check.threshold}）${check.detail ? ` · ${check.detail}` : ''}`);
     }
   }
   log(`\n结论：${report.ok ? '通过' : '未通过'}`);
@@ -239,6 +283,8 @@ export async function run({ suite = 'all', quality = 'high', injection = null, o
   return {
     ok: reports.every((report) => report.ok),
     suite,
+    // 单套件时把该项检查表提到顶层，便于 --json 消费者按稳定 schema 读取。
+    checks: reports.length === 1 ? reports[0].checks : undefined,
     suites,
     injection: injection || null,
     quality,
@@ -249,7 +295,7 @@ export async function run({ suite = 'all', quality = 'high', injection = null, o
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log('用法：node scripts/visual-check.mjs --suite feel|art|ui|mobile|all [--quality high] [--inject no-feedback|flat-effect-color] [--out dir] [--json]');
+    console.log(`用法：node scripts/visual-check.mjs --suite feel|art|ui|mobile|all [--quality high] [--inject ${INJECTIONS.join('|')}] [--out dir] [--json]`);
     return 0;
   }
   const report = await run({
@@ -257,7 +303,8 @@ async function main() {
     quality: options.quality,
     injection: options.injection,
     outDir: options.outDir,
-    log: (line) => console.log(line),
+    // --json 时 stdout 必须是可解析的单一 JSON：采集进度日志改走 stderr。
+    log: options.json ? (line) => console.error(line) : (line) => console.log(line),
   });
   if (options.json) {
     console.log(JSON.stringify(report, null, 2));
