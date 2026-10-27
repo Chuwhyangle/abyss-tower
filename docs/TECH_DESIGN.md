@@ -663,7 +663,7 @@ cores = Math.round(
 | `atmosphere-contribution` | 氛围层贡献 | 0.002 | 高配烘焙与关闭档烘焙的像素差异占比（ΔE > 8） | 天气粒子/生物群系道具/氛围光点被整体删除或高配按关闭档执行（注入 `decor-noop`） | GOAL-006「雾/余烬/光池等氛围层」；实测 0.0056，关闭档 0.0000 |
 | `decor-monotonic` | 装饰档位单调（off ≤ light ≤ full） | off ≤ light ≤ full | 关闭档 / 低配 / 高配三档烘焙的氛围层贡献单调不减 | 低配比高配更「花」，或档位接错 | 画质档位契约；实测 off=0.0000 / light=0.0021 / full=0.0056 |
 
-**一次真实读数**（2026-10-27，commit `__COMMIT__`，Chrome headless，1440×900，quality high，seed `visual-scene-seed`）：
+**一次真实读数**（2026-10-27，commit `04f14b329e0c`，Chrome headless，1440×900，quality high，seed `visual-scene-seed`）：
 
 | 指标 | 实测 | 阈值 | 余量 |
 | --- | --- | --- | --- |
