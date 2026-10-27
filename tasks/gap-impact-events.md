@@ -40,18 +40,18 @@ GOAL-005 退出条件要求「每次伤害都产出结构化命中事件；同�
 
 ## AC
 
-- [ ] `node --test tests/impact-events.test.mjs` exit 0，且该文件覆盖：塔命中/溅射每目标/连锁电弧/盟友攻击/技能/灼烧/中毒跳伤各至少一条事件；暴击、护甲吸收、护盾吸收、致死、位置与目标字段数值正确
-- [ ] 事件在 `setVisualQuality({ effects: 'off', floaters: 'off' })` 下仍逐次伤害产出：同一 seed 场景「全开」与「全关」两次运行的事件条数与逐条字段相同
-- [ ] `node --test tests/sim-systems.test.mjs tests/combat.test.mjs tests/sim-skills.test.mjs tests/snapshot.test.mjs tests/save-compat.test.mjs` exit 0（公共方法集合与存档结构不变）
-- [ ] `grep -rn "impactEvents" public/js/shared/snapshot.js public/js/sim/snapshot-mapper.js` 0 命中（事件流不入存档/HUD 快照）
-- [ ] `npm test` exit 0
+- [x] `node --test tests/impact-events.test.mjs` exit 0，且该文件覆盖：塔命中/溅射每目标/连锁电弧/盟友攻击/技能/灼烧/中毒跳伤各至少一条事件；暴击、护甲吸收、护盾吸收、致死、位置与目标字段数值正确
+- [x] 事件在 `setVisualQuality({ effects: 'off', floaters: 'off' })` 下仍逐次伤害产出：同一 seed 场景「全开」与「全关」两次运行的事件条数与逐条字段相同
+- [x] `node --test tests/sim-systems.test.mjs tests/combat.test.mjs tests/sim-skills.test.mjs tests/snapshot.test.mjs tests/save-compat.test.mjs` exit 0（公共方法集合与存档结构不变）
+- [x] `grep -rn "impactEvents" public/js/shared/snapshot.js public/js/sim/snapshot-mapper.js` 0 命中（事件流不入存档/HUD 快照）
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 真实对局驱动：固定 seed 建塔自动战斗跑到至少 2 波结束，`sim.impactEvents` 累计 >100 条；抽样中塔命中、溅射、暴击、护盾吸收、致死、中毒/灼烧至少各 1 条且字段完整（记录驱动脚本与输出摘要）
-- [ ] 同一 seed「反馈全开」与「关闭飘字 + 精简特效」两局，波次/金币/击杀/基地血量/`combatRng` 序列逐项一致（脚本对比，不以肉眼代替）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（表现层无回归）
-- [ ] `docs/TECH_DESIGN.md` §4.6 与 `docs/PRD.md` §4.12 的契约与实现一致；Notes 记录事件字段表、环形上限与两条伤害路径覆盖清单
+- [x] 真实对局驱动：固定 seed 建塔自动战斗跑到至少 2 波结束，`sim.impactEvents` 累计 >100 条；抽样中塔命中、溅射、暴击、护盾吸收、致死、中毒/灼烧至少各 1 条且字段完整（记录驱动脚本与输出摘要）
+- [x] 同一 seed「反馈全开」与「关闭飘字 + 精简特效」两局，波次/金币/击杀/基地血量/`combatRng` 序列逐项一致（脚本对比，不以肉眼代替）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（表现层无回归）
+- [x] `docs/TECH_DESIGN.md` §4.6 与 `docs/PRD.md` §4.12 的契约与实现一致；Notes 记录事件字段表、环形上限与两条伤害路径覆盖清单
 
 ## Touches
 
@@ -64,3 +64,49 @@ GOAL-005 退出条件要求「每次伤害都产出结构化命中事件；同�
 - `public/js/shared/impact-events.js`
 - `tests/impact-events.test.mjs`
 - `tasks/gap-impact-events.md`
+
+## Notes
+
+### 实现
+
+- `public/js/shared/impact-events.js`：`IMPACT_EVENT_LIMIT = 240`、`makeImpactEvent(fields)` 归一化、`pushImpactEvent(sim, fields)` 环形入队（超出裁最旧）。纯函数，不新增 `Simulation.prototype` 方法（导出面 `EXPORT_SURFACE` 不变）。
+- `public/js/sim.js`：构造器初始化 `this.impactEvents = []`；`toSnapshot()` 是显式字段清单，事件流不入存档/HUD 快照。
+
+### 事件字段表（与 `docs/TECH_DESIGN.md` §4.6 一致）
+
+| 字段 | 类型 | 含义 |
+|---|---|---|
+| `t` | number | `sim.time` |
+| `x` / `y` | number | 目标当时坐标 |
+| `target.id` / `target.type` | number / string | 目标 id 与类型键 |
+| `weapon` | string | 塔类型 / `ally.kind` / `'arc'` / `'poison'` / 技能 id |
+| `source` | string | `'tower'` / `'ally'` / `'skill'` / `'burn'` / `'dot'` |
+| `towerId` | number \| null | 出手塔 id（非塔攻击为 null） |
+| `amount` | number | 传入 `damage()` 的原始伤害（护甲前） |
+| `armorAbsorbed` | number | 护甲减免量（`ignoreArmor` 为 0；1 点下限使其不为负） |
+| `shieldAbsorbed` | number | 护盾吸收量（技能路径恒为 0） |
+| `hpLost` | number | 实际从 `enemy.hp` 扣除的数值（含致死过杀；盾未破为 0） |
+| `crit` / `lethal` | boolean | 暴击 / 致死 |
+
+环形上限 240 条；事件不读画质/飘字设置、不消耗任何 RNG、不改变伤害数值与击杀顺序（先记事件再 `killEnemy`，避免击杀钩子连锁事件挤到前面）。
+
+### 两条伤害路径覆盖清单
+
+- `CombatSystem.damage()`：塔攻击（`weapon`=塔类型、`towerId`=塔 id）、溅射（每个被波及目标各一条）、连锁电弧（每跳一条、`weapon='arc'`、无视护甲）、盟友固定伤害（`source='ally'`、`weapon=ally.kind`）、中毒跳伤（`source='dot'`、`weapon='poison'`、无视护甲）。
+- `SkillSystem.skillDamage()`：技能百分比伤害 / 解冻碎晶 / 陨星余烬（`source='skill'`、`weapon`=技能 id）、熔火灼烧跳伤（`source='burn'`）、盟友百分比攻击（`source='ally'`、`weapon=ally.kind`）；护甲/护盾吸收恒 0、`crit` 恒 false。
+
+### 验证记录
+
+- `node --test tests/impact-events.test.mjs` → **15 pass / 0 fail，exit 0**。覆盖塔命中、暴击、护甲吸收、护盾吸收、致死、溅射每目标、连锁电弧、盟友、技能、灼烧、中毒跳伤、反馈关闭单次命中、环形上限，以及同 seed「全开 vs 全关」整局 twin（快照 + `combatRng` 序列 + 事件流逐字节相等）。
+- `node --test tests/sim-systems.test.mjs tests/combat.test.mjs tests/sim-skills.test.mjs tests/snapshot.test.mjs tests/save-compat.test.mjs` → **55 pass / 0 fail，exit 0**。
+- `grep -rn "impactEvents" public/js/shared/snapshot.js public/js/sim/snapshot-mapper.js` → **0 命中**。
+- `npm test` → **1440 pass / 0 fail，exit 0**。
+- `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` → **通过**（首跑一次「建塔失败，towers=2」为点击竞态抖动，随后两次复跑均通过）。
+
+### DoD 真实对局驱动（一次性脚本 `/tmp/impact-dod-driver.mjs`，不入库）
+
+seed `impact-dod-0`、standard、暴击遗物 + 陨星 L7、沿路径 10 座塔（半数升级），自动战斗 **7 波**（第 7 波出现 `shielder`）；Proxy 镜像 `impactEvents` 记录全部 push（不受环形裁剪影响）。
+
+- 事件总数 **1620**（全开 / 全关相同）；类别计数：`tower 295 / skill 44 / dot 454 / burn 827`，`crit 73 / lethal 71 / shieldAbsorbed 6 / armorAbsorbed 105`。
+- 抽样（节选）：塔命中 `{"t":0.467,"weapon":"arrow","source":"tower","towerId":5,"amount":22,"armorAbsorbed":0,"shieldAbsorbed":0,"hpLost":22,"crit":false,"lethal":false,"target":{"id":11,"type":"grunt"}}`；溅射（同帧双目标）`{"t":4.567,"weapon":"cannon","towerId":6,"hpLost":30,"lethal":true,"target":{"id":20,"type":"grunt"}}`；护盾吸收 `{"t":102.867,"weapon":"cannon","target":{"id":291,"type":"shielder"},"amount":60,"armorAbsorbed":6,"shieldAbsorbed":54,"hpLost":0,"crit":true}`；灼烧 `{"t":40.567,"weapon":"meteor","source":"burn","hpLost":1.836}`；中毒 `{"weapon":"poison","source":"dot","hpLost":0.3}`；致死 `{"lethal":true,"hpLost":22}`；暴击 `{"crit":true,"hpLost":44}`。
+- 双局一致性（同 seed，`{effects:'full',floaters:'all'}` vs `{effects:'off',floaters:'off'}`）：7 波摘要（波次/击杀/金币/基地血量）逐项一致、最终快照（去 `savedAt/startedAt`）逐字节一致、`combatRng` 序列 295 项逐项一致、1620 条事件逐条字段一致。
