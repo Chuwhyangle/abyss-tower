@@ -47,20 +47,32 @@ commit `14fec37`（2026-10-27 18:28:36 +0800，Revert "chore(scripts): 肉鸽 2.
 
 ## Acceptance Criteria
 
-- [ ] 依赖任务的修复提交已在被测 HEAD 上（Notes 记 `git log --oneline -1` 与该提交 hash）
-- [ ] `node scripts/check-stability.mjs` 在该 HEAD 上 exit 0（AC-007 criterion 逐字执行，记 3 轮读数）
-- [ ] 同一 HEAD 上第二次 `node scripts/check-stability.mjs` 亦 exit 0（共 6 轮，stderr 无 `CAUSE=`）
-- [ ] Notes 含每次调用的退出码、逐轮耗时与 `# tests / # pass / # fail`；若出现非零轮，另含 `.tap` 路径、`not ok` 用例名与处理结果
-- [ ] 未与 `gap-test-changed-stale-map-entries` 并发编辑同一文件（本任务 commit 不含 `scripts/test-changed.mjs` / `tests/test-changed.test.mjs` 的改动）
+- [x] 依赖任务的修复提交已在被测 HEAD 上（Notes 记 `git log --oneline -1` 与该提交 hash）
+- [x] `node scripts/check-stability.mjs` 在该 HEAD 上 exit 0（AC-007 criterion 逐字执行，记 3 轮读数）
+- [x] 同一 HEAD 上第二次 `node scripts/check-stability.mjs` 亦 exit 0（共 6 轮，stderr 无 `CAUSE=`）
+- [x] Notes 含每次调用的退出码、逐轮耗时与 `# tests / # pass / # fail`；若出现非零轮，另含 `.tap` 路径、`not ok` 用例名与处理结果
+- [x] 未与 `gap-test-changed-stale-map-entries` 并发编辑同一文件（本任务 commit 不含 `scripts/test-changed.mjs` / `tests/test-changed.test.mjs` 的改动）
 
 ## Definition of Done
 
-- [ ] 被测 HEAD 是已提交状态（`git status --short` 无与本任务相关的未提交改动），且 AC-007 的 criterion 在该 HEAD 上两次调用均 exit 0
-- [ ] 连续 6 轮读数在 Notes 中可被 driver 下一轮独立复算并复现
-- [ ] 门禁判定语义未被放宽：仍然“任一轮失败 → exit 1”，没有为了绿而调 `--rounds` / `--concurrency`
+- [x] 被测 HEAD 是已提交状态（`git status --short` 无与本任务相关的未提交改动），且 AC-007 的 criterion 在该 HEAD 上两次调用均 exit 0
+- [x] 连续 6 轮读数在 Notes 中可被 driver 下一轮独立复算并复现
+- [x] 门禁判定语义未被放宽：仍然“任一轮失败 → exit 1”，没有为了绿而调 `--rounds` / `--concurrency`
 
 ## Notes
 
 - 立案前直测：treeSha `ccac0246`，`node scripts/check-stability.mjs` 3/3 轮 fail；`.quay/stability/round-2-2026-10-27T11-22-26-686Z.tap` 与 `round-3-2026-10-27T11-22-52-475Z.tap` 均 `# tests 1627 / # pass 1626 / # fail 1`，失败用例 `not ok 1432 - 映射集中在一处且目标测试真实存在`。
 - 直测复现：`node --no-warnings --test tests/test-changed.test.mjs` → `not ok 9 - 映射集中在一处且目标测试真实存在`，exit 1；`ls tests/playtest-record.test.mjs scripts/playtest-check.mjs` 两者均不存在。
 - 本任务不改仓库代码，属于 AC-007 的复验/见证任务；机制修复的正主是 `gap-test-changed-stale-map-entries`。
+
+### 复验执行记录（2026-10-27，worktree `.worktrees/gap-ac-007-stability-gate-reverify`，分支 `task/gap-ac-007-stability-gate-reverify`）
+
+- **被测 HEAD**：`0ee3ee8 tasks: gap-art-review-record task_write by cli:1768903`（worktree 从 `develop` 创建；`develop` 与 `main` 同为 `0ee3ee8`；`git status --short` 为空）。
+- **依赖修复提交在 HEAD 上**：`8d0651a fix(test-changed): 移除 revert 残留的 4 条 TEST_MAP 失效映射`，为 `git log --oneline -5 -- scripts/test-changed.mjs` 首条；`git merge-base --is-ancestor 8d0651a HEAD` → YES（`main` / `develop` 均包含）。依赖任务 `gap-test-changed-stale-map-entries` 已 done（fan-in 提交 `ef4c04e`）。
+- **映射断言直测**：`node --no-warnings --test tests/test-changed.test.mjs` → exit 0，`# tests 15 / # pass 15 / # fail 0 / # skipped 0`。
+- **调用 A（逐字 criterion，无参数）**：`node scripts/check-stability.mjs` → **exit 0**；3 轮 / 并发 2 / 192 个测试文件；轮次 1 `23.83s（1643 项）`、轮次 2 `24.38s（1643 项）`、轮次 3 `25.20s（1643 项）`；每轮 `# tests 1643 / # pass 1643 / # fail 0`；stderr 无 `CAUSE=`；进程总墙钟 73.44s。
+- **调用 B（同一 HEAD 再跑一次）**：`node scripts/check-stability.mjs` → **exit 0**；轮次 1 `24.06s`、轮次 2 `23.81s`、轮次 3 `23.95s`（各 1643 项，`# tests 1643 / # pass 1643 / # fail 0`）；stderr 无 `CAUSE=`；进程总墙钟 71.86s。两次调用合计 **6/6 轮通过**，0 个失败轮，用例失败率 0.0%（0/4929 项）。
+- **补充读数（同一 HEAD，直接 TAP，供复算）**：`node --no-warnings --test --test-concurrency=2 --test-reporter=tap tests/*.test.mjs` → exit 0，`# tests 1643 / # pass 1643 / # fail 0 / # cancelled 0 / # skipped 0 / # todo 0`，`# duration_ms 23832.87`。
+- **门禁语义未放宽**：未改动 `scripts/check-stability.mjs` / `scripts/test-stability.mjs`，两次调用均未传 `--rounds` / `--concurrency`（默认 3 轮、沿用 `npm test` 的并发档位 2）。
+- **未触碰依赖任务文件**：本分支相对 `develop` 无 `scripts/test-changed.mjs` / `tests/test-changed.test.mjs` 的改动（Touches 仅本任务文件）。
+- 本次复验未出现非零轮，故无新增 `.tap` 证据文件，也无需登记 / 回写任何新机制。
