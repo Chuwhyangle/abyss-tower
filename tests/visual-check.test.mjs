@@ -2,11 +2,18 @@
 // 不启动浏览器：浏览器路径由 tests/visual-scenes.mjs / scripts/visual-check.mjs 的 CLI 承担。
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { RgbaImage, blit, decodePng, encodePng, fillRect, resizeNearest } from '../scripts/lib/png.mjs';
 import {
+  ART_THRESHOLD_KEYS,
   THRESHOLDS,
+  bandStats,
   contrastRatio,
+  decorationDelta,
+  decorationMonotonic,
   deltaE,
   differenceStats,
   evaluateArt,
@@ -32,6 +39,7 @@ import {
 import { checkArtReview } from '../scripts/art-review.mjs';
 import { checkFeelReview } from '../scripts/feel-review.mjs';
 import {
+  INJECTIONS,
   artMetrics,
   feelMetrics,
   minTouchTarget,
@@ -74,6 +82,14 @@ const GOOD_ART = Object.freeze({
   silhouetteCoverage: 0.5,
   backgroundLevels: 12,
   backgroundLumaSpread: 12,
+  backgroundBands: [
+    { index: 0, levels: 9 },
+    { index: 1, levels: 8 },
+    { index: 2, levels: 7 },
+  ],
+  atmosphereContribution: 0.006,
+  atmosphereByTier: { off: 0, light: 0.002, full: 0.006 },
+  decorMonotonic: true,
 });
 
 const GOOD_UI = Object.freeze({
@@ -230,6 +246,150 @@ test('art / ui / mobile 套件阈值可判定', () => {
   assert.equal(evaluateMobile(GOOD_MOBILE).ok, true);
   assert.equal(evaluateMobile({ ...GOOD_MOBILE, canvasWidth: 100 }).ok, false);
   assert.equal(evaluateMobile({ ...GOOD_MOBILE, overflowX: 20 }).ok, false);
+});
+
+test('分带统计：纵向等分、空带归零、单色图各带只有一层', () => {
+  const image = makeImage(30, 30, [0, 0, 0, 255]);
+  // 上带黑、中带中灰、下带两种亮度：每带层次数应各自独立。
+  paint(image, 0, 0, 30, 10, [0, 0, 0, 255]);
+  paint(image, 0, 10, 30, 10, [128, 128, 128, 255]);
+  paint(image, 0, 20, 15, 10, [200, 200, 200, 255]);
+  paint(image, 15, 20, 15, 10, [255, 255, 255, 255]);
+  const bands = bandStats(image, { x: 0, y: 0, width: 30, height: 30 }, 3);
+  assert.equal(bands.length, 3);
+  assert.equal(bands[0].levels, 1);
+  assert.equal(bands[1].levels, 1);
+  assert.equal(bands[2].levels, 2);
+  assert.ok(bands[2].stdLuma > bands[0].stdLuma);
+
+  const flat = makeImage(30, 30, [60, 60, 60, 255]);
+  const flatBands = bandStats(flat, { x: 0, y: 0, width: 30, height: 30 }, 3);
+  assert.deepEqual(flatBands.map((band) => band.levels), [1, 1, 1]);
+  assert.ok(flatBands.every((band) => band.stdLuma < 1e-9));
+
+  // 空矩形（高度 0）不抛错，也不产生虚假层次。
+  const empty = bandStats(flat, { x: 0, y: 0, width: 30, height: 0 }, 3);
+  assert.deepEqual(empty.map((band) => band.levels), [0, 0, 0]);
+});
+
+test('氛围层贡献：同图为零、差异按像素占比、缺图不抛错', () => {
+  const off = makeImage(20, 20, [10, 10, 10, 255]);
+  assert.equal(decorationDelta(off, off), 0);
+
+  const full = makeImage(20, 20, [10, 10, 10, 255]);
+  paint(full, 0, 0, 10, 20, [220, 220, 220, 255]);
+  const ratio = decorationDelta(full, off);
+  assert.equal(ratio, 0.5);
+
+  // 只比较传入矩形：矩形外差异不计入。
+  const clipped = decorationDelta(full, off, { x: 10, y: 0, width: 10, height: 20 });
+  assert.equal(clipped, 0);
+
+  assert.equal(decorationDelta(null, off), 0);
+  assert.equal(decorationDelta(off, null), 0);
+});
+
+test('装饰档位单调：关闭 ≤ 低配 ≤ 高配', () => {
+  assert.equal(decorationMonotonic(0, 0.002, 0.006), true);
+  assert.equal(decorationMonotonic(0, 0, 0), true);
+  assert.equal(decorationMonotonic(0, 0.006, 0.002), false);
+  assert.equal(decorationMonotonic(0.001, 0.0005, 0.006), false);
+});
+
+test('art 套件：分带 / 氛围层 / 档位单调三项各自能红', () => {
+  const bandDegraded = evaluateArt({
+    ...GOOD_ART,
+    backgroundBands: [{ index: 0, levels: 9 }, { index: 1, levels: 1 }, { index: 2, levels: 9 }],
+  });
+  assert.equal(bandDegraded.ok, false);
+  assert.equal(bandDegraded.checks.find((item) => item.id === 'background-bands').ok, false);
+
+  const noAtmosphere = evaluateArt({ ...GOOD_ART, atmosphereContribution: 0 });
+  assert.equal(noAtmosphere.ok, false);
+  assert.equal(noAtmosphere.checks.find((item) => item.id === 'atmosphere-contribution').ok, false);
+
+  const notMonotonic = evaluateArt({
+    ...GOOD_ART,
+    atmosphereByTier: { off: 0, light: 0.006, full: 0.002 },
+    decorMonotonic: false,
+  });
+  assert.equal(notMonotonic.ok, false);
+  assert.equal(notMonotonic.checks.find((item) => item.id === 'decor-monotonic').ok, false);
+
+  // 三项都在时正常通过（GOOD_ART 基线）。
+  assert.equal(evaluateArt(GOOD_ART).ok, true);
+});
+
+test('注入 → 预期红灯映射：每种注入只打红它负责的指标', () => {
+  const expectations = [
+    {
+      injection: 'units-hidden',
+      red: ['unit-background', 'silhouette'],
+      green: ['background-levels', 'background-spread', 'background-bands', 'atmosphere-contribution'],
+    },
+    {
+      injection: 'flat-background',
+      red: ['background-levels', 'background-spread', 'background-bands'],
+      green: [],
+    },
+    {
+      injection: 'decor-noop',
+      red: ['atmosphere-contribution'],
+      green: ['background-levels', 'background-spread', 'background-bands'],
+    },
+  ];
+  // 与采集 shim 的真实效果一一对应：注入只能影响它该影响的指标。
+  const applyInjection = (injection) => {
+    if (injection === 'units-hidden') {
+      return { ...GOOD_ART, unitBackgroundDeltaE: 0, silhouetteCoverage: 0 };
+    }
+    if (injection === 'flat-background') {
+      return {
+        ...GOOD_ART,
+        backgroundLevels: 1,
+        backgroundLumaSpread: 0,
+        backgroundBands: [{ index: 0, levels: 1 }, { index: 1, levels: 1 }, { index: 2, levels: 1 }],
+      };
+    }
+    if (injection === 'decor-noop') {
+      return { ...GOOD_ART, atmosphereContribution: 0 };
+    }
+    return { ...GOOD_ART };
+  };
+  for (const { injection, red, green } of expectations) {
+    assert.ok(INJECTIONS.includes(injection), `注入 ${injection} 必须在 CLI 白名单里`);
+    const report = evaluateArt(applyInjection(injection));
+    assert.equal(report.ok, false, `${injection} 必须让 art 变红`);
+    const byId = new Map(report.checks.map((item) => [item.id, item.ok]));
+    for (const id of red) assert.equal(byId.get(id), false, `${injection} 未让 ${id} 变红`);
+    for (const id of green) assert.equal(byId.get(id), true, `${injection} 误伤 ${id}`);
+  }
+});
+
+test('docs/TECH_DESIGN.md §8.6 指标表与 THRESHOLDS.art 逐项一致', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const source = fs.readFileSync(path.join(root, 'docs/TECH_DESIGN.md'), 'utf8');
+  const start = source.indexOf('### 8.6');
+  assert.ok(start >= 0, '缺少 §8.6 机械视觉验收章节');
+  const rest = source.slice(start + '### 8.6'.length);
+  const end = rest.indexOf('\n## ');
+  const section = end >= 0 ? rest.slice(0, end) : rest;
+  const rows = [...section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm)].map((match) => ({
+    id: match[1],
+    name: match[2],
+    threshold: match[3],
+  }));
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    [...ART_THRESHOLD_KEYS.map((item) => item.id), 'decor-monotonic'],
+    '§8.6 表格的指标顺序/数量必须与判定项一致'
+  );
+  for (const { id, key } of ART_THRESHOLD_KEYS) {
+    const row = rows.find((item) => item.id === id);
+    assert.equal(Number(row.threshold), THRESHOLDS.art[key], `§8.6 的 ${id} 阈值与 THRESHOLDS.art.${key} 不一致`);
+  }
+  const monotonic = rows.find((item) => item.id === 'decor-monotonic');
+  assert.match(monotonic.threshold, /off\s*≤\s*light\s*≤\s*full/);
 });
 
 test('阈值集中在 THRESHOLDS，判定函数只读这一份', () => {
