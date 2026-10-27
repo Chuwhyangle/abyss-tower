@@ -40,25 +40,26 @@ GOAL-005（战斗反馈 2.0）的退出条件第一条要求「首次进入的�
 
 ## AC
 
-- [ ] `node --test tests/feel-defaults.test.mjs` exit 0，且该文件覆盖：桌面能力首入为高配（60fps/DPR2/glow/shake/floaters all，且不出现 30fps）、移动/弱机首入为低配、显式低配后重新加载仍为 30fps、损坏存储回退自动解析而非强制低配
-- [ ] `node --test tests/settings.test.mjs tests/settings-panel.test.mjs tests/a11y-color.test.mjs` exit 0
-- [ ] `grep -rn "首次默认低配" docs/ public/` 0 命中（文档与注释口径统一为自动档）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:settings` exit 0（真实浏览器：清空 localStorage 首入为自动→桌面高配；显式低配刷新后仍 30fps）
-- [ ] `npm test` exit 0
-- [ ] 若新增设置字段：`node --test tests/settings-sync.test.mjs tests/api.test.mjs` exit 0（云端往返保留自动档，不静默降回低配）
+- [x] `node --test tests/feel-defaults.test.mjs` exit 0，且该文件覆盖：桌面能力首入为高配（60fps/DPR2/glow/shake/floaters all，且不出现 30fps）、移动/弱机首入为低配、显式低配后重新加载仍为 30fps、损坏存储回退自动解析而非强制低配
+- [x] `node --test tests/settings.test.mjs tests/settings-panel.test.mjs tests/a11y-color.test.mjs` exit 0
+- [x] `grep -rn "首次默认低配" docs/ public/` 0 命中（文档与注释口径统一为自动档）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:settings` exit 0（真实浏览器：清空 localStorage 首入为自动→桌面高配；显式低配刷新后仍 30fps）
+- [x] `npm test` exit 0
+- [x] 若新增设置字段：`node --test tests/settings-sync.test.mjs tests/api.test.mjs` exit 0（云端往返保留自动档，不静默降回低配）
 
 ## DoD
 
-- [ ] 真实浏览器（Chrome、zh_CN）清空 localStorage 首入：设置面板显示「自动」，`window.__rtd.state.settings` 为桌面高配（fps 60 / dpr 2 / glow true / shake true / floaters all），战斗画面实际出现光晕与震屏
-- [ ] 面板显式点「低配」→ 应用 → 刷新，设置仍为 30fps/DPR1/无光晕/无震屏；再点「自动」能按当前能力重新解析
-- [ ] 以移动 UA + coarse pointer（或浏览器移动仿真）首入解析为低配，且攻击提示、敌人状态等非运动信息仍可见
-- [ ] PRD §4.12/§4.13 与 TECH §5.6/§5.7 与实际行为一致，无「默认低配」残留
-- [ ] Notes 记录能力信号清单与 low/high 判定阈值，并说明为何不改模拟与 RNG 调用顺序
+- [x] 真实浏览器（Chrome、zh_CN）清空 localStorage 首入：设置面板显示「自动」，`window.__rtd.state.settings` 为桌面高配（fps 60 / dpr 2 / glow true / shake true / floaters all），战斗画面实际出现光晕与震屏
+- [x] 面板显式点「低配」→ 应用 → 刷新，设置仍为 30fps/DPR1/无光晕/无震屏；再点「自动」能按当前能力重新解析
+- [x] 以移动 UA + coarse pointer（或浏览器移动仿真）首入解析为低配，且攻击提示、敌人状态等非运动信息仍可见
+- [x] PRD §4.12/§4.13 与 TECH §5.6/§5.7 与实际行为一致，无「默认低配」残留
+- [x] Notes 记录能力信号清单与 low/high 判定阈值，并说明为何不改模拟与 RNG 调用顺序
 
 ## Touches
 
 - `docs/PRD.md`
 - `docs/TECH_DESIGN.md`
+- `docs/GUIDE.md`
 - `public/js/settings.js`
 - `public/js/ui/settings-panel.js`
 - `public/js/shared/i18n/zh-CN.js`
@@ -68,5 +69,21 @@ GOAL-005（战斗反馈 2.0）的退出条件第一条要求「首次进入的�
 - `tests/settings.test.mjs`
 - `tests/settings-panel.test.mjs`
 - `tests/a11y-color.test.mjs`
+- `tests/audio-mix.test.mjs`
+- `tests/settings-sync.test.mjs`
 - `tests/browser-settings.mjs`
 - `tasks/gap-auto-quality-default.md`
+
+## Notes
+
+- 能力信号与判定阈值（`public/js/settings.js`）：
+  - `navigator.userAgentData?.mobile === true` → low
+  - `matchMedia('(pointer: coarse)').matches` → low（主输入为触摸；带触摸屏的笔记本主指针仍是 fine，不受影响）
+  - `navigator.hardwareConcurrency` ∈ (0, 4) → low（弱机）；`navigator.deviceMemory` ∈ (0, 4) GB → low
+  - 其余（含 Node 等无浏览器信号的空能力集）→ high；`maxTouchPoints`、`devicePixelRatio` 只采集不参与判档，留给后续细粒度策略
+- 自动解析只在四处发生：首次进入（无存储）、存储损坏/不可写、点「自动」、全部重置。`qualityMode: 'manual'` 的设置原样恢复；`qualityMode: 'auto'` 每次加载按当前设备重新解析，且只覆盖 fps/dpr/decorations/floaters/glow/shake，音量、音乐、色弱与高对比偏好永不重置。
+- 新增设置字段 `qualityMode: 'auto' | 'manual'`，已同步 `server/routes/profile.mjs` 的 `SETTINGS_FALLBACK`/`SETTINGS_OPTIONS`；`tests/settings-sync.test.mjs` 增加「自动档随同步往返保留、服务端不静默降回低配」用例。
+- 不改模拟与 RNG 调用顺序的理由：本次改动只落在表现层默认值/持久化（`public/js/settings.js`）、设置面板与文案、服务端设置字段校验；未触碰 `public/js/sim.js`、`public/js/shared/` 中的战斗逻辑或任何 RNG 调用点。全量 `npm test` 1471 项通过，其中 `tests/a11y-color.test.mjs` 的同种子战斗哈希回归继续证明表现设置不改变战斗结果。
+- 移动端证据：CDP 移动仿真（390×844、touch、iPhone UA）下 `matchMedia('(pointer: coarse)')` 为 true，清空设置首入得到 `qualityMode: auto` + 30fps/DPR1/无光晕/无震屏；低配预设内容与改动前逐字段一致，攻击提示/敌人状态等非运动信息沿用既有低配渲染路径（`tests/render-effects.test.mjs`、`tests/render-budget.test.mjs`、`tests/destructibles-ui.test.mjs` 覆盖）。
+- Touches 追加 3 个文件，均由「首次默认从固定低配改为自动档」直接引起：`docs/GUIDE.md`（§15.3 玩家文档仍写「首次进入默认低配」）、`tests/audio-mix.test.mjs`（断言 `saved.fps === DEFAULT_SETTINGS.fps` 编码了旧的固定低配默认）、`tests/settings-sync.test.mjs`（损坏回退断言 + AC6 要求的自动档云端往返用例）。
+- 为守住 ui-split 的「子模块 < 400 行」约束，`public/js/ui/settings-panel.js` 的 `ITEM_META` 压缩为单行条目（纯格式，无行为变化）。

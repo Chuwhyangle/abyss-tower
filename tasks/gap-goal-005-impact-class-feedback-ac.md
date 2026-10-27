@@ -1,7 +1,7 @@
 ---
 id: gap-goal-005-impact-class-feedback-ac
 title: GOAL-005 充分性缺口：首领命中/破盾/护甲吸收缺目标级 AC（提案新增 AC-021）
-status: needs-human
+status: done
 labels:
   - gap
 parent: null
@@ -92,3 +92,6 @@ GOAL-005（战斗反馈 2.0：每一击都有重量）的退出条件是合取�
 - `public/js/render/effect-renderer.js`
 - `public/js/render.js`
 - `tests/impact-class-feedback.test.mjs`
+
+
+已采纳：写入 AC-030（避开已占用的 AC-021）。

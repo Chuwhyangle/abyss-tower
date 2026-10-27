@@ -1,7 +1,7 @@
 ---
 id: gap-goal-006-scene-sprite-adoption-ac
 title: GOAL-006 充分性缺口：四场景 × 两视口精灵接入矩阵缺目标级 AC（提案新增 AC-030）
-status: needs-human
+status: done
 labels:
   - gap
 parent: null
@@ -113,3 +113,6 @@ GOAL-006（视觉重制：全面精灵化，落地「暗黑霓虹几何」）的
 - `docs/reviews/scene-sprites-desktop-contact-sheet.png` (new)
 - `docs/reviews/scene-sprites-mobile-contact-sheet.png` (new)
 - `docs/reviews/scene-sprites-fallback-contact-sheet.png` (new)
+
+
+已采纳：写入 AC-031（原提案 AC-030 顺延）。
