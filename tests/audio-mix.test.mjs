@@ -11,6 +11,7 @@ import {
   normalizeSettings,
   normalizeVolume,
   loadSettings,
+  resolveDefaultSettings,
   saveSettings,
 } from '../public/js/settings.js';
 
@@ -273,7 +274,8 @@ test('音量刷新后保持：新实例从存储读回', async () => {
   const saved = JSON.parse(storage.dump()[SETTINGS_KEY]);
   assert.equal(saved.sfxVolume, 15);
   assert.equal(saved.musicVolume, 5);
-  assert.equal(saved.fps, DEFAULT_SETTINGS.fps, '不应丢失其他设置');
+  assert.equal(saved.qualityMode, 'auto');
+  assert.equal(saved.fps, resolveDefaultSettings().fps, '不应丢失其他设置');
 
   const second = await freshAudio(storage, 'second');
   assert.equal(second.sfxVolume, 15, '刷新后音效音量应保持');

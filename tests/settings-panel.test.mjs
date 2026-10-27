@@ -4,9 +4,13 @@ import assert from 'node:assert/strict';
 import { settingsPanelMethods } from '../public/js/ui/settings-panel.js';
 import {
   DEFAULT_SETTINGS,
+  QUALITY_PRESET_FIELDS,
   SETTINGS_KEY,
+  applyAutoQuality,
+  autoQualityPreset,
   loadSettings,
   normalizeSettings,
+  resolveDefaultSettings,
   saveSettings,
 } from '../public/js/settings.js';
 import { getLocale, setLocale } from '../public/js/i18n.js';
@@ -198,7 +202,9 @@ test('逐项重置回默认，全部重置与应用都不触碰账号数据', ()
   assert.equal(control(panel, 'set-sound').checked, true);
 
   control(panel, 'settings-reset-all').onclick();
+  const autoPreset = autoQualityPreset();
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+    if (key === 'qualityMode') continue;
     const input = panel.dom.elements.get(
       {
         fps: 'set-fps',
@@ -215,9 +221,11 @@ test('逐项重置回默认，全部重置与应用都不触碰账号数据', ()
         highContrast: 'set-contrast',
       }[key]
     );
+    // 全部重置回到自动档：画质字段按当前设备能力解析。
+    const expected = QUALITY_PRESET_FIELDS.includes(key) ? autoPreset[key] : value;
     assert.equal(
-      typeof value === 'boolean' ? input.checked : input.value,
-      typeof value === 'boolean' ? value : String(value),
+      typeof expected === 'boolean' ? input.checked : input.value,
+      typeof expected === 'boolean' ? expected : String(expected),
       `全部重置后 ${key} 未回到默认值`
     );
   }
@@ -228,7 +236,8 @@ test('逐项重置回默认，全部重置与应用都不触碰账号数据', ()
   assert.equal(panel.closed, true);
   assert.equal(panel.applied.length, 1);
   const applied = panel.applied[0];
-  assert.deepEqual(applied, normalizeSettings(DEFAULT_SETTINGS));
+  assert.deepEqual(applied, resolveDefaultSettings());
+  assert.equal(applied.qualityMode, 'auto', '全部重置回到自动档');
   assert.deepEqual(Object.keys(applied).sort(), Object.keys(DEFAULT_SETTINGS).sort());
   assert.equal('profile' in applied, false, '设置结果不得携带账号数据');
   assert.equal('username' in applied, false, '设置结果不得携带账号数据');
@@ -315,7 +324,8 @@ test('应用结果可持久化往返，画质字段之外保留原有值', () =>
   assert.equal(saved.colorBlind, 'deuteranopia');
   assert.equal(saved.highContrast, true);
   assert.ok(storage.getItem(SETTINGS_KEY));
-  assert.deepEqual(loadSettings(storage), saved);
+  // 面板默认处于自动档，重载时按本机能力物化一次。
+  assert.deepEqual(loadSettings(storage), applyAutoQuality(saved));
   audio.setEnabled(true);
   audio.setMusicEnabled(true);
 });

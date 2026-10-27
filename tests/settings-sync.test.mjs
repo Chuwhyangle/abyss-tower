@@ -15,6 +15,7 @@ import {
   loadSettings,
   mergeSettings,
   readSettingsUpdatedAt,
+  resolveDefaultSettings,
   resolveRemoteSettings,
   saveSettings,
   settingsPayloadBytes,
@@ -146,7 +147,7 @@ test('同步失败只影响同步本身，不抛出错误', async () => {
   });
   await assert.doesNotReject(sync.pull());
   assert.equal(await sync.pull(), null);
-  assert.deepEqual(loadSettings(storage), DEFAULT_SETTINGS);
+  assert.deepEqual(loadSettings(storage), resolveDefaultSettings());
 
   const pushSync = new SettingsSync({
     api: {
@@ -164,8 +165,9 @@ test('同步失败只影响同步本身，不抛出错误', async () => {
 });
 
 test('拉取远端更新后落盘并通知界面', async () => {
+  // 显式档位（manual）：远端缺失的字段沿用本地值，落盘后原样读回。
   const storage = memoryStorage({
-    [SETTINGS_KEY]: JSON.stringify(QUALITY_PRESETS.low),
+    [SETTINGS_KEY]: JSON.stringify({ ...QUALITY_PRESETS.low, qualityMode: 'manual' }),
     [SETTINGS_UPDATED_KEY]: '100',
   });
   let applied = null;
@@ -344,4 +346,56 @@ test('存储损坏时读回空值，随后写入可修复', async () => {
   const read = await api('/api/profile/settings');
   assert.equal(read.data.corrupt, false);
   assert.equal(read.data.settings.fps, 60);
+});
+
+// ---------- 自动档（qualityMode）在云同步里的往返 ----------
+
+test('自动档随同步往返保留，落盘后按本机能力物化', async () => {
+  // 合并层：qualityMode 是普通字段，远端携带自动档时不被本地显式档位吞掉。
+  const merged = mergeSettings(
+    { ...QUALITY_PRESETS.low, qualityMode: 'manual' },
+    { qualityMode: 'auto' }
+  );
+  assert.equal(merged.qualityMode, 'auto');
+
+  const storage = memoryStorage({
+    [SETTINGS_KEY]: JSON.stringify({ ...QUALITY_PRESETS.low, qualityMode: 'auto' }),
+    [SETTINGS_UPDATED_KEY]: '50',
+  });
+  const sync = new SettingsSync({
+    api: {
+      async settings() {
+        return { settings: { qualityMode: 'auto' }, updatedAt: 60 };
+      },
+    },
+    storage,
+  });
+  const applied = await sync.pull();
+  assert.equal(applied.qualityMode, 'auto');
+  assert.equal(applied.fps, resolveDefaultSettings().fps, '自动档按本机能力物化');
+  assert.equal(JSON.parse(storage.dump()[SETTINGS_KEY]).qualityMode, 'auto', '落盘保留自动档');
+});
+
+test('服务端保留自动档，读取不静默降回低配', async () => {
+  const auto = { ...QUALITY_PRESETS.high, qualityMode: 'auto' };
+  const saved = await api('/api/profile/settings', {
+    method: 'PUT',
+    body: { settings: auto, updatedAt: 4000 },
+  });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.data.settings.qualityMode, 'auto');
+  assert.equal(saved.data.settings.fps, 60);
+
+  const read = await api('/api/profile/settings');
+  assert.equal(read.data.updatedAt, 4000);
+  assert.equal(read.data.settings.qualityMode, 'auto');
+  assert.equal(read.data.settings.dpr, 2);
+
+  // 非法档位回退到默认自动档，未知键不落库。
+  const sanitized = await api('/api/profile/settings', {
+    method: 'PUT',
+    body: { settings: { ...QUALITY_PRESETS.low, qualityMode: 'turbo' }, updatedAt: 4100 },
+  });
+  assert.equal(sanitized.status, 200);
+  assert.equal(sanitized.data.settings.qualityMode, 'auto');
 });

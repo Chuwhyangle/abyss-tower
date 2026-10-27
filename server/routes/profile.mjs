@@ -65,6 +65,7 @@ export const SETTINGS_MAX_BYTES = 4096;
 const SETTINGS_NAMESPACE = 'settings';
 const SETTINGS_KEY = 'quality';
 const SETTINGS_FALLBACK = {
+  qualityMode: 'auto',
   fps: 30,
   dpr: 1,
   decorations: 'light',
@@ -79,6 +80,7 @@ const SETTINGS_FALLBACK = {
   highContrast: false,
 };
 const SETTINGS_OPTIONS = {
+  qualityMode: ['auto', 'manual'],
   fps: [30, 60],
   dpr: [1, 2],
   decorations: ['off', 'light', 'full'],

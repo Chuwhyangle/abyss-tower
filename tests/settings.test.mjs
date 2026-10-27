@@ -1,7 +1,8 @@
-// 画质设置：默认低配、预设识别、损坏/不可写存储回退。
+// 画质设置：默认自动档、预设识别、损坏/不可写存储回退自动解析。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_QUALITY_MODE,
   DEFAULT_SETTINGS,
   QUALITY_PRESETS,
   SETTINGS_KEY,
@@ -9,6 +10,8 @@ import {
   detectPreset,
   presetSettings,
   loadSettings,
+  resolveAutoQuality,
+  resolveDefaultSettings,
   saveSettings,
 } from '../public/js/settings.js';
 
@@ -22,14 +25,15 @@ function memoryStorage(initial = {}) {
   };
 }
 
-test('首次默认低配', () => {
-  assert.deepEqual(DEFAULT_SETTINGS, QUALITY_PRESETS.low);
-  assert.equal(DEFAULT_SETTINGS.fps, 30);
-  assert.equal(DEFAULT_SETTINGS.dpr, 1);
-  assert.equal(DEFAULT_SETTINGS.decorations, 'light');
-  assert.equal(DEFAULT_SETTINGS.floaters, 'key');
-  assert.equal(DEFAULT_SETTINGS.glow, false);
-  assert.equal(DEFAULT_SETTINGS.shake, false);
+test('首次默认自动档，低配数值仍是逐字段归一化回退', () => {
+  const { qualityMode, ...lowValues } = DEFAULT_SETTINGS;
+  assert.equal(qualityMode, 'auto');
+  assert.equal(DEFAULT_QUALITY_MODE, 'auto');
+  // 逐字段归一化的回退仍是低配数值；「首次默认」由 loadSettings 的自动解析决定。
+  assert.deepEqual(lowValues, QUALITY_PRESETS.low);
+  assert.equal(resolveAutoQuality({}), 'high', '无能力信号时按高配解析');
+  assert.equal(resolveAutoQuality({ mobile: true }), 'low');
+  assert.equal(resolveAutoQuality({ coarsePointer: true }), 'low');
 });
 
 test('非法值归一化与预设/自定义识别', () => {
@@ -61,11 +65,13 @@ test('保存/读取与损坏回退', () => {
   const saved = saveSettings({ ...QUALITY_PRESETS.high, showFps: true }, storage);
   assert.equal(saved.fps, 60);
   assert.equal(saved.showFps, true);
+  assert.equal(saved.qualityMode, 'manual', '显式提交画质字段视为手动选择');
   assert.ok(storage.dump()[SETTINGS_KEY]);
   assert.deepEqual(loadSettings(storage), saved);
 
+  // 损坏/不可写存储回退自动解析（不是固定低配）。
   const corrupt = memoryStorage({ [SETTINGS_KEY]: '{not json' });
-  assert.deepEqual(loadSettings(corrupt), DEFAULT_SETTINGS);
+  assert.deepEqual(loadSettings(corrupt), resolveDefaultSettings());
 
   const broken = {
     getItem() {
@@ -75,6 +81,6 @@ test('保存/读取与损坏回退', () => {
       throw new Error('quota');
     },
   };
-  assert.deepEqual(loadSettings(broken), DEFAULT_SETTINGS);
+  assert.deepEqual(loadSettings(broken), resolveDefaultSettings());
   assert.equal(saveSettings(QUALITY_PRESETS.high, broken).fps, 60);
 });

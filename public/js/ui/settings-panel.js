@@ -2,7 +2,9 @@
 import {
   COLOR_BLIND_MODES,
   DEFAULT_SETTINGS,
+  QUALITY_PRESET_FIELDS,
   SETTING_OPTIONS,
+  autoQualityPreset,
   detectPreset,
   normalizeSettings,
   presetSettings,
@@ -15,76 +17,20 @@ import { escapeHtml } from './shared.js';
 const ITEM_META = {
   fps: { type: 'select', id: 'set-fps', label: 'settings.targetFps', desc: 'settings.desc.fps' },
   dpr: { type: 'select', id: 'set-dpr', label: 'settings.resolution', desc: 'settings.desc.dpr' },
-  decorations: {
-    type: 'select',
-    id: 'set-decorations',
-    label: 'settings.decorations',
-    desc: 'settings.desc.decorations',
-  },
-  floaters: {
-    type: 'select',
-    id: 'set-floaters',
-    label: 'settings.floaters',
-    desc: 'settings.desc.floaters',
-  },
+  decorations: { type: 'select', id: 'set-decorations', label: 'settings.decorations', desc: 'settings.desc.decorations' },
+  floaters: { type: 'select', id: 'set-floaters', label: 'settings.floaters', desc: 'settings.desc.floaters' },
   glow: { type: 'toggle', id: 'set-glow', label: 'settings.glow', desc: 'settings.desc.glow' },
   shake: { type: 'toggle', id: 'set-shake', label: 'settings.shake', desc: 'settings.desc.shake' },
-  showFps: {
-    type: 'toggle',
-    id: 'set-showfps',
-    label: 'settings.showFps',
-    desc: 'settings.desc.showFps',
-  },
+  showFps: { type: 'toggle', id: 'set-showfps', label: 'settings.showFps', desc: 'settings.desc.showFps' },
   // 音乐/音效开关的 id 以字面量保留：浏览器脚本与源码级测试都依赖它们。
-  music: {
-    type: 'toggle',
-    id: 'set-music',
-    attr: 'id="set-music"',
-    label: 'settings.music',
-    desc: 'settings.desc.music',
-  },
-  sound: {
-    type: 'toggle',
-    id: 'set-sound',
-    attr: 'id="set-sound"',
-    label: 'settings.sound',
-    desc: 'settings.desc.sound',
-  },
-  sfxVolume: {
-    type: 'range',
-    id: 'set-sfx-volume',
-    label: 'settings.sfxVolume',
-    desc: 'settings.desc.sfxVolume',
-  },
-  musicVolume: {
-    type: 'range',
-    id: 'set-music-volume',
-    label: 'settings.musicVolume',
-    desc: 'settings.desc.musicVolume',
-  },
-  colorBlind: {
-    type: 'select',
-    id: 'set-colorblind',
-    label: 'settings.colorBlind',
-    desc: 'settings.desc.colorBlind',
-  },
-  highContrast: {
-    type: 'toggle',
-    id: 'set-contrast',
-    label: 'settings.highContrast',
-    desc: 'settings.desc.highContrast',
-  },
-  language: {
-    type: 'select',
-    id: 'set-locale',
-    label: 'settings.language',
-    desc: 'settings.desc.language',
-  },
-  notifications: {
-    type: 'static',
-    label: 'settings.notifications',
-    desc: 'settings.desc.notifications',
-  },
+  music: { type: 'toggle', id: 'set-music', attr: 'id="set-music"', label: 'settings.music', desc: 'settings.desc.music' },
+  sound: { type: 'toggle', id: 'set-sound', attr: 'id="set-sound"', label: 'settings.sound', desc: 'settings.desc.sound' },
+  sfxVolume: { type: 'range', id: 'set-sfx-volume', label: 'settings.sfxVolume', desc: 'settings.desc.sfxVolume' },
+  musicVolume: { type: 'range', id: 'set-music-volume', label: 'settings.musicVolume', desc: 'settings.desc.musicVolume' },
+  colorBlind: { type: 'select', id: 'set-colorblind', label: 'settings.colorBlind', desc: 'settings.desc.colorBlind' },
+  highContrast: { type: 'toggle', id: 'set-contrast', label: 'settings.highContrast', desc: 'settings.desc.highContrast' },
+  language: { type: 'select', id: 'set-locale', label: 'settings.language', desc: 'settings.desc.language' },
+  notifications: { type: 'static', label: 'settings.notifications', desc: 'settings.desc.notifications' },
   account: { type: 'static', label: 'settings.accountName', desc: 'settings.desc.account' },
 };
 
@@ -127,6 +73,24 @@ function resetValue(key) {
   if (key === 'sound') return true;
   if (key === 'language') return DEFAULT_LOCALE;
   return DEFAULT_SETTINGS[key];
+}
+
+// 预设只覆盖画质字段，音量/音乐/无障碍偏好由调用方保留。
+function qualityFields(preset) {
+  return Object.fromEntries(QUALITY_PRESET_FIELDS.map((key) => [key, preset[key]]));
+}
+
+// 面板文案：自动档显示解析结果，显式选择显示低配/高配/自定义。
+function describePreset(mode, values) {
+  const detected = detectPreset(values);
+  if (mode === 'auto') {
+    return t('settings.presetAutoName', {
+      preset: t(detected === 'low' ? 'settings.presetAutoLow' : 'settings.presetAutoHigh'),
+    });
+  }
+  if (detected === 'low') return t('settings.presetLowName');
+  if (detected === 'high') return t('settings.presetHighName');
+  return t('settings.presetCustom');
 }
 
 function fieldOptions(key, current) {
@@ -212,12 +176,7 @@ function rowHtml(key, value, canExportAudit = false) {
 export const settingsPanelMethods = {
   showSettings({ settings, inGame = false, onApply, onCancel, onQuit = null }) {
     const current = normalizeSettings(settings);
-    const presetLabel = (name) =>
-      name === 'custom'
-        ? t('settings.presetCustom')
-        : name === 'low'
-          ? t('settings.presetLowName')
-          : t('settings.presetHighName');
+    let mode = current.qualityMode === 'auto' ? 'auto' : 'manual';
     const accountName = this.profile?.name || this.profile?.username;
     const accountText = accountName
       ? [
@@ -260,10 +219,11 @@ export const settingsPanelMethods = {
           <p class="muted">${t(inGame ? 'settings.noteInGame' : 'settings.note')}</p>
           <div class="settings-sections">${sections}</div>
           <div class="settings-presets">
+            <button class="btn small" id="preset-auto">${t('settings.presetAuto')}</button>
             <button class="btn small" id="preset-low">${t('settings.presetLow')}</button>
             <button class="btn small" id="preset-high">${t('settings.presetHigh')}</button>
             <button class="btn small ghost" id="settings-reset-all">${t('settings.resetAll')}</button>
-            <span class="muted" id="preset-label">${t('settings.currentPreset', { preset: presetLabel(detectPreset(current)) })}</span>
+            <span class="muted" id="preset-label">${t('settings.currentPreset', { preset: describePreset(mode, current) })}</span>
           </div>
           <div class="modal-actions">
             ${inGame && onQuit ? `<button class="btn danger settings-quit" id="settings-quit">${t('settings.quitRun')}</button>` : ''}
@@ -281,6 +241,7 @@ export const settingsPanelMethods = {
 
     const control = (id) => modal.querySelector(`#${id}`);
     const read = () => ({
+      qualityMode: mode,
       fps: Number(control('set-fps').value),
       dpr: Number(control('set-dpr').value),
       decorations: control('set-decorations').value,
@@ -309,9 +270,8 @@ export const settingsPanelMethods = {
     };
 
     const updateLabel = () => {
-      const detected = detectPreset(read());
       control('preset-label').textContent = t('settings.currentPreset', {
-        preset: presetLabel(detected),
+        preset: describePreset(mode, read()),
       });
     };
 
@@ -321,20 +281,30 @@ export const settingsPanelMethods = {
       updateLabel();
     };
 
+    // 只有画质字段的变化才算「显式选择」；音量/音乐/无障碍不算。
+    const qualityControlIds = new Set(
+      QUALITY_PRESET_FIELDS.map((key) => ITEM_META[key].id)
+    );
     modal.querySelectorAll('select, input').forEach((input) => {
-      input.addEventListener('change', updateLabel);
+      input.addEventListener('change', () => {
+        if (qualityControlIds.has(input.id)) mode = 'manual';
+        updateLabel();
+      });
     });
     const rangeOutputs = { 'set-sfx-volume': 'sfxVolume', 'set-music-volume': 'musicVolume' };
     modal.querySelectorAll('input[type="range"]').forEach((input) => {
       input.addEventListener('input', () => {
         const output = modal.querySelector(`[data-output="${rangeOutputs[input.id]}"]`);
         if (output) output.textContent = input.value;
+        if (qualityControlIds.has(input.id)) mode = 'manual';
         updateLabel();
       });
     });
     modal.querySelectorAll('[data-reset]').forEach((button) => {
       button.onclick = () => {
-        setControl(button.dataset.reset, resetValue(button.dataset.reset));
+        const key = button.dataset.reset;
+        setControl(key, resetValue(key));
+        if (QUALITY_PRESET_FIELDS.includes(key)) mode = 'manual';
         updateLabel();
       };
     });
@@ -344,30 +314,28 @@ export const settingsPanelMethods = {
       setLocale(event.target.value);
       this.showSettings({ settings: draft, inGame, onApply, onCancel, onQuit });
     });
-    // 画质预设不覆盖用户单独选择的音乐、音量与无障碍偏好。
+    // 画质预设是显式选择；自动档按当前设备能力重新解析（解析只覆盖画质字段）。
     const applyPreset = (name) => {
       const preset = presetSettings(name);
-      const draft = read();
-      fill({
-        fps: preset.fps,
-        dpr: preset.dpr,
-        decorations: preset.decorations,
-        floaters: preset.floaters,
-        glow: preset.glow,
-        shake: preset.shake,
-        showFps: preset.showFps,
-        music: draft.music,
-        sfxVolume: draft.sfxVolume,
-        musicVolume: draft.musicVolume,
-        colorBlind: draft.colorBlind,
-        highContrast: draft.highContrast,
-      });
+      mode = 'manual';
+      fill({ ...read(), ...qualityFields(preset), qualityMode: 'manual' });
+    };
+    control('preset-auto').onclick = () => {
+      mode = 'auto';
+      fill({ ...read(), ...qualityFields(autoQualityPreset()), qualityMode: 'auto' });
     };
     control('preset-low').onclick = () => applyPreset('low');
     control('preset-high').onclick = () => applyPreset('high');
-    // 全部重置只作用于设置项，账号信息与云端进度不在设置对象里。
+    // 全部重置回到自动档：画质字段按本机能力解析，其他设置回默认值。
     control('settings-reset-all').onclick = () => {
-      for (const key of Object.keys(DEFAULT_SETTINGS)) setControl(key, DEFAULT_SETTINGS[key]);
+      mode = 'auto';
+      const preset = autoQualityPreset();
+      for (const key of Object.keys(DEFAULT_SETTINGS)) {
+        setControl(
+          key,
+          QUALITY_PRESET_FIELDS.includes(key) ? preset[key] : DEFAULT_SETTINGS[key]
+        );
+      }
       setControl('sound', true);
       setControl('language', DEFAULT_LOCALE);
       updateLabel();

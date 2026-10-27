@@ -329,7 +329,9 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 
 ### 5.6 画质设置与运行时
 
-- `settings.js` 提供低配/高配预设与自定义；存 `localStorage`，损坏或不可写回退默认低配。
+- `settings.js` 提供自动/低配/高配预设与自定义；存 `localStorage`，损坏或不可写回退**自动解析**（桌面高配、移动/弱机低配）。
+- 自动档：`detectCapabilities(env)` 采集 `navigator.userAgentData.mobile`、`matchMedia('(pointer: coarse)')`、`navigator.maxTouchPoints`、`hardwareConcurrency`、`deviceMemory` 与 `devicePixelRatio`，`resolveAutoQuality(capabilities)` 据此返回 `low`/`high`（移动、粗指针、< 4 核、< 4 GB 判 low，其余含无信号判 high）。解析只发生在首次进入、损坏回退、点「自动」与全部重置时。
+- 设置对象新增 `qualityMode: 'auto' | 'manual'`，随云同步往返；`manual` 为显式选择（低配/高配/逐项修改），重载原样恢复。
 - 帧率：30/60 只限制**绘制**频率；模拟固定步长仍按 60Hz 推进，3× 时每帧多步。
 - 清晰度：DPR 1/2，切换时重设 Canvas 尺寸并重绘静态层。
 - 装饰/飘字/光晕/震动：关闭时减少生成或绘制开销，而不是仅隐藏已有对象。
@@ -344,7 +346,7 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 进入战斗（选择难度/继续/再来一局）时在用户手势内调用 `requestFullscreen` + `screen.orientation.lock('landscape')`；无法锁定时显示不可跳过的旋转提示与“重试自动横屏”。
 - 触控：`pointerdown` 先显示射程预览，`click` 完成建造；触屏点位容错吸附到邻近可建造格/塔。
 - iOS Safari 不支持网页强制旋转/全屏，作为平台限制记录，不承诺自动横屏。
-- 画布 `touch-action:none`，商店 `pan-x`；移动端默认低配画质，但画质不参与模拟。
+- 画布 `touch-action:none`，商店 `pan-x`；移动端自动档解析为低配，但画质不参与模拟。
 
 ### 5.8 UI kit 与统一 API 客户端
 
@@ -588,7 +590,7 @@ cores = Math.round(
 - 波次生成：同种子一致、波次递增数量/血量单调、30 波存在最终首领、数量上限生效。
 - 伤害管线（`tests/combat.test.mjs`）：面板与实际伤害一致、塔专属/全局增伤只应用一次、暴击/护甲/条件增伤/特殊塔。
 - 遗物（`tests/reliquary.test.mjs`）：等级数值 25→40→55、升级/满级/补位、即时生命增量、全局上限、v2 旧档兼容。
-- 设置（`tests/settings.test.mjs`）：默认低配、预设/自定义识别、非法值归一化、损坏/不可写存储回退。
+- 设置（`tests/settings.test.mjs`）：默认自动解析（桌面高配/移动低配）、预设/自定义识别、非法值归一化、损坏/不可写存储回退自动档。
 - 结算：分数/星核公式、难度倍率、封顶钳制、按已清波次判定通关。
 
 #### 8.1.1 本地快筛（`npm run test:changed`）
@@ -607,7 +609,7 @@ cores = Math.round(
 
 - `tests/browser-smoke.mjs`：选难度 → 建塔 → 开波，采集页面错误。
 - `tests/browser-flow.mjs`：波中刷新重放、遗物选择中刷新恢复、带遗物续玩、退出、排行榜/商店、失败结算。
-- `tests/browser-settings.mjs`：默认低配、预设应用/持久化、局内暂停恢复、必选弹窗保护、损坏存储回退。
+- `tests/browser-settings.mjs`：首入自动档（桌面高配）、预设应用/持久化、显式低配刷新保持、局内暂停恢复、必选弹窗保护、损坏存储回退自动解析。
 - `tests/browser-relics.mjs`：Ⅰ→Ⅱ 展示、升级生效、补位奖励展示与应用。
 - `tests/browser-mobile.mjs`：390×844 竖屏、844×390 横屏、旋转提示、无溢出/遮挡、触控建塔、设置与遗物弹窗。
 - 所有浏览器测试均启动自己的临时服务与临时 Chrome profile，不读写线上数据库。

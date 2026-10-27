@@ -14,6 +14,7 @@ import {
   applyAccessibilityTheme,
   loadSettings,
   normalizeSettings,
+  resolveDefaultSettings,
   saveSettings,
 } from '../public/js/settings.js';
 import {
@@ -105,7 +106,7 @@ test('设置持久化：往返、损坏回退、应用画质不覆盖无障碍�
   assert.equal(afterPreset.fps, 60);
 
   const corrupt = memoryStorage({ [SETTINGS_KEY]: '{not json' });
-  assert.deepEqual(loadSettings(corrupt), DEFAULT_SETTINGS);
+  assert.deepEqual(loadSettings(corrupt), resolveDefaultSettings());
 
   const broken = {
     getItem() {
@@ -115,7 +116,7 @@ test('设置持久化：往返、损坏回退、应用画质不覆盖无障碍�
       throw new Error('quota');
     },
   };
-  assert.deepEqual(loadSettings(broken), DEFAULT_SETTINGS);
+  assert.deepEqual(loadSettings(broken), resolveDefaultSettings());
 });
 
 test('每种色弱模式都覆盖全部稀有度、塔与敌人', () => {
