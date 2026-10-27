@@ -1,7 +1,7 @@
 ---
 id: FEEL-001
 title: 默认自动画质与首次进入反馈链
-status: todo
+status: ready
 labels:
   - feat
 parent: null
