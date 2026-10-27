@@ -56,9 +56,9 @@ AC-005 的 criterion 是 `node --test --test-concurrency=2 tests/*.test.mjs`、e
 
 ## Definition of Done
 
-- [ ] 落地后的 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不只看单次绿，也不靠重跑掩盖偶发失败）
+- [ ] 在本次改动所在的 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不只看单次绿，也不靠重跑掩盖偶发失败）
 - [ ] `TEST_MAP` 与仓库实际文件一致：每条 `match` 与每个映射目标测试都真实存在；新增的 `match` 存在性断言会让任何一次「只删脚本、不删映射」的 revert 在 CI 里立刻变红，而不是像 `14fec37` 这样静默留在主干上
-- [ ] 本次修复已合入 develop，且 `git log --oneline -- scripts/test-changed.mjs` 能看到对应提交（不留下只在本地工作区成立的绿）
+- [ ] `git log --oneline -- scripts/test-changed.mjs` 中可见本次修复提交（是已提交的改动，而不是只存在于工作区的绿）
 
 ## Notes
 
