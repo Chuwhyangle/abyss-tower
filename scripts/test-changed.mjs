@@ -180,14 +180,19 @@ export const TEST_MAP = [
   ] },
 
   // 工具脚本
+  { match: 'scripts/art-review.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/backup.mjs', tests: ['tests/ops-cli.test.mjs'] },
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/docs-consistency.mjs', tests: ['tests/docs-consistency.test.mjs'] },
   { match: 'scripts/docs-preview.mjs', tests: ['tests/docs-preview.test.mjs'] },
+  { match: 'scripts/feel-review.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/import-graph.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/install-hooks.mjs', tests: ['tests/hooks.test.mjs'] },
+  { match: 'scripts/lib/png.mjs', tests: ['tests/visual-check.test.mjs'] },
+  { match: 'scripts/lib/review-record.mjs', tests: ['tests/visual-check.test.mjs'] },
+  { match: 'scripts/lib/visual-metrics.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/memory-check.mjs', tests: ['tests/memory-check.test.mjs'] },
   { match: 'scripts/ops.mjs', tests: ['tests/ops-cli.test.mjs'] },
   { match: 'scripts/perf-budget.mjs', tests: ['tests/perf-budget.test.mjs'] },
@@ -200,6 +205,7 @@ export const TEST_MAP = [
   { match: 'scripts/check-stability.mjs', tests: ['tests/check-stability.test.mjs'] },
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
   { match: 'scripts/ui-animation-audit.mjs', tests: ['tests/ui-animation-audit.test.mjs'] },
+  { match: 'scripts/visual-check.mjs', tests: ['tests/visual-check.test.mjs'] },
 ];
 
 export function normalizePath(file) {
