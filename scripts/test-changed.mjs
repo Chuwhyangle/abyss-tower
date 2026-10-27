@@ -111,6 +111,13 @@ export const TEST_MAP = [
     'tests/skill-visuals.test.mjs',
   ] },
   { match: 'public/js/render/ally-renderer.js', tests: ['tests/hex-runtime.test.mjs'] },
+  { match: 'public/js/render/art-tokens.js', tests: [
+    'tests/art-spec.test.mjs',
+    'tests/a11y-color.test.mjs',
+    'tests/biome-visuals.test.mjs',
+    'tests/render-visuals.test.mjs',
+    'tests/skill-style.test.mjs',
+  ] },
   { match: 'public/js/render/canvas-shapes.js', tests: ['tests/icon-system.test.mjs'] },
   { match: 'public/js/render/destructible-renderer.js', tests: ['tests/destructibles-ui.test.mjs'] },
   { match: 'public/js/render/floater-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
@@ -122,6 +129,7 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/render/menu-background.js', tests: ['tests/menu-background.test.mjs'] },
   { match: 'public/js/render/palette.js', tests: [
+    'tests/art-spec.test.mjs',
     'tests/biome-visuals.test.mjs',
     'tests/render-visuals.test.mjs',
   ] },

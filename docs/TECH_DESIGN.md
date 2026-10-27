@@ -96,6 +96,8 @@ rogue-td/
 │     ├─ sim.js          # 纯战斗模拟：敌人/塔/投射物/遗物效果
 │     ├─ render.js       # 渲染门面：画质/DPR/分层编排
 │     ├─ render/         # 分层渲染器：背景/塔/敌人/弹道/特效/光晕/覆盖层
+│     │  ├─ art-tokens.js    # 色板/光照/字号/动效令牌（唯一字面色值来源）
+│     │  └─ palette.js       # 消费令牌：群系派生、无障碍重映射、对比度工具
 │     ├─ ui.js           # DOM：标题页、HUD、商店、弹窗
 │     ├─ api.js          # fetch 封装
 │     ├─ audio.js        # WebAudio 合成
@@ -326,6 +328,20 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 实体上限：敌人 300、投射物 100、特效 320、飘字 90，超出丢弃最旧。
 - 关闭 `imageSmoothingEnabled` 以外的复杂滤镜，避免低端机掉帧。
 - 低配：减少草簇/碎石/箭头生成、关闭光晕与震动、只保留必要的攻击提示特效。
+
+#### 5.5.1 美术资源与令牌
+
+- **令牌**：`public/js/render/art-tokens.js` 是色板、无障碍重映射、语义色、UI 色、字号阶梯与动效节奏的唯一字面来源。
+  `palette.js` 只做取值与派生（`Palette.resolve` / `highContrast` / `semantic*` / `contrastRatio`），不再持有色值；
+  迁移前后画面输出不变，由现有渲染测试（逐值比对 + 源码级单源断言）锁定。
+- **UI 色**：JS 侧 `ui` 令牌与 `public/styles.css` 的 `:root` 变量互为镜像，任一侧改动必须同步；
+  `tests/art-spec.test.mjs` 会拦截漂移。
+- **资源清单（manifest）**：字段、命名、目录、图集与 DPR、压缩、占位策略、授权与出处全部见
+  `docs/ASSET_PIPELINE.md`；风格、光照与取值依据见 `docs/ART_DIRECTION.md`。本文不复述，避免两处定义分叉。
+- **加载边界**：只有 `status: "ready"` 的清单条目可被渲染层加载；`placeholder` 期间沿用程序化绘制，
+  因此贴图迁移按资源逐条进行，不需要一次性切换渲染路径。
+- **对比度**：`docs/ART_DIRECTION.md` 的「令牌对比度报告」由测试逐行重算，任何改色都会先让测试变红。
+
 
 ### 5.6 画质设置与运行时
 

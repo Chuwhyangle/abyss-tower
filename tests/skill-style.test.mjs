@@ -29,6 +29,7 @@ const readSource = (relative) => fs.readFileSync(new URL(relative, ROOT), 'utf8'
 const SKILL_SRC = readSource('public/js/render/skill-renderer.js');
 const EFFECT_SRC = readSource('public/js/render/effect-renderer.js');
 const PALETTE_SRC = readSource('public/js/render/palette.js');
+const ART_TOKENS_SRC = readSource('public/js/render/art-tokens.js');
 
 const SHAPES = ['ring', 'hex', 'star'];
 const ALL_SKILL_IDS = [...SKILL_ORDER, ...Object.keys(BOSS_SKILLS)];
@@ -147,7 +148,8 @@ test('低配/高配画质预算单调，预警样式与画质无关', () => {
 
 test('源码级：语义色与预警几何只有一个来源，预警不遮挡 HUD', () => {
   for (const [id, semantic] of Object.entries(SKILL_SEMANTICS)) {
-    assert.ok(PALETTE_SRC.includes(semantic.color), `palette.js 缺少 ${id} 主色`);
+    assert.ok(ART_TOKENS_SRC.includes(semantic.color), `art-tokens.js 缺少 ${id} 主色`);
+    assert.ok(!PALETTE_SRC.includes(semantic.color), `palette.js 仍硬编码了 ${id} 主色`);
     assert.ok(!SKILL_SRC.includes(semantic.color), `skill-renderer 硬编码了 ${id} 主色`);
     assert.ok(!EFFECT_SRC.includes(semantic.color), `effect-renderer 硬编码了 ${id} 主色`);
   }

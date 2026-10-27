@@ -1,156 +1,49 @@
 // 生物群系调色板、无障碍配色与颜色工具。纯数据/纯函数，不接触 Canvas。
-import { ENEMIES, RARITY, TOWERS } from '../shared/data.js';
+// 所有字面色值都来自 art-tokens.js；本文件只做取值、派生与可访问性计算。
+import {
+  ACCESSIBILITY_TOKENS,
+  CHARACTER_TOKENS,
+  FALLBACK_TOKENS,
+  PALETTE_TOKENS,
+  SEMANTIC_COLORBLIND_TOKENS,
+  SEMANTIC_TOKENS,
+  SKILL_SEMANTIC_MAP,
+  WARNING_TOKENS,
+} from './art-tokens.js';
 
-const BIOME_PALETTES = {
-  canyon: {
-    grass1: '#13221a', grass2: '#101c16', grid: 'rgba(110, 190, 140, 0.05)',
-    pathEdge: '#19130f', path: '#322619', pathInner: '#463425',
-    pathLine: 'rgba(214, 178, 126, 0.22)', tuft: '96, 180, 128',
-    rock: '#3c4a4f', rockEdge: '#66777d', accent: '#8fe0a8', ambient: 'rgba(120, 220, 160, ',
-  },
-  twin: {
-    grass1: '#112228', grass2: '#0e1d22', grid: 'rgba(110, 200, 210, 0.05)',
-    pathEdge: '#101b20', path: '#213238', pathInner: '#2e464e',
-    pathLine: 'rgba(120, 210, 220, 0.2)', tuft: '80, 170, 180',
-    rock: '#3a4c53', rockEdge: '#5f7c86', accent: '#5ce2d0', ambient: 'rgba(90, 210, 220, ',
-  },
-  triple: {
-    grass1: '#241817', grass2: '#1e1413', grid: 'rgba(220, 120, 100, 0.045)',
-    pathEdge: '#1d0f0c', path: '#3a211b', pathInner: '#523026',
-    pathLine: 'rgba(255, 150, 110, 0.2)', tuft: '190, 100, 90',
-    rock: '#4b3a38', rockEdge: '#76564f', accent: '#ff8a6b', ambient: 'rgba(255, 120, 90, ',
-  },
-  ring: {
-    grass1: '#1a1630', grass2: '#151228', grid: 'rgba(150, 130, 220, 0.05)',
-    pathEdge: '#140f22', path: '#2b2340', pathInner: '#403356',
-    pathLine: 'rgba(190, 160, 255, 0.22)', tuft: '130, 110, 200',
-    rock: '#413a58', rockEdge: '#6b5f8c', accent: '#b48cff', ambient: 'rgba(170, 130, 255, ',
-  },
-  cross: {
-    grass1: '#222015', grass2: '#1c1a12', grid: 'rgba(220, 200, 120, 0.05)',
-    pathEdge: '#1b160d', path: '#3a3320', pathInner: '#54492e',
-    pathLine: 'rgba(255, 220, 130, 0.2)', tuft: '180, 170, 90',
-    rock: '#4a4638', rockEdge: '#756c52', accent: '#ffd36b', ambient: 'rgba(255, 210, 110, ',
-  },
-};
+export { SKILL_SEMANTIC_MAP };
+
+const BIOME_PALETTES = PALETTE_TOKENS;
 
 // 两两颜色在 CIE Lab 下的最小距离；低于该值视为难以区分。
-export const ACCESSIBILITY_MIN_DISTANCE = 15;
+export const ACCESSIBILITY_MIN_DISTANCE = ACCESSIBILITY_TOKENS.minLabDistance;
 
-const BASE_RARITY_COLORS = Object.freeze(
-  Object.fromEntries(Object.entries(RARITY).map(([id, def]) => [id, def.color]))
-);
-const BASE_TOWER_COLORS = Object.freeze(
-  Object.fromEntries(Object.entries(TOWERS).map(([id, def]) => [id, def.color]))
-);
-const BASE_ENEMY_COLORS = Object.freeze(
-  Object.fromEntries(Object.entries(ENEMIES).map(([id, def]) => [id, def.color]))
-);
+const BASE_RARITY_COLORS = CHARACTER_TOKENS.rarity;
+const BASE_TOWER_COLORS = CHARACTER_TOKENS.towers;
+const BASE_ENEMY_COLORS = CHARACTER_TOKENS.enemies;
 
-// 红绿色盲（deuteranopia/protanopia）保留蓝-黄轴：用明度阶梯 + 蓝/黄对立色区分。
-const BLUE_YELLOW_COLORS = Object.freeze({
-  rarity: Object.freeze({ common: '#455a64', rare: '#1e88e5', epic: '#ffb300' }),
-  towers: Object.freeze({
-    arrow: '#1a237e',
-    cannon: '#4e342e',
-    frost: '#1976d2',
-    arc: '#827717',
-    poison: '#4fc3f7',
-    banner: '#ffca28',
-    shock: '#f5f5f5',
-    sniper: '#ef6c00',
-  }),
-  enemies: Object.freeze({
-    grunt: '#0d47a1',
-    runner: '#ffb300',
-    swarm: '#64b5f6',
-    tank: '#4e342e',
-    flyer: '#ffe082',
-    healer: '#1a237e',
-    boss: '#827717',
-    shielder: '#4fc3f7',
-    splitter: '#ffca28',
-    splitling: '#3e2723',
-    herald: '#90caf9',
-    caster: '#f5f5f5',
-  }),
-});
-
-// 蓝黄色盲（tritanopia）保留红-绿轴：用明度阶梯 + 红/绿对立色区分。
-const RED_GREEN_COLORS = Object.freeze({
-  rarity: Object.freeze({ common: '#455a64', rare: '#2e7d32', epic: '#c62828' }),
-  towers: Object.freeze({
-    arrow: '#1b5e20',
-    cannon: '#e53935',
-    frost: '#66bb6a',
-    arc: '#4a148c',
-    poison: '#ff8a80',
-    banner: '#a5d6a7',
-    shock: '#f5f5f5',
-    sniper: '#880e4f',
-  }),
-  enemies: Object.freeze({
-    grunt: '#e53935',
-    runner: '#1b5e20',
-    swarm: '#ff8a80',
-    tank: '#4a148c',
-    flyer: '#66bb6a',
-    healer: '#a5d6a7',
-    boss: '#c62828',
-    shielder: '#2e7d32',
-    splitter: '#ef9a9a',
-    splitling: '#7b1fa2',
-    herald: '#388e3c',
-    caster: '#f5f5f5',
-  }),
-});
-
+// 红绿色盲（deuteranopia/protanopia）保留蓝-黄轴，蓝黄色盲（tritanopia）保留红-绿轴；
+// 两套重映射与语义重映射的定义都在 art-tokens.js。
 export const ACCESSIBILITY_PALETTES = Object.freeze({
   none: Object.freeze({
     rarity: BASE_RARITY_COLORS,
     towers: BASE_TOWER_COLORS,
     enemies: BASE_ENEMY_COLORS,
   }),
-  deuteranopia: BLUE_YELLOW_COLORS,
-  protanopia: BLUE_YELLOW_COLORS,
-  tritanopia: RED_GREEN_COLORS,
+  deuteranopia: ACCESSIBILITY_TOKENS.blueYellow,
+  protanopia: ACCESSIBILITY_TOKENS.blueYellow,
+  tritanopia: ACCESSIBILITY_TOKENS.redGreen,
 });
 
 // 技能预警的语义规范：危险=红橙、控制=蓝、增益=金。
 // 形状由语义固定（危险=环、控制=六边、增益=星芒），玩家技能与首领技能共用同一套语言。
-export const SKILL_SEMANTICS = Object.freeze({
-  danger: Object.freeze({ id: 'danger', label: '危险', color: '#ff7a4d', accent: '#ffd2b0', shape: 'ring' }),
-  control: Object.freeze({ id: 'control', label: '控制', color: '#5cb8ff', accent: '#d9f1ff', shape: 'hex' }),
-  buff: Object.freeze({ id: 'buff', label: '增益', color: '#ffd36b', accent: '#fff3c8', shape: 'star' }),
-});
+export const SKILL_SEMANTICS = SEMANTIC_TOKENS;
 
-// 技能 id → 语义。玩家三技能与首领三技能都必须在册，未知 id 回退危险。
-export const SKILL_SEMANTIC_MAP = Object.freeze({
-  aurora: 'control',
-  chrono: 'buff',
-  meteor: 'danger',
-  roar: 'danger',
-  summon: 'danger',
-  slam: 'danger',
-});
-
-// 色盲模式下的语义重映射：沿用角色调色的同一思路（蓝-黄 / 红-绿轴），
-// 三类语义在每种模式下仍保持 LAB 距离 ≥ ACCESSIBILITY_MIN_DISTANCE。
-const SKILL_SEMANTICS_COLORBLIND = Object.freeze({
-  deuteranopia: Object.freeze({ danger: '#ff8f00', control: '#1e88e5', buff: '#fff59d' }),
-  protanopia: Object.freeze({ danger: '#ff8f00', control: '#1e88e5', buff: '#fff59d' }),
-  tritanopia: Object.freeze({ danger: '#d32f2f', control: '#2e7d32', buff: '#fff8e1' }),
-});
+// 色盲模式下的语义重映射；三类语义在每种模式下仍保持 LAB 距离 ≥ ACCESSIBILITY_MIN_DISTANCE。
+const SKILL_SEMANTICS_COLORBLIND = SEMANTIC_COLORBLIND_TOKENS;
 
 // 预警几何：线宽、倒计时环、虚线节奏与填充只在这里定义，所有技能共用。
-export const SKILL_WARNING_STYLE = Object.freeze({
-  lineWidth: 1.8,
-  countdownWidth: 2.4,
-  dash: Object.freeze([8, 6]),
-  fill: 0.1,
-  dashScroll: 14,
-  countdownColor: '#f4fbff',
-});
+export const SKILL_WARNING_STYLE = WARNING_TOKENS;
 
 function parseColor(color) {
   if (typeof color !== 'string') return null;
@@ -320,7 +213,7 @@ export class Palette {
   }
 
   static withAlpha(color, alpha) {
-    if (!color) return `rgba(255, 255, 255, ${alpha})`;
+    if (!color) return Palette.hexToRgba(FALLBACK_TOKENS.color, alpha);
     if (color.startsWith('#')) return Palette.hexToRgba(color, alpha);
     const match = /^rgba?\(([^)]+)\)/.exec(color);
     if (match) {
