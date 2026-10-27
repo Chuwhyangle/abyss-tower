@@ -71,32 +71,50 @@ GOAL-005 退出条件要求「八种武器都有可区分的命中音效，并�
 
 ## AC
 
-- [ ] `node --test tests/audio-impacts.test.mjs` exit 0，且测试文件覆盖下列全部断言
-- [ ] 签名表键集合与 `Object.keys(TOWERS)` 完全一致（8 个，含战旗）；逐对可分辨：波形 / 基频比 ≥1.2 / 噪声滤波类型 / 截止频率比 ≥1.4 / 时长比 ≥1.5 五维中至少 2 项不同；每条签名 `gain ≤ 0.06` 且 `duration ≤ 0.3`
-- [ ] 限流：同一 120ms 窗口注入 200 条事件，实际发声 ≤ `IMPACT_LIMITS.maxVoicesPerWindow`；同武器 60ms 内重复被抑制；单帧 `maxPerFrame` 生效；超额时保留集合按 `lethal > crit > 普通` 可预期（断言保留的 weapon 列表）
-- [ ] 压缩总线：`ensure()` 后 `impactGain.outputs` 含 `impactCompressor`、`impactCompressor.outputs` 含 `sfxGain`、`sfxGain.connect(masterGain)` 仍直连；`threshold ∈ [-40,-6]`、`ratio ≥ 4`、`attack ≤ 0.01`、`release ∈ [0.1,1]`；播放一次命中后新建振荡器的输出链最终到达 `impactGain`；无 `createDynamicsCompressor` 的假上下文下退化为 `impactGain → sfxGain` 且不抛错
-- [ ] 变调确定性：同一事件两次 `pitchCentsFor` 相等且落在 ±`jitterCents`；不同 `target.id` 至少产生 3 种取值
-- [ ] 战旗光环脉冲：假 sim 在 0ms 发声、600ms 不发声、1300ms 再发声；`phase !== 'wave'` 或范围内无非支援塔时永不发声
-- [ ] 关闭音效（`localStorage` 的 `abyss-tower.sound=off`）时 `followCombatImpacts` 返回 `played: 0` 且不创建任何振荡器/噪声节点
-- [ ] 模拟零接触：`grep -rn "from '\./\?sim\|sim\.js" public/js/audio-impacts.js` 0 命中；`public/js/audio-impacts.js` 不含 `Math.random`；`node --test tests/audio-events.test.mjs` exit 0（`sim.js` 未新增 `playSound` 调用）
-- [ ] `npm test` exit 0
+- [x] `node --test tests/audio-impacts.test.mjs` exit 0，且测试文件覆盖下列全部断言
+- [x] 签名表键集合与 `Object.keys(TOWERS)` 完全一致（8 个，含战旗）；逐对可分辨：波形 / 基频比 ≥1.2 / 噪声滤波类型 / 截止频率比 ≥1.4 / 时长比 ≥1.5 五维中至少 2 项不同；每条签名 `gain ≤ 0.06` 且 `duration ≤ 0.3`
+- [x] 限流：同一 120ms 窗口注入 200 条事件，实际发声 ≤ `IMPACT_LIMITS.maxVoicesPerWindow`；同武器 60ms 内重复被抑制；单帧 `maxPerFrame` 生效；超额时保留集合按 `lethal > crit > 普通` 可预期（断言保留的 weapon 列表）
+- [x] 压缩总线：`ensure()` 后 `impactGain.outputs` 含 `impactCompressor`、`impactCompressor.outputs` 含 `sfxGain`、`sfxGain.connect(masterGain)` 仍直连；`threshold ∈ [-40,-6]`、`ratio ≥ 4`、`attack ≤ 0.01`、`release ∈ [0.1,1]`；播放一次命中后新建振荡器的输出链最终到达 `impactGain`；无 `createDynamicsCompressor` 的假上下文下退化为 `impactGain → sfxGain` 且不抛错
+- [x] 变调确定性：同一事件两次 `pitchCentsFor` 相等且落在 ±`jitterCents`；不同 `target.id` 至少产生 3 种取值
+- [x] 战旗光环脉冲：假 sim 在 0ms 发声、600ms 不发声、1300ms 再发声；`phase !== 'wave'` 或范围内无非支援塔时永不发声
+- [x] 关闭音效（`localStorage` 的 `abyss-tower.sound=off`）时 `followCombatImpacts` 返回 `played: 0` 且不创建任何振荡器/噪声节点
+- [x] 模拟零接触：`grep -rn "from '\./\?sim\|sim\.js" public/js/audio-impacts.js` 0 命中；`public/js/audio-impacts.js` 不含 `Math.random`；`node --test tests/audio-events.test.mjs` exit 0（`sim.js` 未新增 `playSound` 调用）
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 真实对局驱动：固定 seed 建 8 塔（含战旗）跑满 2 波，收集 `sim.impactEvents`（覆盖 ≥7 种攻击塔）与战旗光环脉冲，按 60fps 的 `nowMs` 序列回放 `ImpactMixer`；统计 8/8 种签名各至少发声 1 次、任一 120ms 窗口发声 ≤ `maxVoicesPerWindow`，输出统计摘要（记录驱动脚本与输出）
-- [ ] 同一 seed「挂 `followCombatImpacts`」与「不挂」两局，波次 / 金币 / 击杀 / 基地血量 / `combatRng` 序列逐项一致（脚本对比，不以肉眼代替）
-- [ ] 无头浏览器实测：用 `tests/harness.mjs` 的 `launchBrowser` 注入振荡器/噪声创建计数，建塔开波 ≥30s，命中层在任一 120ms 窗口内创建的节点数 ≤ `maxVoicesPerWindow × 2`，`audio.impactCompressor` 非空，页面 `window.__bootErrors` 为空（记录输出摘要）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（表现层无回归）
-- [ ] `docs/TECH_DESIGN.md` §14.3 与 `docs/PRD.md` §4.12 / §7 的记录与实现一致；Notes 写明音色表、限流参数、压缩参数、降级路径，以及「战旗命中层 = 光环脉冲」的定义与触发条件
+- [x] 真实对局驱动：固定 seed 建 8 塔（含战旗）跑满 2 波，收集 `sim.impactEvents`（覆盖 ≥7 种攻击塔）与战旗光环脉冲，按 60fps 的 `nowMs` 序列回放 `ImpactMixer`；统计 8/8 种签名各至少发声 1 次、任一 120ms 窗口发声 ≤ `maxVoicesPerWindow`，输出统计摘要（记录驱动脚本与输出）
+- [x] 同一 seed「挂 `followCombatImpacts`」与「不挂」两局，波次 / 金币 / 击杀 / 基地血量 / `combatRng` 序列逐项一致（脚本对比，不以肉眼代替）
+- [x] 无头浏览器实测：用 `tests/harness.mjs` 的 `launchBrowser` 注入振荡器/噪声创建计数，建塔开波 ≥30s，命中层在任一 120ms 窗口内创建的节点数 ≤ `maxVoicesPerWindow × 2`，`audio.impactCompressor` 非空，页面 `window.__bootErrors` 为空（记录输出摘要）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（表现层无回归）
+- [x] `docs/TECH_DESIGN.md` §14.3 与 `docs/PRD.md` §4.12 / §7 的记录与实现一致；Notes 写明音色表、限流参数、压缩参数、降级路径，以及「战旗命中层 = 光环脉冲」的定义与触发条件
 
 ## Touches
 
 - `public/js/audio-impacts.js`
 - `public/js/audio.js`
 - `public/js/game-app.js`
+- `scripts/test-changed.mjs`
 - `tests/audio-impacts.test.mjs`
+- `tests/impact-audio-drive.mjs`
 - `tasks/gap-audio-impacts.md`
 
 ## Notes
 
 - 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
+- 实现（2026-10-27）：
+  - 音色表 `IMPACT_SIGNATURES`（`public/js/audio-impacts.js`）按 §3.5 冻结表落地，键集合与 `Object.keys(TOWERS)` 一致（含战旗）；主音增益 0.018–0.045、时长 0.06–0.22s，噪声层增益 0.014–0.026、截止 480–3400Hz。
+  - 限流 `IMPACT_LIMITS = { windowMs 120, maxVoicesPerWindow 4, perWeaponGapMs 60, globalGapMs 16, maxPerFrame 3, jitterCents 18, clusterStep 0.12, clusterCap 5, auraGapMs 1200 }`。同帧多声按 `globalGapMs` 顺延排布（0/+16/+32ms），不挤在同一个采样点；超额按 `lethal > crit > 普通`（同级 hpLost 降序、再 t 降序）保留；同武器同帧合并为簇音（增益 ×(1+0.12·min(n-1,4))）。
+  - 补充实现细节（窗口节点预算）：除「声数 ≤ maxVoicesPerWindow」外，同一 120ms 窗口的节点成本也受 `maxVoicesPerWindow × 2` 约束（2 = 主振荡器 + 噪声源）。预算不足时先摘掉暴击亮度层 / 致死低频层（可选装饰）而不是丢掉整声，保住 `lethal > crit > 普通` 的保留顺序；这样无头验收的「120ms 创建节点数 ≤ 8」是产品不变量而非测试特例。
+  - 压缩/限幅：`impactGain(增益 1) → DynamicsCompressor(threshold -16, knee 10, ratio 12, attack 0.003, release 0.25) → sfxGain`，`sfxGain.connect(masterGain)` 保持原样；环境无 `createDynamicsCompressor`（或返回空）时降级 `impactGain → sfxGain` 且不抛错。只有 `impactVoice` 走 `impactGain`，`play()` 的开火/UI 音效仍直连 `sfxGain`。
+  - 变调：`pitchCentsFor` 用 FNV-1a 哈希 `weapon:target.id:t`，落在 ±18 音分，无未播种随机。
+  - 战旗命中层 = 光环脉冲：`supportAuraPulse(sim, nowMs, state)` 在 `sim.phase === 'wave'`、存在 `TOWERS[t.type].support` 的塔、其 `stats.range` 内至少一座非支援塔、距 `state.lastAt` ≥ 1200ms 时返回 `{ weapon: 'banner', source: 'aura', t, x, y }`；与命中事件共用同一个 `ImpactMixer`（计同一声预算）。
+  - 消费契约：`audio.followCombatImpacts(sim, nowMs)` 只读 `sim.impactEvents` / `sim.towers` / `sim.phase`，不上报、不进存档、不改 RNG；`game-app.tick` 在模拟步进后调用一次。
+  - 新源文件已在 `scripts/test-changed.mjs` 的 TEST_MAP 登记（`public/js/audio-impacts.js` → `tests/audio-impacts.test.mjs`，并把新测试挂到 `audio.js` / `game-app.js` 的映射），否则全量 suite 的审计覆盖会红；该文件因此纳入 Touches。
+  - `docs/TECH_DESIGN.md` §14.3.1 与 `docs/PRD.md` §4.12 / §7 已由文档 lane 写好并与实现一致（冻结值唯一定义处是 `docs/PHASE_FEEL_ART.md` §3.5）。
+- 验收证据（2026-10-27，worker worktree）：
+  - `node --test tests/audio-impacts.test.mjs` → 15/15 pass；`npm test` → 1604/1604 pass（22.9s）；`audio-events/audio-mix/music/ambience/result-audio/skill-audio` → 41/41 pass；`check:imports`、`check:style`、`check-doc-ownership` 均 exit 0。
+  - grep 零命中：`grep -rn "from '\./\?sim\|sim\.js" public/js/audio-impacts.js` 与 `grep -n Math.random public/js/audio-impacts.js` 均无输出（exit 1）。
+  - 真实对局驱动 `node tests/impact-audio-drive.mjs`（seed `gap-audio-impacts-dod`，standard + crit 遗物，8 塔跑满 2 波）：impactEvents 46 条覆盖 7 种攻击塔，光环脉冲 12 次，发声 40 次，8/8 签名各 ≥1：{arrow 5, cannon 2, frost 9, arc 6, poison 2, banner 12, shock 1, sniper 3}；120ms 窗口峰值 4 ≤ 4；同 seed 挂/不挂 `followCombatImpacts` 快照（wave 2 / gold 99218 / kills 12 / baseHp 500 / towers 8 / time 14）逐项一致，`combatRng` 39 次调用序列逐项一致。
+  - 无头浏览器驱动 `node tests/impact-audio-drive.mjs --browser`（`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`，`tests/harness.mjs` launchBrowser + 振荡器/噪声创建计数）：建 8 塔开 5 波共 104.38s（≥30s），命中层发声 740 次，任一 120ms 窗口创建节点峰值 8 = `maxVoicesPerWindow × 2`，`audio.impactCompressor` 非空，`window.__bootErrors` 与页面 console 错误均为空。
+  - `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0。
