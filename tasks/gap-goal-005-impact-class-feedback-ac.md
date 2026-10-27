@@ -1,7 +1,7 @@
 ---
 id: gap-goal-005-impact-class-feedback-ac
 title: GOAL-005 充分性缺口：首领命中/破盾/护甲吸收缺目标级 AC（提案新增 AC-021）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
