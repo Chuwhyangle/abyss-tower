@@ -1,7 +1,7 @@
 ---
 id: DOCS-001
 title: 文档整合 lane：把本阶段设计增量收口到 PRD/TECH_DESIGN
-status: ready
+status: done
 labels:
   - feat
 parent: null
