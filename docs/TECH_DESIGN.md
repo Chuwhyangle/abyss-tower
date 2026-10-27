@@ -875,9 +875,8 @@ account_achievements(
 - **键盘**：所有可交互控件可 Tab 到达，焦点样式可见且不被全局 `outline: none` 覆盖；弹窗打开后焦点进入并限制在弹窗内，Esc 可关闭。
 - **语义**：弹窗使用 `role="dialog" aria-modal="true"` + `aria-labelledby`；控件组（如速度）使用 `role="group"` + `aria-label`；动态提示使用 `aria-live="polite"`；纯装饰元素标 `aria-hidden="true"`。
 - **对比与信息传达**：正文对比度达到 WCAG AA（≥4.5:1），关键数值可读；状态不只靠颜色区分。
-- **字号下限**：可见正文最小字号 ≥12px，桌面（1440×900）与移动视口（竖屏 390×844、横屏 844×390）同一口径；`:root` 的 `--text-min` 就是这条下限，紧凑标签引用该令牌，不再把字号压到 9–11px。层级差异用颜色、字重、字距与间距表达，不以缩小字号换取空间；字号抬高后需要空间时，优先重排 padding/gap 或整体收起非关键块，不得用 `display: none` 隐藏正文。唯一白名单是 `.key`（快捷键角标）与 `.glyph`（图标字形）——它们是操作提示而非可读正文。低配路径（`--quality low`）沿用同一阈值：DOM 指标与画质正交，降级不得靠缩小或隐藏文字过关。
 - **边界**：可访问性只改 DOM、样式与动画开关，不进入 `sim.js`，不改变伤害、敌人数、攻速、掉落或计分。
-- **验收**：`node --test tests/ui-styles.test.mjs tests/a11y-color.test.mjs`（AC-104），至少覆盖 reduced-motion 开关、键盘焦点可见性与关键弹窗语义。字号下限另有两类见证：浏览器侧 `node scripts/visual-check.mjs --suite mobile`（AC-027）与 `--suite ui`（AC-025，桌面），源码侧为 `tests/ui-styles.test.mjs` 对上述选择器解析后 ≥12px 的断言（阈值只在 `scripts/lib/visual-metrics.mjs`，不在样式里放宽）。
+- **验收**：`node --test tests/ui-styles.test.mjs tests/a11y-color.test.mjs`（AC-104），至少覆盖 reduced-motion 开关、键盘焦点可见性与关键弹窗语义。
 
 ### 14.5 硬约束（v1.8–v2.0 全程）
 
