@@ -8,7 +8,7 @@ parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/release-consistency.test.mjs
+  acceptance: node scripts/release-check.mjs
 depends_on:
   - gap-rogue2-balance
   - QA-004
