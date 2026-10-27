@@ -10,6 +10,11 @@ extra:
   schema: execution
   acceptance: node scripts/art-review.mjs --check
 depends_on:
+  - VIS-001
+  - ART-001
+  - gap-ui-readability-font-floor
+  - gap-mobile-visual-font-floor
+  - gap-scene-sprite-adoption
   - gap-result-scene-polish
 goal_ac: AC-029
 ---
