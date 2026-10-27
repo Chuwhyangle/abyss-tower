@@ -15,6 +15,7 @@ depends_on:
   - gap-ui-readability-font-floor
   - gap-mobile-visual-font-floor
   - gap-scene-sprite-adoption
+  - gap-result-scene-polish
 goal_ac: AC-029
 ---
 ## Proposal

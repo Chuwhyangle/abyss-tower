@@ -1,7 +1,7 @@
 ---
 id: gap-test-changed-stale-map-entries
 title: 清理 revert 残留的 test-changed TEST_MAP 失效映射（全量测试 exit 1，AC-005 复验红）
-status: ready
+status: done
 labels:
   - gap
   - defect
