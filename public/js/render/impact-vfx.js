@@ -141,7 +141,7 @@ const TIERS = ['low', 'high'];
 const FALLBACK_WEAPON = 'fallback';
 
 // 非负整数钳制：NaN/Infinity/负数 → 0，超出上限 → 上限。
-export function clampImpactCount(value, cap) {
+function clampImpactCount(value, cap) {
   const raw = Number.isFinite(value) ? Math.floor(value) : 0;
   const limit = Number.isFinite(cap) ? Math.floor(cap) : 0;
   return Math.max(0, Math.min(raw, Math.max(0, limit)));
