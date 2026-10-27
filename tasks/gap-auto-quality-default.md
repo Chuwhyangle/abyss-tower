@@ -1,7 +1,7 @@
 ---
 id: gap-auto-quality-default
 title: 首次进入默认自动画质：桌面解析高配，弱机/移动端降为低配，30fps 仅作显式选择
-status: ready
+status: done
 labels:
   - gap
 parent: null
