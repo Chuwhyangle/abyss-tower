@@ -342,6 +342,40 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
   因此贴图迁移按资源逐条进行，不需要一次性切换渲染路径。
 - **对比度**：`docs/ART_DIRECTION.md` 的「令牌对比度报告」由测试逐行重算，任何改色都会先让测试变红。
 
+#### 5.5.2 精灵资源管线（运行时实现）
+
+资源**怎么交付**见 `docs/ASSET_PIPELINE.md`；本小节只写**运行时怎么加载与降级**，避免两处定义分叉。
+
+- **模块边界**：`public/js/render/sprite-manifest.js` 是纯函数层（归一化、DPR 变体、图集切帧），
+  `public/js/render/sprite-pipeline.js` 是 `SpritePipeline` 类（加载状态机、绘制、预算、失效）。
+  两者导入期都不触碰 `document` / `Image` / `fetch`，Node 与浏览器共用；浏览器加载器只在真正发起加载时才创建 `Image`。
+- **清单来源**：`public/assets/sprites/manifest.json`，由 `scripts/build-sprite-atlas.mjs` 生成。
+  `normalizeManifest` 把非法条目（缺 `id`/`src`、`size` 非正整数、锚点/pivot 越界、`dpr` 非数组）收进 `errors` 而不抛错；
+  重复 `id` 只保留最后一条。只有 `status: "ready"` 的条目进入管线，`placeholder` 永远不加载（沿用程序化绘制）。
+- **状态机**：每条目 `missing → pending → ready | failed | skipped`。`preload()` 永不 reject：
+  单条失败只影响该 id，并发上限默认 6、单条超时默认 8s（均可注入）。同一 URL 只下载一次（缓存键是 URL），
+  冷启动失败也缓存，避免同 URL 的其它条目重复打网络。
+- **DPR 与变体**：DPR 的唯一权威是 `Renderer.applyDpr()` 的 `Math.min(settings.dpr, devicePixelRatio)`，
+  管线不自己再读一次 `window.devicePixelRatio`。`applyDpr()` 调 `configure({ dpr })`，
+  管线按 `resolveDprVariant(entry, dpr)` 重选变体：取不超过设备 DPR 的最高档，无匹配回落到条目最低档，
+  非法设备 DPR（0 / 负数 / NaN / undefined）按 1 处理。已缓存的 URL 直接复用，不重复下载。
+- **图集与尺寸**：图集 JSON 用**逻辑像素**描述 `frames` / `pivot` / `size`，`@2x` 由倍率推导
+  （图集图片本身是 1x 的整数倍）。`atlasFrame()` 返回 `sx/sy/sw/sh` 与锚点偏移 `ax/ay`
+  （`pivot × sourceSize − offset`，trimmed 帧由此校正）；未知帧与旋转打包帧返回 `null` 而不是抛错。
+  `frame(id)` 的 `dw/dh` 是该档变体的像素尺寸，`draw()` 按 `variantDpr` 换算回画布用户坐标。
+- **内存预算**：`maxBytes` 默认 64 MiB，按解码后 RGBA 估算（`w × h × 4`）。总量超预算时先丢弃 `@2x` 变体
+  改用 `@1x`，仍超出则把剩余条目按字节从大到小标记 `skipped`；`stats()` 给
+  `{ total, ready, failed, skipped, pending, bytes, inFlight }`，不留下永远 `pending` 的条目。
+- **回退契约**：`frame(id)` 对未知/未就绪/失败条目返回 `null`；`draw()` 返回 `false` 且**不发起任何绘制调用**，
+  调用方据此走既有程序化绘制。缺资源每个 id 只 `console.warn` 一次。默认清单缺资源时画面与接入前逐像素一致。
+- **失效与释放**：`invalidate(id)` 回到 `pending` 并递增 generation，失效前发出、失效后才回来的加载结果被丢弃
+  （下一次 `preload()` 才会重新 ready）；`dispose()` 释放全部图片引用，此后 `draw()` 一律 `false`。
+  `Renderer.dispose()` 转发到管线，`GameApp.destroy()` 调用它。
+- **接入契约（AC-023）**：实体渲染器只接收注入的 `SpritePipeline`，自己不加载图片；
+  `tests/render-animations.test.mjs` 对 `enemy-renderer.js` / `tower-renderer.js` 的「无 `new Image`」断言保持有效。
+- **自检资源**：`public/assets/sprites/probe/` 下的 `probe.png` / `probe@2x.png` / `probe-atlas.json` 由
+  `node scripts/build-sprite-atlas.mjs` 生成（同输入两次产物字节一致），既是管线回归夹具，也是 AC-023 批量出图的模板。
+
 
 ### 5.6 画质设置与运行时
 

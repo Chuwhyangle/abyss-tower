@@ -183,7 +183,16 @@ export class GameController {
     this.session.showTitle();
     this.session.mountWidget();
     // 调试/冒烟测试入口（单机游戏，不涉及敏感状态）。
-    window.__rtd = { state: this.state, ui: this.ui, api: this.api };
+    // sprites 用 getter 挂在既有入口上：对局创建后指向 Renderer 持有的精灵管线。
+    const stateRef = this.state;
+    window.__rtd = {
+      state: this.state,
+      ui: this.ui,
+      api: this.api,
+      get sprites() {
+        return stateRef.app?.sprites || null;
+      },
+    };
     // 选图阶段刷新：恢复服务端尚未选定地图的远征与同一组候选。
     await this.run.restorePendingMap();
     document.body.dataset.boot = 'ok';

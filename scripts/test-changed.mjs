@@ -148,6 +148,8 @@ export const TEST_MAP = [
     'tests/render-budget.test.mjs',
     'tests/skill-visuals.test.mjs',
   ] },
+  { match: 'public/js/render/sprite-manifest.js', tests: ['tests/sprite-pipeline.test.mjs'] },
+  { match: 'public/js/render/sprite-pipeline.js', tests: ['tests/sprite-pipeline.test.mjs'] },
   { match: 'public/js/render/portal-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
   { match: 'public/js/render/transition.js', tests: ['tests/transition.test.mjs'] },
 
@@ -190,6 +192,7 @@ export const TEST_MAP = [
   // 工具脚本
   { match: 'scripts/art-review.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/backup.mjs', tests: ['tests/ops-cli.test.mjs'] },
+  { match: 'scripts/build-sprite-atlas.mjs', tests: ['tests/sprite-pipeline.test.mjs'] },
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },
