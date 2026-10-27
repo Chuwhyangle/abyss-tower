@@ -11,8 +11,10 @@ import {
 } from '../shared/data.js';
 import { MUTATIONS, MUTATION_MAX, MUTATION_ORDER, mutationScoreMul } from '../shared/mutations.js';
 import { weekKey } from '../shared/scoring.js';
+import { SCENE_SPRITE_PLACEMENT, applySceneSpritesTo, sceneSpriteIds } from '../shared/scene-sprites.js';
 import { t, tData } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
+import { SpritePipeline } from '../render/sprite-pipeline.js';
 import {
   fmt,
   ROMAN,
@@ -56,7 +58,34 @@ export const titleMethods = {
     return entries.find((entry) => entry.unlocked)?.id || null;
   },
 
+  // 场景精灵：标题 / 选图 / 结算共用一条只读管线（对局前没有 Renderer）。
+  sceneSprites() {
+    if (!this._menuSprites) {
+      this._menuSprites = new SpritePipeline({ dpr: 1 });
+      // 预载永不 reject：首帧早于加载完成，有结论后重涂标题（失败也会标回退）。
+      this._menuSprites.preload().then(() => {
+        if (this.el?.title && !this.el.title.hidden) this.renderTitle();
+      });
+    }
+    return this._menuSprites;
+  },
+  // 标题场景：背景 + logo；缺资源只加回退标记，不改既有样式。
+  applyTitleSceneSprites() {
+    if (typeof document === 'undefined' || !this.el?.title) return;
+    let layer = this.el.title.querySelector('[data-scene-layer="title"]');
+    if (!layer) {
+      const style = 'position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;';
+      this.el.title.insertAdjacentHTML('afterbegin', `<div data-scene-layer="title" aria-hidden="true" style="${style}"></div>`);
+      layer = this.el.title.firstElementChild;
+    }
+    layer.innerHTML = (sceneSpriteIds('title') || [])
+      .map((id) => `<div class="scene-sprite" data-sprite-id="${id}" style="${SCENE_SPRITE_PLACEMENT[id] || ''}"></div>`)
+      .join('');
+    applySceneSpritesTo(layer, this.sceneSprites(), 'title');
+  },
+
   renderTitleSkills(profile, extras = {}) {
+    this.applyTitleSceneSprites();
     const host = this.el?.titleSkills;
     if (!host) return;
     if (extras.skillState) this._skillState = extras.skillState;

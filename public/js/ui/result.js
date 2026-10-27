@@ -2,6 +2,7 @@
 import { DIFFICULTIES, SKILLS } from '../shared/data.js';
 import { ACHIEVEMENT_BY_ID, ACHIEVEMENT_RARITIES } from '../shared/achievements.js';
 import { MUTATIONS } from '../shared/mutations.js';
+import { SCENE_SPRITE_IDS, applySceneSpritesTo } from '../shared/scene-sprites.js';
 import { t, tData, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
@@ -92,6 +93,10 @@ export const resultMethods = {
     const modal = this.openModal(
       `
         <div class="result ${victory ? 'victory' : 'defeat'}" data-result="${victory ? 'victory' : 'defeat'}">
+          <div class="scene-sprites" aria-hidden="true"
+            style="display:flex;justify-content:center;margin:0 0 10px;">
+            <div class="scene-sprite" data-sprite-id="${SCENE_SPRITE_IDS.resultPanel}" style="opacity:.85;"></div>
+          </div>
           <header class="result-hero">
             <p class="eyebrow">${t(victory ? 'result.victoryTag' : 'result.overTag')}</p>
             <h2>${victory ? t('result.victoryTitle') : t('result.reached', { wave: stats.wave })}</h2>
@@ -132,6 +137,8 @@ export const resultMethods = {
       { className: 'result-modal', closable: false }
     );
 
+    // 结算场景精灵：缺资源时不改动既有面板样式，只加回退标记。
+    applySceneSpritesTo(modal, this.sceneSprites?.(), 'result');
     modal.classList.add('result-fade');
     playResultSound(victory);
     this._animateResultScore(modal, Number(score) || 0);

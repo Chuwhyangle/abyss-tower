@@ -1,0 +1,245 @@
+{
+  "name": "scene-atlas",
+  "image": "scene-atlas@1x",
+  "size": {
+    "w": 1024,
+    "h": 588
+  },
+  "pivot": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "frames": {
+    "scene-title": {
+      "x": 0,
+      "y": 0,
+      "w": 480,
+      "h": 270,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 480,
+        "h": 270
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "bg/scene-title"
+    },
+    "scene-title-logo": {
+      "x": 480,
+      "y": 0,
+      "w": 96,
+      "h": 96,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 96
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-title-logo"
+    },
+    "scene-map-card": {
+      "x": 576,
+      "y": 0,
+      "w": 160,
+      "h": 64,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 160,
+        "h": 64
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-map-card"
+    },
+    "scene-map-thumbnail": {
+      "x": 736,
+      "y": 0,
+      "w": 96,
+      "h": 96,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 96
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-map-thumbnail"
+    },
+    "scene-combat": {
+      "x": 0,
+      "y": 270,
+      "w": 480,
+      "h": 270,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 480,
+        "h": 270
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "bg/scene-combat"
+    },
+    "scene-combat-hud": {
+      "x": 480,
+      "y": 270,
+      "w": 96,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-combat-hud"
+    },
+    "scene-result-panel": {
+      "x": 576,
+      "y": 270,
+      "w": 240,
+      "h": 120,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 240,
+        "h": 120
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-result-panel"
+    },
+    "scene-title-particles": {
+      "x": 816,
+      "y": 270,
+      "w": 64,
+      "h": 64,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 64,
+        "h": 64
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "fx/scene-title-particles"
+    },
+    "scene-map-badge": {
+      "x": 880,
+      "y": 270,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-map-badge"
+    },
+    "scene-combat-ambience": {
+      "x": 928,
+      "y": 270,
+      "w": 96,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 96,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "fx/scene-combat-ambience"
+    },
+    "scene-result-badge": {
+      "x": 0,
+      "y": 540,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false,
+      "spriteId": "ui/scene-result-badge"
+    }
+  }
+}

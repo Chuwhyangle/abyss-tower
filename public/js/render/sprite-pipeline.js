@@ -94,6 +94,8 @@ export class SpritePipeline {
     this.records = new Map();
     this.atlases = new Map();
     this.cache = new Map();
+    // 按 id 的绘制计数：只在 draw()/drawRect() 真的落了 drawImage 时自增。
+    this.draws = new Map();
     this.queue = [];
     this.active = 0;
     this.running = new Set();
@@ -453,6 +455,58 @@ export class SpritePipeline {
     return this.geometry(record);
   }
 
+  // ---------- 只读访问器（场景接线用；不改变加载状态机） ----------
+
+  // 当前 DPR 变体下该 id 的可加载 URL；未知 / 未就绪 / 失败一律 null。
+  url(id) {
+    if (this.disposed) return null;
+    const record = this.records.get(id);
+    if (!record || record.state !== 'ready' || !record.image) return null;
+    return record.url;
+  }
+
+  // 已解码的图片对象（图集时是整张图集）；未就绪返回 null。
+  image(id) {
+    if (this.disposed) return null;
+    const record = this.records.get(id);
+    if (!record || record.state !== 'ready' || !record.image) return null;
+    return record.image;
+  }
+
+  // 当前已就绪的 id 集（场景计划的 assetsReady 输入）。
+  readyIds() {
+    if (this.disposed) return [];
+    return [...this.records.values()].filter((record) => record.state === 'ready').map((record) => record.spec.id);
+  }
+
+  // 把某 id 的当前帧表述成可直接落到 DOM 的 CSS 背景（图集切帧）。
+  // 未就绪返回 null，调用方据此保留程序化样式。
+  spriteStyle(id) {
+    const frame = this.frame(id);
+    if (!frame) return null;
+    const url = this.url(id);
+    if (!url) return null;
+    const scale = frame.variantDpr;
+    const image = frame.image;
+    const imageWidth = image?.naturalWidth || image?.width || frame.sw;
+    const imageHeight = image?.naturalHeight || image?.height || frame.sh;
+    return {
+      id,
+      url,
+      // 逻辑像素尺寸：帧几何按设备像素给出，除以变体档位回到 CSS 像素。
+      width: frame.dw / scale,
+      height: frame.dh / scale,
+      backgroundImage: `url("${url}")`,
+      backgroundPosition: `${-frame.sx / scale}px ${-frame.sy / scale}px`,
+      backgroundSize: `${imageWidth / scale}px ${imageHeight / scale}px`,
+    };
+  }
+
+  // 按 id 的绘制次数（诊断用；画布场景的验收读数）。
+  drawCount(id) {
+    return this.draws.get(id) || 0;
+  }
+
   geometry(record) {
     const scale = record.variant;
     const spec = record.spec;
@@ -527,7 +581,34 @@ export class SpritePipeline {
       ctx.drawImage(frame.image, frame.sx, frame.sy, frame.sw, frame.sh, x - ax, y - ay, dw, dh);
     }
     if (wrapped) ctx.restore();
+    this.countDraw(id);
     return true;
+  }
+
+  // 把某 id 的帧拉伸铺满 (x, y, w, h)：场景背景需要与画布尺寸解耦（不按均匀缩放推导）。
+  // 未就绪 / 未知 / 失败返回 false 且不发起绘制，调用方保留程序化背景。
+  drawRect(ctx, id, x, y, width, height, { alpha = 1 } = {}) {
+    const frame = this.frame(id);
+    if (!frame || !ctx) return false;
+    if (!(width > 0) || !(height > 0)) return false;
+    const opacity = typeof alpha === 'number' && Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
+    const muted = opacity !== 1;
+    if (muted) {
+      ctx.save();
+      ctx.globalAlpha = opacity;
+    }
+    if (frame.mode === 'image') {
+      ctx.drawImage(frame.image, x, y, width, height);
+    } else {
+      ctx.drawImage(frame.image, frame.sx, frame.sy, frame.sw, frame.sh, x, y, width, height);
+    }
+    if (muted) ctx.restore();
+    this.countDraw(id);
+    return true;
+  }
+
+  countDraw(id) {
+    this.draws.set(id, (this.draws.get(id) || 0) + 1);
   }
 
   stats() {
@@ -545,6 +626,13 @@ export class SpritePipeline {
         out.pending += 1;
       }
     }
+    // draws 是派生读数：不可枚举地挂在同一对象上，stats() 的键集保持 AC-022 的既有形状，
+    // 场景验收通过 stats().draws[id] / drawCount(id) 读取。
+    Object.defineProperty(out, 'draws', {
+      value: Object.fromEntries(this.draws),
+      enumerable: false,
+      configurable: true,
+    });
     return out;
   }
 

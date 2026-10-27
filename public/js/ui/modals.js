@@ -2,6 +2,7 @@
 import { RELIC_BY_ID, RARITY, RELIC_LEVEL_LABELS, relicEffectText } from '../shared/data.js';
 import { canAffordEventOption, findEventChain } from '../shared/events.js';
 import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
+import { SCENE_SPRITE_IDS, applySceneSpritesTo } from '../shared/scene-sprites.js';
 import { t, tData, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
@@ -198,7 +199,13 @@ export const modalMethods = {
 
     const modal = this.openModal(
       `
-        <div class="map-select">
+        <div class="map-select" style="position:relative;">
+          <div class="scene-sprites" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;z-index:0;">
+            <div class="scene-sprite" data-sprite-id="${SCENE_SPRITE_IDS.mapThumbnail}"
+              style="position:absolute;right:12px;top:8px;opacity:.45;"></div>
+            <div class="scene-sprite" data-sprite-id="${SCENE_SPRITE_IDS.mapCard}"
+              style="position:absolute;left:12px;bottom:8px;opacity:.4;"></div>
+          </div>
           <p class="eyebrow">${t('mapSelect.eyebrow')}</p>
           <h2>${t('mapSelect.title')}</h2>
           <p class="muted">${t('mapSelect.note')}</p>
@@ -210,6 +217,8 @@ export const modalMethods = {
       `,
       { className: 'map-modal', closable: false }
     );
+    // 选图场景精灵：资源就绪时替换装饰底图，缺资源时保留既有卡片样式并标回退。
+    applySceneSpritesTo(modal, this.sceneSprites?.(), 'map');
     this.playViewEnter(modal);
 
     modal.querySelectorAll('.map-card').forEach((card) => {

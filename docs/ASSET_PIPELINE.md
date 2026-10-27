@@ -140,6 +140,27 @@ public/assets/
 - 缺资源回退：`status` 非 `ready` 或文件加载失败时，渲染器 `sprites.draw()` 返回 `false`，
   实体按既有程序化路径绘制；实体渲染器自己不 `new Image`。
 
+## 场景精灵条目（四场景接入）
+
+标题 / 选图 / 战斗 / 结算四个场景的接入矩阵定义在 `docs/PHASE_FEEL_ART.md` §4.4，
+运行时 id 集在 `public/js/shared/scene-sprites.js` 的 `SCENE_SPRITES`；本节只规定它们在清单里怎么落条目。
+
+- 精灵 id：`<类别>/scene-<场景>-<用途>`，类别只允许 `bg` / `ui` / `fx`，场景 ∈ `title / map / combat / result`
+  （如 `bg/scene-title`、`ui/scene-map-card`、`ui/scene-combat-hud`、`ui/scene-result-panel`）。
+- 每个场景分**必需组**与**可选组**：必需组是验收判定集，两视口下 DOM 的 `data-sprite-id` 集
+  与 Canvas 绘制 id 集必须与 `SCENE_SPRITES[scene].required` 完全相等；可选组只登记在清单里。
+- 图集：`public/assets/sprites/scenes/scene-atlas@1x.png` + `@2x.png` + `scene-atlas.json`，
+  生成器 `scripts/build-sprite-atlas.mjs`（`procedural-canvas2d`，无随机源、无时间戳，同输入两次执行字节一致）。
+  图集按固定货架排布，单行 ≤ 1024 逻辑像素，`@2x` 仍在 2048 上限内。
+- DOM 场景（标题 / 选图 / 结算）通过管线只读访问器 `url(id)` / `spriteStyle(id)` 取资源，
+  命中元素带 `data-sprite-id="<id>"`；资源不可用时保留既有程序化样式并加 `data-sprite-fallback="1"`。
+  DOM 模块内不得 `new Image`，也不得自行读取设备像素比。
+- Canvas 场景（战斗）只通过注入的 `SpritePipeline` 绘制，并在画布上同步 `data-sprite-fallback`。
+  战斗背景精灵是**透明底、只加光**的景观层（网格 / 地平线光 / 微粒），叠在程序化地形之上：
+  地形承载路径与塔位信息（ART_DIRECTION「信息优先」），永远先画且不被贴图替换。
+- 缺资源回退：`status` 非 `ready` 或图片加载失败时 `draw()` / `drawRect()` 返回 `false`，
+  场景层不绘制且不抛错，画面与接入前一致；每个缺失 id 只由管线告警一次。
+
 ## 示例资源条目
 
 以下两条是**真实实体**（现有 `public/js/shared/data.js` 中的箭塔与步兵），按本规范走通全流程。

@@ -23,6 +23,17 @@
         "w": 48,
         "h": 16
       }
+    },
+    "scene-atlas": {
+      "json": "/assets/sprites/scenes/scene-atlas.json",
+      "images": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 1024,
+        "h": 588
+      }
     }
   },
   "entries": [
@@ -97,6 +108,84 @@
       "provenance": {
         "source": "自带程序生成",
         "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "bg/scene-combat",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 480,
+        "h": 270
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-combat",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "bg/scene-title",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 480,
+        "h": 270
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-title",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
         "license": "proprietary-internal",
         "url": "-",
         "retrievedAt": "2026-10-27"
@@ -1848,6 +1937,84 @@
       ],
       "atlas": "probe-atlas",
       "frame": "probe-idle-0",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/scene-combat-ambience",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 96,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-combat-ambience",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/scene-title-particles",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 64,
+        "h": 64
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-title-particles",
       "compression": "lossless",
       "provenance": {
         "source": "自带程序生成",
@@ -5752,6 +5919,279 @@
       "provenance": {
         "source": "自带程序生成",
         "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-combat-hud",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 96,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-combat-hud",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-map-badge",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-map-badge",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-map-card",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 160,
+        "h": 64
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-map-card",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-map-thumbnail",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-map-thumbnail",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-result-badge",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-result-badge",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-result-panel",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 240,
+        "h": 120
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-result-panel",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/scene-title-logo",
+      "path": "public/assets/sprites/scenes/scene-atlas@1x.png",
+      "src": "/assets/sprites/scenes/scene-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/scenes/scene-atlas@1x.png",
+        "2": "/assets/sprites/scenes/scene-atlas@2x.png"
+      },
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "scene-atlas",
+      "frame": "scene-title-logo",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-sprite-atlas.mjs",
         "license": "proprietary-internal",
         "url": "-",
         "retrievedAt": "2026-10-27"

@@ -1,6 +1,7 @@
 // Canvas 渲染门面：只负责状态（画质/DPR/时间/FPS/受击闪烁）与分层编排，
 // 具体绘制由 ./render/ 下职责单一的渲染器完成。
 import { TILE } from './shared/data.js';
+import { SCENE_SPRITES } from './shared/scene-sprites.js';
 import { normalizeSettings } from './settings.js';
 import { biomePalette } from './render/palette.js';
 import { GlowRenderer } from './render/glow-renderer.js';
@@ -18,6 +19,10 @@ import { SkillRenderer } from './render/skill-renderer.js';
 import { SpritePipeline } from './render/sprite-pipeline.js';
 
 const T = TILE;
+
+// 战斗场景的必需精灵集：[0] 背景（铺满画布）、[1] HUD 皮肤（角落徽记）。
+// 顺序由 tests/scene-sprites.test.mjs 锁定；缺资源时两处都静默退回既有绘制。
+const COMBAT_SCENE_SPRITES = SCENE_SPRITES.combat.required;
 
 export class Renderer {
   constructor(canvas, game, settings = {}) {
@@ -39,6 +44,8 @@ export class Renderer {
     this.fps = 60;
     this.lastBaseHp = null;
     this.hurtFlash = 0;
+    // 战斗场景回退状态：背景精灵不可用时置 true，并在画布上留 data-sprite-fallback 标记。
+    this.sceneFallback = null;
 
     // 各层显式持有依赖：共享同一份光晕缓存。
     this.glow = new GlowRenderer();
@@ -159,7 +166,13 @@ export class Renderer {
       g.scale(camera.zoom, camera.zoom);
       g.translate(-fx, -fy);
     }
+    // 战斗背景：程序化地形承载玩法信息（路径 / 塔位 / 网格），永远先画且不被替换；
+    // 场景背景精灵是一层「只加光」的景观层（全透明底），叠在地形之上每帧一次 drawImage。
+    // 缺资源时这一层不画，画面与接入前逐像素一致。
+    const [sceneBackgroundId, sceneHudId] = COMBAT_SCENE_SPRITES;
     g.drawImage(this.bg, 0, 0, this.W, this.H);
+    const drewScenery = this.sprites.drawRect(g, sceneBackgroundId, 0, 0, this.W, this.H);
+    this.setSceneFallback(!drewScenery);
 
     // L0：背景之后（极光帘幕 / 星海 / 冷暖底色）
     this.skillRenderer.renderL0(g, this.time, this.settings);
@@ -188,6 +201,9 @@ export class Renderer {
     // L3：屏幕空间（色调 / 暗角 / 时间环 / 技能名横幅），在受击警示之前。
     this.skillRenderer.renderL3(g, this.time, this.settings);
 
+    // 战斗 HUD 皮肤：画布右下角的场景徽记；缺资源时不画（HUD 本体仍是 DOM）。
+    this.sprites.draw(g, sceneHudId, this.W - 64, this.H - 32, { alpha: 0.9 });
+
     // 命中闪光 / 致死边缘染色：非运动反馈，reduced-motion 与关闭震屏时照常绘制。
     this.drawHitFlash(g, camera);
 
@@ -209,6 +225,16 @@ export class Renderer {
     if (this.settings.showFps) {
       this.overlay.drawFps(g, this.fps, this.game.enemies.length);
     }
+  }
+
+  // 场景级回退标记：只在状态翻转时写 DOM，避免每帧 setAttribute。
+  setSceneFallback(fallback) {
+    const next = fallback === true;
+    if (this.sceneFallback === next) return;
+    this.sceneFallback = next;
+    if (!this.canvas?.dataset) return;
+    if (next) this.canvas.dataset.spriteFallback = '1';
+    else delete this.canvas.dataset.spriteFallback;
   }
 
   // 命中闪光与致死边缘染色：addition 径向渐变 + 红边框，只吃 camera.flash/lethal，
