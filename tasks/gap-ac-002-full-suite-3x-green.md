@@ -49,9 +49,9 @@ TEST-001/TEST-002（均 `done`，均声明 `goal_ac: AC-002`）修的是端口�
 
 ## Definition of Done
 
-- [ ] 被测 HEAD 是已提交状态（`git status --short` 无与本任务相关的未提交改动），且 AC-002 的 criterion 在该 HEAD 上 exit 0
-- [ ] 连续 3 轮裸命令读数在 Notes 中可被 driver 下一轮独立复算并复现
-- [ ] 未与 `gap-test-changed-stale-map-entries` 并发编辑同一文件（本任务 commit 不含 `scripts/test-changed.mjs` / `tests/test-changed.test.mjs` 的改动）
+- [x] 被测 HEAD 是已提交状态（`git status --short` 无与本任务相关的未提交改动），且 AC-002 的 criterion 在该 HEAD 上 exit 0
+- [x] 连续 3 轮裸命令读数在 Notes 中可被 driver 下一轮独立复算并复现
+- [x] 未与 `gap-test-changed-stale-map-entries` 并发编辑同一文件（本任务 commit 不含 `scripts/test-changed.mjs` / `tests/test-changed.test.mjs` 的改动）
 
 ## Notes
 
