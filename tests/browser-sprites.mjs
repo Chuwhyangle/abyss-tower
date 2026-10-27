@@ -67,6 +67,8 @@ async function startRun(browser) {
     })()`,
     '精灵预载完成'
   );
+  // 预载完成时刻的上界：相对导航起点（performance.now 随文档重置）。
+  return browser.evaluate(`performance.now()`);
 }
 
 async function spriteReport(browser) {
@@ -159,7 +161,7 @@ async function main() {
 
     // 1) 设备 1x + settings.dpr=2：有效 DPR=1 → 只请求 @1x。
     await bootWith(browser, server.base, { dpr: 2, deviceScaleFactor: 1, label: 'device1-setting2' });
-    await startRun(browser);
+    const preload1x = await startRun(browser);
     const oneX = await spriteReport(browser);
     assertHealthy(oneX, 'DPR=1');
     assertAtlasGeometry(oneX, atlas, 'DPR=1');
@@ -172,11 +174,11 @@ async function main() {
       throw new Error(`draw() 未改变画布像素：${JSON.stringify(painted1x)}`);
     }
     await browser.screenshot(path.join(OUT_DIR, 'rtd-sprites-1x.png'));
-    report.device1 = { ...oneX, variants: oneXVariants, painted: painted1x };
+    report.device1 = { ...oneX, preloadMs: preload1x, variants: oneXVariants, painted: painted1x };
 
     // 2) 设备 2x + settings.dpr=2：有效 DPR=2 → 请求 @2x。
     await bootWith(browser, server.base, { dpr: 2, deviceScaleFactor: 2, label: 'device2-setting2' });
-    await startRun(browser);
+    const preload2x = await startRun(browser);
     const twoX = await spriteReport(browser);
     assertHealthy(twoX, 'DPR=2');
     assertAtlasGeometry(twoX, atlas, 'DPR=2');
@@ -187,7 +189,7 @@ async function main() {
     if (twoX.frame.dw !== oneX.frame.dw * 2) throw new Error('@2x 变体的 dw 应为 @1x 的两倍');
     const painted2x = await measureDraw(browser);
     if (!painted2x.drew || painted2x.painted === 0) throw new Error('@2x 变体 draw() 未改变画布像素');
-    report.device2 = { ...twoX, variants: twoXVariants, painted: painted2x };
+    report.device2 = { ...twoX, preloadMs: preload2x, variants: twoXVariants, painted: painted2x };
 
     // 3) 设备 2x + settings.dpr=1：显式低画质只取 @1x（降级路径）。
     await bootWith(browser, server.base, { dpr: 1, deviceScaleFactor: 2, label: 'device2-setting1' });
@@ -222,8 +224,8 @@ async function main() {
       JSON.stringify(
         {
           atlas: { frames: Object.keys(atlas.frames), size: atlas.size },
-          device1: { stats: report.device1.stats, variants: report.device1.variants, dpr: report.device1.devicePixelRatio },
-          device2: { stats: report.device2.stats, variants: report.device2.variants, dpr: report.device2.devicePixelRatio },
+          device1: { stats: report.device1.stats, preloadMs: Math.round(report.device1.preloadMs), variants: report.device1.variants, dpr: report.device1.devicePixelRatio },
+          device2: { stats: report.device2.stats, preloadMs: Math.round(report.device2.preloadMs), variants: report.device2.variants, dpr: report.device2.devicePixelRatio },
           downgraded: { variants: report.downgraded.variants, dpr: report.downgraded.devicePixelRatio },
           blocked: { stats: report.blocked.stats, warns: report.blocked.spriteWarns, frames: [report.blocked.framesBefore, report.blocked.framesAfter] },
           painted: { '1x': report.device1.painted.painted, '2x': report.device2.painted.painted },
