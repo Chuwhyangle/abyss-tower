@@ -34,10 +34,10 @@ AC-030 的 criterion 是 `node --test tests/impact-class-feedback.test.mjs`，�
 2. **新纯函数模块 `public/js/shared/impact-class-feedback.js`**（无 DOM/Canvas、无 `Math.random`、不 import `sim` / `render` / 设置）：
    - `IMPACT_CLASSES = { bossHit, shieldBreak, armor }`，每项 `{ floater: { color, size, weight, z, suffix }, vfx: { shape, color, particles, ring }, priority }`，三类在色相、后缀、`z` 上两两不同（封装为冻结常量）。
    - `classifyImpactClasses(event)`：纯推导，输入即 AC-012 的事件 schema。`event.target.boss === true || event.target.type === 'boss'` → `bossHit`（首领变体 `armored/summoner/berserk` 的 `type` 同为 `'boss'`）；`event.shieldAbsorbed > 0 && event.hpLost > 0` → `shieldBreak`（本击打穿盾、余量落到本体）；`event.shieldAbsorbed > 0 && event.hpLost === 0` 只是纯吸收，**不**含 `shieldBreak`；`event.armorAbsorbed > 0` → `armor`；返回稳定顺序（按 `priority` 升序）的层名数组；缺字段 / `undefined` / 非法输入返回 `[]` 且不抛错。同一条事件可同时命中 `bossHit` 与 `shieldBreak`（首领带盾）。
-   - `classFloaterText(event, cls)`：`bossHit` → `-<hpLost>`（或 `-<shieldAbsorbed>` 当本击未破盾？按实现冻结：统一按该击实际扣血 `hpLost`，为 0 时用 `shieldAbsorbed`）；`shieldBreak` → `破盾 -<shieldAbsorbed>`；`armor` → `-<armorAbsorbed> 甲`。后缀/文案与 `IMPACT_CLASSES[cls].floater.suffix` 一致。
+   - `classFloaterText(event, cls)`（文案冻结，测试按此断言）：`bossHit` → 该击实际扣血 `-<hpLost>`，若 `hpLost === 0`（首领带盾被完全吸收）则用 `-<shieldAbsorbed>`；`shieldBreak` → `破盾 -<shieldAbsorbed>`；`armor` → `-<armorAbsorbed> 甲`。数值一律 `Math.round`，后缀与 `IMPACT_CLASSES[cls].floater.suffix` 一致。
    - `classVfxSpec(cls, profile)`：按 `profile.particleScale` 缩放并以 `profile.maxParticles` 钳制，**任何档位 `particles >= 1`**；耗尽/低档降级为「核心闪白 + 类别色环」而不是整块消失；未知 cls 返回 `null`。
 3. **层模型接线**：在 AC-016 交付的 `public/js/shared/floaters.js` 中把 `shield` / `armor` / `bossHit` 三层加入 `FLOATER_LAYERS`（`z` 与既有六层两两不同：类别层整体位于 `damage` 之上、`crit` 之下或按文档冻结的顺序），并把三层纳入 `planFloaterFrame` 的重要性排序（`crit > shield > bossHit > armor > penalty > status > reward > heal > damage`，以文档为准）；不改变 AC-016 已有的六层语义与合并规则。
-4. **消费端（新增类，职责单一）**：在 `public/js/game-app.js` 增加 `ImpactFeedbackConsumer` 类（或同文件内等价的单一职责类）——按事件对象身份记录游标，逐帧把 `sim.impactEvents` 中新增的事件取出，调用 `classifyImpactClasses`，命中类别时：
+4. **消费端（新增类，职责单一，导出以便单测）**：在 `public/js/game-app.js` 增加 `ImpactFeedbackConsumer` 类（导出）——按事件对象身份记录游标，逐帧把 `sim.impactEvents` 中新增的事件取出，调用 `classifyImpactClasses`，命中类别时：
    - 用 `sim.addFloater(event.x, event.y - 0.45, classFloaterText(...), IMPACT_CLASSES[cls].floater.color, <big>, { key: true, layer: cls })` 产出类别飘字（`addFloater` 已按 `floatersMode` 门控）；
    - 用 `sim.addEffect({ kind: cls, x: event.x, y: event.y, ttl: ... })` 产出类别特效（`addEffect` 已按 `effectsLevel` 门控）；
    - 游标用「上一条事件对象引用」定位，环形缓冲裁掉旧事件时（引用已不在数组内）整体按当前窗口消费，不抛错、不重复消费。
