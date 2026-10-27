@@ -8,6 +8,7 @@ import {
   RARITY,
   normalizeRelicStates,
 } from './shared/data.js';
+import { t } from './i18n.js';
 
 export const CARD_WIDTH = 1080;
 export const CARD_HEIGHT = 1350;
@@ -28,29 +29,55 @@ export const CARD_COLORS = {
   code: '#6bd6ff',
 };
 
-// 卡片固定中英双语标签，不随界面语言切换。
+// 卡片标签走 i18n 词典；用 getter 在读取时取当前语言，避免模块加载时冻结语言。
 export const CARD_LABELS = {
-  brand: '渊塔守卫 · ABYSS TOWER',
-  victory: '胜利 / VICTORY',
-  defeat: '失败 / DEFEAT',
-  score: '最终得分 / FINAL SCORE',
-  wave: '波次 / WAVE',
-  difficulty: '难度 / DIFFICULTY',
-  mode: '模式 / MODE',
-  relics: '关键遗物 / KEY RELICS',
-  shareCode: '分享码 / SHARE CODE',
-  noRelics: '无遗物 / NO RELICS',
-  noCode: '未生成分享码 / NO SHARE CODE',
-  footer: '渊塔守卫 · 战绩分享卡 / RUN CARD',
+  get brand() {
+    return t('shareCard.brand');
+  },
+  get victory() {
+    return t('shareCard.victory');
+  },
+  get defeat() {
+    return t('shareCard.defeat');
+  },
+  get score() {
+    return t('shareCard.score');
+  },
+  get wave() {
+    return t('shareCard.wave');
+  },
+  get difficulty() {
+    return t('shareCard.difficulty');
+  },
+  get mode() {
+    return t('shareCard.mode');
+  },
+  get relics() {
+    return t('shareCard.relics');
+  },
+  get shareCode() {
+    return t('shareCard.shareCode');
+  },
+  get noRelics() {
+    return t('shareCard.noRelics');
+  },
+  get noCode() {
+    return t('shareCard.noCode');
+  },
+  get footer() {
+    return t('shareCard.footer');
+  },
 };
 
-const MODE_LABELS = {
-  normal: '标准 / Standard',
-  daily: '每日 / Daily',
-  endless: '无尽 / Endless',
-  mutated: '变异 / Mutated',
-  weekly: '周赛 / Weekly',
-};
+function modeLabels() {
+  return {
+    normal: t('shareCard.mode.normal'),
+    daily: t('shareCard.mode.daily'),
+    endless: t('shareCard.mode.endless'),
+    mutated: t('shareCard.mode.mutated'),
+    weekly: t('shareCard.mode.weekly'),
+  };
+}
 
 const DIFFICULTY_EN = { roam: 'Roam', standard: 'Expedition', abyss: 'Abyss' };
 
@@ -153,7 +180,7 @@ export function buildShareCardData({ stats = {}, res = null, mode = 'normal', re
     difficultyId: difficulty.id,
     difficultyText: `${difficulty.name} / ${DIFFICULTY_EN[difficultyId] || difficulty.id}`,
     mode,
-    modeText: MODE_LABELS[mode] || String(mode || '—'),
+    modeText: modeLabels()[mode] || String(mode || '—'),
     relics: cardRelics,
     relicLines: cardRelics.length
       ? cardRelics.map((relic) => `· ${relic.name}  Lv.${relic.level}`)

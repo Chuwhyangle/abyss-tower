@@ -19,41 +19,55 @@ export const modifierName = (modifier) =>
 export const modifierDesc = (modifier) =>
   modifier ? tData('modifier', modifier.id, 'desc', modifier.desc) : null;
 export const ROMAN = ['Ⅰ', 'Ⅱ', 'Ⅲ', 'Ⅳ', 'Ⅴ', 'Ⅵ', 'Ⅶ', 'Ⅷ', 'Ⅸ', 'Ⅹ'];
-export const ROLE_LABELS = { control: '控场', burst: '爆发', ultimate: '终极' };
+// 角色标签表存词典键：文案在渲染时按当前语言解析，模块级常量不得调用 t()。
+export const ROLE_LABELS = Object.freeze({
+  control: 'skill.role.control',
+  burst: 'skill.role.burst',
+  ultimate: 'skill.role.ultimate',
+});
 
-// 进化修正展示：mods 统一是乘法系数，转成百分比文案。
-export const EVOLUTION_LABELS = {
-  dmg: '伤害',
-  rate: '攻速',
-  range: '射程',
-  splash: '溅射',
-  slow: '减速',
-  slowDur: '减速时长',
-  chain: '连锁',
-  dot: '毒伤',
-  dotDur: '毒伤时长',
-  knockback: '击退',
-  buffDmg: '光环增伤',
-  buffRate: '光环攻速',
-};
+// 进化修正展示：mods 统一是乘法系数，转成百分比文案；表里存词典键，渲染时再取译文。
+export const EVOLUTION_LABELS = Object.freeze({
+  dmg: 'uiShared.evolution.dmg',
+  rate: 'uiShared.evolution.rate',
+  range: 'uiShared.evolution.range',
+  splash: 'uiShared.evolution.splash',
+  slow: 'uiShared.evolution.slow',
+  slowDur: 'uiShared.evolution.slowDur',
+  chain: 'uiShared.evolution.chain',
+  dot: 'uiShared.evolution.dot',
+  dotDur: 'uiShared.evolution.dotDur',
+  knockback: 'uiShared.evolution.knockback',
+  buffDmg: 'uiShared.evolution.buffDmg',
+  buffRate: 'uiShared.evolution.buffRate',
+});
 
 export function evolutionEffectText(evolution) {
   return Object.entries(evolution.mods || {})
     .map(([key, mul]) => {
       const pct = Math.round((mul - 1) * 100);
-      return `${EVOLUTION_LABELS[key] || key} ${pct >= 0 ? '+' : ''}${pct}%`;
+      const label = EVOLUTION_LABELS[key] ? t(EVOLUTION_LABELS[key]) : key;
+      return `${label} ${pct >= 0 ? '+' : ''}${pct}%`;
     })
     .join(' · ');
 }
 
-// 「三选一」这类补充分支数量文案，避免写死二选一。
-export const CHOICE_LABELS = ['', '单选', '二选一', '三选一', '四选一'];
-export const choiceLabel = (count) => CHOICE_LABELS[count] || `${count} 选一`;
+// 「三选一」这类补充分支数量文案，避免写死二选一；表里存词典键。
+export const CHOICE_LABELS = Object.freeze([
+  '',
+  'uiShared.choice.single',
+  'uiShared.choice.two',
+  'uiShared.choice.three',
+  'uiShared.choice.four',
+]);
+export const choiceLabel = (count) =>
+  CHOICE_LABELS[count] ? t(CHOICE_LABELS[count]) : t('uiShared.choice.n', { count });
 
 // 技能数据表只有中文；按 id 取当前语言文案，缺译名回退数据原值。
 export const skillName = (entry) => tOr(`skill.${entry.id}.name`, entry.name);
 export const skillDesc = (entry) => tOr(`skill.${entry.id}.desc`, entry.desc);
-export const skillRole = (entry) => tOr(`skill.role.${entry.role}`, ROLE_LABELS[entry.role] || '');
+export const skillRole = (entry) =>
+  tOr(ROLE_LABELS[entry.role] || `skill.role.${entry.role}`, '');
 export const skillUnlock = (entry) =>
   tOr(`skill.unlock.${SKILLS[entry.id]?.unlock}`, entry.unlockHint || skillUnlockText(entry.id));
 

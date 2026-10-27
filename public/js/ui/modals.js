@@ -2,7 +2,7 @@
 import { RELIC_BY_ID, RARITY, RELIC_LEVEL_LABELS, relicEffectText } from '../shared/data.js';
 import { canAffordEventOption, findEventChain } from '../shared/events.js';
 import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
-import { t, tData } from '../i18n.js';
+import { t, tData, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
 import { destructibleCostSpec, destructibleEffectSpec, destructibleFailureKey, destructibleWarningKey } from '../render/destructible-renderer.js';
@@ -28,40 +28,27 @@ export function supplyAmount(offer) {
 
 // 放弃确认文案：按模式说明代价，并给出该模式剩余次数（纯函数）。
 export function abandonConfirmCopy(mode, { dailyLeft = null, weeklyLeft = null } = {}) {
-  if (mode === 'daily') {
-    const left = Number.isFinite(dailyLeft) ? `今日剩余 ${dailyLeft} 次。` : '';
+  const confirmText = t('uiEvent.abandon.confirm');
+  if (mode === 'daily' || mode === 'weekly') {
+    const leftCount = mode === 'daily' ? dailyLeft : weeklyLeft;
+    const left = Number.isFinite(leftCount)
+      ? t(`uiEvent.abandon.${mode}Left`, { n: leftCount })
+      : '';
     return {
-      title: '放弃每日挑战？',
-      text: `放弃后本局不会结算，进度将丢失。${left}每日次数只统计已完成的挑战。`,
-      confirmText: '放弃本局',
+      title: t(`uiEvent.abandon.${mode}Title`),
+      text: t(`uiEvent.abandon.${mode}Text`, { left }),
+      confirmText,
     };
   }
-  if (mode === 'weekly') {
-    const left = Number.isFinite(weeklyLeft) ? `本周剩余 ${weeklyLeft} 次。` : '';
-    return {
-      title: '放弃本周挑战？',
-      text: `放弃后本局不会结算，进度将丢失。${left}本周次数只统计已完成的挑战。`,
-      confirmText: '放弃本局',
-    };
-  }
-  if (mode === 'endless') {
-    return {
-      title: '放弃无尽远征？',
-      text: '放弃后本局不会结算，当前波次进度将丢失。',
-      confirmText: '放弃本局',
-    };
-  }
-  if (mode === 'mutated') {
-    return {
-      title: '放弃变异挑战？',
-      text: '放弃后本局不会结算，当前波次进度将丢失。',
-      confirmText: '放弃本局',
-    };
-  }
+  // 无尽 / 变异 / 常规共用同一段「当前波次进度将丢失」说明。
+  const titles = {
+    endless: 'uiEvent.abandon.endlessTitle',
+    mutated: 'uiEvent.abandon.mutatedTitle',
+  };
   return {
-    title: '放弃远征？',
-    text: '放弃后本局不会结算，当前波次进度将丢失。',
-    confirmText: '放弃本局',
+    title: t(titles[mode] || 'uiEvent.abandon.defaultTitle'),
+    text: t('uiEvent.abandon.endlessText'),
+    confirmText,
   };
 }
 
@@ -236,14 +223,16 @@ export const modalMethods = {
       .map((option, index) => {
         const affordable = canAffordEventOption(option, { gold, baseHp, maxHp });
         const chain = findEventChain(event.id, option.id);
+        const optionName = tOr(`data.event.${event.id}.option.${option.id}.name`, option.name);
+        const optionDesc = tOr(`data.event.${event.id}.option.${option.id}.desc`, option.desc);
         return `
           <button class="relic-card event-card ${affordable ? '' : 'locked'}" data-index="${index}"
             ${affordable ? '' : 'disabled'} style="--rarity:${accent}">
-            <span class="rarity">${event.rare ? '稀有事件' : '事件'} · ${index + 1}</span>
-            <h3>${escapeHtml(option.name)}</h3>
-            <p class="relic-flavor">${escapeHtml(option.desc)}</p>
-            ${chain ? `<span class="muted chain-hint">连锁 · ${chain.delayWaves} 波后</span>` : ''}
-            <span class="pick">${affordable ? '选择' : '资源不足'}</span>
+            <span class="rarity">${t(event.rare ? 'uiEvent.rare' : 'uiEvent.event')} · ${index + 1}</span>
+            <h3>${escapeHtml(optionName)}</h3>
+            <p class="relic-flavor">${escapeHtml(optionDesc)}</p>
+            ${chain ? `<span class="muted chain-hint">${t('uiEvent.chain', { waves: chain.delayWaves })}</span>` : ''}
+            <span class="pick">${affordable ? t('uiEvent.pick') : t('uiEvent.insufficient')}</span>
           </button>
         `;
       })
@@ -252,12 +241,12 @@ export const modalMethods = {
     const modal = this.openModal(
       `
         <div class="event-node">
-          <p class="eyebrow">第 ${wave} 波 · 事件节点</p>
-          <h2>${escapeHtml(event.name)}</h2>
-          <p class="muted">${escapeHtml(event.desc)}</p>
+          <p class="eyebrow">${t('uiEvent.waveEyebrow', { wave })}</p>
+          <h2>${escapeHtml(tData('event', event.id, 'name', event.name))}</h2>
+          <p class="muted">${escapeHtml(tData('event', event.id, 'desc', event.desc))}</p>
           <div class="draft-cards">${cards}</div>
           <div class="draft-actions">
-            <span class="muted">键盘 1–${options.length} 选择</span>
+            <span class="muted">${t('uiEvent.keyboardHint', { count: options.length })}</span>
           </div>
         </div>
       `,

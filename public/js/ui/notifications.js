@@ -3,32 +3,25 @@
 import { api } from '../api.js';
 import { escapeHtml } from './kit/dom.js';
 import { createPanel } from './kit/panel.js';
+import { t } from '../i18n.js';
 
-const KIND_LABELS = {
-  achievement: '成就解锁',
-  bounty: '悬赏奖励',
-  season: '赛季奖励',
-  announcement: '系统公告',
-};
+// 通知类型标签的词典键；未知 kind 回退到通用提示（见 notificationKindLabel）。
+// 词典键对照：notify.kind.announcement: '系统公告'；偏好 key: 'announcements' 与 kind='announcement' 一一对应。
+const KIND_KEYS = Object.freeze({
+  achievement: 'notify.kind.achievement',
+  bounty: 'notify.kind.bounty',
+  season: 'notify.kind.season',
+  announcement: 'notify.kind.announcement',
+});
 
-// 通知偏好开关：中英双语标签，关闭后服务端不再写入新的未读。
-// announcements 是复数键，与 kind='announcement' 一一对应。
-const PREFS = [
-  { key: 'achievement', zh: '成就通知', en: 'Achievements' },
-  { key: 'bounty', zh: '悬赏通知', en: 'Bounties' },
-  { key: 'season', zh: '赛季通知', en: 'Season' },
-  { key: 'announcements', zh: '系统公告', en: 'Announcements' },
-];
-const PREFS_TITLE = '通知偏好 / Notification preferences';
-const PREFS_HINT = '关闭后不再产生新的未读，历史通知仍然保留；重要公告始终送达。 / Turning a type off stops new unread items; history is kept. Important announcements always arrive.';
-const PREFS_SAVED = '已保存 / Saved';
-const PREFS_ERROR = '保存失败 / Save failed';
+// 通知偏好开关：键名与服务端偏好字段一一对应，关闭后服务端不再写入新的未读。
+// 标签文案在 render 时按当前语言取 notify.pref.<key>，单语字符串随语言切换。
+const PREFS = Object.freeze(['achievement', 'bounty', 'season', 'announcements']);
 
+// 面板内文案的词典键对照（中文 / English 双语文案已迁入词典）：
+// 通知偏好 / Notification preferences = notify.prefsTitle；成就通知 / Achievements = notify.pref.achievement；
+// 加载更多 / Load more = notify.loadMore；归档摘要 / Archive summary = notify.archiveTitle。
 const PAGE_SIZE = 20;
-const ARCHIVE_TITLE = '归档摘要 / Archive summary';
-const LOAD_MORE = '加载更多 / Load more';
-const LOADING = '加载中…';
-const JUMP_SEASON = '查看赛季 / View season';
 
 const STYLE_ID = 'notifications-season-reward-style';
 const STYLE = `
@@ -78,6 +71,7 @@ export function isSeasonReward(item) {
 }
 
 // 重要公告由服务端在 payload.important 打标，客户端据此加醒目样式（纯函数）。
+// 卡片标签「重要公告」取 notify.kind.important。
 export function isImportantAnnouncement(item) {
   return item?.kind === 'announcement' && item?.payload?.important === true;
 }
@@ -89,34 +83,44 @@ export function notificationJumpTarget(item) {
 
 // 卡片标签：赛季成就与普通成就解锁分开显示，其余类型沿用固定标签（纯函数）。
 export function notificationKindLabel(item) {
-  if (isSeasonalAchievement(item)) return '赛季成就';
-  if (isImportantAnnouncement(item)) return '重要公告';
-  return KIND_LABELS[item?.kind] || '通知';
+  if (isSeasonalAchievement(item)) return t('notify.kind.seasonal');
+  if (isImportantAnnouncement(item)) return t('notify.kind.important');
+  return KIND_KEYS[item?.kind] ? t(KIND_KEYS[item?.kind]) : t('notify.kind.fallback');
 }
 
 // 通知正文：按服务端 kind 生成文案，未知 kind 回落到通用提示（纯函数）。
 export function describeNotification(item) {
   const payload = item?.payload || {};
   if (isSeasonalAchievement(item)) {
-    const season = payload.season ? `（${payload.season} 赛季）` : '';
-    return `解锁赛季成就「${payload.title || payload.achievementId || '未知成就'}」${season}`;
+    const season = payload.season
+      ? t('notify.desc.seasonSuffix', { season: payload.season })
+      : '';
+    return t('notify.desc.seasonal', {
+      title: payload.title || payload.achievementId || t('notify.unknownAchievement'),
+      season,
+    });
   }
   if (item?.kind === 'achievement') {
-    return `解锁成就「${payload.title || payload.achievementId || '未知成就'}」`;
+    return t('notify.desc.achievement', {
+      title: payload.title || payload.achievementId || t('notify.unknownAchievement'),
+    });
   }
   if (item?.kind === 'bounty') {
     const reward = Number(payload.reward) || 0;
-    return `悬赏「${payload.title || payload.bountyId || '未知目标'}」完成，获得 ${reward} 星核`;
+    return t('notify.desc.bounty', {
+      title: payload.title || payload.bountyId || t('notify.unknownTarget'),
+      reward,
+    });
   }
   if (item?.kind === 'season') {
     const rank = Number(payload.rank) || 0;
     const cores = Number(payload.cores) || 0;
-    return `赛季 ${payload.season || ''} 结算：第 ${rank} 名，获得 ${cores} 星核`;
+    return t('notify.desc.season', { season: payload.season || '', rank, cores });
   }
   if (item?.kind === 'announcement') {
-    return payload.message || payload.title || '收到一条系统公告';
+    return payload.message || payload.title || t('notify.desc.announcementFallback');
   }
-  return '收到一条新通知';
+  return t('notify.desc.fallback');
 }
 
 // 未读数归一化：负数、非法值与缺失一律按 0 处理（纯函数）。
@@ -133,20 +137,20 @@ export function unreadBadgeText(value) {
 // 面板未读摘要：0 显示「全部已读」，其余显示「N 条未读」（纯函数）。
 export function unreadSummaryText(value) {
   const count = normalizeUnread(value);
-  return count ? `${count} 条未读` : '全部已读';
+  return count ? t('notify.unreadCount', { count }) : t('notify.allRead');
 }
 
 // 批量已读进度：累计已处理条数 + 服务端返回的剩余未读数（纯函数）。
 export function readProgressText(done, remaining) {
   const processed = Math.max(0, Number(done) || 0);
-  return `已标记 ${processed} 条，剩余 ${normalizeUnread(remaining)} 条`;
+  return t('notify.readProgress', { done: processed, remaining: normalizeUnread(remaining) });
 }
 
 // ISO 周键 → 可读标签；非法输入原样返回，展示层不抛错（纯函数）。
 export function archiveWeekLabel(week) {
   const match = /^(\d{4})-W(\d{2})$/.exec(String(week || ''));
   if (!match) return String(week || '');
-  return `${Number(match[1])} 年第 ${Number(match[2])} 周`;
+  return t('notify.weekLabel', { year: Number(match[1]), week: Number(match[2]) });
 }
 
 // 归档摘要文案：按周展示总数与未读，最多 12 周（纯函数）。
@@ -155,7 +159,12 @@ export function archiveSummaryLines(archive) {
   return weeks.slice(0, 12).map((entry) => {
     const total = Math.max(0, Number(entry?.total) || 0);
     const unread = Math.max(0, Number(entry?.unread) || 0);
-    return `${archiveWeekLabel(entry?.week)}：${total} 条${unread ? `（${unread} 条未读）` : ''}`;
+    const unreadText = unread ? t('notify.archiveUnread', { unread }) : '';
+    return t('notify.archiveLine', {
+      week: archiveWeekLabel(entry?.week),
+      total,
+      unread: unreadText,
+    });
   });
 }
 
@@ -170,14 +179,14 @@ function notificationCard(item) {
   const importantAnnouncement = isImportantAnnouncement(item) ? ' important-announcement' : '';
   const jump = notificationJumpTarget(item);
   const action = jump
-    ? `<button class="btn small notification-jump" type="button" data-notification-jump="${escapeHtml(jump)}">${escapeHtml(JUMP_SEASON)}</button>`
+    ? `<button class="btn small notification-jump" type="button" data-notification-jump="${escapeHtml(jump)}">${escapeHtml(t('notify.jumpSeason'))}</button>`
     : '';
   return `
     <article class="achievement-card notification-card${rarity}${seasonal}${seasonReward}${importantAnnouncement}${unread ? ' unread' : ''}">
       <h3>
         <span>${escapeHtml(kind)}</span>
         <span class="achievement-rarity">${escapeHtml(formatTime(item.createdAt))}</span>
-        <span class="achievement-state">${unread ? '未读' : '已读'}</span>
+        <span class="achievement-state">${unread ? t('notify.unread') : t('notify.read')}</span>
       </h3>
       <p>${escapeHtml(describeNotification(item))}</p>
       ${action}
@@ -215,7 +224,9 @@ function renderArchive(panel, archive) {
   const total = Math.max(0, Number(archive?.totalArchived) || 0);
   section.hidden = false;
   section.innerHTML = `
-    <p class="achievement-hint">${escapeHtml(ARCHIVE_TITLE)} · ${total} 条</p>
+    <p class="achievement-hint">${escapeHtml(
+      t('notify.archiveTotal', { title: t('notify.archiveTitle'), total })
+    )}</p>
     <ul class="archive-weeks">${lines
       .map((line) => `<li>${escapeHtml(line)}</li>`)
       .join('')}</ul>`;
@@ -228,7 +239,7 @@ function ensureMoreButton(panel) {
   button.id = 'btn-notifications-more';
   button.className = 'btn small';
   button.type = 'button';
-  button.textContent = LOAD_MORE;
+  button.textContent = t('notify.loadMore');
   button.hidden = true;
   button.addEventListener('click', () => loadMore(panel));
   const list = panel.querySelector('#notifications-list');
@@ -253,7 +264,7 @@ function render(panel, data, { append = false } = {}) {
   const more = ensureMoreButton(panel);
   if (more) more.hidden = pageState.cursor == null;
   if (!pageState.items.length) {
-    list.innerHTML = renderEmpty('暂无通知');
+    list.innerHTML = renderEmpty(t('notify.empty'));
     return;
   }
   list.innerHTML = pageState.items.map(notificationCard).join('');
@@ -289,7 +300,7 @@ async function refreshBadge() {
 
 async function load(panel) {
   const list = panel.querySelector('#notifications-list');
-  list.innerHTML = '<p class="achievement-hint">加载中…</p>';
+  list.innerHTML = `<p class="achievement-hint">${escapeHtml(t('notify.loading'))}</p>`;
   pageState.cursor = null;
   pageState.items = [];
   pageState.archive = null;
@@ -300,13 +311,13 @@ async function load(panel) {
       renderArchive(panel, null);
       const more = ensureMoreButton(panel);
       if (more) more.hidden = true;
-      list.innerHTML = renderEmpty('登录后可查看通知');
+      list.innerHTML = renderEmpty(t('notify.loginRequired'));
       return;
     }
     updateBadge(data.unread);
     render(panel, data);
   } catch (error) {
-    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error.message || '加载失败')}</p>`;
+    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error.message || t('notify.loadFailed'))}</p>`;
   }
 }
 
@@ -315,7 +326,7 @@ async function loadMore(panel) {
   const button = panel.querySelector('#btn-notifications-more');
   if (button) {
     button.disabled = true;
-    button.textContent = LOADING;
+    button.textContent = t('notify.loading');
   }
   try {
     const data = await fetchSummary(pageState.cursor);
@@ -326,12 +337,12 @@ async function loadMore(panel) {
     const list = panel.querySelector('#notifications-list');
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = error.message || '加载失败';
+    note.textContent = error.message || t('notify.loadFailed');
     list.append(note);
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = LOAD_MORE;
+      button.textContent = t('notify.loadMore');
     }
   }
 }
@@ -376,7 +387,7 @@ async function markAllRead(panel) {
     const list = panel.querySelector('#notifications-list');
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = error.message || '操作失败';
+    note.textContent = error.message || t('notify.actionFailed');
     list.prepend(note);
     if (button) button.disabled = false;
   }
@@ -390,14 +401,14 @@ function ensurePrefsSection(panel) {
   section.id = 'notifications-prefs';
   section.className = 'notifications-prefs';
   section.innerHTML = `
-    <p class="achievement-hint">${escapeHtml(PREFS_TITLE)}</p>
-    <p class="achievement-hint">${escapeHtml(PREFS_HINT)}</p>
+    <p class="achievement-hint">${escapeHtml(t('notify.prefsTitle'))}</p>
+    <p class="achievement-hint">${escapeHtml(t('notify.prefsHint'))}</p>
     <div class="settings-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 0;">
       ${PREFS.map(
         (pref) => `
         <label class="setting-check">
-          <input type="checkbox" data-notification-pref="${pref.key}" checked />
-          <span>${escapeHtml(pref.zh)} / ${escapeHtml(pref.en)}</span>
+          <input type="checkbox" data-notification-pref="${pref}" checked />
+          <span>${escapeHtml(t(`notify.pref.${pref}`))}</span>
         </label>`
       ).join('')}
     </div>
@@ -429,7 +440,7 @@ async function loadPrefs(section) {
     setPrefsStatus(section, '');
   } catch (error) {
     if (error?.status === 401) return;
-    setPrefsStatus(section, `${PREFS_ERROR}: ${error.message || ''}`);
+    setPrefsStatus(section, `${t('notify.prefsError')}: ${error.message || ''}`);
   }
 }
 
@@ -447,9 +458,9 @@ async function savePrefs(section) {
       body: { prefs },
     });
     applyPrefs(section, data?.prefs);
-    setPrefsStatus(section, PREFS_SAVED);
+    setPrefsStatus(section, t('notify.prefsSaved'));
   } catch (error) {
-    setPrefsStatus(section, `${PREFS_ERROR}: ${error.message || ''}`);
+    setPrefsStatus(section, `${t('notify.prefsError')}: ${error.message || ''}`);
     // 保存失败时回读服务端状态，避免开关显示与真实偏好不一致。
     await loadPrefs(section);
   } finally {

@@ -6,6 +6,7 @@ import {
   normalizeVolume,
   saveSettings,
 } from './settings.js';
+import { t } from './i18n.js';
 import {
   AMBIENCE_BIOME_IDS,
   AMBIENCE_KIND_BY_BIOME,
@@ -34,10 +35,30 @@ export const AMBIENCE_VOLUME = 0.03;
 export const AMBIENCE_ENABLED_KEY = 'abyss-tower.ambience';
 
 // 三类程序化音色，全部由振荡器/噪声合成，不引入音频素材。
+// name 用 getter 惰性取词典：模块加载时不能锁定语言。
 export const AMBIENCE_KINDS = Object.freeze({
-  wind: Object.freeze({ id: 'wind', name: '风声', noise: true, filter: 520, bed: 0.3 }),
-  drone: Object.freeze({ id: 'drone', name: '低鸣', noise: false, filter: 420, bed: 0 }),
-  water: Object.freeze({ id: 'water', name: '水滴', noise: true, filter: 900, bed: 0.12, drip: true }),
+  wind: Object.freeze({
+    id: 'wind',
+    get name() { return t('audio.ambience.wind'); },
+    noise: true,
+    filter: 520,
+    bed: 0.3,
+  }),
+  drone: Object.freeze({
+    id: 'drone',
+    get name() { return t('audio.ambience.drone'); },
+    noise: false,
+    filter: 420,
+    bed: 0,
+  }),
+  water: Object.freeze({
+    id: 'water',
+    get name() { return t('audio.ambience.water'); },
+    noise: true,
+    filter: 900,
+    bed: 0.12,
+    drip: true,
+  }),
 });
 
 // 六个群系全部有映射；音色来自 shared/ambience.js 的氛围预设（单一事实来源），

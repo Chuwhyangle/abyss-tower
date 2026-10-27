@@ -2,7 +2,7 @@
 import { DIFFICULTIES, SKILLS } from '../shared/data.js';
 import { ACHIEVEMENT_BY_ID, ACHIEVEMENT_RARITIES } from '../shared/achievements.js';
 import { MUTATIONS } from '../shared/mutations.js';
-import { t } from '../i18n.js';
+import { t, tData } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { buildShareCardData, downloadShareCard } from '../share-card.js';
@@ -42,7 +42,7 @@ export const resultMethods = {
     const rank = res?.rank;
     const personalBest = res?.personalBest;
     const mutationNames = (res?.mutations?.ids || [])
-      .map((id) => MUTATIONS[id]?.name || id)
+      .map((id) => tData('mutation', id, 'name', MUTATIONS[id]?.name || id))
       .join(' · ');
     const extra =
       mode === 'daily' && dailyLeft != null
@@ -50,7 +50,7 @@ export const resultMethods = {
         : mode === 'endless'
           ? `<p class="muted">${t('result.endlessNote')}</p>`
           : mode === 'mutated'
-            ? `<p class="muted">变异挑战${mutationNames ? ` · ${escapeHtml(mutationNames)}` : ''}</p>`
+            ? `<p class="muted">${t('result.mutatedTag')}${mutationNames ? ` · ${escapeHtml(mutationNames)}` : ''}</p>`
             : '';
 
     const diffTag = victory
@@ -124,7 +124,7 @@ export const resultMethods = {
           <div class="modal-actions">
             <button class="btn primary" id="btn-again">${t('result.again')}</button>
             <button class="btn" id="btn-share-result" data-result-share>${t('result.share')}</button>
-            <button class="btn" id="btn-save-card" data-result-card>保存战绩卡片</button>
+            <button class="btn" id="btn-save-card" data-result-card>${t('result.saveCard')}</button>
             <button class="btn ghost" id="btn-home">${t('result.home')}</button>
           </div>
         </div>
@@ -158,10 +158,10 @@ export const resultMethods = {
     const data = buildShareCardData({ stats, res, mode, relics, shareCode });
     const result = await downloadShareCard(data);
     if (!result.ok) {
-      this.toast('当前浏览器无法生成战绩卡片', 2400);
+      this.toast(t('result.cardUnavailable'), 2400);
       return;
     }
-    this.toast(`已保存 ${result.filename}`, 2400);
+    this.toast(t('result.cardSaved', { filename: result.filename }), 2400);
   },
 
   // 分数滚动：系统要求减少动效或环境不支持逐帧时直接显示终值。

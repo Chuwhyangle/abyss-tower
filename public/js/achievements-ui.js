@@ -88,10 +88,8 @@ function groupSections(data, items) {
 function seasonStatusText(seasonal) {
   const view = seasonPanelView(seasonal);
   if (view.endsAt == null) return '';
-  if (view.ended) return tOr('achievements.seasonEnded', '本赛季已结束 / Season ended');
-  return tOr('achievements.seasonDaysLeft', '剩余 {days} 天 / {days} days left', {
-    days: view.daysLeft,
-  });
+  if (view.ended) return t('achievements.seasonEnded');
+  return t('achievements.seasonDaysLeft', { days: view.daysLeft });
 }
 
 // 赛季区块与普通分组共用卡片/进度条结构，只是标题由服务端赛季 id 派生。
@@ -118,14 +116,14 @@ function seasonalSections(data) {
   const current = Array.isArray(seasonal?.achievements) ? seasonal.achievements : [];
   const history = Array.isArray(data?.seasonalHistory) ? data.seasonalHistory : [];
   const currentBlock = seasonSection(
-    tOr('achievements.seasonCurrent', '本赛季 · {season}', { season: seasonal?.season || '' }),
+    t('achievements.seasonCurrent', { season: seasonal?.season || '' }),
     current,
     { meta: seasonStatusText(seasonal) }
   );
   const historyBlock = history
     .map((entry) =>
       seasonSection(
-        tOr('achievements.seasonHistory', '荣誉赛季 · {season}', { season: entry.season }),
+        t('achievements.seasonHistory', { season: entry.season }),
         Array.isArray(entry.achievements) ? entry.achievements : [],
         { history: true }
       )

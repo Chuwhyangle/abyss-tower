@@ -11,7 +11,7 @@ import {
 } from '../shared/data.js';
 import { MUTATIONS, MUTATION_MAX, MUTATION_ORDER, mutationScoreMul } from '../shared/mutations.js';
 import { weekKey } from '../shared/scoring.js';
-import { t } from '../i18n.js';
+import { t, tData } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import {
   fmt,
@@ -283,12 +283,14 @@ export const titleMethods = {
     const mutationCards = MUTATION_ORDER.map((id) => {
       const def = MUTATIONS[id];
       const on = chosen.has(id);
+      const name = tData('mutation', id, 'name', def.name);
+      const desc = tData('mutation', id, 'desc', def.desc);
       return `
         <button class="diff-card" type="button" data-mutation="${id}" aria-pressed="${on}"
           style="--diff:#c58cff${on ? ';border-color:#c58cff' : ''}">
-          <span class="diff-name">${escapeHtml(def.name)}</span>
-          <p>${escapeHtml(def.desc)}</p>
-          <div class="diff-mods"><span>分数 ×${def.scoreMul.toFixed(2)}</span></div>
+          <span class="diff-name">${escapeHtml(name)}</span>
+          <p>${escapeHtml(desc)}</p>
+          <div class="diff-mods"><span>${t('title.scoreMul', { mul: def.scoreMul.toFixed(2) })}</span></div>
         </button>`;
     }).join('');
     const diffCards = DIFFICULTY_ORDER.map((id) => {
@@ -308,8 +310,8 @@ export const titleMethods = {
     const modal = this.openModal(
       `<div class="difficulty">
         <p class="eyebrow">SELF TRANSCENDENCE</p>
-        <h2>变异挑战 · 选择变异（1–${MUTATION_MAX}）</h2>
-        <p class="muted">变异会同时提高最终分数倍率；同一组变异拥有独立榜单。</p>
+        <h2>${t('title.mutationTitle', { max: MUTATION_MAX })}</h2>
+        <p class="muted">${t('title.mutationNote')}</p>
         ${this.skillBarHtml(skillState, selectedSkill)}
         <div class="diff-cards" data-mutation-cards>${mutationCards}</div>
         <p class="muted" id="mutation-summary"></p>
@@ -327,8 +329,8 @@ export const titleMethods = {
       const ids = [...chosen].sort();
       const mul = mutationScoreMul(ids);
       summary.textContent = ids.length
-        ? `已选 ${ids.length}/${MUTATION_MAX} · 分数 ×${mul.toFixed(2)}`
-        : `最多选择 ${MUTATION_MAX} 个变异`;
+        ? t('title.mutationSelected', { count: ids.length, max: MUTATION_MAX, mul: mul.toFixed(2) })
+        : t('title.mutationLimit', { max: MUTATION_MAX });
       modal.querySelectorAll('[data-mutation]').forEach((card) => {
         const on = chosen.has(card.dataset.mutation);
         card.setAttribute('aria-pressed', String(on));
@@ -343,7 +345,7 @@ export const titleMethods = {
         if (chosen.has(id)) {
           chosen.delete(id);
         } else if (chosen.size >= MUTATION_MAX) {
-          this.toast(`最多选择 ${MUTATION_MAX} 个变异`, 2200);
+          this.toast(t('title.mutationLimit', { max: MUTATION_MAX }), 2200);
           return;
         } else {
           chosen.add(id);
@@ -355,7 +357,7 @@ export const titleMethods = {
     modal.querySelectorAll('[data-diff]').forEach((card) => {
       card.onclick = () => {
         if (chosen.size < 1) {
-          this.toast('请先选择至少一个变异', 2200);
+          this.toast(t('title.mutationRequired'), 2200);
           return;
         }
         this._mutationSelection = [...chosen].sort();

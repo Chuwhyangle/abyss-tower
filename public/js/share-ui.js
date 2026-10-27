@@ -1,105 +1,13 @@
 // 分享码玩家入口：结算页生成分享码，大厅输入框导入并校验。
 // 只消费既有 /api/replay 接口与 shared/replay.js 的校验结果，不改变编码格式。
-// 文案自持中英双语，跟随 i18n 当前语言；不依赖样式表（面板样式随模块注入）。
+// 文案统一走 i18n 词典（share.*），跟随当前语言；不依赖样式表（面板样式随模块注入）。
 import { MAX_REPLAY_CODE_LENGTH, validateRun } from './shared/replay.js';
-import { getLocale } from './i18n.js';
+import { getLocale, t, tFor, tOrFor } from './i18n.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
 
 const API_URL = '/api/replay';
 const STYLE_ID = 'share-ui-style';
-const DEFAULT_LOCALE = 'zh-CN';
-
-const COPY = {
-  'zh-CN': {
-    lobbyButton: '分享码',
-    lobbyTitle: '分享码',
-    close: '关闭',
-    importLabel: '粘贴分享码',
-    importPlaceholder: 'RTD1.…',
-    importAction: '导入',
-    validating: '校验中…',
-    importOk: '分享码有效',
-    runInfo: '对局信息',
-    resultTitle: '分享本局',
-    resultHint: '生成一段分享码，朋友可在大厅导入复现本局配置。',
-    generate: '生成分享码',
-    generating: '生成中…',
-    copy: '复制',
-    copied: '已复制到剪贴板',
-    copyManual: '无法自动复制，已选中分享码，请按 Ctrl+C 复制',
-    copyFailed: '无法自动复制，请手动选择分享码',
-    network: '网络异常，请稍后再试',
-    codeLength: '分享码长度 {n} / {max}',
-    summary: '种子 {seed} · 难度 {difficulty} · 模式 {mode} · 遗物 {relics} · 事件 {events}',
-    modes: { normal: '标准', daily: '每日', endless: '无尽' },
-    difficulties: { roam: '漫游', standard: '远征', abyss: '深渊' },
-    errors: {
-      invalidRequest: '请提供分享码',
-      empty: '请输入分享码',
-      tooLong: '分享码过长（最多 {max} 个字符）',
-      badFormat: '分享码格式不正确，请确认是否完整复制',
-      badChecksum: '分享码校验失败，可能已损坏',
-      badPayload: '分享码内容损坏',
-      unsupportedVersion: '分享码版本不受支持，请更新游戏',
-      unknownField: '分享码包含未知字段',
-      malformed: '分享码损坏，无法解析',
-      invalidRun: '对局数据无效',
-      invalidSeed: '对局种子无效',
-      invalidMap: '地图选择无效',
-      invalidDifficulty: '难度无效',
-      invalidMode: '当前模式不支持分享码',
-      invalidRelics: '遗物数据无效',
-      invalidEvents: '事件数据无效',
-      authRequired: '请先登录后再使用分享码',
-      invalid: '分享码无效',
-    },
-  },
-  'en-US': {
-    lobbyButton: 'Share code',
-    lobbyTitle: 'Share code',
-    close: 'Close',
-    importLabel: 'Paste a share code',
-    importPlaceholder: 'RTD1.…',
-    importAction: 'Import',
-    validating: 'Checking…',
-    importOk: 'Share code is valid',
-    runInfo: 'Run details',
-    resultTitle: 'Share this run',
-    resultHint: 'Generate a code that friends can import in the lobby to reproduce this run.',
-    generate: 'Generate share code',
-    generating: 'Generating…',
-    copy: 'Copy',
-    copied: 'Copied to clipboard',
-    copyManual: 'Automatic copy failed — the code is selected, press Ctrl+C to copy',
-    copyFailed: 'Automatic copy failed — please select the code manually',
-    network: 'Network error — please try again later',
-    codeLength: 'Share code length {n} / {max}',
-    summary: 'Seed {seed} · {difficulty} · {mode} · Relics {relics} · Events {events}',
-    modes: { normal: 'Standard', daily: 'Daily', endless: 'Endless' },
-    difficulties: { roam: 'Roam', standard: 'Expedition', abyss: 'Abyss' },
-    errors: {
-      invalidRequest: 'Please provide a share code',
-      empty: 'Enter a share code',
-      tooLong: 'Share code is too long (max {max} characters)',
-      badFormat: 'Invalid share code format — check that you copied it fully',
-      badChecksum: 'Share code failed verification; it may be corrupted',
-      badPayload: 'Share code contents are corrupted',
-      unsupportedVersion: 'Unsupported share code version — please update the game',
-      unknownField: 'Share code contains unknown fields',
-      malformed: 'The share code is corrupted and cannot be parsed',
-      invalidRun: 'Invalid run data',
-      invalidSeed: 'Invalid run seed',
-      invalidMap: 'Invalid map choice',
-      invalidDifficulty: 'Invalid difficulty',
-      invalidMode: 'This mode does not support share codes',
-      invalidRelics: 'Invalid relic data',
-      invalidEvents: 'Invalid event data',
-      authRequired: 'Please sign in to use share codes',
-      invalid: 'Invalid share code',
-    },
-  },
-};
 
 const ERROR_KEYS = {
   REPLAY_INVALID_REQUEST: 'invalidRequest',
@@ -225,37 +133,35 @@ const STYLE = `
   }
 `;
 
-function copyFor(locale = getLocale()) {
-  return COPY[locale] || COPY[DEFAULT_LOCALE];
-}
-
-function fill(template, params = {}) {
-  return String(template).replace(/\{(\w+)\}/g, (match, key) =>
-    Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match
-  );
+function modeLabel(mode, locale) {
+  if (mode === 'normal') return tFor(locale, 'career.standard');
+  if (mode === 'daily') return tFor(locale, 'career.daily');
+  if (mode === 'endless') return tFor(locale, 'share.modeEndless');
+  return mode || '—';
 }
 
 // 错误码 → 可读文案；未知错误码回退到通用提示，绝不把裸错误码抛给玩家。
 export function errorText(code, locale = getLocale()) {
-  const copy = copyFor(locale);
   const key = ERROR_KEYS[code] || 'invalid';
-  return fill(copy.errors[key] || copy.errors.invalid, { max: MAX_REPLAY_CODE_LENGTH });
+  const fallback = tFor(locale, 'share.error.invalid', { max: MAX_REPLAY_CODE_LENGTH });
+  return tOrFor(locale, `share.error.${key}`, fallback, { max: MAX_REPLAY_CODE_LENGTH });
 }
 
 // 分享码长度展示：小屏也完整显示当前码长与上限。
 export function formatCodeLength(code, locale = getLocale()) {
   const length = typeof code === 'string' ? code.length : 0;
-  return fill(copyFor(locale).codeLength, { n: length, max: MAX_REPLAY_CODE_LENGTH });
+  return tFor(locale, 'share.codeLength', { n: length, max: MAX_REPLAY_CODE_LENGTH });
 }
 
 // 导入成功后的对局摘要；难度按当前语言取译名，缺失时回退原始值。
 export function formatReplaySummary(run = {}, locale = getLocale()) {
-  const copy = copyFor(locale);
-  const difficulty = copy.difficulties[run.difficulty] || run.difficulty || '—';
-  return fill(copy.summary, {
+  const difficulty = run.difficulty
+    ? tOrFor(locale, `data.difficulty.${run.difficulty}.name`, run.difficulty)
+    : '—';
+  return tFor(locale, 'share.summary', {
     seed: run.seed ?? '—',
     difficulty,
-    mode: copy.modes[run.mode] || run.mode || '—',
+    mode: modeLabel(run.mode, locale),
     relics: Array.isArray(run.relics) ? run.relics.length : 0,
     events: Array.isArray(run.events) ? run.events.length : 0,
   });
@@ -371,7 +277,7 @@ class ShareUI {
 
   syncButton() {
     if (!this.button) return;
-    const label = copyFor().lobbyButton;
+    const label = t('share.title');
     this.button.textContent = label;
     this.button.title = label;
     this.button.setAttribute('aria-label', label);
@@ -390,19 +296,19 @@ class ShareUI {
 
   renderLobby() {
     if (!this.lobby) return;
-    const copy = copyFor();
+    const closeLabel = t('common.close');
     const previous = this.lobby.querySelector('#share-import-input')?.value || '';
     this.lobby.innerHTML = `
       <div class="share-head">
-        <h2>${escapeHtml(copy.lobbyTitle)}</h2>
-        <button class="icon-btn" type="button" data-share-close title="${escapeHtml(copy.close)}"
-          aria-label="${escapeHtml(copy.close)}">×</button>
+        <h2>${escapeHtml(t('share.lobbyTitle'))}</h2>
+        <button class="icon-btn" type="button" data-share-close title="${escapeHtml(closeLabel)}"
+          aria-label="${escapeHtml(closeLabel)}">×</button>
       </div>
-      <label class="share-label" for="share-import-input">${escapeHtml(copy.importLabel)}</label>
+      <label class="share-label" for="share-import-input">${escapeHtml(t('share.importLabel'))}</label>
       <textarea id="share-import-input" class="share-input" rows="3" spellcheck="false"
-        maxlength="${MAX_REPLAY_CODE_LENGTH}" placeholder="${escapeHtml(copy.importPlaceholder)}"></textarea>
+        maxlength="${MAX_REPLAY_CODE_LENGTH}" placeholder="RTD1.…"></textarea>
       <div class="share-actions" style="margin-top:10px">
-        <button class="btn small" type="button" data-share-import>${escapeHtml(copy.importAction)}</button>
+        <button class="btn small" type="button" data-share-import>${escapeHtml(t('share.importAction'))}</button>
         <span class="share-status" role="status" aria-live="polite" data-share-import-status></span>
       </div>
       <div data-share-import-result hidden></div>
@@ -431,7 +337,7 @@ class ShareUI {
       setStatus(status, errorText('REPLAY_EMPTY'), 'error');
       return;
     }
-    setStatus(status, copyFor().validating, null);
+    setStatus(status, t('share.validating'), null);
     const response = await postReplay({ code });
     if (!response.ok) {
       setStatus(status, this.failureText(response), 'error');
@@ -442,11 +348,11 @@ class ShareUI {
       return;
     }
     const run = response.data?.run || {};
-    setStatus(status, copyFor().importOk, 'ok');
+    setStatus(status, t('share.importOk'), 'ok');
     if (result) {
       result.hidden = false;
       result.innerHTML = `
-        <h3>${escapeHtml(copyFor().runInfo)}</h3>
+        <h3>${escapeHtml(t('share.runInfo'))}</h3>
         <p class="share-summary">${escapeHtml(formatReplaySummary(run))}</p>
       `;
     }
@@ -454,7 +360,7 @@ class ShareUI {
 
   failureText(response) {
     if (response?.code) return errorText(response.code);
-    if (response?.offline) return copyFor().network;
+    if (response?.offline) return t('share.network');
     return errorText(null);
   }
 
@@ -473,14 +379,13 @@ class ShareUI {
   }
 
   buildResultSection(section) {
-    const copy = copyFor();
     const previousOutput = section.querySelector('[data-share-output]');
     const hadOutput = previousOutput ? !previousOutput.hidden : false;
     section.innerHTML = `
-      <h3>${escapeHtml(copy.resultTitle)}</h3>
-      <p class="share-hint">${escapeHtml(copy.resultHint)}</p>
+      <h3>${escapeHtml(t('result.share'))}</h3>
+      <p class="share-hint">${escapeHtml(t('share.resultHint'))}</p>
       <div class="share-actions">
-        <button class="btn small" type="button" data-share-generate>${escapeHtml(copy.generate)}</button>
+        <button class="btn small" type="button" data-share-generate>${escapeHtml(t('share.generate'))}</button>
         <span class="share-status" role="status" aria-live="polite" data-share-status></span>
       </div>
       <div data-share-output hidden></div>
@@ -501,7 +406,7 @@ class ShareUI {
       return;
     }
     if (button) button.disabled = true;
-    setStatus(status, copyFor().generating, null);
+    setStatus(status, t('share.generating'), null);
     const response = await postReplay({ run: built.run });
     if (button) button.disabled = false;
     if (!response.ok) {
@@ -521,14 +426,13 @@ class ShareUI {
 
   renderOutput(output, code) {
     if (!output) return;
-    const copy = copyFor();
     output.hidden = false;
     output.innerHTML = `
       <div class="share-code-value" tabindex="0" role="textbox" aria-readonly="true"
-        aria-label="${escapeHtml(copy.resultTitle)}" data-share-code></div>
+        aria-label="${escapeHtml(t('result.share'))}" data-share-code></div>
       <p class="share-status" data-share-length></p>
       <div class="share-actions">
-        <button class="btn small" type="button" data-share-copy>${escapeHtml(copy.copy)}</button>
+        <button class="btn small" type="button" data-share-copy>${escapeHtml(t('share.copy'))}</button>
         <span class="share-status" role="status" aria-live="polite" data-share-copy-status></span>
       </div>
     `;
@@ -546,8 +450,11 @@ class ShareUI {
       clipboard: globalThis.navigator?.clipboard,
       select: () => selectElementText(codeNode),
     });
-    const copy = copyFor();
-    const message = result.ok ? copy.copied : result.selected ? copy.copyManual : copy.copyFailed;
+    const message = result.ok
+      ? t('share.copied')
+      : result.selected
+        ? t('share.copyManual')
+        : t('share.copyFailed');
     setStatus(status, message, result.ok ? 'ok' : 'error');
   }
 

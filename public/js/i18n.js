@@ -62,12 +62,27 @@ export function tOr(key, fallback, params = {}) {
   return template == null ? fallback : interpolate(template, params);
 }
 
+// 按显式 locale 取文案：给「保留 locale 形参」的纯格式化函数共用，不读写当前语言。
+export function tFor(locale, key, params = {}) {
+  const dictionary = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
+  const template = dictionary[key] ?? DICTIONARIES[DEFAULT_LOCALE][key];
+  return template == null ? key : interpolate(template, params);
+}
+
+// 按显式 locale 取文案，缺译文时回退调用方原值（与 tOr 语义一致）。
+export function tOrFor(locale, key, fallback, params = {}) {
+  const dictionary = DICTIONARIES[locale] || DICTIONARIES[DEFAULT_LOCALE];
+  const template = dictionary[key] ?? DICTIONARIES[DEFAULT_LOCALE][key];
+  return template == null ? fallback : interpolate(template, params);
+}
+
 // 数据表里的专有名词（难度/塔/敌人等）按 id 取译名，缺译名回退数据自带名称。
-export function tData(group, id, field, fallback) {
+// params 用于带变量的数据文案（如悬赏目标值）；缺键时回退 fallback（通常已由数据源插值好）。
+export function tData(group, id, field, fallback, params = {}) {
   const key = `data.${group}.${id}.${field}`;
   const primary = dictionaryFor(currentLocale)[key];
   const template = primary != null ? primary : DICTIONARIES[DEFAULT_LOCALE][key];
-  return template == null ? fallback : interpolate(template, {});
+  return template == null ? fallback : interpolate(template, params);
 }
 
 function storageOf(explicit) {
@@ -118,6 +133,9 @@ export function applyTranslations(root) {
   });
   scope.querySelectorAll('[data-i18n-aria]').forEach((node) => {
     node.setAttribute('aria-label', t(node.dataset.i18nAria));
+  });
+  scope.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+    node.setAttribute('placeholder', t(node.dataset.i18nPlaceholder));
   });
 }
 

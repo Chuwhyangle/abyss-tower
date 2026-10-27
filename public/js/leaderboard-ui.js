@@ -5,6 +5,7 @@ import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
 import { createPanel } from './ui/kit/panel.js';
 import { fmt } from './ui/shared.js';
+import { t } from './i18n.js';
 
 const PANEL_ID = 'leaderboard-panel';
 const STYLE_ID = 'leaderboard-ui-style';
@@ -162,7 +163,7 @@ function fmtDuration(ms) {
 }
 
 function difficultyName(id) {
-  return DIFFICULTIES[id]?.name || id || '远征';
+  return DIFFICULTIES[id]?.name || id || t('data.difficulty.standard.name');
 }
 
 function difficultyColor(id) {
@@ -171,7 +172,7 @@ function difficultyColor(id) {
 
 function buildShell() {
   const difficultyButtons = [
-    `<button class="lb-checks active" data-difficulty="">全部</button>`,
+    `<button class="lb-checks active" data-difficulty="">${t('leaderboard.all')}</button>`,
     ...DIFFICULTY_ORDER.map(
       (id) => `<button class="lb-checks" data-difficulty="${id}">${difficultyName(id)}</button>`
     ),
@@ -179,27 +180,27 @@ function buildShell() {
 
   return `
     <div class="lb-head">
-      <h2>排行榜</h2>
+      <h2>${t('board.title')}</h2>
       <span id="lb-summary" class="lb-summary"></span>
-      <button id="lb-close" class="icon-btn" data-panel-close type="button" title="关闭排行榜">${iconSvg('close')}</button>
+      <button id="lb-close" class="icon-btn" data-panel-close type="button" title="${t('leaderboard.closeTitle')}">${iconSvg('close')}</button>
     </div>
     <div class="lb-controls">
       <div class="lb-tabs">
-        <button class="lb-checks active" data-mode="normal">无尽远征</button>
-        <button class="lb-checks" data-mode="endless">无尽模式</button>
-        <button class="lb-checks" data-mode="daily">每日挑战</button>
-        <button class="lb-checks" data-mode="weekly">本周挑战</button>
+        <button class="lb-checks active" data-mode="normal">${t('leaderboard.modeNormal')}</button>
+        <button class="lb-checks" data-mode="endless">${t('title.endless')}</button>
+        <button class="lb-checks" data-mode="daily">${t('title.daily')}</button>
+        <button class="lb-checks" data-mode="weekly">${t('title.weekly')}</button>
       </div>
       <div class="lb-diffs">${difficultyButtons}</div>
     </div>
-    <div id="lb-list" class="lb-list"><p class="lb-hint">正在读取排行榜…</p></div>
+    <div id="lb-list" class="lb-list"><p class="lb-hint">${t('leaderboard.loading')}</p></div>
     <p id="lb-suspect-note" class="lb-suspect-note" hidden>
-      标有「待复核」的成绩数据存在异常，正在复核；复核期间照常参与排名。
+      ${t('leaderboard.suspectNote')}
     </p>
     <div class="lb-foot">
-      <button id="lb-prev" class="btn small ghost" type="button" disabled>上一页</button>
+      <button id="lb-prev" class="btn small ghost" type="button" disabled>${t('leaderboard.prevPage')}</button>
       <span id="lb-page" class="lb-page"></span>
-      <button id="lb-next" class="btn small ghost" type="button" disabled>下一页</button>
+      <button id="lb-next" class="btn small ghost" type="button" disabled>${t('leaderboard.nextPage')}</button>
     </div>
   `;
 }
@@ -261,19 +262,25 @@ function renderRows(panel, data) {
     const recent = me.latest || best;
     summary.textContent =
       STATE.mode === 'endless'
-        ? `我的排名 #${me.rank} · 最佳第 ${Number(best.wave) || 0} 波 · 最近第 ${
-            Number(recent.wave) || 0
-          } 波`
-        : `我的排名 #${me.rank} · 最佳 ${fmt(best.score)} · 最近 ${fmt(recent.score)}`;
+        ? t('leaderboard.meEndless', {
+            rank: me.rank,
+            best: Number(best.wave) || 0,
+            recent: Number(recent.wave) || 0,
+          })
+        : t('leaderboard.meNormal', {
+            rank: me.rank,
+            best: fmt(best.score),
+            recent: fmt(recent.score),
+          });
   } else {
-    summary.textContent = '你还没有成绩';
+    summary.textContent = t('leaderboard.noScore');
   }
 
   const note = panel.querySelector('#lb-suspect-note');
   if (note) note.hidden = !entries.some((entry) => entry.suspect);
 
   if (!entries.length) {
-    list.innerHTML = '<p class="lb-empty">还没有记录，去拿下第一名。</p>';
+    list.innerHTML = `<p class="lb-empty">${escapeHtml(t('leaderboard.empty'))}</p>`;
   } else {
     list.innerHTML = entries
       .map((entry) => {
@@ -281,8 +288,8 @@ function renderRows(panel, data) {
         // 徽标只对服务端标记为可疑的成绩显示，说明放在 title 里供悬停查看。
         const suspectBadge = entry.suspect
           ? `<em class="lb-suspect" title="${escapeHtml(
-              entry.suspectReason || '本局数据存在异常，正在复核'
-            )}">待复核</em>`
+              entry.suspectReason || t('leaderboard.suspectTitle')
+            )}">${t('leaderboard.suspectBadge')}</em>`
           : '';
         return `
           <div class="lb-row ${entry.isMe ? 'me' : ''}">
@@ -291,13 +298,13 @@ function renderRows(panel, data) {
               ${escapeHtml(entry.name)}
               ${entry.title ? `<span class="player-title-badge">${escapeHtml(entry.title)}</span>` : ''}
               ${suspectBadge}
-              ${entry.victory ? `<em class="win-mark" title="已通关">${iconSvg('victory')}</em>` : ''}
-              ${entry.isMe ? '<em class="me-mark">我</em>' : ''}
+              ${entry.victory ? `<em class="win-mark" title="${t('leaderboard.wonTitle')}">${iconSvg('victory')}</em>` : ''}
+              ${entry.isMe ? `<em class="me-mark">${t('leaderboard.meMark')}</em>` : ''}
               <span class="lb-diff" style="color:${difficultyColor(entry.difficulty)}">${escapeHtml(
                 difficultyName(entry.difficulty)
               )}</span>
             </span>
-            <span class="lb-wave">第 ${Number(entry.wave) || 0} 波${
+            <span class="lb-wave">${t('hud.nextWave.meta', { wave: Number(entry.wave) || 0 })}${
               STATE.mode === 'endless' ? ` · ${fmtDuration(entry.durationMs)}` : ''
             }</span>
             <span class="lb-score">${fmt(entry.score)}</span>
@@ -307,8 +314,11 @@ function renderRows(panel, data) {
   }
 
   STATE.nextCursor = data.nextCursor || null;
-  panel.querySelector('#lb-page').textContent =
-    `第 ${data.page || STATE.index + 1} / ${STATE.totalPages} 页 · 共 ${Number(data.total) || 0} 条`;
+  panel.querySelector('#lb-page').textContent = t('leaderboard.pageInfo', {
+    page: data.page || STATE.index + 1,
+    pages: STATE.totalPages,
+    total: Number(data.total) || 0,
+  });
   STATE.loading = false;
   setPagingBusy(panel, false);
 }
@@ -322,7 +332,7 @@ function setPagingBusy(panel, busy) {
 function showLoading(panel) {
   STATE.loading = true;
   const list = panel.querySelector('#lb-list');
-  list.innerHTML = '<p class="lb-hint">正在读取排行榜…</p>';
+  list.innerHTML = `<p class="lb-hint">${t('leaderboard.loading')}</p>`;
   const note = panel.querySelector('#lb-suspect-note');
   if (note) note.hidden = true;
   setPagingBusy(panel, true);
@@ -334,8 +344,8 @@ function showFailure(panel, error) {
   if (!list) return;
   list.innerHTML =
     error?.status === 401
-      ? '<p class="lb-hint">请先登录后查看排行榜。</p>'
-      : `<p class="lb-hint">${escapeHtml(error?.message || '读取排行榜失败')}</p>`;
+      ? `<p class="lb-hint">${t('leaderboard.login')}</p>`
+      : `<p class="lb-hint">${escapeHtml(error?.message || t('leaderboard.error'))}</p>`;
   setPagingBusy(panel, false);
 }
 

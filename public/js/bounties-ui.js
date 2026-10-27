@@ -1,10 +1,14 @@
 // 大厅悬赏面板：只展示服务端派生的目标与进度，领取由服务端幂等判定。
 // 视觉沿用成就面板的既有样式，不新增样式表。
 import { api } from './api.js';
+import { t, tData } from './i18n.js';
 import { escapeHtml } from './ui/kit/dom.js';
 import { createPanel } from './ui/kit/panel.js';
 
-const PERIOD_LABELS = { daily: '每日', weekly: '每周', season: '赛季' };
+// 池子条目的 id 形如 `<模板键>` 或 `<模板键>:<档位>`；词典按模板键收录。
+function templateKey(item) {
+  return String(item?.key || item?.id || '').split(':')[0];
+}
 
 function progressBar(item) {
   const target = Math.max(0, Number(item.target) || 0);
@@ -19,24 +23,37 @@ function progressBar(item) {
 
 function claimButton(item) {
   if (item.claimed) {
-    return '<button class="btn small" type="button" disabled>已领取</button>';
+    return `<button class="btn small" type="button" disabled>${t('bounty.claimed')}</button>`;
   }
   if (!item.complete) {
-    return '<button class="btn small" type="button" disabled>未完成</button>';
+    return `<button class="btn small" type="button" disabled>${t('bounty.incomplete')}</button>`;
   }
-  return `<button class="btn small primary" type="button" data-claim="${escapeHtml(item.id)}">领取 ${Number(item.reward) || 0} 星核</button>`;
+  return `<button class="btn small primary" type="button" data-claim="${escapeHtml(item.id)}">${t(
+    'bounty.claimReward',
+    { reward: Number(item.reward) || 0 }
+  )}</button>`;
 }
 
 function card(item) {
-  const state = item.claimed ? '已领取' : item.complete ? '可领取' : '进行中';
+  const state = item.claimed
+    ? t('bounty.claimed')
+    : item.complete
+      ? t('bounty.claimable')
+      : t('bounty.inProgress');
+  const key = templateKey(item);
+  const title = tData('bounty', key, 'title', item.title);
+  const desc = tData('bounty', key, 'desc', item.desc, { target: item.target });
+  const tierLabel = tData('bountyTier', item.tier, 'name', item.tierLabel || '普通');
   return `
     <article class="achievement-card rarity-common${item.claimed ? ' unlocked' : ''}">
       <h3>
-        <span>${escapeHtml(item.title)}</span>
-        <span class="achievement-rarity">${escapeHtml(item.tierLabel || '普通')} · ${escapeHtml(state)}</span>
-        <span class="achievement-state">${Number(item.reward) || 0} 星核</span>
+        <span>${escapeHtml(title)}</span>
+        <span class="achievement-rarity">${escapeHtml(tierLabel)} · ${escapeHtml(state)}</span>
+        <span class="achievement-state">${t('bounty.rewardCores', {
+          reward: Number(item.reward) || 0,
+        })}</span>
       </h3>
-      <p>${escapeHtml(item.desc)}</p>
+      <p>${escapeHtml(desc)}</p>
       ${progressBar(item)}
       <div class="bounty-actions">${claimButton(item)}</div>
     </article>`;
@@ -46,19 +63,21 @@ function refreshButton(period, refresh) {
   if (period?.period !== 'weekly') return '';
   const remaining = Math.max(0, Number(refresh?.remaining) || 0);
   if (!remaining) {
-    return '<button class="btn small" type="button" disabled>本周已刷新</button>';
+    return `<button class="btn small" type="button" disabled>${t('bounty.refreshedThisWeek')}</button>`;
   }
-  return `<button class="btn small" type="button" data-refresh="1">刷新本周悬赏（剩 ${remaining} 次）</button>`;
+  return `<button class="btn small" type="button" data-refresh="1">${t('bounty.refreshWeekly', {
+    remaining,
+  })}</button>`;
 }
 
 function periodSection(period, refresh) {
   const bounties = Array.isArray(period?.bounties) ? period.bounties : [];
   if (!bounties.length) return '';
-  const label = PERIOD_LABELS[period.period] || period.label || period.period;
+  const label = tData('bountyPeriod', period.period, 'name', period.label || period.period);
   return `
     <section class="achievement-group" data-period="${escapeHtml(period.period)}">
       <div class="achievement-group-head">
-        <h3 class="achievement-group-title">${escapeHtml(label)}悬赏
+        <h3 class="achievement-group-title">${escapeHtml(label)}
           <span class="achievement-group-count">${Number(period.claimedCount) || 0} / ${bounties.length}</span>
         </h3>
         ${refreshButton(period, refresh)}
@@ -71,7 +90,7 @@ function render(panel, data) {
   const list = panel.querySelector('#bounties-list');
   const periods = Array.isArray(data?.periods) ? data.periods : [];
   if (!periods.length) {
-    list.innerHTML = '<p class="achievement-hint">暂无悬赏</p>';
+    list.innerHTML = `<p class="achievement-hint">${t('bounty.empty')}</p>`;
     return;
   }
   list.innerHTML = periods.map((period) => periodSection(period, data?.refresh)).join('');
@@ -95,13 +114,13 @@ async function claim(panel, bountyId) {
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = error?.message || '领取失败';
+    note.textContent = error?.message || t('bounty.claimFailed');
     list.prepend(note);
   }
 }
 
 async function refreshBoard(panel) {
-  if (!window.confirm('刷新会更换本周悬赏目标，每周仅限一次，确认刷新？')) return;
+  if (!window.confirm(t('bounty.refreshConfirm'))) return;
   const list = panel.querySelector('#bounties-list');
   try {
     await api.request('/api/bounties/refresh', { method: 'POST' });
@@ -109,7 +128,7 @@ async function refreshBoard(panel) {
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = error?.message || '刷新失败';
+    note.textContent = error?.message || t('bounty.refreshFailed');
     list.prepend(note);
   }
 }
@@ -119,17 +138,20 @@ function loadBounties() {
 }
 
 function showLoading(panel) {
-  panel.querySelector('#bounties-list').innerHTML = '<p class="achievement-hint">加载中…</p>';
+  panel.querySelector('#bounties-list').innerHTML =
+    `<p class="achievement-hint">${t('bounty.loading')}</p>`;
 }
 
 function showFailure(panel, error) {
   const list = panel.querySelector('#bounties-list');
   if (!list) return;
   if (error?.status === 401) {
-    list.innerHTML = '<p class="achievement-hint">登录后可查看悬赏</p>';
+    list.innerHTML = `<p class="achievement-hint">${t('bounty.login')}</p>`;
     return;
   }
-  list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || '加载失败')}</p>`;
+  list.innerHTML = `<p class="achievement-hint">${escapeHtml(
+    error?.message || t('bounty.loadFailed')
+  )}</p>`;
 }
 
 let controller = null;

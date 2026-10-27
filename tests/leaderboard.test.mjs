@@ -8,6 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { startServer } from './test-server.mjs';
+import zhCN from '../public/js/shared/i18n/zh-CN.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let PORT = 0;
@@ -247,7 +248,8 @@ test('前端接入：容器、脚本与空榜占位齐备', () => {
   assert.match(html, /\/js\/leaderboard-ui\.js/);
 
   const source = fs.readFileSync(path.join(ROOT, 'public/js/leaderboard-ui.js'), 'utf8');
-  assert.match(source, /还没有记录，去拿下第一名。/);
+  // 文案已收进词典：断言键存在且文案一致，不再断言源码字面量。
+  assert.equal(zhCN['leaderboard.empty'], '还没有记录，去拿下第一名。');
+  assert.ok(zhCN['leaderboard.meNormal'].includes('我的排名'));
   assert.match(source, /isMe/);
-  assert.match(source, /我的排名/);
 });

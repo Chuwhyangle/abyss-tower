@@ -9,6 +9,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import { startServer } from './test-server.mjs';
+import zhCN from '../public/js/shared/i18n/zh-CN.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let PORT = 0;
@@ -166,9 +167,10 @@ test('前端只在可疑成绩上渲染徽标与说明', () => {
   assert.match(source, /entry\.suspect/, '徽标应由服务端标记驱动');
   assert.match(source, /lb-suspect/, '应渲染可疑徽标');
   assert.match(source, /suspectReason/, '徽标应带规则级说明');
-  assert.match(source, /标有「待复核」/, '应给玩家一句整体说明');
-  // 说明文案里不允许出现内部阈值常量或规则名。
-  const copy = source.match(/待复核[\s\S]*?参与排名。/)?.[0] || '';
+  assert.match(source, /leaderboard\.suspectNote/, '应给玩家一句整体说明');
+  // 说明文案里不允许出现内部阈值常量或规则名（文案已收进词典，直接校验词典值）。
+  const copy = zhCN['leaderboard.suspectNote'] || '';
   assert.ok(copy.length > 0);
+  assert.match(copy, /待复核/);
   assert.doesNotMatch(copy, /\d/);
 });

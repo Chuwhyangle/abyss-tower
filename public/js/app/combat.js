@@ -1,5 +1,6 @@
 // 战斗流程：开波与清波同步、遗物三选一/刷新、结算上报。
 import { rollRelicOffers } from '../shared/data.js';
+import { t } from '../i18n.js';
 import { RelicOffers } from './offers.js';
 
 export class CombatController {
@@ -32,7 +33,7 @@ export class CombatController {
           data = await this.api.startWave(state.run.id);
         } catch (error) {
           console.warn('[wave sync]', error);
-          this.ui.toast('清波同步失败，请检查网络后重试', 2600);
+          this.ui.toast(t('combat.waveSyncFailedRetry'), 2600);
           return;
         }
       }
@@ -46,7 +47,7 @@ export class CombatController {
       if (sim.beginWave(data.wave)) {
         state.app.setPaused(false);
         state.app.emitHud(true);
-        if (data.replay) this.ui.toast(`重新挑战第 ${data.wave.index} 波`, 2200);
+        if (data.replay) this.ui.toast(t('combat.replayWave', { wave: data.wave.index }), 2200);
       }
     } catch (error) {
       this.ui.toast(error.message, 2800);
@@ -61,7 +62,8 @@ export class CombatController {
     if (!sim || sim.phase === 'over') return;
     state.app.setPaused(true);
     this.ui.toast(
-      `第 ${wave} 波清除 · +${info.reward} 金币${info.interest ? ` · 利息 +${info.interest}` : ''}`,
+      t('combat.waveClear', { wave, reward: info.reward }) +
+        (info.interest ? t('combat.waveClearInterest', { interest: info.interest }) : ''),
       2400
     );
 
@@ -76,7 +78,7 @@ export class CombatController {
     } catch (error) {
       console.warn('[clear]', error);
       sim.clearPending = true;
-      this.ui.toast('清波同步失败，续玩时将重放本波', 2800);
+      this.ui.toast(t('combat.waveSyncPending'), 2800);
     }
 
     sim.pendingDraft = true;
@@ -116,7 +118,7 @@ export class CombatController {
       sim.pendingDraft = false;
       sim.save();
       state.app.setPaused(false);
-      this.ui.toast('本次遗物已经选择');
+      this.ui.toast(t('combat.relicAlreadyPicked'));
       return;
     }
 
@@ -124,7 +126,7 @@ export class CombatController {
       sim.pendingDraft = false;
       sim.save();
       state.app.setPaused(false);
-      this.ui.toast('遗物已收集完毕');
+      this.ui.toast(t('combat.relicsExhausted'));
       return;
     }
 
@@ -150,11 +152,11 @@ export class CombatController {
       applyLocally = true;
     } catch (error) {
       if (error.status === 409) {
-        this.ui.toast('本次遗物已经选择', 2400);
+        this.ui.toast(t('combat.relicAlreadyPicked'), 2400);
       } else {
         console.warn('[pick offer]', error);
         applyLocally = true;
-        this.ui.toast('服务端校验失败，本次选择仅在本地生效', 2400);
+        this.ui.toast(t('combat.pickServerRejected'), 2400);
       }
     }
 
@@ -175,8 +177,10 @@ export class CombatController {
     // 与草稿面板同源：服务端给的刷新费（遗物吞噬者免费），旧状态回退 25。
     const cost = Number.isFinite(Number(state.run.rerollCost)) ? Number(state.run.rerollCost) : 25;
     if (!sim) return;
-    if (sim.gold < cost) return this.ui.toast('金币不足，无法刷新');
-    if (state.run.rerollsUsed >= state.run.maxRerolls) return this.ui.toast('刷新次数已用完');
+    if (sim.gold < cost) return this.ui.toast(t('combat.rerollNoGold'));
+    if (state.run.rerollsUsed >= state.run.maxRerolls) {
+      return this.ui.toast(t('combat.rerollExhausted'));
+    }
 
     try {
       const data = await this.api.getRelics(state.run.id, true);
@@ -244,7 +248,7 @@ export class CombatController {
 
             const result = sim.applyEventOption(chosen);
             if (!result.ok) {
-              this.ui.toast('当前资源无法承担这个选择', 2400);
+              this.ui.toast(t('combat.eventUnaffordable'), 2400);
               present();
               return;
             }
@@ -253,7 +257,10 @@ export class CombatController {
             this.ui.updateShopState();
             state.app?.emitHud(true);
             if (result.gamble) {
-              this.ui.toast(result.gamble.won ? '赌局：赢了！' : '赌局：输了。', 2400);
+              this.ui.toast(
+                result.gamble.won ? t('combat.gambleWon') : t('combat.gambleLost'),
+                2400
+              );
             }
             resolve(true);
           },
@@ -282,7 +289,7 @@ export class CombatController {
         });
       } catch (error) {
         this.onRequestError(error, {
-          title: '结算上传',
+          title: t('combat.settleUpload'),
           onRetry: () => this.handleGameOver(stats),
         });
       }

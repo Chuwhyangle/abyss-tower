@@ -1,6 +1,6 @@
 // 大厅外观面板：展示已解锁的称号、头像框与塔/敌人皮肤，选择结果由服务端持久化。
 // 未解锁的外观只作为目标提示，不能点击选择；本模块不参与任何战斗数值。
-import { tOr } from './i18n.js';
+import { t, tData } from './i18n.js';
 import { setActiveSkins } from './shared/skins.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
@@ -63,11 +63,10 @@ function setStatus(message) {
 }
 
 function sourceLabel(item) {
-  if (item.unlocked) return tOr('cosmetics.unlocked', '已解锁');
-  const hint = item.achievementTitle
-    ? tOr('cosmetics.source', '解锁成就「{name}」', { name: item.achievementTitle })
-    : tOr('cosmetics.locked', '未解锁');
-  return hint;
+  if (item.unlocked) return t('cosmetics.unlocked');
+  return item.achievementTitle
+    ? t('cosmetics.source', { name: item.achievementTitle })
+    : t('cosmetics.locked');
 }
 
 function chip(kind, item) {
@@ -89,9 +88,9 @@ function section(kind, label, items) {
     <section class="cosmetic-section" data-section="${kind}">
       <h3>${escapeHtml(label)}</h3>
       <div class="cosmetic-grid">
-        ${items.length ? items.map((item) => chip(kind, item)).join('') : `<p class="cosmetic-preview-note">${escapeHtml(tOr('cosmetics.empty', '暂无可用外观'))}</p>`}
+        ${items.length ? items.map((item) => chip(kind, item)).join('') : `<p class="cosmetic-preview-note">${escapeHtml(t('cosmetics.empty'))}</p>`}
       </div>
-      <button type="button" class="btn small" data-kind="${kind}" data-value="">${escapeHtml(tOr('cosmetics.unequip', '卸下'))}</button>
+      <button type="button" class="btn small" data-kind="${kind}" data-value="">${escapeHtml(t('cosmetics.unequip'))}</button>
     </section>`;
 }
 
@@ -100,11 +99,12 @@ function skinChip(target, item) {
   const classes = ['cosmetic-chip'];
   if (selected) classes.push('active');
   const color = item.outline?.color || '#7a8794';
+  const name = tData('skin', item.id, 'name', item.name);
   return `
     <button type="button" class="${classes.join(' ')}" data-kind="skin-${target}" data-value="${escapeHtml(item.id)}"
       aria-pressed="${selected ? 'true' : 'false'}" ${item.unlocked ? '' : 'disabled'}
-      title="${escapeHtml(`${item.name} · ${sourceLabel(item)}`)}">
-      <span class="cosmetic-chip-head"><span class="cosmetic-chip-dot" style="--cosmetic-color:${escapeHtml(color)}" aria-hidden="true"></span>${escapeHtml(item.name)}</span>
+      title="${escapeHtml(`${name} · ${sourceLabel(item)}`)}">
+      <span class="cosmetic-chip-head"><span class="cosmetic-chip-dot" style="--cosmetic-color:${escapeHtml(color)}" aria-hidden="true"></span>${escapeHtml(name)}</span>
       <span class="cosmetic-chip-source">${escapeHtml(sourceLabel(item))}</span>
     </button>`;
 }
@@ -114,9 +114,9 @@ function skinSection(target, label, items) {
     <section class="cosmetic-section" data-section="skin-${target}">
       <h3>${escapeHtml(label)}</h3>
       <div class="cosmetic-grid">
-        ${items.length ? items.map((item) => skinChip(target, item)).join('') : `<p class="cosmetic-preview-note">${escapeHtml(tOr('cosmetics.empty', '暂无可用外观'))}</p>`}
+        ${items.length ? items.map((item) => skinChip(target, item)).join('') : `<p class="cosmetic-preview-note">${escapeHtml(t('cosmetics.empty'))}</p>`}
       </div>
-      <button type="button" class="btn small" data-kind="skin-${target}" data-value="">${escapeHtml(tOr('cosmetics.skinDefault', '恢复默认'))}</button>
+      <button type="button" class="btn small" data-kind="skin-${target}" data-value="">${escapeHtml(t('cosmetics.skinDefault'))}</button>
     </section>`;
 }
 
@@ -124,13 +124,14 @@ function skinSetThumb(set, member) {
   const color = member.outline?.color || '#7a8794';
   const glow = set.glow || color;
   const classes = ['cosmetic-thumb', member.unlocked ? 'unlocked' : 'locked'];
-  const hint = `${member.name} · ${sourceLabel(member)}`;
+  const name = tData('skin', member.id, 'name', member.name);
+  const hint = `${name} · ${sourceLabel(member)}`;
   return `
     <div class="${classes.join(' ')}" data-target="${escapeHtml(member.target)}" data-type="${escapeHtml(member.type)}"
       style="--thumb-color:${escapeHtml(color)};--thumb-glow:${escapeHtml(glow)}"
       title="${escapeHtml(hint)}">
       <span class="cosmetic-thumb-art" aria-hidden="true"></span>
-      <span class="cosmetic-thumb-label">${escapeHtml(member.name)}</span>
+      <span class="cosmetic-thumb-label">${escapeHtml(name)}</span>
       ${member.unlocked ? '' : `<span class="cosmetic-thumb-source">${escapeHtml(sourceLabel(member))}</span>`}
     </div>`;
 }
@@ -139,16 +140,17 @@ function skinSetCard(set) {
   const progress = set.progress || { unlocked: 0, total: 0 };
   const classes = ['cosmetic-set'];
   if (set.unlocked) classes.push('complete');
-  const progressText = tOr('cosmetics.setProgress', '已收集 {done}/{total}', {
+  const name = tData('skinSet', set.id, 'name', set.name);
+  const progressText = t('cosmetics.setProgress', {
     done: progress.unlocked,
     total: progress.total,
   });
-  const completeNote = set.unlocked ? ` · ${tOr('cosmetics.setComplete', '已集齐')}` : '';
+  const completeNote = set.unlocked ? ` · ${t('cosmetics.setComplete')}` : '';
   return `
     <article class="${classes.join(' ')}" data-set="${escapeHtml(set.id)}"
       style="--set-accent:${escapeHtml(set.accent || '#5bc8ff')}">
       <header class="cosmetic-set-head">
-        <span class="cosmetic-set-title">${escapeHtml(set.name)}${escapeHtml(completeNote)}</span>
+        <span class="cosmetic-set-title">${escapeHtml(name)}${escapeHtml(completeNote)}</span>
         <span class="cosmetic-set-progress">${escapeHtml(progressText)}</span>
       </header>
       ${set.description ? `<p class="cosmetic-set-note">${escapeHtml(set.description)}</p>` : ''}
@@ -162,7 +164,7 @@ function skinSetsSection(skins) {
   if (!skins?.sets?.length) return '';
   return `
     <section class="cosmetic-section" data-section="skin-sets">
-      <h3>${escapeHtml(tOr('cosmetics.skinSets', '皮肤套装'))}</h3>
+      <h3>${escapeHtml(t('cosmetics.skinSets'))}</h3>
       <div class="cosmetic-set-list">
         ${skins.sets.map(skinSetCard).join('')}
       </div>
@@ -172,8 +174,8 @@ function skinSetsSection(skins) {
 function skinsSection(skins) {
   if (!skins) return '';
   const labels = {
-    tower: tOr('cosmetics.skinTower', '塔皮肤'),
-    enemy: tOr('cosmetics.skinEnemy', '敌人皮肤'),
+    tower: t('cosmetics.skinTower'),
+    enemy: t('cosmetics.skinEnemy'),
   };
   const targets = SKIN_TARGETS.map((target) =>
     skinSection(
@@ -187,7 +189,8 @@ function skinsSection(skins) {
 
 function selectedSkinName(skins, target) {
   const id = skins?.selected?.[target];
-  return skins?.skins?.find((item) => item.target === target && item.id === id)?.name || null;
+  const item = skins?.skins?.find((entry) => entry.target === target && entry.id === id);
+  return item ? tData('skin', item.id, 'name', item.name) : null;
 }
 
 function preview() {
@@ -197,16 +200,16 @@ function preview() {
   const skinNote = SKIN_TARGETS.map((target) => {
     const name = selectedSkinName(currentSkins, target);
     if (!name) return '';
-    const label = target === 'tower' ? tOr('cosmetics.skinTower', '塔皮肤') : tOr('cosmetics.skinEnemy', '敌人皮肤');
+    const label = target === 'tower' ? t('cosmetics.skinTower') : t('cosmetics.skinEnemy');
     return `${label} · ${name}`;
   }).filter(Boolean).join(' / ');
   return `
     <div class="cosmetic-preview">
       <div class="cosmetic-preview-card"${frameStyle}>
         <span class="cosmetic-preview-name">${escapeHtml(title ? title.name : '')}</span>
-        <span class="cosmetic-preview-title">${escapeHtml(title ? tOr('cosmetics.equippedTitle', '当前称号') : tOr('cosmetics.noTitle', '未佩戴称号'))}</span>
+        <span class="cosmetic-preview-title">${escapeHtml(title ? t('cosmetics.equippedTitle') : t('cosmetics.noTitle'))}</span>
       </div>
-      <span class="cosmetic-preview-note">${escapeHtml(frame ? `${tOr('cosmetics.equippedFrame', '当前头像框')} · ${frame.name}` : tOr('cosmetics.noFrame', '未佩戴头像框'))}</span>
+      <span class="cosmetic-preview-note">${escapeHtml(frame ? `${t('cosmetics.equippedFrame')} · ${frame.name}` : t('cosmetics.noFrame'))}</span>
       ${skinNote ? `<span class="cosmetic-preview-note">${escapeHtml(skinNote)}</span>` : ''}
     </div>`;
 }
@@ -223,8 +226,8 @@ function render(data, skins = currentSkins) {
   if (!body) return;
   body.innerHTML = `
     ${preview()}
-    ${section('title', tOr('cosmetics.titles', '称号'), data.titles || [])}
-    ${section('frame', tOr('cosmetics.frames', '头像框'), data.frames || [])}
+    ${section('title', t('cosmetics.titles'), data.titles || [])}
+    ${section('frame', t('cosmetics.frames'), data.frames || [])}
     ${skinsSection(skins)}
     <p class="cosmetic-status" role="status" aria-live="polite"></p>`;
   updateHallBadge(data);
@@ -266,30 +269,30 @@ function updateHallBadge(data) {
 
 async function load() {
   if (!body) return;
-  body.innerHTML = `<p class="cosmetic-preview-note">${escapeHtml(tOr('cosmetics.loading', '正在读取外观…'))}</p>`;
+  body.innerHTML = `<p class="cosmetic-preview-note">${escapeHtml(t('cosmetics.loading'))}</p>`;
   try {
     const data = await request('GET');
     const skins = await request('GET', null, SKINS_ENDPOINT).catch(() => null);
     render(data, skins);
   } catch (error) {
     if (error.status === 401) {
-      emptyState(tOr('cosmetics.login', '登录后可查看称号与头像框'));
+      emptyState(t('cosmetics.login'));
       return;
     }
-    emptyState(error.message || tOr('cosmetics.error', '外观加载失败'));
+    emptyState(error.message || t('cosmetics.error'));
   }
 }
 
 async function chooseSkin(target, value) {
   if (!currentSkins) return;
-  setStatus(tOr('cosmetics.saving', '正在保存…'));
+  setStatus(t('cosmetics.saving'));
   try {
     const data = await request('PUT', { [target]: value || null }, SKINS_ENDPOINT);
     render(current, data);
-    setStatus(tOr('cosmetics.saved', '已保存'));
+    setStatus(t('cosmetics.saved'));
   } catch (error) {
     render(current, currentSkins);
-    setStatus(error.message || tOr('cosmetics.error', '外观加载失败'));
+    setStatus(error.message || t('cosmetics.error'));
   }
 }
 
@@ -298,14 +301,14 @@ async function choose(kind, value) {
     return chooseSkin(kind.slice('skin-'.length), value);
   }
   if (!current) return;
-  setStatus(tOr('cosmetics.saving', '正在保存…'));
+  setStatus(t('cosmetics.saving'));
   try {
     const data = await request('PUT', { [kind]: value });
     render(data, currentSkins);
-    setStatus(tOr('cosmetics.saved', '已保存'));
+    setStatus(t('cosmetics.saved'));
   } catch (error) {
     render(current, currentSkins);
-    setStatus(error.message || tOr('cosmetics.error', '外观加载失败'));
+    setStatus(error.message || t('cosmetics.error'));
   }
 }
 

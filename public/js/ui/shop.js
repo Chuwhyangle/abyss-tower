@@ -148,14 +148,14 @@ export const shopMethods = {
       </div>
       ${evolution
         ? `<div class="tp-evolution" style="display:flex;gap:8px;align-items:baseline;margin-top:8px">
-             <span class="muted">进化</span>
+             <span class="muted">${t('shop.evolution')}</span>
              <b style="color:${evolution.color || def.color}">${evolution.name}</b>
              <em class="muted" style="font-size:11px">${evolutionEffectText(evolution)}</em>
            </div>`
         : ''}
       ${evolutions.length
         ? `<div class="tp-evolutions" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-             <span class="muted">满级进化 · ${choiceLabel(evolutions.length)}</span>
+             <span class="muted">${t('shop.fullEvolution', { choice: choiceLabel(evolutions.length) })}</span>
              <div class="tp-evolution-actions" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
                ${evolutions
                  .map(
@@ -205,11 +205,11 @@ export const shopMethods = {
         (evolution, index) => `
           <button class="relic-card evolution-card" data-evolve="${evolution.id}"
             style="--rarity:${evolution.color || def.color}">
-            <span class="rarity">进化 · ${index + 1}</span>
+            <span class="rarity">${t('shop.evolutionIndex', { index: index + 1 })}</span>
             <h3>${escapeHtml(evolution.name)}</h3>
-            <div class="relic-effect"><span>属性</span>${evolutionEffectText(evolution)}</div>
+            <div class="relic-effect"><span>${t('shop.stats')}</span>${evolutionEffectText(evolution)}</div>
             <p class="relic-flavor">${escapeHtml(evolution.desc)}</p>
-            <span class="pick">选择</span>
+            <span class="pick">${t('shop.pick')}</span>
           </button>`
       )
       .join('');
@@ -217,10 +217,12 @@ export const shopMethods = {
       `
         <div class="draft evolution">
           <p class="eyebrow">${escapeHtml(towerName(def))} · Lv.${tower.level + 1}</p>
-          <h2>选择最终形态</h2>
+          <h2>${t('shop.chooseFinalForm')}</h2>
           <div class="draft-cards">${cards}</div>
           <div class="draft-actions">
-            <span class="muted">键盘 ${options.map((_, index) => index + 1).join(' / ')} 选择 · Esc 稍后再选</span>
+            <span class="muted">${t('shop.keyboardHint', {
+              keys: options.map((_, index) => index + 1).join(' / '),
+            })}</span>
           </div>
         </div>
       `,
