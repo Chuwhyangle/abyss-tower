@@ -205,6 +205,12 @@ export class CameraFeedback {
     return this._viewport;
   }
 
+  // 播种抖动的唯一出口：渲染层不再自己取随机数，旧 game.shake 的抖动也走这里
+  // （docs/TECH_DESIGN.md §5.5.2「渲染层拿到的是已算好的镜头变换」）。
+  nextRandom() {
+    return this._random();
+  }
+
   // 当帧重算预算：关闭震屏/切到最低画质立即把位移与缩放归零，不等冲量自然衰减。
   setSettings(settings = {}, { reducedMotion = this._reducedMotion } = {}) {
     this._settings = settings || {};

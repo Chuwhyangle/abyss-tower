@@ -1,6 +1,6 @@
 // 浏览器运行时：固定步长模拟、按画质限帧渲染、HUD 节流、性能指标与后台暂停。
 import { Renderer } from './render.js';
-import { CameraFeedback } from './render/camera-feedback.js';
+import { CameraFeedback, composeCameraTransform } from './render/camera-feedback.js';
 import { detectReducedMotion } from './render/transition.js';
 import { weatherFor } from './render/background-renderer.js';
 import { audio } from './audio.js';
@@ -140,11 +140,20 @@ export class GameApp {
     sim.updateVisuals(raw);
     m.simMs += performance.now() - simStarted;
 
+    // 渲染层只接收算好的镜头变换：旧 game.shake（漏怪/首领死亡等无命中事件的来源）
+    // 与命中冲量在这里合成，抖动来自 CameraFeedback 的播种序列。
+    const camera = composeCameraTransform({
+      feedback: frame,
+      budget: this.feedback.budget,
+      legacyShake: sim.shake > 0.2 ? sim.shake : 0,
+      jitter: () => this.feedback.nextRandom(),
+    });
+
     // 30 FPS 只限制绘制次数，模拟仍按固定 60Hz 步长推进。
     const renderInterval = 1000 / this.settings.fps;
     if (!this.lastRenderAt || now - this.lastRenderAt >= renderInterval - 2) {
       const renderStarted = performance.now();
-      this.renderer.render(raw, frame);
+      this.renderer.render(raw, camera);
       m.renderMs += performance.now() - renderStarted;
       if (this.lastRenderAt) {
         m.renderIntervals.push(now - this.lastRenderAt);

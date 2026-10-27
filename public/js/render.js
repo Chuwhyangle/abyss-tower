@@ -1,9 +1,7 @@
 // Canvas 渲染门面：只负责状态（画质/DPR/时间/FPS/受击闪烁）与分层编排，
 // 具体绘制由 ./render/ 下职责单一的渲染器完成。
 import { TILE } from './shared/data.js';
-import { hashString, mulberry32 } from './shared/rng.js';
 import { normalizeSettings } from './settings.js';
-import { composeCameraTransform } from './render/camera-feedback.js';
 import { biomePalette } from './render/palette.js';
 import { GlowRenderer } from './render/glow-renderer.js';
 import { BackgroundRenderer } from './render/background-renderer.js';
@@ -41,9 +39,6 @@ export class Renderer {
     this.fps = 60;
     this.lastBaseHp = null;
     this.hurtFlash = 0;
-    // 旧 game.shake（漏怪/首领死亡等无命中事件的来源）用播种抖动替代无种子随机，
-    // 同一帧序列可复现；命中事件的定向冲量由 CameraFeedback 负责。
-    this._shakeRandom = mulberry32(hashString('render:legacy-shake')());
 
     // 各层显式持有依赖：共享同一份光晕缓存。
     this.glow = new GlowRenderer();
@@ -131,8 +126,9 @@ export class Renderer {
     return { c: Math.floor(x / T), r: Math.floor(y / T) };
   }
 
-  // dt：真实帧间隔；feedback：CameraFeedback.update() 的帧结果（缺省时只走旧 game.shake）。
-  render(dt, feedback = null) {
+  // dt：真实帧间隔；camera：已算好的镜头变换（composeCameraTransform 的结果）。
+  // 渲染层不取随机数、不读设置决定运动：运动关闭时 camera 已是精确恒等。
+  render(dt, camera = null) {
     this.time += dt;
     const now = performance.now();
     this.fpsFrames++;
@@ -147,20 +143,9 @@ export class Renderer {
     const game = this.game;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
-    // 镜头反馈：运动关闭时 composeCameraTransform 返回精确恒等（x/y = 0、zoom = 1）。
-    const camera = composeCameraTransform({
-      feedback,
-      budget: {
-        motion: feedback
-          ? feedback.motion === true
-          : this.settings.shake === true && this.settings.decorations !== 'off',
-      },
-      legacyShake: game.shake > 0.2 ? game.shake : 0,
-      jitter: () => this._shakeRandom(),
-    });
     g.save();
-    if (camera.x !== 0 || camera.y !== 0) g.translate(camera.x, camera.y);
-    if (camera.zoom !== 1) {
+    if (camera && (camera.x !== 0 || camera.y !== 0)) g.translate(camera.x, camera.y);
+    if (camera && camera.zoom !== 1) {
       // 以命中点为锚做缩放冲击；焦点是格坐标，先换成逻辑像素。
       const fx = camera.focusX * T;
       const fy = camera.focusY * T;

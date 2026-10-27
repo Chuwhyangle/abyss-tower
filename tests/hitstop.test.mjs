@@ -386,5 +386,11 @@ test('⑧ 源码级约束：无未播种随机、不触达模拟 RNG、步进累
     'game-app.js 的累积行必须乘 frame.timeScale'
   );
   assert.match(SOURCE.gameApp, /feedback\.consume\(sim\.impactEvents/);
-  assert.match(SOURCE.render, /render\(dt,\s*feedback\s*=\s*null\)/);
+  // 渲染层只接收算好的镜头变换，不自己取随机数（TECH §5.5.2）。
+  assert.match(SOURCE.gameApp, /composeCameraTransform\(/);
+  assert.match(SOURCE.render, /render\(dt,\s*camera\s*=\s*null\)/);
+  assert.ok(
+    !/mulberry32|nextRandom|Math\.random/.test(SOURCE.render),
+    'render.js 不得自行取随机数'
+  );
 });
