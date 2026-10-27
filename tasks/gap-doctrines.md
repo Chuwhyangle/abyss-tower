@@ -8,7 +8,7 @@ parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/doctrines.test.mjs
+  acceptance: node scripts/rogue2-accept.mjs doctrines
 depends_on:
   - gap-boss-cores
 goal_ac: AC-037
