@@ -1,0 +1,54 @@
+{
+  "name": "probe-atlas",
+  "image": "probe",
+  "size": {
+    "w": 48,
+    "h": 16
+  },
+  "pivot": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "frames": {
+    "probe-idle-0": {
+      "x": 0,
+      "y": 0,
+      "w": 32,
+      "h": 16,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 16
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "probe-idle-1": {
+      "x": 32,
+      "y": 0,
+      "w": 16,
+      "h": 12,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 32,
+        "h": 16
+      },
+      "offset": {
+        "x": 8,
+        "y": 2
+      },
+      "trimmed": true,
+      "rotated": false
+    }
+  }
+}

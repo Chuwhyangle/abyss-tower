@@ -233,6 +233,9 @@ const COMBAT_SETUP_SCRIPT = `
     },
   };
 
+  // 背景氛围层注入用的纯色：与正常背景的亮度层次明显不同，只用于「把背景拍平」。
+  const FLAT_BACKGROUND_FILL = '#141c22';
+
   window.__visual = {
     sim,
     app,
@@ -245,6 +248,34 @@ const COMBAT_SETUP_SCRIPT = `
         sim.setVisualQuality({ effects: 'off', floaters: 'off' });
       }
       return this.injection;
+    },
+    // 装饰档位：在已建立的战场重烘焙背景（off / light / full 三档）。
+    setDecorations(name) {
+      const tier = ['off', 'light', 'full'].includes(name) ? name : 'full';
+      app.renderer.applySettings({ ...app.renderer.settings, decorations: tier });
+      return app.renderer.settings.decorations;
+    },
+    // 按指定装饰档位重新烘焙背景，不改动当前渲染器的设置与画面。
+    bakeBackground(tier) {
+      const renderer = app.renderer;
+      return renderer.backgroundRenderer.build({
+        width: renderer.W,
+        height: renderer.H,
+        dpr: renderer.dpr,
+        palette: renderer.palette,
+        settings: { ...renderer.settings, decorations: tier },
+      });
+    },
+    // 把当前背景涂成单一色：背景层次/跨度/分带必须同时归零。
+    flattenBackground() {
+      const bg = app.renderer.bg;
+      const ctx = bg.getContext('2d');
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = FLAT_BACKGROUND_FILL;
+      ctx.fillRect(0, 0, bg.width, bg.height);
+      ctx.restore();
+      return true;
     },
     applyInjection() {
       if (this.injection === 'no-feedback') {
@@ -272,6 +303,22 @@ const COMBAT_SETUP_SCRIPT = `
         app.renderer.render(dt);
         sim.effects = effects;
         sim.skillFx = skillFx;
+      } else if (this.injection === 'units-hidden') {
+        // 单位层整体不绘制：剪影与单位 ΔE 必须随之归零。
+        const layer = app.renderer.enemies;
+        const original = layer.render;
+        layer.render = () => {};
+        try {
+          this.applyInjection();
+          app.renderer.render(dt);
+        } finally {
+          layer.render = original;
+        }
+      } else if (this.injection === 'flat-background') {
+        // 背景整张拍平：层次 / 跨度 / 分带必须同时跌破阈值。
+        this.flattenBackground();
+        this.applyInjection();
+        app.renderer.render(dt);
       } else {
         this.applyInjection();
         app.renderer.render(dt);
@@ -305,18 +352,37 @@ const COMBAT_SETUP_SCRIPT = `
     payload() {
       const rect = canvas.getBoundingClientRect();
       const scale = rect.width / (sim.map.cols * TILE_VALUE);
-      const background = app.renderer.bg;
+      const renderer = app.renderer;
+      const background = renderer.bg;
+      const dataUrl = (target) => (target && target.toDataURL ? target.toDataURL('image/png') : null);
+      // 当前档位的背景受注入影响（decor-noop = 高配烘焙实际按关闭档执行）；
+      // 三档原始烘焙始终如实采样，供「氛围层贡献」与「档位单调」使用。
+      const currentTier = this.injection === 'decor-noop'
+        ? 'off'
+        : (renderer.settings.decorations || 'full');
+      const current = currentTier === (renderer.settings.decorations || 'full')
+        ? background
+        : this.bakeBackground(currentTier);
+      const full = currentTier === 'full' ? current : this.bakeBackground('full');
+      const light = currentTier === 'light' ? current : this.bakeBackground('light');
+      const off = currentTier === 'off' ? current : this.bakeBackground('off');
       return {
         canvas: { left: rect.left + scrollX, top: rect.top + scrollY, width: rect.width, height: rect.height },
         scale,
         tile: TILE_VALUE,
         grid: { cols: sim.map.cols, rows: sim.map.rows },
+        seed: sim.seed,
+        mapMeta: renderer.game?.mapMeta || sim.map.meta || {},
+        decorations: currentTier,
         enemies: sim.enemies.filter((enemy) => !enemy.dead).map((enemy) => ({ x: enemy.x, y: enemy.y, r: enemy.r, boss: !!enemy.boss, hitFlash: enemy.hitFlash || 0 })),
         towers: sim.towers.map((tower) => ({ x: tower.x, y: tower.y, type: tower.type })),
         effects: sim.effects.length,
         floaters: sim.floaters.length,
         skillFx: sim.skillFx.length,
-        backgroundPng: background && background.toDataURL ? background.toDataURL('image/png') : null,
+        backgroundPng: dataUrl(current),
+        backgroundFullPng: dataUrl(full),
+        backgroundLightPng: dataUrl(light),
+        backgroundOffPng: dataUrl(off),
       };
     },
   };
@@ -535,6 +601,10 @@ export class VisualSceneSession {
     await this.browser.evaluate(`window.__visual.render(${dt})`);
   }
 
+  async setDecorations(name) {
+    return this.browser.evaluate(`window.__visual.setDecorations(${JSON.stringify(name)})`);
+  }
+
   async hideFeedback(options = {}) {
     await this.browser.evaluate(`window.__visual.hideFeedback(${JSON.stringify(options)})`);
   }
@@ -595,6 +665,8 @@ async function captureScene(session, scene, options = {}) {
   if (scene !== 'combat') throw new Error(`未知场景：${scene}`);
 
   await session.beginCombat({ injection: options.injection });
+  // 装饰档位在重建背景之前生效（默认 full：产品高配画面）。
+  await session.setDecorations(options.decorations || 'full');
   const frames = [];
 
   // 第一帧：敌人刚进入射程，接触战开始。时间兜底保证注入回归时场景仍然非空。
@@ -726,6 +798,7 @@ export async function capture({
   outDir,
   seed = GAME_SEED,
   injection = null,
+  decorations = 'full',
   log = () => {},
 } = {}) {
   const started = Date.now();
@@ -757,7 +830,7 @@ export async function capture({
         });
         try {
           await session.open({ cookie: session0.rawCookie });
-          const captured = await captureScene(session, scene, { quality, injection });
+          const captured = await captureScene(session, scene, { quality, injection, decorations });
           const entry = { scene, viewport: viewportId, quality, ...captured };
           results.push(entry);
           timings[`${scene}@${viewportId}`] = captured.elapsedMs;
@@ -779,6 +852,7 @@ export async function capture({
     testSeed: TEST_SEED,
     quality,
     injection: injection || null,
+    decorations,
     scenes: [],
     timings,
     totalMs: Date.now() - started,

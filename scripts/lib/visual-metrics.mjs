@@ -24,6 +24,12 @@ export const THRESHOLDS = Object.freeze({
     towerBackgroundDeltaE: 10,
     minBackgroundLevels: 6,
     minBackgroundLumaSpread: 8,
+    // 分带层次：上/中/下三段各自的最小亮度桶数（全图桶数达标但画面塌成三段同亮度时变红）。
+    // 实测三段各 14 桶；阈值取 5，单色/塌平背景（1 桶）必红。
+    minBandLevels: 5,
+    // 氛围层贡献：高配背景烘焙与关闭档背景烘焙的像素差异占比（天气/道具/光点整体消失时归零）。
+    // 实测 0.0056；阈值取 0.002（约实测 1/3），高配烘焙按关闭档执行时 0.0000 必红。
+    minAtmosphereContribution: 0.002,
   }),
   ui: Object.freeze({
     minFontSize: 12,
@@ -241,6 +247,38 @@ export function silhouetteCoverage(image, boxes, { backgroundSample = 4, thresho
   };
 }
 
+// ── 分带与氛围层 ─────────────────────────────────────────────────────────────
+// 纵向三分带：矩形按高度等分，各自统计亮度层次（levels）与离散度（stdLuma）。
+// 用来抓「全图桶数达标，但画面塌成上中下三段同亮度」的分带结构退化。
+export function bandStats(image, rect, bands = 3) {
+  const count = Math.max(1, Math.floor(bands) || 1);
+  const width = Math.max(0, Math.round(rect.width));
+  const height = Math.max(0, Math.round(rect.height));
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const y0 = rect.y + Math.floor((height * i) / count);
+    const y1 = rect.y + Math.floor((height * (i + 1)) / count);
+    const stats = regionStats(image, { x: rect.x, y: y0, width, height: Math.max(0, y1 - y0) });
+    out.push({ index: i, levels: stats.levels, stdLuma: stats.stdLuma, meanLuma: stats.meanLuma });
+  }
+  return out;
+}
+
+// 氛围层贡献：高配烘焙与关闭档烘焙的像素差异占比（ΔE 超过阈值的像素比例）。
+// 两张图必须同为背景画布（同尺寸），不要拿截图与背景 canvas 直接对比。
+export function decorationDelta(fullImage, offImage, rect = null, { threshold = 8 } = {}) {
+  if (!fullImage || !offImage) return 0;
+  const area = rect
+    ? rect
+    : { x: 0, y: 0, width: Math.min(fullImage.width, offImage.width), height: Math.min(fullImage.height, offImage.height) };
+  return differenceStats(fullImage, offImage, threshold, area).ratio;
+}
+
+// 装饰档位单调：关闭档 ≤ 低配 ≤ 高配。任一档位的氛围层贡献高于更高档位时判假。
+export function decorationMonotonic(off, light, full, { epsilon = 1e-9 } = {}) {
+  return off <= light + epsilon && light <= full + epsilon;
+}
+
 // ── 指纹与确定性 ─────────────────────────────────────────────────────────────
 export function pixelHash(image) {
   const hash = crypto.createHash('sha256');
@@ -294,8 +332,8 @@ export function signaturesMatch(left, right, { meanAbs = 2.5, diffRatio = 0.08 }
 }
 
 // ── 套件判定：输入采集到的指标对象，输出可打印的检查表 ─────────────────────
-function check(id, label, value, threshold, ok, detail = '') {
-  return { id, label, value, threshold, ok: !!ok, detail };
+function check(id, name, value, threshold, ok, detail = '') {
+  return { id, name, value, threshold, ok: !!ok, detail };
 }
 
 export function evaluateFeel(metrics) {
@@ -315,15 +353,68 @@ export function evaluateFeel(metrics) {
 
 export function evaluateArt(metrics) {
   const t = THRESHOLDS.art;
+  const bands = Array.isArray(metrics.backgroundBands) ? metrics.backgroundBands : [];
+  const minBandLevels = bands.length ? Math.min(...bands.map((band) => band.levels)) : 0;
+  const contributions = metrics.atmosphereByTier || { off: 0, light: 0, full: 0 };
+  const monotonic = metrics.decorMonotonic ?? decorationMonotonic(
+    contributions.off,
+    contributions.light,
+    contributions.full
+  );
   const checks = [
     check('unit-background', '单位与背景 ΔE', round(metrics.unitBackgroundDeltaE), `≥ ${t.unitBackgroundDeltaE}`, metrics.unitBackgroundDeltaE >= t.unitBackgroundDeltaE),
     check('tower-background', '防御塔与背景 ΔE', round(metrics.towerBackgroundDeltaE), `≥ ${t.towerBackgroundDeltaE}`, metrics.towerBackgroundDeltaE >= t.towerBackgroundDeltaE),
     check('silhouette', '剪影像素覆盖', round(metrics.silhouetteCoverage), `≥ ${t.silhouetteCoverage}`, metrics.silhouetteCoverage >= t.silhouetteCoverage),
     check('background-levels', '背景亮度层次数', metrics.backgroundLevels, `≥ ${t.minBackgroundLevels}`, metrics.backgroundLevels >= t.minBackgroundLevels),
     check('background-spread', '背景亮度跨度', round(metrics.backgroundLumaSpread), `≥ ${t.minBackgroundLumaSpread}`, metrics.backgroundLumaSpread >= t.minBackgroundLumaSpread),
+    check(
+      'background-bands',
+      '分带亮度层次（上/中/下）',
+      minBandLevels,
+      `≥ ${t.minBandLevels}`,
+      minBandLevels >= t.minBandLevels,
+      bands.length ? bands.map((band) => `#${band.index + 1}=${band.levels}`).join(' ') : '缺少分带读数'
+    ),
+    check(
+      'atmosphere-contribution',
+      '氛围层贡献',
+      roundTo(metrics.atmosphereContribution, 4),
+      `≥ ${t.minAtmosphereContribution}`,
+      metrics.atmosphereContribution >= t.minAtmosphereContribution,
+      [
+        '高配烘焙 vs 关闭档烘焙的像素差异占比',
+        metrics.weather
+          ? `期望天气 ${metrics.weather.weather}/${metrics.weather.phase} 粒子 ${metrics.weather.particles}`
+          : '',
+      ].filter(Boolean).join(' · ')
+    ),
+    check(
+      'decor-monotonic',
+      '装饰档位单调（off ≤ light ≤ full）',
+      monotonic,
+      'off ≤ light ≤ full',
+      monotonic,
+      `off=${formatRatio(contributions.off)} light=${formatRatio(contributions.light)} full=${formatRatio(contributions.full)}`
+    ),
   ];
   return { suite: 'art', ok: checks.every((item) => item.ok), checks };
 }
+
+function formatRatio(value) {
+  return Number.isFinite(value) ? value.toFixed(4) : String(value);
+}
+
+// 指标 id → 阈值键（docs/TECH_DESIGN.md §8.6 表格与 THRESHOLDS.art 的逐项守卫用）。
+// 分带层次 / 氛围层贡献有数值阈值；decor-monotonic 是布尔关系，单独在文档里写关系式。
+export const ART_THRESHOLD_KEYS = Object.freeze([
+  Object.freeze({ id: 'unit-background', key: 'unitBackgroundDeltaE' }),
+  Object.freeze({ id: 'tower-background', key: 'towerBackgroundDeltaE' }),
+  Object.freeze({ id: 'silhouette', key: 'silhouetteCoverage' }),
+  Object.freeze({ id: 'background-levels', key: 'minBackgroundLevels' }),
+  Object.freeze({ id: 'background-spread', key: 'minBackgroundLumaSpread' }),
+  Object.freeze({ id: 'background-bands', key: 'minBandLevels' }),
+  Object.freeze({ id: 'atmosphere-contribution', key: 'minAtmosphereContribution' }),
+]);
 
 export function evaluateUi(metrics) {
   const t = THRESHOLDS.ui;
@@ -367,6 +458,11 @@ export function evaluateSuite(suite, metrics) {
 
 function round(value) {
   return Number.isFinite(value) ? Math.round(value * 100) / 100 : value;
+}
+
+function roundTo(value, digits = 2) {
+  const factor = 10 ** digits;
+  return Number.isFinite(value) ? Math.round(value * factor) / factor : value;
 }
 
 // 便于诊断：把一张图按网格切块，返回每块的平均色（contact sheet 与排查用）。

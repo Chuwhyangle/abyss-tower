@@ -71,7 +71,13 @@ export class GameApp {
     this.running = false;
     if (this.raf) cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this._onVisibility);
+    this.renderer?.dispose?.();
     audio.stopAmbience();
+  }
+
+  // 浏览器验收经既有 window.__rtd 读取精灵管线状态（不新增全局名）。
+  get sprites() {
+    return this.renderer?.sprites || null;
   }
 
   tick(now) {
