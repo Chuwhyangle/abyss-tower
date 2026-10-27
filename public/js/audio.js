@@ -14,6 +14,7 @@ import {
   AMBIENCE_WEATHER_IDS,
   resolveAmbience,
 } from './shared/ambience.js';
+import { ImpactMixer, supportAuraPulse } from './audio-impacts.js';
 
 // 混音总线：master ← sfx / music。各总线增益由 0–100 的音量设置换算。
 const MASTER_VOLUME = 0.45;
@@ -21,6 +22,15 @@ const MASTER_VOLUME = 0.45;
 export const MUSIC_VOLUME = 0.1;
 // 环境音是低频氛围底噪，电平低于常规音效。
 const AMBIENT_VOLUME = 0.035;
+
+// 命中音效压缩/限幅参数：WebAudio 没有专用限幅器，用高压缩比 + 快速启动近似限幅。
+export const IMPACT_COMPRESSOR = Object.freeze({
+  threshold: -16,
+  knee: 10,
+  ratio: 12,
+  attack: 0.003,
+  release: 0.25,
+});
 
 // 环境音跟着场景切换：大厅更空旷，战斗更低沉，Boss 最低。
 const AMBIENT_TRACKS = {
@@ -328,6 +338,11 @@ class AudioFX {
     this.ctx = null;
     this.masterGain = null;
     this.sfxGain = null;
+    // 命中音效总线：impactGain → 压缩/限幅 → sfxGain（见 docs/PHASE_FEEL_ART.md §3.5）。
+    this.impactGain = null;
+    this.impactCompressor = null;
+    this.impactMixer = new ImpactMixer({ voice: (signature, opts) => this.impactVoice(signature, opts) });
+    this._auraState = { lastAt: -Infinity };
     this.musicGain = null;
     this.ambientGain = null;
     this.mood = null;
@@ -378,6 +393,20 @@ class AudioFX {
       this.sfxGain.gain.value = this.sfxLevel();
       this.sfxGain.connect(this.masterGain);
 
+      // 命中音效：独立增益 → 压缩/限幅 → sfxGain。环境不支持压缩节点时直连 sfxGain 降级。
+      this.impactGain = this.ctx.createGain();
+      this.impactGain.gain.value = 1;
+      this.impactCompressor = null;
+      const compressor =
+        typeof this.ctx.createDynamicsCompressor === 'function' ? this.ctx.createDynamicsCompressor() : null;
+      if (compressor && typeof compressor.connect === 'function') {
+        this.impactCompressor = compressor;
+        this.applyCompressorParams(compressor);
+        this.impactGain.connect(compressor).connect(this.sfxGain);
+      } else {
+        this.impactGain.connect(this.sfxGain);
+      }
+
       // 两路音乐总线：切歌时一路淡出、一路淡入，1.2s 交叠完成交叉淡化。
       this.musicGain = this.ctx.createGain();
       this.musicGain.gain.value = 0.0001;
@@ -410,6 +439,17 @@ class AudioFX {
       this.maybeBeginAmbience();
     }
     return this.ctx;
+  }
+
+  // 压缩/限幅参数写入：真实 AudioParam 走 setValueAtTime，测试假参数退化为直接赋值。
+  applyCompressorParams(compressor) {
+    if (!compressor) return;
+    for (const key of ['threshold', 'knee', 'ratio', 'attack', 'release']) {
+      const param = compressor[key];
+      if (!param || typeof param !== 'object') continue;
+      if (typeof param.setValueAtTime === 'function') param.setValueAtTime(IMPACT_COMPRESSOR[key], 0);
+      else param.value = IMPACT_COMPRESSOR[key];
+    }
   }
 
   setEnabled(value) {
@@ -1082,7 +1122,8 @@ class AudioFX {
     }
   }
 
-  tone(freq, duration, type, gain, slide = 0, when = 0) {
+  // options.bus 指定输出目标（默认 sfxGain），options.detune 是音分级变调（命中音效专用）。
+  tone(freq, duration, type, gain, slide = 0, when = 0, options = {}) {
     const ctx = this.ctx;
     if (!ctx) return;
     const osc = ctx.createOscillator();
@@ -1092,15 +1133,21 @@ class AudioFX {
     if (slide) {
       osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), when + duration);
     }
+    if (options.detune && osc.detune?.setValueAtTime) osc.detune.setValueAtTime(options.detune, when);
     env.gain.setValueAtTime(0.0001, when);
     env.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), when + 0.008);
     env.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    osc.connect(env).connect(this.sfxGain);
+    if (options.bus && options.bus !== this.sfxGain) {
+      osc.connect(env).connect(options.bus);
+    } else {
+      osc.connect(env).connect(this.sfxGain);
+    }
     osc.start(when);
     osc.stop(when + duration + 0.02);
   }
 
-  noise(duration, gain, cutoff = 1200, when = 0) {
+  // options.bus 指定输出目标（默认 sfxGain），options.filterType 选择滤波类型（默认 lowpass）。
+  noise(duration, gain, cutoff = 1200, when = 0, options = {}) {
     const ctx = this.ctx;
     if (!ctx) return;
     const frames = Math.max(1, Math.floor(ctx.sampleRate * duration));
@@ -1110,14 +1157,64 @@ class AudioFX {
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
+    filter.type = options.filterType || 'lowpass';
     filter.frequency.value = cutoff;
     const env = ctx.createGain();
     env.gain.setValueAtTime(gain, when);
     env.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    source.connect(filter).connect(env).connect(this.sfxGain);
+    if (options.bus && options.bus !== this.sfxGain) {
+      source.connect(filter).connect(env).connect(options.bus);
+    } else {
+      source.connect(filter).connect(env).connect(this.sfxGain);
+    }
     source.start(when);
     source.stop(when + duration + 0.02);
+  }
+
+  // 一次命中声：签名主音 + 可选噪声；暴击叠高频亮度层，致死叠 60Hz 低频层（都计入同一声预算）。
+  // 只有这里走 impactGain，其它 play() 音效仍直连 sfxGain。
+  impactVoice(signature, options = {}) {
+    if (!this.enabled || !signature || !this.ctx) return false;
+    const bus = this.impactGain || this.sfxGain;
+    const gainMul = Number.isFinite(options.gainMul) ? options.gainMul : 1;
+    const pitchCents = Number.isFinite(options.pitchCents) ? options.pitchCents : 0;
+    const delayMs = Number.isFinite(options.delayMs) ? Math.max(0, options.delayMs) : 0;
+    const when = this.ctx.currentTime + delayMs / 1000;
+    const gain = Math.max(0.0002, Math.min(0.06, signature.gain * gainMul));
+    this.tone(signature.freq, signature.duration, signature.type, gain, signature.slide, when, {
+      bus,
+      detune: pitchCents,
+    });
+    if (signature.noise) {
+      const noiseGain = Math.max(0.0002, signature.noise.gain * gainMul);
+      this.noise(signature.noise.duration, noiseGain, signature.noise.cutoff, when, {
+        bus,
+        filterType: signature.noise.filter,
+      });
+    }
+    if (options.accent) {
+      this.tone(signature.freq * 2.2, 0.05, 'triangle', 0.012, 0, when, { bus, detune: pitchCents });
+    }
+    if (options.lethal) {
+      this.tone(60, 0.18, 'sine', 0.02, -18, when, { bus });
+    }
+    return true;
+  }
+
+  // 命中层入口：消费本帧新增的 sim.impactEvents + 战旗光环脉冲，全部走同一个混音器。
+  // 关闭音效时直接返回，不创建上下文、不创建任何振荡器/噪声节点。
+  followCombatImpacts(sim, nowMs = 0) {
+    if (!this.enabled) return { played: 0, suppressed: 0, plans: [] };
+    if (!this.ensure()) return { played: 0, suppressed: 0, plans: [] };
+    const result = this.impactMixer.handle(sim?.impactEvents || [], nowMs);
+    const aura = supportAuraPulse(sim, nowMs, this._auraState);
+    if (aura) {
+      const extra = this.impactMixer.handleEvent(aura, nowMs);
+      result.played += extra.played;
+      result.suppressed += extra.suppressed;
+      result.plans.push(...extra.plans);
+    }
+    return result;
   }
 }
 

@@ -188,6 +188,8 @@ export class GameApp {
     // 只读消费本帧新增的结构化命中事件（对象身份去重，不要求事件带序号）。
     this.feedback.consume(sim.impactEvents || []);
     this.impactFeedback.consume(sim.impactEvents || []);
+    // 命中音效层：同一事件源，限流/压缩只作用于表现，不改变模拟与结算。
+    audio.followCombatImpacts(sim, performance.now());
     sim.updateVisuals(raw);
     m.simMs += performance.now() - simStarted;
 
