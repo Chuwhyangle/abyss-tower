@@ -1,7 +1,7 @@
 ---
 id: gap-mobile-visual-font-floor
 title: 移动端视觉字号下限：修掉标题技能卡 8.5px 与移动 HUD 9–10px 小字，让 mobile 套件 exit 0（AC-027）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
