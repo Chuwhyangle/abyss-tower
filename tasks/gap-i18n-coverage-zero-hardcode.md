@@ -75,7 +75,7 @@ GOAL-006 退出条件要求「机械视觉检查通过：单位与背景对比�
 - [ ] 真实浏览器（Chrome）en-US 实跑：把 `localStorage['abyss-tower.locale.v1']` 设为 `en-US` 后完成一局（标题→海克斯→选图→战斗→结算）并逐个打开 7 个面板；记录每屏 `innerText` 的 CJK 计数（必须 0）、裸键计数（0）、`window.__bootErrors`（空）与截图路径到 Notes
 - [ ] 局内切换语言（zh-CN ⇄ en-US）各两次：界面即时刷新、无中英混排、无裸键；输出记录进 Notes
 - [ ] zh-CN 回归：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke|flow|test:mobile` 全绿；抽查标题/商店/结算三屏截图，文案与改动前逐字一致
-- [ ] 反向验证：在本次实现前，`node --test tests/i18n-coverage.test.mjs` 必须失败（文件不存在或断言红），落地后转绿；把这条反向验证与扫描面命中数写进 Notes（证明测试不是空转）
+- [ ] 扫描器非空转证据：把落地过程中 `node --test tests/i18n-coverage.test.mjs` 的首次输出（文件尚不存在或断言红）与最终输出（exit 0）、以及扫描面命中数一并写进 Notes
 - [ ] Notes 记录：新增键数（zh/en 各多少）、扫描面文件数与字面量数、`HARDCODE_ALLOWLIST` 内容与理由、`tests/browser-i18n.mjs` 输出摘要
 - [ ] 不改 `public/js/sim.js` 与 `public/js/sim/**`、不改战斗数值/接口/存档；`git diff --stat` 只含本任务 Touches 内文件
 
