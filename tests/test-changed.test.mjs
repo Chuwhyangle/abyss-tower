@@ -94,6 +94,7 @@ test('无改动时跳过', () => {
 test('映射集中在一处且目标测试真实存在', () => {
   const known = new Set(ALL);
   for (const rule of TEST_MAP) {
+    assert.ok(fs.existsSync(path.join(ROOT, rule.match)), `${rule.match} 不存在`);
     assert.ok(rule.tests.length > 0, `${rule.match} 未声明测试`);
     for (const target of rule.tests) {
       assert.ok(known.has(target), `${rule.match} 映射到不存在的测试 ${target}`);
