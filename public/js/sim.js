@@ -8,6 +8,7 @@ import {
   resolveEventForWave,
   resolveEventOption,
 } from './shared/events.js';
+import { createFloater, floaterVisible, pushFloater } from './shared/floaters.js';
 import { RNG } from './shared/rng.js';
 import { computeOutcome } from './shared/scoring.js';
 import { HexRuntime } from './shared/hexes/runtime.js';
@@ -434,11 +435,11 @@ export class Simulation {
     this.effects.push(effect);
   }
 
-  addFloater(x, y, text, color = '#fff', big = false, { key = false } = {}) {
-    if (this.floatersMode === 'off') return;
-    if (this.floatersMode === 'key' && !key && !big) return;
-    const ttl = big ? 0.9 : 0.65;
-    this.floaters.push({ x, y, text, color, big, ttl, maxTtl: ttl });
+  // 生成侧就按档位裁剪（关闭/关键档不产对象），同层近邻数字按窗口累加；不消耗 RNG。
+  addFloater(x, y, text, color = '#fff', big = false, { key = false, layer = null } = {}) {
+    const meta = { x, y, text, color, big, key, layer };
+    if (!floaterVisible(this.floatersMode, meta)) return null;
+    return pushFloater(this.floaters, createFloater(meta), this.time);
   }
 
   playSound(name) {
