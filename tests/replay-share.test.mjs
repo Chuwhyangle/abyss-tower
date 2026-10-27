@@ -57,7 +57,8 @@ test('时间线文本格式固定，中文与英文都完整可读', () => {
     zh,
     [
       '渊塔守卫 · 回放摘要',
-      '开局 · 峡谷 · 词缀 涌流 · 种子 replay-seed-9c1f',
+      // 地图原型名走词典（真实数据里 ARCHETYPES.canyon.name 即「单径峡谷」）。
+      '开局 · 单径峡谷 · 词缀 涌流 · 种子 replay-seed-9c1f',
       '第 5 波 · 事件 · altar · 选择 blood',
       '止步第 14 波 · 已清 14 波 · 得分 4,321 · 击杀 210',
       '遗物：锐利箭簇 Lv.2 · 鹰眼徽记 Lv.1',
@@ -69,7 +70,7 @@ test('时间线文本格式固定，中文与英文都完整可读', () => {
     en,
     [
       'Abyss Tower · Replay summary',
-      'Start · 峡谷 · Modifier 涌流 · Seed replay-seed-9c1f',
+      'Start · Single Canyon · Modifier 涌流 · Seed replay-seed-9c1f',
       'Wave 5 · Event · altar · Chose blood',
       'Fell at wave 14 · 14 waves cleared · Score 4,321 · Kills 210',
       'Relics: 锐利箭簇 Lv.2 · 鹰眼徽记 Lv.1',

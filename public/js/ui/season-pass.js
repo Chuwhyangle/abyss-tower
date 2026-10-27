@@ -3,7 +3,7 @@
 import { api } from '../api.js';
 import { escapeHtml } from './kit/dom.js';
 import { createPanel } from './kit/panel.js';
-import { t, tData } from '../i18n.js';
+import { getLocale, t, tData } from '../i18n.js';
 
 const PANEL_ID = 'season-pass-panel';
 const LIST_ID = 'season-pass-list';
@@ -51,6 +51,29 @@ function claimButton(item, closed = false) {
   return `<button class="btn small primary" type="button" data-claim="${escapeHtml(item.id)}">${escapeHtml(t('seasonPass.claim'))}</button>`;
 }
 
+// 赛季标签：服务端 label 是中文串，客户端按 season 键（YYYY-MM）自己拼，随语言切换。
+function seasonValue(season) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(season || ''));
+  if (!match) return String(season || '');
+  return t('seasonPass.seasonValue', { year: match[1], month: String(Number(match[2])) });
+}
+
+// 奖励文案：由结构化 reward 拼装，称号名走 data.cosmeticTitle 词典。
+function rewardText(item) {
+  const reward = item?.reward || {};
+  const parts = [];
+  if (reward.cores) parts.push(t('seasonPass.rewardCores', { n: fmt(reward.cores) }));
+  if (reward.shards) parts.push(t('seasonPass.rewardShards', { n: fmt(reward.shards) }));
+  if (reward.title) {
+    parts.push(
+      t('seasonPass.rewardTitle', {
+        name: tData('cosmeticTitle', reward.title, 'name', reward.title),
+      })
+    );
+  }
+  return parts.join(' + ');
+}
+
 function card(item, closed = false) {
   const state = item.claimed
     ? t('seasonPass.claimed')
@@ -65,7 +88,7 @@ function card(item, closed = false) {
       <h3>
         <span>${escapeHtml(name)}</span>
         <span class="achievement-rarity">${escapeHtml(state)}</span>
-        <span class="achievement-state">${escapeHtml(item.rewardText || '')}</span>
+        <span class="achievement-state">${escapeHtml(rewardText(item))}</span>
       </h3>
       <p>${escapeHtml(desc)}</p>
       ${progressBar(item)}
@@ -251,18 +274,21 @@ function render(panel, data) {
   const closed = data?.closed === true || data?.readOnly === true;
   const progress = panel.querySelector('#season-pass-progress');
   if (progress) {
+    const seasonLabel = seasonValue(data?.season);
     const finals = t('seasonPass.progressFinal', {
-      label: data?.label || '',
+      label: seasonLabel,
       points: fmt(data?.points),
       max: fmt(data?.maxPoints),
     });
     const endsAt = Number(data?.endsAt);
     const remain = Number.isFinite(endsAt)
-      ? t('seasonPass.progressUntil', { date: new Date(endsAt).toLocaleDateString('zh-CN') })
+      ? t('seasonPass.progressUntil', {
+          date: new Date(endsAt).toLocaleDateString(getLocale() === 'en-US' ? 'en-US' : 'zh-CN'),
+        })
       : '';
     progress.textContent = closed
       ? finals
-      : `${data?.label || ''} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
+      : `${seasonLabel} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
   }
   updateHistory(panel, data);
   updateClaimAll(data, closed);

@@ -125,6 +125,24 @@ async function lobbyAudit(browser) {
   });
 }
 
+// 局内切换语言：走设置面板的真实 select（setLocale 会重建面板并广播 i18n:change）。
+async function switchLocale(browser, locale) {
+  await browser.evaluate(`document.querySelector('#btn-settings-title').click()`);
+  await browser.waitFor(`!!document.querySelector('#set-locale')`, '设置面板');
+  await browser.evaluate(`(() => {
+    const select = document.querySelector('#set-locale');
+    select.value = ${JSON.stringify(locale)};
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  })()`);
+  await browser.waitFor(
+    `document.documentElement.lang === ${JSON.stringify(locale)}`,
+    `切到 ${locale}`
+  );
+  await browser.evaluate(`document.querySelector('#settings-cancel').click()`);
+  await browser.waitFor(`!document.querySelector('.settings')`, '设置面板关闭');
+  console.log(`[i18n] 语言切换 → ${locale} 生效`);
+}
+
 async function playToResult(browser) {
   await browser.evaluate(`document.querySelector('#btn-play').click()`);
   await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
@@ -135,7 +153,9 @@ async function playToResult(browser) {
   await audit(browser, '战斗 HUD');
   await browser.screenshot(path.join(OUT_DIR, 'rtd-i18n-game.png'));
 
-  // 直接打空基地生命，走真实失败结算路径。
+  // 先开波（结算只在波次中判定），再直接打空基地生命，走真实失败结算路径。
+  await browser.evaluate(`document.querySelector('#btn-next-wave').click()`);
+  await browser.waitFor(`window.__rtd.state.sim.phase === 'wave'`, '波次开始');
   await browser.evaluate(`
     (() => {
       const sim = window.__rtd.state.sim;
@@ -176,10 +196,16 @@ async function main() {
     await lobbyAudit(browser);
     await playToResult(browser);
 
-    // 切回中文：写 localStorage 后重载，确认 zh-CN 界面没有裸键/空洞。
-    await browser.evaluate(`localStorage.setItem('${LOCALE_KEY}', 'zh-CN')`);
-    await browser.send('Page.navigate', { url: `${server.base}/` });
-    await browser.waitBoot();
+    // 局内切换语言：设置面板的 select 触发 setLocale（zh-CN ⇄ en-US 各两次），不重载页面。
+    for (const target of ['zh-CN', 'en-US', 'zh-CN', 'en-US', 'zh-CN']) {
+      await switchLocale(browser, target);
+      if (target === 'en-US') {
+        await audit(browser, `切回 ${target}`);
+      } else {
+        const zhText = await browser.evaluate(`document.body.innerText`);
+        if (!CJK_RE.test(zhText)) throw new Error(`切到 ${target} 后界面没有中文，语言切换未生效`);
+      }
+    }
     const zhLocale = await browser.evaluate(`document.documentElement.lang`);
     if (zhLocale !== 'zh-CN') throw new Error(`切回中文失败：documentElement.lang=${zhLocale}`);
     const zhText = await browser.evaluate(`document.body.innerText`);
@@ -203,7 +229,7 @@ async function main() {
     console.log('[i18n] 通过：en-US 大厅/6 面板/战斗/结算零 CJK、零裸键，zh-CN 切回无空洞');
   } finally {
     if (browser) await browser.close();
-    await server.close();
+    await server.stop();
   }
 }
 

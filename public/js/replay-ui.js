@@ -3,7 +3,7 @@
 // 详情页可把当前回放转成分享码，并把时间线复制成纯文本。
 import { RELIC_BY_ID } from './shared/data.js';
 import { validateRun } from './shared/replay.js';
-import { getLocale, t, tFor } from './i18n.js';
+import { getLocale, t, tFor, tOrFor } from './i18n.js';
 import { copyToClipboard, errorText } from './share-ui.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
@@ -157,7 +157,14 @@ export function buildTimeline(replay, locale = getLocale()) {
   const cleared = Number(waves.cleared ?? reached);
   const modifier = modifierName(map.modifier);
   const startDetail = [
-    map.archetypeName || map.archetype || tFor(locale, 'replay.unknownMap'),
+    // 时间线是带 locale 形参的纯函数：必须用显式 locale 取值，不能用当前语言的 tData。
+    map.archetype
+      ? tOrFor(
+          locale,
+          `data.mapArchetype.${map.archetype}.name`,
+          map.archetypeName || map.archetype
+        )
+      : tFor(locale, 'replay.unknownMap'),
     modifier ? tFor(locale, 'replay.modifier', { name: modifier }) : null,
     tFor(locale, 'replay.seed', { seed: replay.seed || '—' }),
   ]

@@ -1523,4 +1523,41 @@ export default {
   'audio.ambience.drone': '低鸣',
   'audio.ambience.water': '水滴',
   'hudUi.mutationChallenge': '变异挑战',
+
+  // ---- Season pass rewards / cosmetic names ----
+  'seasonPass.seasonValue': '{year} 年 {month} 月',
+  'seasonPass.rewardCores': '{n} 星核',
+  'seasonPass.rewardShards': '{n} 皮肤碎片',
+  'seasonPass.rewardTitle': '称号「{name}」',
+  'data.cosmeticTitle.wanderer.name': '初行者',
+  'data.cosmeticTitle.recruit.name': '塔下新兵',
+  'data.cosmeticTitle.commander.name': '全能指挥官',
+  'data.cosmeticTitle.abyss_conqueror.name': '深渊征服者',
+  'data.cosmeticTitle.tower_dawn.name': '塔顶守望',
+  'data.cosmeticTitle.gale.name': '疾风行者',
+  'data.cosmeticTitle.soul_lord.name': '万魂之主',
+  'data.cosmeticTitle.collector.name': '遗物收藏家',
+  'data.cosmeticTitle.iron_daily.name': '每日铁人',
+  'data.cosmeticTitle.achievement_master.name': '成就宗师',
+  'data.cosmeticTitle.season_legend.name': '赛季传奇',
+  'data.cosmeticFrame.bronze.name': '青铜边框',
+  'data.cosmeticFrame.abyss.name': '深渊边框',
+  'data.cosmeticFrame.gold.name': '鎏金边框',
+  'data.cosmeticFrame.storm.name': '风暴边框',
+  'data.cosmeticFrame.emerald.name': '翡翠边框',
+  'data.cosmeticFrame.ember.name': '余烬边框',
+  'data.cosmeticFrame.prism.name': '棱彩边框',
+
+  // ---- Skin set descriptions ----
+  'data.skinSet.molten.desc': '熔岩浇筑的塔身与被灼烧的敌群',
+  'data.skinSet.frost.desc': '永冻塔群与踏雪而来的霜裔',
+
+  // ---- Map archetype names ----
+  'data.mapArchetype.canyon.name': '单径峡谷',
+  'data.mapArchetype.twin.name': '双径汇流',
+  'data.mapArchetype.triple.name': '三径裂隙',
+  'data.mapArchetype.ring.name': '环形回廊',
+  'data.mapArchetype.cross.name': '交叉回廊',
+  'data.mapArchetype.switchback.name': '折返长廊',
+  'data.mapArchetype.doubleRing.name': '双环回廊',
 };

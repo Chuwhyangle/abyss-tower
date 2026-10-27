@@ -166,7 +166,11 @@ export const modalMethods = {
         const color = modifier?.color || '#9fb0c3';
         const preview = mapPreviewSvg(candidate);
         const portalCount = candidate.meta?.portalCount || candidate.spawns?.length || 1;
-        const title = mapName(candidate) || candidate.archetypeName || '';
+        const title =
+          mapName(candidate) ||
+          (candidate.archetype
+            ? tData('mapArchetype', candidate.archetype, 'name', candidate.archetypeName || candidate.archetype)
+            : candidate.archetypeName || '');
         const desc = mapDesc(candidate) || candidate.desc || '';
         // 固定 trait：canyon 没有 trait，明确标注“无固定特性”，不再出现随机词缀文案。
         const traitName = modifierName(modifier) || t('mapSelect.noTrait');

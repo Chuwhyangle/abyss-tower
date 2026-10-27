@@ -1530,4 +1530,41 @@ export default {
   'audio.ambience.drone': 'Low drone',
   'audio.ambience.water': 'Water drops',
   'hudUi.mutationChallenge': 'Mutation Challenge',
+
+  // ---- Season pass rewards / cosmetic names ----
+  'seasonPass.seasonValue': '{month}/{year}',
+  'seasonPass.rewardCores': '{n} cores',
+  'seasonPass.rewardShards': '{n} skin shards',
+  'seasonPass.rewardTitle': 'Title "{name}"',
+  'data.cosmeticTitle.wanderer.name': 'First Steps',
+  'data.cosmeticTitle.recruit.name': 'Tower Recruit',
+  'data.cosmeticTitle.commander.name': 'All-Rounder',
+  'data.cosmeticTitle.abyss_conqueror.name': 'Abyss Conqueror',
+  'data.cosmeticTitle.tower_dawn.name': 'Tower Dawn',
+  'data.cosmeticTitle.gale.name': 'Gale Runner',
+  'data.cosmeticTitle.soul_lord.name': 'Lord of Souls',
+  'data.cosmeticTitle.collector.name': 'Relic Collector',
+  'data.cosmeticTitle.iron_daily.name': 'Daily Iron',
+  'data.cosmeticTitle.achievement_master.name': 'Achievement Master',
+  'data.cosmeticTitle.season_legend.name': 'Season Legend',
+  'data.cosmeticFrame.bronze.name': 'Bronze Frame',
+  'data.cosmeticFrame.abyss.name': 'Abyss Frame',
+  'data.cosmeticFrame.gold.name': 'Gilded Frame',
+  'data.cosmeticFrame.storm.name': 'Storm Frame',
+  'data.cosmeticFrame.emerald.name': 'Emerald Frame',
+  'data.cosmeticFrame.ember.name': 'Ember Frame',
+  'data.cosmeticFrame.prism.name': 'Prismatic Frame',
+
+  // ---- Skin set descriptions ----
+  'data.skinSet.molten.desc': 'Magma-forged towers and scorched swarms',
+  'data.skinSet.frost.desc': 'Ever-frozen towers and frost-born swarms',
+
+  // ---- Map archetype names ----
+  'data.mapArchetype.canyon.name': 'Single Canyon',
+  'data.mapArchetype.twin.name': 'Twin Confluence',
+  'data.mapArchetype.triple.name': 'Triple Rift',
+  'data.mapArchetype.ring.name': 'Ring Corridor',
+  'data.mapArchetype.cross.name': 'Cross Corridor',
+  'data.mapArchetype.switchback.name': 'Switchback Hall',
+  'data.mapArchetype.doubleRing.name': 'Double Ring',
 };

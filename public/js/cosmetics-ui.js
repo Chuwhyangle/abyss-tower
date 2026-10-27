@@ -1,6 +1,6 @@
 // 大厅外观面板：展示已解锁的称号、头像框与塔/敌人皮肤，选择结果由服务端持久化。
 // 未解锁的外观只作为目标提示，不能点击选择；本模块不参与任何战斗数值。
-import { t, tData } from './i18n.js';
+import { t, tData, tOr } from './i18n.js';
 import { setActiveSkins } from './shared/skins.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
@@ -62,11 +62,23 @@ function setStatus(message) {
   if (status) status.textContent = message || '';
 }
 
+// 成就名同样来自数据表：有 id 就走词典，服务端 title 只作不可达回退。
+function achievementTitle(item) {
+  if (!item?.achievementId) return item?.achievementTitle || '';
+  return tOr(`achievement.${item.achievementId}.title`, item.achievementTitle || item.achievementId);
+}
+
 function sourceLabel(item) {
   if (item.unlocked) return t('cosmetics.unlocked');
-  return item.achievementTitle
-    ? t('cosmetics.source', { name: item.achievementTitle })
+  return item.achievementTitle || item.achievementId
+    ? t('cosmetics.source', { name: achievementTitle(item) })
     : t('cosmetics.locked');
+}
+
+// 称号/边框名来自数据表：按 id 走词典，英文界面不得落到数据自带中文。
+function cosmeticName(kind, item) {
+  const group = kind === 'frame' ? 'cosmeticFrame' : 'cosmeticTitle';
+  return tData(group, item.id, 'name', item.name);
 }
 
 function chip(kind, item) {
@@ -74,11 +86,12 @@ function chip(kind, item) {
   const classes = ['cosmetic-chip'];
   if (selected) classes.push('active');
   const color = item.color ? ` style="--cosmetic-color:${escapeHtml(item.color)}"` : '';
+  const name = cosmeticName(kind, item);
   return `
     <button type="button" class="${classes.join(' ')}" data-kind="${kind}" data-value="${escapeHtml(item.id)}"
       aria-pressed="${selected ? 'true' : 'false'}" ${item.unlocked ? '' : 'disabled'}
-      title="${escapeHtml(`${item.name} · ${sourceLabel(item)}`)}">
-      <span class="cosmetic-chip-head"><span class="cosmetic-chip-dot"${color} aria-hidden="true"></span>${escapeHtml(item.name)}</span>
+      title="${escapeHtml(`${name} · ${sourceLabel(item)}`)}">
+      <span class="cosmetic-chip-head"><span class="cosmetic-chip-dot"${color} aria-hidden="true"></span>${escapeHtml(name)}</span>
       <span class="cosmetic-chip-source">${escapeHtml(sourceLabel(item))}</span>
     </button>`;
 }
@@ -124,7 +137,9 @@ function skinSetThumb(set, member) {
   const color = member.outline?.color || '#7a8794';
   const glow = set.glow || color;
   const classes = ['cosmetic-thumb', member.unlocked ? 'unlocked' : 'locked'];
-  const name = tData('skin', member.id, 'name', member.name);
+  // 套装成员是「某类型的皮肤」：显示名取该塔/敌人的名字，不是皮肤 id。
+  const kind = member.target === 'enemy' ? 'enemy' : 'tower';
+  const name = tData(kind, member.type, 'name', member.name);
   const hint = `${name} · ${sourceLabel(member)}`;
   return `
     <div class="${classes.join(' ')}" data-target="${escapeHtml(member.target)}" data-type="${escapeHtml(member.type)}"
@@ -153,7 +168,7 @@ function skinSetCard(set) {
         <span class="cosmetic-set-title">${escapeHtml(name)}${escapeHtml(completeNote)}</span>
         <span class="cosmetic-set-progress">${escapeHtml(progressText)}</span>
       </header>
-      ${set.description ? `<p class="cosmetic-set-note">${escapeHtml(set.description)}</p>` : ''}
+      ${set.description ? `<p class="cosmetic-set-note">${escapeHtml(tData('skinSet', set.id, 'desc', set.description))}</p>` : ''}
       <div class="cosmetic-set-grid">
         ${(set.members || []).map((member) => skinSetThumb(set, member)).join('')}
       </div>
@@ -206,10 +221,10 @@ function preview() {
   return `
     <div class="cosmetic-preview">
       <div class="cosmetic-preview-card"${frameStyle}>
-        <span class="cosmetic-preview-name">${escapeHtml(title ? title.name : '')}</span>
+        <span class="cosmetic-preview-name">${escapeHtml(title ? cosmeticName('title', title) : '')}</span>
         <span class="cosmetic-preview-title">${escapeHtml(title ? t('cosmetics.equippedTitle') : t('cosmetics.noTitle'))}</span>
       </div>
-      <span class="cosmetic-preview-note">${escapeHtml(frame ? `${t('cosmetics.equippedFrame')} · ${frame.name}` : t('cosmetics.noFrame'))}</span>
+      <span class="cosmetic-preview-note">${escapeHtml(frame ? `${t('cosmetics.equippedFrame')} · ${cosmeticName('frame', frame)}` : t('cosmetics.noFrame'))}</span>
       ${skinNote ? `<span class="cosmetic-preview-note">${escapeHtml(skinNote)}</span>` : ''}
     </div>`;
 }

@@ -2,7 +2,7 @@
 import { DIFFICULTIES, SKILLS } from '../shared/data.js';
 import { ACHIEVEMENT_BY_ID, ACHIEVEMENT_RARITIES } from '../shared/achievements.js';
 import { MUTATIONS } from '../shared/mutations.js';
-import { t, tData } from '../i18n.js';
+import { t, tData, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { buildShareCardData, downloadShareCard } from '../share-card.js';
@@ -68,17 +68,17 @@ export const resultMethods = {
       name: skillName(SKILLS[entry.id] || entry),
     }));
     const unlockItems = [
-      ...achievementUnlocks.map(({ def }) => {
+      ...achievementUnlocks.map(({ id, def }) => {
         const rarity = ACHIEVEMENT_RARITIES[def.rarity];
         return `<li class="result-unlock" style="--unlock-color:${rarity?.color || 'var(--gold)'}">
           <span class="result-unlock-kind">${t('result.achievementUnlocked')}</span>
-          <b>${escapeHtml(def.title)}</b>
+          <b>${escapeHtml(tOr(`achievement.${id}.title`, def.title))}</b>
         </li>`;
       }),
       ...skillUnlocks.map(
         (entry) => `<li class="result-unlock" style="--unlock-color:var(--cyan)">
           <span class="result-unlock-kind">${t('result.skillUnlocked')}</span>
-          <b>${escapeHtml(entry.name)}</b>
+          <b>${escapeHtml(skillName(entry))}</b>
         </li>`
       ),
     ];

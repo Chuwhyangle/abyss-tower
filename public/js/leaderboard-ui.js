@@ -5,7 +5,7 @@ import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
 import { createPanel } from './ui/kit/panel.js';
 import { fmt } from './ui/shared.js';
-import { t } from './i18n.js';
+import { t, tData } from './i18n.js';
 
 const PANEL_ID = 'leaderboard-panel';
 const STYLE_ID = 'leaderboard-ui-style';
@@ -163,7 +163,8 @@ function fmtDuration(ms) {
 }
 
 function difficultyName(id) {
-  return DIFFICULTIES[id]?.name || id || t('data.difficulty.standard.name');
+  // 难度名来自数据表：按 id 走词典，英文界面不得落到数据自带中文。
+  return tData('difficulty', id, 'name', DIFFICULTIES[id]?.name || id || t('data.difficulty.standard.name'));
 }
 
 function difficultyColor(id) {
