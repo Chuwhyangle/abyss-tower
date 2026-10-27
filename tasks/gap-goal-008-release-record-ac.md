@@ -1,7 +1,7 @@
 ---
 id: gap-goal-008-release-record-ac
 title: GOAL-008 充分性缺口：退出条件 4 的 tag 与发布哈希/回滚记录无 AC（提案新增 AC-043）
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
@@ -82,3 +82,6 @@ GOAL-008（v2.0 发布收口：版本、部署与真人试玩）的退出条件�
 ## Notes
 
 本任务是 goal-sufficiency 的提案任务，状态 `needs-human`：`goals/*.md` 只由人/管理者写入，执行者不得自行登记 AC-043，也不得把 GOAL-008 或任何 AC 置为 achieved。检查器只读——不 push、不打 tag、不写 RELEASE.md，「人确认后执行」的动作仍是人的。遵循 CLAUDE.md：零第三方依赖；`docs/PRD.md` / `docs/TECH_DESIGN.md` 不在 Touches。若人选择「修订退出条件」而不是新增 AC，请在裁定里说明理由并把本任务 supersede。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

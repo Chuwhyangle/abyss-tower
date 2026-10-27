@@ -1,7 +1,7 @@
 ---
 id: DOCS-003
 title: v2.0.0 版本收口：CONTENT_VERSION / CHANGELOG / PRD / RELEASE 对齐
-status: todo
+status: superseded
 labels:
   - docs
 parent: null
@@ -59,3 +59,6 @@ goal_ac: AC-040
 ## Notes
 
 本任务走 `DOCS-*` lane 才能合法改 `docs/PRD.md`（`scripts/check-doc-ownership.mjs` 对非 DOCS 的 open 任务 fail-closed）。版本号是唯一事实来源组合：`server/config.mjs` 的 `CONTENT_VERSION`、CHANGELOG 顶部、PRD 修订记录、git tag；package.json 的 version 只要求合法 semver，但本任务一并改成 2.0.0 以免误读。不要自动 push/tag。`scripts/playtest-check.mjs` 是判据仪器，不是本任务的产物；不要为了让 AC 变绿而放宽它。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

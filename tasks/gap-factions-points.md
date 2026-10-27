@@ -1,7 +1,7 @@
 ---
 id: gap-factions-points
 title: 五派系点数：遗物派系标注、4/8/12 阈值与独立 setMods 层
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -56,3 +56,6 @@ goal_ac: AC-033
 ## Notes
 
 setMods 必须走独立层：旧 `PER_RELIC_CAPS` / `GLOBAL_MOD_CAPS` 已被 Ⅲ 级遗物顶满，继续塞旧键会被静默裁成 0。派系点数只由遗物等级决定，不引入第二货币。若某件遗物在 PHASE_ROGUE2 里被判为中立，测试仍要求它出现在映射表中并标注 neutral。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

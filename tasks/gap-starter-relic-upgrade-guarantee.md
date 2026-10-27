@@ -1,7 +1,7 @@
 ---
 id: gap-starter-relic-upgrade-guarantee
 title: 开局信物三选一 + 第 3 波起三选一必含升级卡
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -57,3 +57,6 @@ goal_ac: AC-034
 
 <!-- dedup-ref -->
 与 `gap-factions-points` 的边界：派系数据、点数与阈值由该任务提供，本任务只消费 `faction` 字段并发放 1 点；与 `gap-contracts` 的边界：契约卡只替换三选一里的一张，不改变保底升级卡的优先级，调度器按 Touches 串行。开局信物是服务端权威选择，客户端不得自造候选。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

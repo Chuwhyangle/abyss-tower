@@ -1,7 +1,7 @@
 ---
 id: gap-awakenings-p0
 title: 觉醒 P0：四条三级遗物行为词条
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -57,3 +57,6 @@ goal_ac: AC-038
 
 <!-- dedup-ref -->
 与 `gap-doctrines` 的边界：教义改某一类塔的全部实例，觉醒只改单件遗物的行为；两者同时存在时效果键必须分开。与 `gap-weapon-impact-vfx`（已完成）的边界：本任务只加行为与最小特效，不重做命中特效语言。确定性红线：未觉醒路径不得新增/重排 `combatRng` 调用。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

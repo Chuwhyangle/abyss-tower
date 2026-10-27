@@ -1,7 +1,7 @@
 ---
 id: gap-release-deploy-smoke
 title: v2.0.0 部署冒烟：18787 实例重启、版本断言与孤儿清理
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -51,3 +51,6 @@ goal_ac: AC-041
 ## Notes
 
 重启是对外可见动作：脚本默认只读，`--restart` 必须显式传；重启会短暂断线。孤儿判定同时要求「监听端口 ≠ 18787」与「cwd 指向已删除 worktree」，避免误杀其他租户的 node 进程。18787 是用户指定的端口，不要改回 8787（8787 属于其他租户）。`scripts/deploy-smoke.mjs` 同时是 AC-041 的判据仪器：可以加固只读断言，但不得为了让 AC 变绿而删除版本/静态资源断言。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。
