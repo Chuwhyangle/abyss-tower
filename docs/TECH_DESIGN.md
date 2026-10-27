@@ -213,6 +213,23 @@ generateWave(seed, wave, difficulty, mapMeta) -> {
 - 条件型效果：`effects.js` 的 `conditionSnapshot(sim)` 从本局状态提取只读快照（`hpRatio` / `gold` / `emptySlots`），`isLowHpState` / `isRichState` / `hasEmptySlots` 与各 `hitCondition` 都是纯函数；`sim.computeHit` 每次命中生成一次快照传给 `hitBonuses`，判定不读写随机数，固定种子的 RNG 顺序不变。阈值集中在 `CONDITION_THRESHOLDS`（低血 40% / 满金币 400 / 空位 8）。
 - 塔的稳定属性在建造、升级、遗物变化时缓存；模拟步内不重建对象。
 
+#### 派系层与核心/契约（v1.9 增量）
+
+字段、键清单与三档数值不在本文重复，唯一冻结处是 [`docs/PHASE_ROGUE2.md`](PHASE_ROGUE2.md)（§2–§8）。本文只钉住运行时不变式：
+
+- **派系点是纯函数**：`points = Σ clamp(level,1,3) + bonusPoints`，`bonusPoints` 只由契约写入且单派系 ≤ +3；
+  `tiers` 与派系加成对象都由 `points` 重算，不单独持久化到快照里（避免两份读数漂移）。
+- **派系加成是独立乘区**：不写入遗物 `mods`，不参与 `PER_RELIC_CAPS` / `GLOBAL_MOD_CAPS` 的裁剪；
+  旧上限继续只作用于遗物 `mods`。未知键必须报错，不静默忽略。
+- **不新增弹窗层级**：核心与契约都复用既有 `offers` 存储与三选一弹窗；核心不可刷新，契约随整组刷新。
+- **服务端可验证边界**：只校验波次对齐、契约/教义次数上限、觉醒目标等级；不校验「是否真的击杀首领」，
+  按「清波即发放」处理。任何契约效果**不得**改敌人 HP / 速度 / 入口。
+- **确定性**：信物、核心、契约的候选全部由服务端按独立种子流生成（不触碰 `combatRng`，`sim` 内不抽卡），
+  同一 `(seed, wave, mode, 已拥有状态)` 结果完全一致；回放以已选记录为重放输入。
+- **快照**：升到 v5，新增 `rogue2` 块；v2–v4 缺该块时按「无 2.0」处理，行为与旧局一致。
+- **6 套装层退役**：派系层上线的同一提交里停止累加 2/4 件套装加成，常量与查询函数保留导出；
+  图鉴改按派系分组后删除 `set` 字段（迁移顺序见 PHASE_ROGUE2 §10.2）。
+
 ### 4.6 数值与伤害管线
 
 集中定义在 `shared/data/`（`shared/data.js` 统一再导出）：
