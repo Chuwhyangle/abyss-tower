@@ -62,8 +62,10 @@ function sceneSpritesExpression(scene) {
 }
 
 async function boot(browser, base, viewport, { blocked = [], label }) {
+  // 移动视口用 DPR 2 设置，验证管线会选 @2x 变体；桌面固定 1。
+  const dpr = viewport.deviceScaleFactor >= 2 ? 2 : 1;
   await browser.evaluate(
-    `localStorage.setItem(${JSON.stringify(SETTINGS_KEY)}, JSON.stringify({ qualityMode: 'manual', dpr: 1, decorations: 'full' }))`
+    `localStorage.setItem(${JSON.stringify(SETTINGS_KEY)}, JSON.stringify({ qualityMode: 'manual', dpr: ${dpr}, decorations: 'full' }))`
   );
   await browser.send('Emulation.setDeviceMetricsOverride', {
     width: viewport.width,
@@ -297,16 +299,27 @@ async function runFallbackArm(browser, base, viewport) {
 
 async function main() {
   const server = await startTestServer();
-  const session = await registerAndLogin(server.base);
-  let browser = null;
   const ready = {};
   const fallback = {};
   try {
-    browser = await launchBrowser({ base: server.base, name: 'rtd-sprite-scenes', cookie: session.rawCookie });
-
+    // 每个视口独立浏览器 + 独立账号：服务端的账号设置会覆盖 localStorage，
+    // 复用同一账号会让移动臂的 DPR=2 设置被桌面臂保存的默认设置冲掉。
     for (const viewport of VIEWPORTS) {
-      ready[viewport.name] = await runReadyArm(browser, server.base, viewport);
-      fallback[viewport.name] = await runFallbackArm(browser, server.base, viewport);
+      const session = await registerAndLogin(server.base);
+      const browser = await launchBrowser({
+        base: server.base,
+        name: `rtd-sprite-scenes-${viewport.name}`,
+        cookie: session.rawCookie,
+      });
+      try {
+        ready[viewport.name] = await runReadyArm(browser, server.base, viewport);
+        fallback[viewport.name] = await runFallbackArm(browser, server.base, viewport);
+        if (browser.pageErrors.length) {
+          throw new Error(`${viewport.name} 控制台错误：${browser.pageErrors.join(' | ')}`);
+        }
+      } finally {
+        await browser.close();
+      }
     }
 
     // 两视口同场景 id 集必须完全一致（DPR 变体可以不同）。
@@ -317,10 +330,9 @@ async function main() {
         throw new Error(`两视口 ${scene} id 集不一致：桌面 ${left.join(',')} / 移动 ${right.join(',')}`);
       }
     }
-    if (browser.pageErrors.length) throw new Error(`控制台错误：${browser.pageErrors.join(' | ')}`);
-
     for (const scene of SCENE_KEYS) {
-      console.log(`[sprite-scenes] ${scene.padEnd(7)} ids=${ready.desktop.ids[scene].join(',')}`);
+      console.log(`[sprite-scenes] ${scene.padEnd(7)} 桌面=${ready.desktop.ids[scene].join(',')}`);
+      console.log(`[sprite-scenes] ${scene.padEnd(7)} 移动=${ready.mobile.ids[scene].join(',')}`);
     }
     console.log('[sprite-scenes] 战斗绘制计数：', JSON.stringify(ready.desktop.draws), JSON.stringify(ready.mobile.draws));
     console.log('[sprite-scenes] DPR 变体：', JSON.stringify(ready.desktop.variants), JSON.stringify(ready.mobile.variants));
@@ -338,7 +350,6 @@ async function main() {
     }));
     console.log('[sprite-scenes] 通过');
   } finally {
-    if (browser) await browser.close();
     await server.stop();
   }
 }
