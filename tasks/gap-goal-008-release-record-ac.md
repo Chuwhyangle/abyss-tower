@@ -1,7 +1,7 @@
 ---
 id: gap-goal-008-release-record-ac
 title: GOAL-008 充分性缺口：退出条件 4 的 tag 与发布哈希/回滚记录无 AC（提案新增 AC-043）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
