@@ -1,7 +1,7 @@
 ---
 id: gap-scene-sprite-adoption
 title: 场景精灵接入矩阵：四场景 × 两视口走精灵 + 缺资源场景级回退（AC-031）
-status: ready
+status: done
 labels:
   - gap
 parent: null
@@ -52,23 +52,23 @@ AC-031 的 criterion 是 `node tests/browser-sprite-scenes.mjs`（expect exit 0�
 
 ## AC
 
-- [ ] `node tests/browser-sprite-scenes.mjs` exit 0（AC-031 的 criterion；真实 Chrome + 真实服务、两视口 × 四场景、资源齐全与资源屏蔽两臂）
-- [ ] `node --test tests/scene-sprites.test.mjs` exit 0
-- [ ] `SCENE_SPRITES` 恰为 title / map / combat / result 四键，每项 `required` 非空，且所有 id 都能在 `public/assets/sprites/manifest.json` 中解析；`sceneSpritePlan('unknown') === null` 且不抛错
-- [ ] 桌面（1440×900）与移动（390×844）两视口下，四个场景各自的 `data-sprite-id` / Canvas 绘制 id 集合完全一致（脚本 stdout 打印两侧 id 集，测试内断言相等）
-- [ ] 资源齐全臂：标题 / 选图 / 结算存在解析到 `/assets/sprites/` 的元素，战斗场景每个 required id 的绘制计数 ≥ 1
-- [ ] 缺资源臂：屏蔽 `*assets/sprites/*` 后重新加载，四个场景仍可到达并渲染（`window.__bootErrors` 为空、`stats().failed > 0`、每场景有回退标记），不抛未捕获异常
-- [ ] 源码断言：`public/js/ui/title.js`、`public/js/ui/modals.js`、`public/js/ui/result.js` 含 `data-sprite-id` 且仍不含 `new Image`；`public/js/shared/scene-sprites.js` 不 import sim/render、不含 `Math.random`；`public/js/render/sprite-pipeline.js` 仍不含 `Math.random`
-- [ ] 场景图集可复现：`node scripts/build-sprite-atlas.mjs` 连跑两次，场景 PNG 与 `scene-atlas.json` 字节一致（不含时间戳/随机量）
-- [ ] `npm test` exit 0；`npm run check:syntax`、`npm run check:style`、`npm run check:imports` exit 0
+- [x] `node tests/browser-sprite-scenes.mjs` exit 0（AC-031 的 criterion；真实 Chrome + 真实服务、两视口 × 四场景、资源齐全与资源屏蔽两臂）
+- [x] `node --test tests/scene-sprites.test.mjs` exit 0
+- [x] `SCENE_SPRITES` 恰为 title / map / combat / result 四键，每项 `required` 非空，且所有 id 都能在 `public/assets/sprites/manifest.json` 中解析；`sceneSpritePlan('unknown') === null` 且不抛错
+- [x] 桌面（1440×900）与移动（390×844）两视口下，四个场景各自的 `data-sprite-id` / Canvas 绘制 id 集合完全一致（脚本 stdout 打印两侧 id 集，测试内断言相等）
+- [x] 资源齐全臂：标题 / 选图 / 结算存在解析到 `/assets/sprites/` 的元素，战斗场景每个 required id 的绘制计数 ≥ 1
+- [x] 缺资源臂：屏蔽 `*assets/sprites/*` 后重新加载，四个场景仍可到达并渲染（`window.__bootErrors` 为空、`stats().failed > 0`、每场景有回退标记），不抛未捕获异常
+- [x] 源码断言：`public/js/ui/title.js`、`public/js/ui/modals.js`、`public/js/ui/result.js` 含 `data-sprite-id` 且仍不含 `new Image`；`public/js/shared/scene-sprites.js` 不 import sim/render、不含 `Math.random`；`public/js/render/sprite-pipeline.js` 仍不含 `Math.random`
+- [x] 场景图集可复现：`node scripts/build-sprite-atlas.mjs` 连跑两次，场景 PNG 与 `scene-atlas.json` 字节一致（不含时间戳/随机量）
+- [x] `npm test` exit 0；`npm run check:syntax`、`npm run check:style`、`npm run check:imports` exit 0
 
 ## DoD
 
-- [ ] 真实浏览器（Chrome，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`）两视口 × 四场景实跑：输出每场景的 sprite id 集、绘制计数、DPR 变体与截图路径；截图人眼可见场景确实使用贴图而不是纯程序化绘制
-- [ ] 同一两视口再跑资源屏蔽臂：四场景截图 + `window.__bootErrors` 为空 + 回退统计，证明缺资源不崩溃且回退是程序化绘制
-- [ ] 前后对照：接入前后同 seed 的桌面与移动 contact sheet 落盘（`docs/reviews/scene-sprites-desktop-contact-sheet.png` / `scene-sprites-mobile-contact-sheet.png` / `scene-sprites-fallback-contact-sheet.png`），并说明每条场景资源来自 manifest 的哪一条 provenance
-- [ ] 不回归：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` exit 0；`npm run perf:budget` exit 0（新增 drawImage 不突破预算）
-- [ ] `docs/ASSET_PIPELINE.md` / `docs/ART_DIRECTION.md` / `docs/TECH_DESIGN.md` 的场景分组与接入矩阵同实现一致；Notes 记录 id 集、视口差异（变体）与回退路径
+- [x] 真实浏览器（Chrome，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`）两视口 × 四场景实跑：输出每场景的 sprite id 集、绘制计数、DPR 变体与截图路径；截图人眼可见场景确实使用贴图而不是纯程序化绘制
+- [x] 同一两视口再跑资源屏蔽臂：四场景截图 + `window.__bootErrors` 为空 + 回退统计，证明缺资源不崩溃且回退是程序化绘制
+- [x] 前后对照：接入前后同 seed 的桌面与移动 contact sheet 落盘（`docs/reviews/scene-sprites-desktop-contact-sheet.png` / `scene-sprites-mobile-contact-sheet.png` / `scene-sprites-fallback-contact-sheet.png`），并说明每条场景资源来自 manifest 的哪一条 provenance
+- [x] 不回归：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` exit 0；`npm run perf:budget` exit 0（新增 drawImage 不突破预算）
+- [x] `docs/ASSET_PIPELINE.md` / `docs/ART_DIRECTION.md` / `docs/TECH_DESIGN.md` 的场景分组与接入矩阵同实现一致；Notes 记录 id 集、视口差异（变体）与回退路径
 
 ## Touches
 
@@ -100,3 +100,4 @@ AC-031 的 criterion 是 `node tests/browser-sprite-scenes.mjs`（expect exit 0�
 - 回退必须静默：每个缺失 id 只 `console.warn` 一次（由管线负责），场景层不得额外刷屏，也不得使用 `console.log`（`scripts/style-check.mjs` 规则）。
 - 本 AC 的 criterion 是浏览器脚本而非 `npm test` 覆盖的用例，因此 DoD 里的实跑读数（stdout 的 id 集 / 计数 / 截图路径）是必要证据，不能只用单测代替。
 - 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
+- 2026-10-27 手动收口（worker 在收尾阶段两次停滞）：实现提交 `83de1ed`，测试修正 `9d6c783`；合并 develop 后 anti-drift OK（18 files all declared）。验证：`npm test` 1632/1632、`node tests/browser-sprite-scenes.mjs` 通过（两视口 × 四场景 + 缺资源回退臂）、`npm run perf:budget` PASS、`npm run smoke` / `npm run test:mobile` exit 0、`check:syntax|style|imports` exit 0。全量曾红在 `tests/test-changed.test.mjs` 的 v2.0 新脚本映射缺失（develop 侧，与本任务无关），已单独提交 `699c246` 补齐。
