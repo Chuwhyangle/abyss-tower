@@ -125,6 +125,7 @@ test('清单校验：非法条目进 errors 且不抛错', () => {
     entry({ id: 'fx/zero', size: { w: 0, h: 16 } }),
     entry({ id: 'fx/negative', size: { w: 16, h: -8 } }),
     entry({ id: 'fx/fractional', size: { w: 12.5, h: 16 } }),
+    { ...entry({ id: 'fx/no-size' }), size: undefined },
     entry({ id: 'fx/pivot', pivot: { x: 1.5, y: 0.5 } }), // 锚点越界
     entry({ id: 'fx/anchor', anchor: 'middle' }),
     entry({ id: 'fx/dpr', dpr: 2 }),
@@ -139,7 +140,7 @@ test('清单校验：非法条目进 errors 且不抛错', () => {
   for (const code of ['missing-id', 'missing-src', 'pivot-range', 'anchor-invalid', 'invalid-dpr']) {
     assert.ok(codes.includes(code), `缺少错误码 ${code}（实际：${codes.join(',')}）`);
   }
-  assert.equal(codes.filter((code) => code === 'invalid-size').length, 3, '尺寸 0/负数/非整数各一例');
+  assert.equal(codes.filter((code) => code === 'invalid-size').length, 4, '尺寸 0/负数/非整数/缺失各一例');
 });
 
 test('清单校验：重复 id 只保留最后一条', () => {

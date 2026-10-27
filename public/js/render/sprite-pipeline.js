@@ -353,7 +353,8 @@ export class SpritePipeline {
       const victim = [...this.records.values()]
         .filter((record) => record.state === 'ready')
         .sort((a, b) => b.bytes - a.bytes)[0];
-      if (!victim) break;
+      // 字节数为 0 的条目无法再释放内存，继续循环只会空转。
+      if (!victim || !(victim.bytes > 0)) break;
       this.drop(victim);
       victim.state = 'skipped';
       this.warnOnce(victim.spec.id, `[sprites] 内存预算不足，跳过：${victim.spec.id}；回退程序化绘制`);

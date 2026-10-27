@@ -9,7 +9,6 @@ export const ENTRY_STATUS = Object.freeze(['placeholder', 'ready', 'deprecated']
 export const SPRITE_ID_PATTERN = /^[a-z][a-z0-9-]*(?:[./][a-z0-9-]+)+$/;
 
 const DEFAULT_PIVOT = Object.freeze({ x: 0.5, y: 0.5 });
-const DEFAULT_SIZE = Object.freeze({ w: 1, h: 1 });
 
 function isPositiveInt(value) {
   return Number.isInteger(value) && value > 0;
@@ -87,7 +86,8 @@ function normalizeEntry(item, index, errors) {
   const src = nonEmptyString(item.src) ? item.src.trim() : srcFromPath(item.path);
   if (!src) return fail('missing-src', '缺少 src/path');
 
-  const size = item.size ?? DEFAULT_SIZE;
+  // size 是文档必填字段：缺失同样视为非法，避免静默按 1×1 处理。
+  const size = item.size;
   if (!size || !isPositiveInt(size.w) || !isPositiveInt(size.h)) {
     return fail('invalid-size', 'size 必须是正整数 { w, h }');
   }
