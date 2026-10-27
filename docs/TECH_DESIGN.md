@@ -6,6 +6,7 @@
 - v1.22 事件连锁（2026-10-24）：`shared/events.js` 扩到 12 类事件并新增 `EVENT_CHAINS`（3 条纯数据连锁，选项 → 2 波后的固定后续事件，延迟节点为 7/12/17/22/27 波）。连锁排期由事件历史唯一推导，服务端据此校验；快照升到 v5（`chains:[{chainId,wave}]`，无连锁时仍写 v3/v4）。
 - v1.8 文档同步（2026-10-23）：按实际交付校准内容量（塔 8 / 遗物 30 / 地图原型 6 / 词缀 8）；数据表已拆到 `shared/data/`，runs 路由拆为仓储 + 领域服务，快照统一为 v4。
 - v2.0 方向（2026-10-23）：新增第 14 节（成就 / 生涯统计 / 音乐 / 可访问性）；只新增系统设计，不改变第 1–13 节已有决策。
+- v2.0 战斗反馈与视觉重制（2026-10-27）：§5.5 新增命中反馈层与精灵资源管线、§5.6 补运动预算、§5.9 新增 i18n 收口、§14.3 补命中音效层、§14.4 补字号下限与 Canvas 动效降级。层序、预算、签名、资源索引的冻结值统一在 `docs/PHASE_FEEL_ART.md`，本节只写运行时不变式，避免两处定义。
 - 评审结论：
   - 难度命名「漫游 / 远征 / 深渊」。
   - 排行榜合并，按最终分数排序，展示难度标签。
@@ -261,6 +262,22 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 反馈关闭（`setVisualQuality({ effects:'off', floaters:'off' })`）时事件照常逐次产出，只是消费端（渲染/音频/飘字）表现不同；同 seed 的「全开」「全关」两局模拟状态与 `combatRng` 序列逐字节一致。
 - 不新增 `Simulation.prototype` 方法：`pushImpactEvent(sim, event)` 是纯函数，导出面（`tests/sim-systems.test.mjs` 的 `EXPORT_SURFACE`）保持不变。
 
+#### 命中类别层（AC-030）
+
+类别层由事件字段**纯推导**，不新增事件、不改变事件 schema：
+
+| 类别 | 触发谓词 | 字段来源 | 叠加规则 |
+|---|---|---|---|
+| `bossHit` | `target.type === 'boss'`（三变体同为 boss 类型） | `target.type` | 与武器层同时存在，不替代武器反馈 |
+| `shieldBreak` | `shieldAbsorbed > 0 && hpLost > 0`（本击打穿盾） | `shieldAbsorbed` / `hpLost` | 纯吸收（`hpLost === 0`）**不算**破盾 |
+| `armor` | `armorAbsorbed > 0` | `armorAbsorbed` | 与护甲减免同源 |
+
+- 同一事件可同时命中多个类别（如首领带盾）；返回按固定优先级排序的层名数组，非法输入返回空数组且不抛错。
+- 文案冻结：`bossHit` → 该击实际扣血（`hpLost === 0` 时用 `shieldAbsorbed`）、`shieldBreak` → 破盾吸收量、
+  `armor` → 护甲吸收量 + `甲`；数值一律取整。
+- 层序、配色与预算见 `docs/PHASE_FEEL_ART.md` §3.2；类别特效任何档位至少保留「核心闪白 + 类别色环」。
+- 音频层归 AC-014、武器层形态归 AC-015；类别层不重复实现二者。
+
 ### 4.7 主海克斯运行时（`shared/hexes/`）
 
 十个主海克斯各自一个模块（`shared/hexes/<id>.js`），只通过钩子改模拟层，不互相争抢 `sim.js`。
@@ -342,6 +359,40 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
   因此贴图迁移按资源逐条进行，不需要一次性切换渲染路径。
 - **对比度**：`docs/ART_DIRECTION.md` 的「令牌对比度报告」由测试逐行重算，任何改色都会先让测试变红。
 
+#### 5.5.2 命中反馈层（GOAL-005）
+
+- **单一事件源**：飘字、命中特效、命中音效、镜头反馈、类别层、高潮演出全部只读
+  `sim.impactEvents`（§4.6）与 `sim.culminations`，不得另造第二套伤害钩子。
+- **层序与预算**：飘字九层（z 序、重要性、字号/颜色/后缀）、合并/聚类规则、帧预算
+  0/12/28、镜头 `CAMERA_LIMITS`、音效 `IMPACT_LIMITS`、三段演出的签名与时长，
+  冻结值见 `docs/PHASE_FEEL_ART.md` §3；本节不重复。
+- **不变式**：
+  1. 表现层不新增 RNG 调用、不修改模拟状态、不进存档/HUD 快照；同 seed「全反馈」与「零反馈」
+     两局的归一化快照与 `combatRng` 序列逐字节一致。
+  2. 表现模块（飘字、镜头、音效、特效、演出）不得出现 `Math.random`；需要抖动时使用注入的种子 PRNG，
+     绝不触碰 `sim.combatRng`。
+  3. 关闭/降档在**生成侧**减少对象（不生成装饰、少建粒子），不是生成后隐藏。
+  4. `reducedMotion || !shake` 时运动分量精确为 0（不做「极小值」近似），但命中闪光、边缘染色、
+     静态横幅与类别飘字必须保留。
+- **接线约束**：`game-app.js` 的帧序固定为「镜头预算 → 模拟步进 → 事件消费 → 视觉更新 → 渲染」；
+  渲染层拿到的是已算好的镜头变换，不在 `render.js` 内重新取随机数。
+
+#### 5.5.3 精灵资源管线与场景接入（GOAL-006）
+
+- **清单先行**：任何图片在进入渲染层之前必须有 `docs/ASSET_PIPELINE.md` 定义的 manifest 条目；
+  只有 `status: "ready"` 的条目可被加载，`placeholder` 期间沿用程序化绘制。
+- **运行时契约**（实现文件待落地：public/js/render/sprite-manifest.js、public/js/render/sprite-pipeline.js）：
+  - 状态机 `missing / pending / ready / failed / skipped`；`preload()` 永不 reject，单条失败只影响该 id。
+  - `draw(ctx, id, x, y, opts)` 返回布尔值：`false` 时**不发起任何绘制**，调用方完整走既有程序化路径；
+    `true` 时恰好一次 `drawImage`，并跳过对应的程序化形体绘制、保留射程圈/血条/受击闪白等覆盖层。
+  - DPR 变体只由 `applyDpr()` 重选，不重复下载；`configure({ dpr })` 幂等。
+  - 内存超限先丢 @2x 再标记 `skipped`；`invalidate()` 用 generation 丢弃过期回包；`dispose()` 后 `draw` 恒 `false`。
+  - 实体/场景渲染器只使用注入的管线，仍不得 `new Image`；DOM 场景通过管线暴露的 URL 设置 `<img>`/CSS 变量。
+- **覆盖与场景矩阵**：六类实体的权威 id 集、状态优先级、进化形态规则、四场景必需/可选 id、
+  两视口一致性、`data-sprite-id` / `data-sprite-fallback` 标记，见 `docs/PHASE_FEEL_ART.md` §4。
+- **降级**：缺资源时画面与今天一致（程序化绘制），不抛错、不刷屏；三档画质只影响额外特效层，
+  不改变「有精灵时用精灵」这一事实。
+
 
 ### 5.6 画质设置与运行时
 
@@ -351,6 +402,13 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - 帧率：30/60 只限制**绘制**频率；模拟固定步长仍按 60Hz 推进，3× 时每帧多步。
 - 清晰度：DPR 1/2，切换时重设 Canvas 尺寸并重绘静态层。
 - 装饰/飘字/光晕/震动：关闭时减少生成或绘制开销，而不是仅隐藏已有对象。
+- **运动预算**：`motion = !reducedMotion && settings.shake === true && settings.decorations !== 'off'`；
+  为假时震屏/缩放的位移分量精确为 0、hitstop 减半、命中闪光与非运动染色保持原样。
+  reduced-motion 同时来自系统 `prefers-reduced-motion` 与 `matchMedia` 的 change 事件，Canvas 镜头与 CSS 动画共用同一份解析结果。
+- **飘字档位**：`off / key / all` 三档的可见范围与帧预算冻结在 `docs/PHASE_FEEL_ART.md` §3.3；
+  关键档判据沿用 `key || big`，不扩面。
+- **事件类别层**：首领命中 / 破盾 / 护甲吸收由 `sim.impactEvents` 的字段纯推导（类别判据表见本文 §4.6），
+  产物是类别飘字 + 类别特效，全部走既有 `addFloater` / `addEffect` 门控；不新增模拟事件。
 - 战斗中打开设置暂停；关闭/取消恢复原暂停状态；必选弹窗期间禁止打开。
 - 页面隐藏时停止推进，返回时重置计时，不补算后台时间，且不改变手动暂停状态。
 - `GameApp` 采集模拟/渲染/HUD 耗时、帧与渲染间隔、慢帧、实体数与堆信息，供动态性能测试读取。
@@ -373,6 +431,19 @@ statsFor 缓存：基础伤害 × (1 + 塔专属加成 + 全局伤害加成)
 - `public/js/api.js` 的 `api.request(path, { method, body })` 是 UI 层访问接口的唯一入口，统一
   `credentials: 'same-origin'`、JSON 解析、幂等重试与 `ApiError`（`status` / `code`）映射；
   UI 面板不得直接 `fetch('/api…')`。面板按 `error.status === 401` 给出登录提示。
+
+### 5.9 i18n 与本地化（AC-026）
+
+- **单一来源**：玩家可见文案一律来自 `public/js/shared/i18n/` 的两份词典（`zh-CN` / `en-US`）。
+  数据表自带中文只作为 `tData()` 的**不可达回退**（英文词典缺键时不得落到中文）；静态外壳用 `data-i18n*` 标注。
+- **键命名**：UI 键 `<area>.<id>.<field>`；数据表统一 `data.<group>.<id>.<field>`。
+- **API 分工**：`t(key)` 取当前语言；`tOr(key, fallback)` 仅用于必须保留的兜底文案；
+  `tData(group, id, field)` 合成数据键；`tFor(locale, key, params)` 供保持 locale 形参的纯函数使用。
+- **扫描面**：A 字典完整性（两语言键集相等、值非空、en 不含 CJK）、B 引用完整性（`t`/`tOr`/`hasKey`/`tFor`/`tData`
+  与 `data-i18n*` 都在词典可解析）、C UI 层零硬编码（除 fallback 实参外不含 CJK，允许清单逐项写理由且总数受限）、
+  D 数据层零缺译（枚举式覆盖实体、事件、变异、皮肤、悬赏、通行证等）、E 扫描器自测（fixture 证明会命中也会放过）。
+- **反空转**：不得通过空扫描、放宽白名单或删除断言过关；扫描器必须有正反 fixture。
+- **验收**：node --test tests/i18n-coverage.test.mjs（规划中）；英文界面零 CJK、零裸键，`window.__bootErrors` 为空。
 
 ---
 
@@ -629,6 +700,9 @@ cores = Math.round(
 - `tests/browser-relics.mjs`：Ⅰ→Ⅱ 展示、升级生效、补位奖励展示与应用。
 - `tests/browser-mobile.mjs`：390×844 竖屏、844×390 横屏、旋转提示、无溢出/遮挡、触控建塔、设置与遗物弹窗。
 - 所有浏览器测试均启动自己的临时服务与临时 Chrome profile，不读写线上数据库。
+- **中文断言必须带 locale**：本机 Chrome 默认 en-US，涉及中文文案的断言需以
+  `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN` 运行；视觉/双语验收测试（规划中）沿用同一约定，
+  并在真实 Chrome 下读取 `window.__bootErrors` 证明无启动错误。
 
 ### 8.4 动态性能测试（`tests/dynamic-perf.mjs`）
 
@@ -779,9 +853,25 @@ account_achievements(
 - **扩展约束**：新增曲目只加 `MUSIC_TRACKS` 数据；曲目切换不得阻塞主循环，也不得触发 `sim.js` 的任何随机调用。
 - **验收**：`tests/audio-events.test.mjs` 与 `tests/music.test.mjs`（AC-105）。
 
+#### 14.3.1 命中音效层（AC-014）
+
+- **消费契约**：命中音只消费 `sim.impactEvents`（§4.6），按对象身份去重；事件只读，
+  不写回模拟、不进存档、不改变 RNG 与结算。
+- **链路**：`impactGain → DynamicsCompressor → sfxGain → masterGain`；压缩参数与降级
+  （无 `createDynamicsCompressor` 时直连）、八种武器音色表、`IMPACT_LIMITS` 限流与簇音规则，
+  冻结值见 `docs/PHASE_FEEL_ART.md` §3.5。
+- **战旗**：不参战，命中层为 `sim.phase === 'wave'` 下的光环脉冲，计入同一份声预算。
+- **确定性**：变调由事件字段哈希派生，不使用 `Math.random`；静音/禁用时不创建振荡器。
+- **验收**：node --test tests/audio-impacts.test.mjs（规划中），并保持 `audio-events` / `audio-mix` 既有断言不变。
+
 ### 14.4 可访问性基线
 
-- **动效**：尊重 `prefers-reduced-motion`，关闭屏幕震动、粒子与光晕等装饰动画；战斗模拟、波次与计分完全不变。
+- **动效**：尊重 `prefers-reduced-motion`，关闭屏幕震动、粒子与光晕等装饰动画；约束从 CSS 扩展到
+  Canvas 镜头反馈——运动分量为 0（不做极小值近似），hitstop 减半；命中闪光、边缘染色、静态横幅与类别飘字仍保留。
+  战斗模拟、波次与计分完全不变。
+- **字号下限**：桌面与移动视口（含 390×844 竖屏、844×390 横屏）下，可见文本最小字号 ≥12px；
+  白名单只有快捷键角标 `.key` 与图标字形 `.glyph`（不承载正文）。层级差异用颜色/字重/字距表达，不靠缩小字号；
+  未解锁内容同样 ≥12px，整卡不透明度 ≥0.45。字号阶梯取值以 `docs/ART_DIRECTION.md` 为准，本节只写下限与验收口径。
 - **键盘**：所有可交互控件可 Tab 到达，焦点样式可见且不被全局 `outline: none` 覆盖；弹窗打开后焦点进入并限制在弹窗内，Esc 可关闭。
 - **语义**：弹窗使用 `role="dialog" aria-modal="true"` + `aria-labelledby`；控件组（如速度）使用 `role="group"` + `aria-label`；动态提示使用 `aria-live="polite"`；纯装饰元素标 `aria-hidden="true"`。
 - **对比与信息传达**：正文对比度达到 WCAG AA（≥4.5:1），关键数值可读；状态不只靠颜色区分。

@@ -9,13 +9,15 @@
 - `npm run smoke` / `flow` / `test:map` / `test:mobile` / `test:auth:ui` / `test:relics` / `test:settings` 浏览器验收
 - `npm run perf` 动态性能记录（会重写 `docs/PERFORMANCE.md`）
 - `npm run balance` / `sweep` 平衡模拟（会重写 `docs/BALANCE.md`）
+- `node scripts/check-doc-ownership.mjs` 文档锁检查（open 任务不得声明 `docs/PRD.md` / `docs/TECH_DESIGN.md`）
 
 ## 工作方式（用户明确要求）
 
-1. **先文档后开发**：影响玩法、数值、接口的改动，先改 `docs/PRD.md` / `docs/TECH_DESIGN.md`，再动代码。
+1. **先文档后开发**：影响玩法、数值、接口的改动，先改设计文档，再动代码。本阶段的冻结表集中在 `docs/PHASE_<主题>.md`；实现任务把设计增量写进任务 Notes，不直接改两份总文档（见第 5 条）。
 2. **子代理并行**：开发任务拆给最多 **3 个子代理**；按文件所有权分工，禁止多个代理同时改同一文件。
 3. **每 5 个版本重构一次**：到版本节点（v1.5、v2.0……）必须安排一次结构重构，力度不限，单独提交。
 4. **封装优先**：新代码用类/模块组织，职责单一、边界清晰；避免巨型文件、散落的自由函数和过程式大函数。重构时保持公共 API 与行为不变。
+5. **文档所有权（单一 lane）**：`docs/PRD.md` / `docs/TECH_DESIGN.md` 只由文档 lane（`DOCS-*` 任务）更新；实现类任务不把这两份文件加入 `## Touches`，设计增量写进任务 Notes。每个阶段一份 `docs/PHASE_<主题>.md` 作为冻结表、字段契约与 AC 映射的唯一定义处；总文档只写增量并引用它，避免重复定义。提交前跑 `node scripts/check-doc-ownership.mjs`（exit 1 = 仍有 open 任务声明总文档）。
 
 ## 代码地图与所有权
 
