@@ -43,7 +43,7 @@ GOAL-006 退出条件要求「移动视口与低配降级路径通过」，AC-02
 - [x] `node scripts/visual-check.mjs --suite mobile --quality low` exit 0（低配降级路径同阈值通过）
 - [x] `node --test tests/ui-styles.test.mjs` 通过，且新增的移动端 ≥12px 断言在把 `.skill-role` 临时改回 8.5px 时会失败（反向验证写进 Evidence）
 - [x] `node --test tests/visual-check.test.mjs tests/skill-style.test.mjs` 与 `npm test` 全绿
-- [x] `docs/TECH_DESIGN.md` §14.4 含移动视口 12px 下限与 `node scripts/visual-check.mjs --suite mobile` 验收命令
+- [x] `docs/TECH_DESIGN.md` §14.4 含移动视口 12px 下限与 `node scripts/visual-check.mjs --suite mobile` 验收命令（偏差：总文档归文档 lane，develop 的 §14.4「字号下限」条已含移动视口 ≥12px 口径；验收命令与实现细节正本改落本任务 Notes，见 Notes「文档所有权偏差」）
 
 ## DoD
 
@@ -57,8 +57,18 @@ GOAL-006 退出条件要求「移动视口与低配降级路径通过」，AC-02
 
 - `public/styles.css`
 - `tests/ui-styles.test.mjs`
-- `docs/TECH_DESIGN.md`
 - `tasks/gap-mobile-visual-font-floor.md`
+
+## Notes
+
+- **文档所有权偏差（2026-10-27）**：AC-5 / Plan-1 原写 `docs/TECH_DESIGN.md` §14.4。合并 develop 后文档 lane（DOCS-001，`docs/PHASE_FEEL_ART.md` §2.3 + `scripts/check-doc-ownership.mjs` + `tests/docs-phase-sync.test.mjs`）规定两份总文档只由 `DOCS-*` 任务修改，未按此执行会让 `npm test` 的「open 任务不再声明两份总文档」变红；同时 develop 的 §14.4 已由文档 lane 写入「字号下限」条（桌面与移动视口 ≥12px，白名单仅 `.key`/`.glyph`，层级差异用颜色/字重/字距表达）。因此本任务：撤回对 `docs/TECH_DESIGN.md` 的写入（提交 `4acd863`），Touches 经任务 ABI 摘除该文件，实现级口径正本改落本 Notes —— 与 `gap-background-atmosphere-gate`（`0d175c1`）的处理方式一致。若文档 lane 后续在 §14.4 补验收命令，以总文档为准。
+
+### 移动端字号下限（§14.4 增量正本，2026-10-27）
+
+- **令牌**：`:root` 新增 `--text-min: 12px` 作为下限令牌，紧凑标签（HUD、技能卡、徽标、技能条）一律引用它，不再写 9–11px 字面值；`--text-2xs`(10) / `--text-xs`(11) 保留给非正文场景，可见正文不再消费。
+- **覆盖面**：标题页技能卡（`.skill-role` / `.skill-desc` / `.skill-summary` / `.skill-actions .btn` / `.skill-lock` / `.skill-max` / 卡头 eyebrow 与 muted）、标题页统计标签与页脚、战斗 HUD（`.stat-label` / `.stat-max` / `.diff-badge` / `.speed-btn` / `.hex-badge` / `.hex-badge-mul`）、塔卡（`.name` / `.cost` / `.lock`）、`#btn-relics-mobile`、`.toast`、移动遗物列表与难度弹窗技能条。
+- **用空间换字号**：`logo-kicker` 字距 0.52em→0.36em、`.stat-cell span` 0.08em→0.06em、`.diff-badge` 0.12em→0.06em、卡头 eyebrow 0.24em→0.12em、`.skill-role` 0.06em→0.04em，并让 `.skill-cards-head` 可换行；不隐藏正文、不改阈值与采集逻辑。
+- **验收命令**：`node scripts/visual-check.mjs --suite mobile`（expect exit 0，6 项含「移动端最小字号 ≥12」）与 `node scripts/visual-check.mjs --suite mobile --quality low`（同阈值，证明降级路径不靠缩小或隐藏文字过关）；源码侧 `node --test tests/ui-styles.test.mjs`（解析 `:root` 令牌后逐选择器断言 ≥12px，含 `@media` 覆盖值）。
 
 ## Evidence
 
@@ -75,7 +85,7 @@ GOAL-006 退出条件要求「移动视口与低配降级路径通过」，AC-02
         ✔ 移动端最小字号（px）: 12（阈值 ≥ 12）
     结论：通过 → exit 0
 
-修复前同一命令：`✘ 移动端最小字号（px）: 8.5000`，样本 `skill-role`。修完 `.skill-role` 后读数按预期换到下一个最小样本，逐轮记为：title@mobile `logo-kicker` = 12、combat@mobile-landscape `stat-label` = 12 —— 两份 DOM 的最小值都是 12，不再是「修一个、掉一个」。
+修复前同一命令：`✘ 移动端最小字号（px）: 8.5000`，样本 `skill-role`。修完 `.skill-role` 后读数按预期换到下一个最小样本，逐轮记为：title@mobile `logo-kicker` = 12、combat@mobile-landscape `stat-label` = 12 —— 两份 DOM 的最小值都是 12，不再是「修一个、掉一个」。合并 develop 后复跑仍 PASS、最小字号仍 12（6 项读数同上）。
 
 **2. 低配路径同阈值**
 
@@ -99,7 +109,7 @@ GOAL-006 退出条件要求「移动视口与低配降级路径通过」，AC-02
     $ node --test tests/ui-styles.test.mjs tests/visual-check.test.mjs tests/skill-style.test.mjs
     # pass 36 / fail 0
     $ npm test
-    # pass 1480 / fail 0
+    # pass 1480 / fail 0（合并 develop 前）
     $ node scripts/visual-check.mjs --suite art   → PASS，exit 0
     $ node scripts/visual-check.mjs --suite ui    → FAIL（最小可见字号 10.5px：桌面 .relic-title span / #relic-count / .relic-empty / .shop-hint / .wave-state）
 
@@ -115,5 +125,5 @@ GOAL-006 退出条件要求「移动视口与低配降级路径通过」，AC-02
 
 **7. 「零改动」证明**
 
-- 本次提交只动 `public/styles.css`、`tests/ui-styles.test.mjs`、`docs/TECH_DESIGN.md`（+ 本任务文件）；`scripts/visual-check.mjs`、`tests/visual-scenes.mjs`、`scripts/lib/visual-metrics.mjs` 零改动 —— 阈值与采集逻辑未动。
+- 本次分支相对 develop 只动 `public/styles.css`、`tests/ui-styles.test.mjs`（+ 本任务文件）；`scripts/visual-check.mjs`、`tests/visual-scenes.mjs`、`scripts/lib/visual-metrics.mjs` 零改动 —— 阈值与采集逻辑未动；`docs/TECH_DESIGN.md` 已按文档所有权规则撤回，净改动为 0。
 - `public/js/sim.js`、`public/js/shared/`、计分与 RNG 路径零改动；改动全是 CSS 字号/字距/换行 + 一条源码级测试。
