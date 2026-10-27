@@ -67,7 +67,7 @@ GOAL-005 退出条件要求「至少一组前后对照 contact sheet 与全新�
 - `docs/reviews/feel-after/contact-sheet.png` (new)
 - `docs/reviews/feel-after/manifest.json` (new)
 - `tests/feel-review-record.test.mjs` (new)
-- `tasks/gap-feel-review-record.md` (new)
+- `tasks/gap-feel-review-record.md`
 
 ## Notes
 
