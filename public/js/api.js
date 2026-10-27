@@ -1,5 +1,7 @@
 // 服务端 API 封装：账号会话走 HttpOnly Cookie，旧的匿名令牌只用于绑定老账号。
 // 统一把网络失败、超时、非 2xx 与响应解析失败包装成带 code 的 ApiError，面文案面向玩家。
+import { t } from './i18n.js';
+
 const LEGACY_TOKEN_KEY = 'abyss-tower.token';
 
 // 错误码：调用方按 code 分支，message 直接展示给玩家。
@@ -32,10 +34,10 @@ export function isRetryableError(error) {
   return typeof error.status === 'number' && error.status >= 500;
 }
 
-// 面向玩家的提示：ApiError 的 message 已是中文文案，不携带堆栈。
+// 面向玩家的提示：ApiError 的 message 已是本地化文案，不携带堆栈。
 export function errorMessage(error) {
   if (error && typeof error.message === 'string' && error.message) return error.message;
-  return '操作失败，请稍后重试';
+  return t('diagnostics.fallback');
 }
 
 export function legacyToken() {
@@ -92,8 +94,8 @@ function sleep(ms) {
 }
 
 function defaultHttpMessage(status) {
-  if (status >= 500) return `服务器暂时不可用（${status}），请稍后重试`;
-  return `请求失败（${status}）`;
+  if (status >= 500) return t('api.serverUnavailable', { status });
+  return t('api.requestFailed', { status });
 }
 
 export function createApi({
@@ -113,7 +115,7 @@ export function createApi({
   async function requestOnce(path, { method, body, headers }) {
     const doFetch = resolveFetch();
     if (!doFetch) {
-      throw new ApiError('无法连接服务器，请检查网络后重试', { code: API_ERROR.OFFLINE });
+      throw new ApiError(t('api.offline'), { code: API_ERROR.OFFLINE });
     }
 
     const legacy = requestLegacyToken(legacyMode);
@@ -136,10 +138,10 @@ export function createApi({
       });
     } catch (cause) {
       const timedOut = !!controller?.signal.aborted;
-      throw new ApiError(
-        timedOut ? '请求超时，请稍后重试' : '无法连接服务器，请检查网络后重试',
-        { code: timedOut ? API_ERROR.TIMEOUT : API_ERROR.OFFLINE, cause }
-      );
+      throw new ApiError(t(timedOut ? 'api.timeout' : 'api.offline'), {
+        code: timedOut ? API_ERROR.TIMEOUT : API_ERROR.OFFLINE,
+        cause,
+      });
     } finally {
       if (timer) clearTimeout(timer);
     }
@@ -148,7 +150,7 @@ export function createApi({
     try {
       text = await response.text();
     } catch (cause) {
-      throw new ApiError('响应读取失败，请检查网络后重试', {
+      throw new ApiError(t('api.readFailed'), {
         code: API_ERROR.OFFLINE,
         status: response.status,
         cause,
@@ -175,7 +177,7 @@ export function createApi({
 
     // 204/空响应是合法结果（如退出登录）；非空但解析失败才是异常。
     if (parseFailed) {
-      throw new ApiError('服务器响应格式异常，请稍后重试', {
+      throw new ApiError(t('api.badResponse'), {
         code: API_ERROR.PARSE,
         status: response.status,
       });

@@ -3,6 +3,7 @@
 import { api } from '../api.js';
 import { escapeHtml } from './kit/dom.js';
 import { createPanel } from './kit/panel.js';
+import { getLocale, t, tData } from '../i18n.js';
 
 const PANEL_ID = 'season-pass-panel';
 const LIST_ID = 'season-pass-list';
@@ -34,45 +35,82 @@ function progressBar(item) {
 }
 
 // 已结束赛季锁定轨道：达标的显示「已错过」，未达标的显示「未达成」，都不再提供领取按钮。
+// 终态文案取词典：seasonPass.missed = 已错过，seasonPass.incomplete = 未达成，seasonPass.closedNote = 赛季已结束，历史赛季只读。
 function claimButton(item, closed = false) {
   if (item.claimed) {
-    return '<button class="btn small" type="button" disabled>已领取</button>';
+    return `<button class="btn small" type="button" disabled>${escapeHtml(t('seasonPass.claimed'))}</button>`;
   }
   if (closed) {
-    return `<button class="btn small" type="button" disabled>${item.complete ? '已错过' : '未达成'}</button>`;
+    return `<button class="btn small" type="button" disabled>${escapeHtml(
+      t(item.complete ? 'seasonPass.missed' : 'seasonPass.incomplete')
+    )}</button>`;
   }
   if (!item.complete) {
-    return '<button class="btn small" type="button" disabled>未解锁</button>';
+    return `<button class="btn small" type="button" disabled>${escapeHtml(t('seasonPass.locked'))}</button>`;
   }
-  return `<button class="btn small primary" type="button" data-claim="${escapeHtml(item.id)}">领取奖励</button>`;
+  return `<button class="btn small primary" type="button" data-claim="${escapeHtml(item.id)}">${escapeHtml(t('seasonPass.claim'))}</button>`;
+}
+
+// 赛季标签：服务端 label 是中文串，客户端按 season 键（YYYY-MM）自己拼，随语言切换。
+function seasonValue(season) {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(season || ''));
+  if (!match) return String(season || '');
+  return t('seasonPass.seasonValue', { year: match[1], month: String(Number(match[2])) });
+}
+
+// 奖励文案：由结构化 reward 拼装，称号名走 data.cosmeticTitle 词典。
+function rewardText(item) {
+  const reward = item?.reward || {};
+  const parts = [];
+  if (reward.cores) parts.push(t('seasonPass.rewardCores', { n: fmt(reward.cores) }));
+  if (reward.shards) parts.push(t('seasonPass.rewardShards', { n: fmt(reward.shards) }));
+  if (reward.title) {
+    parts.push(
+      t('seasonPass.rewardTitle', {
+        name: tData('cosmeticTitle', reward.title, 'name', reward.title),
+      })
+    );
+  }
+  return parts.join(' + ');
 }
 
 function card(item, closed = false) {
   const state = item.claimed
-    ? '已领取'
+    ? t('seasonPass.claimed')
     : item.complete
-      ? closed ? '已错过' : '可领取'
-      : closed ? '未达成' : '进行中';
+      ? closed ? t('seasonPass.missed') : t('seasonPass.claimable')
+      : closed ? t('seasonPass.incomplete') : t('seasonPass.inProgress');
+  // 里程碑名称/描述与积分阈值都来自词典；数据表中文只是 tData 的不可达回退。
+  const name = tData('seasonPass', item.id, 'name', item.name);
+  const desc = tData('seasonPass', item.id, 'desc', item.desc, { points: fmt(item.target) });
   return `
     <article class="achievement-card rarity-common${item.claimed ? ' unlocked' : ''}" data-milestone="${escapeHtml(item.id)}">
       <h3>
-        <span>${escapeHtml(item.name)}</span>
+        <span>${escapeHtml(name)}</span>
         <span class="achievement-rarity">${escapeHtml(state)}</span>
-        <span class="achievement-state">${escapeHtml(item.rewardText || '')}</span>
+        <span class="achievement-state">${escapeHtml(rewardText(item))}</span>
       </h3>
-      <p>${escapeHtml(item.desc)}</p>
+      <p>${escapeHtml(desc)}</p>
       ${progressBar(item)}
       <div class="bounty-actions">${claimButton(item, closed)}</div>
     </article>`;
 }
 
-// 来源类型兜底文案：以服务端 label 为准，来源新增时旧前端也不会显示成「对局积分」。
-const SOURCE_FALLBACK_LABELS = Object.freeze({
-  match: '对局积分',
-  bounty: '赛季悬赏',
-  achievement: '成就奖励',
-  achievementBonus: '成就解锁加成',
-});
+// 来源类型兜底文案：以服务端 label 为准，来源新增时旧前端也不会落到错误文案。
+// 四个来源 id 与 data.seasonPassSource.<id>.name 一一对应（match / bounty / achievement / achievementBonus）。
+function sourceLabel(source) {
+  switch (source) {
+    case 'bounty':
+      return tData('seasonPassSource', 'bounty', 'name', '赛季悬赏');
+    case 'achievement':
+      return tData('seasonPassSource', 'achievement', 'name', '成就奖励');
+    case 'achievementBonus':
+      return tData('seasonPassSource', 'achievementBonus', 'name', '成就解锁加成');
+    case 'match':
+    default:
+      return tData('seasonPassSource', 'match', 'name', '对局积分');
+  }
+}
 
 // 积分来源明细：服务端返回 sources；旧接口只给总分时按对局积分占位，避免明细凭空消失。
 function sourceItem(item) {
@@ -81,22 +119,23 @@ function sourceItem(item) {
     ? ` · ${new Date(at).toLocaleDateString('zh-CN')}`
     : '';
   const source = String(item?.source || 'match');
-  const label = escapeHtml(item?.label || SOURCE_FALLBACK_LABELS[source] || '对局积分');
+  const label = escapeHtml(item?.label || sourceLabel(source));
   return `<li data-source="${escapeHtml(source)}"><span>${label}</span><span>${fmt(item?.points)}${escapeHtml(when)}</span></li>`;
 }
 
+// 无来源占位：seasonPass.noSources = 暂无积分来源。
 function sourcesBlock(data) {
   const sources = Array.isArray(data?.sources) && data.sources.length
     ? data.sources
-    : [{ source: 'match', label: SOURCE_FALLBACK_LABELS.match, points: data?.points }];
+    : [{ source: 'match', label: sourceLabel('match'), points: data?.points }];
   const total = sources.reduce((sum, item) => sum + (Number(item?.points) || 0), 0);
   const detail = total > 0
     ? `<ul class="season-pass-source-list">${sources.map(sourceItem).join('')}</ul>`
-    : '<p class="achievement-hint">暂无积分来源</p>';
+    : `<p class="achievement-hint">${escapeHtml(t('seasonPass.noSources'))}</p>`;
   return `
     <article class="achievement-card rarity-common">
       <h3>
-        <span>积分来源</span>
+        <span>${escapeHtml(t('seasonPass.sourcesTitle'))}</span>
         <span class="achievement-rarity">${fmt(total)}</span>
       </h3>
       ${detail}
@@ -136,7 +175,7 @@ function ensureToolbar(panel) {
   bar.id = CLAIM_ALL_ID;
   bar.className = 'bounty-actions';
   bar.innerHTML = `
-    <button id="${CLAIM_ALL_BUTTON_ID}" class="btn small primary" type="button" disabled>一键领取</button>
+    <button id="${CLAIM_ALL_BUTTON_ID}" class="btn small primary" type="button" disabled>${escapeHtml(t('seasonPass.claimAll'))}</button>
     <span id="${CLAIM_ALL_NOTE_ID}" class="achievement-hint" aria-live="polite"></span>`;
   list.parentNode.insertBefore(bar, list);
   bar.querySelector(`#${CLAIM_ALL_BUTTON_ID}`).addEventListener('click', () => claimAll(panel));
@@ -152,14 +191,16 @@ function updateClaimAll(data, closed = false) {
   const count = Math.max(0, Math.floor(Number(data?.claimableCount) || 0));
   if (button) {
     button.disabled = count === 0 || closed;
-    button.textContent = !closed && count > 0 ? `一键领取（${count}）` : '一键领取';
+    button.textContent = !closed && count > 0
+      ? t('seasonPass.claimAllCount', { count })
+      : t('seasonPass.claimAll');
   }
   if (note) {
     note.textContent = closed
-      ? '赛季已结束，历史赛季只读'
+      ? t('seasonPass.closedNote')
       : count > 0
-        ? `${count} 个里程碑可领取`
-        : '暂无未领取里程碑';
+        ? t('seasonPass.claimableNote', { count })
+        : t('seasonPass.noClaimable');
   }
 }
 
@@ -172,8 +213,8 @@ function ensureHistory(panel) {
   const bar = document.createElement('div');
   bar.className = 'bounty-actions';
   bar.innerHTML = `
-    <label class="achievement-hint" for="${HISTORY_ID}">赛季</label>
-    <select id="${HISTORY_ID}" aria-label="切换赛季"></select>`;
+    <label class="achievement-hint" for="${HISTORY_ID}">${escapeHtml(t('seasonPass.seasonLabel'))}</label>
+    <select id="${HISTORY_ID}" aria-label="${escapeHtml(t('seasonPass.switchSeason'))}"></select>`;
   list.parentNode.insertBefore(bar, list);
   select = bar.querySelector(`#${HISTORY_ID}`);
   select.addEventListener('change', () => {
@@ -188,7 +229,9 @@ function updateHistory(panel, data) {
   if (!select) return;
   const current = String(data?.currentSeason || data?.season || '');
   const seasons = Array.isArray(data?.history) ? data.history.map(String) : [];
-  const currentLabel = current ? `本赛季（${escapeHtml(current)}）` : '本赛季';
+  const currentLabel = current
+    ? t('seasonPass.currentSeasonNamed', { season: escapeHtml(current) })
+    : t('seasonPass.currentSeason');
   select.innerHTML = [
     `<option value="">${currentLabel}</option>`,
     ...seasons.map((season) => `<option value="${escapeHtml(season)}">${escapeHtml(season)}</option>`),
@@ -217,7 +260,12 @@ function applyBadge(count) {
   const value = Math.max(0, Math.floor(Number(count) || 0));
   badge.textContent = value > 99 ? '99+' : String(value);
   badge.hidden = value === 0;
-  button.setAttribute('aria-label', value > 0 ? `通行证（${value} 个可领取）` : '通行证');
+  button.setAttribute(
+    'aria-label',
+    value > 0
+      ? t('seasonPass.badgeAria', { count: value })
+      : t('seasonPass.badgeAriaPlain')
+  );
 }
 
 function render(panel, data) {
@@ -226,21 +274,30 @@ function render(panel, data) {
   const closed = data?.closed === true || data?.readOnly === true;
   const progress = panel.querySelector('#season-pass-progress');
   if (progress) {
-    const finals = `${data?.label || ''} · 赛季已结束 · 最终 ${fmt(data?.points)} / ${fmt(data?.maxPoints)}`;
+    const seasonLabel = seasonValue(data?.season);
+    const finals = t('seasonPass.progressFinal', {
+      label: seasonLabel,
+      points: fmt(data?.points),
+      max: fmt(data?.maxPoints),
+    });
     const endsAt = Number(data?.endsAt);
     const remain = Number.isFinite(endsAt)
-      ? ` · 至 ${new Date(endsAt).toLocaleDateString('zh-CN')}`
+      ? t('seasonPass.progressUntil', {
+          date: new Date(endsAt).toLocaleDateString(getLocale() === 'en-US' ? 'en-US' : 'zh-CN'),
+        })
       : '';
     progress.textContent = closed
       ? finals
-      : `${data?.label || ''} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
+      : `${seasonLabel} ${fmt(data?.points)} / ${fmt(data?.maxPoints)}${remain}`;
   }
   updateHistory(panel, data);
   updateClaimAll(data, closed);
   applyBadge(closed ? 0 : data?.claimableCount);
 
   if (!milestones.length) {
-    list.innerHTML = `${sourcesBlock(data)}<p class="achievement-hint">暂无里程碑</p>`;
+    list.innerHTML = `${sourcesBlock(data)}<p class="achievement-hint">${escapeHtml(
+      t('seasonPass.noMilestones')
+    )}</p>`;
     return;
   }
   list.innerHTML = `${sourcesBlock(data)}${milestones.map((item) => card(item, closed)).join('')}`;
@@ -265,7 +322,7 @@ async function claim(panel, milestoneId) {
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
-    note.textContent = error.message || '领取失败';
+    note.textContent = error.message || t('seasonPass.claimFailed');
     list.prepend(note);
   }
 }
@@ -289,13 +346,13 @@ async function claimAll(panel) {
   } catch (error) {
     pendingCelebration = null;
     if (button) button.disabled = false;
-    if (note) note.textContent = error.message || '领取失败';
+    if (note) note.textContent = error.message || t('seasonPass.claimFailed');
   }
 }
 
 async function load(panel) {
   const list = panel.querySelector(`#${LIST_ID}`);
-  list.innerHTML = '<p class="achievement-hint">加载中…</p>';
+  list.innerHTML = `<p class="achievement-hint">${escapeHtml(t('seasonPass.loading'))}</p>`;
   const season = activeSeason;
   const url = season
     ? `/api/season-pass?season=${encodeURIComponent(season)}`
@@ -305,10 +362,10 @@ async function load(panel) {
     render(panel, data);
   } catch (error) {
     if (error?.status === 401) {
-      list.innerHTML = '<p class="achievement-hint">登录后可查看赛季通行证</p>';
+      list.innerHTML = `<p class="achievement-hint">${escapeHtml(t('seasonPass.loginRequired'))}</p>`;
       return;
     }
-    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || '加载失败')}</p>`;
+    list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || t('seasonPass.loadFailed'))}</p>`;
   }
 }
 

@@ -4,6 +4,7 @@ import { fixedMapCandidates } from '../shared/maps/index.js';
 import { RELIC_BY_ID } from '../shared/data.js';
 import { Simulation } from '../sim.js';
 import { GameApp } from '../game-app.js';
+import { t } from '../i18n.js';
 import { RelicOffers } from './offers.js';
 import { skillApi } from './skills.js';
 import { abandonConfirmCopy } from '../ui/modals.js';
@@ -62,14 +63,14 @@ export class RunController {
       if (!run.hex && run.hexOffers?.length) {
         store.savePendingMap(data);
         this.showHexSelectFlow(data, run.hexOffers);
-        this.ui.toast('已恢复海克斯选择', 2200);
+        this.ui.toast(t('runUi.hexRestored'), 2200);
         return true;
       }
       if (run.mapChoice >= 0) {
         // 地图已选定但快照未落盘（极端刷新时机）：沿用服务端选择直接开局。
         const selection = await this.api.selectMap(pending.runId, run.mapChoice);
         this.beginGame({ ...data, ...selection }, null);
-        this.ui.toast('已恢复本次远征的地图选择', 2400);
+        this.ui.toast(t('runUi.mapSelectionRestored'), 2400);
         return true;
       }
       // 固定地图池与种子无关：刷新后仍是同一组三张图（canyon → twin → ring），顺序一致。
@@ -79,7 +80,7 @@ export class RunController {
         return false;
       }
       this.showMapSelectFlow(data, candidates);
-      this.ui.toast('已恢复地图选择', 2200);
+      this.ui.toast(t('runUi.mapRestored'), 2200);
       return true;
     } catch (error) {
       console.warn('[map restore]', error);
@@ -105,7 +106,7 @@ export class RunController {
       this.startSelectionFlow(data);
     } catch (error) {
       this.onRequestError(error, {
-        title: '开始远征',
+        title: t('title.play'),
         onRetry: () => this.startRun(mode, difficulty, mutations),
       });
     } finally {
@@ -357,13 +358,13 @@ export class RunController {
 
   async resumeRun() {
     const snap = this.store.loadSnapshot();
-    if (!snap) return this.ui.toast('没有可继续的远征');
+    if (!snap) return this.ui.toast(t('runUi.noResumableRun'));
 
     try {
       const { run } = await this.api.getRun(snap.runId);
       if (run.status !== 'active') {
         this.store.clearSnapshot();
-        this.ui.toast('该远征已结束');
+        this.ui.toast(t('runUi.runEnded'));
         return;
       }
       const data = {
@@ -402,13 +403,13 @@ export class RunController {
       if (snap.pendingDraft && run.clearedWaves === run.wavesServed) {
         await this.restorePendingDraft();
       } else if (run.clearedWaves < run.wavesServed) {
-        this.ui.toast(`恢复到第 ${run.wavesServed} 波开始前，可重新挑战本波`, 2800);
+        this.ui.toast(t('runUi.restoredToWave', { wave: run.wavesServed }), 2800);
       } else {
-        this.ui.toast('已恢复至上次波次结束', 2200);
+        this.ui.toast(t('runUi.restoredToLastWave'), 2200);
       }
     } catch (error) {
       this.onRequestError(error, {
-        title: '恢复远征',
+        title: t('runUi.resumeTitle'),
         onRetry: () => this.resumeRun(),
       });
     }
@@ -429,7 +430,7 @@ export class RunController {
         sim.pendingDraft = false;
         sim.save();
         state.app.setPaused(false);
-        this.ui.toast('本次遗物已经选择');
+        this.ui.toast(t('combat.relicAlreadyPicked'));
         return;
       }
       sim.pendingDraft = true;
@@ -446,7 +447,7 @@ export class RunController {
       sim.pendingDraft = false;
       sim.save();
       state.app.setPaused(false);
-      this.ui.toast('未能恢复遗物选择，已跳过本次抽取', 2600);
+      this.ui.toast(t('runUi.draftRestoreFailed'), 2600);
     }
   }
 }

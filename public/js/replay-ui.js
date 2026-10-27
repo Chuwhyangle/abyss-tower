@@ -3,7 +3,7 @@
 // 详情页可把当前回放转成分享码，并把时间线复制成纯文本。
 import { RELIC_BY_ID } from './shared/data.js';
 import { validateRun } from './shared/replay.js';
-import { getLocale } from './i18n.js';
+import { getLocale, t, tFor, tOrFor } from './i18n.js';
 import { copyToClipboard, errorText } from './share-ui.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
@@ -12,88 +12,6 @@ const API_URL = '/api/replays';
 const SHARE_API_URL = '/api/replay';
 const STYLE_ID = 'replay-ui-style';
 const LIMIT = 20;
-const DEFAULT_LOCALE = 'zh-CN';
-
-const COPY = {
-  'zh-CN': {
-    title: '最近对局回放',
-    hint: '回看最近 {limit} 局的决策与结果摘要，不做实时重演。',
-    loading: '正在读取回放…',
-    authRequired: '请先登录后查看回放。',
-    loadFailed: '读取回放失败',
-    empty: '还没有可回看的对局。',
-    timelineLoading: '正在读取时间线…',
-    unknownMap: '未知地图',
-    unknownEvent: '未知事件',
-    modifier: '词缀 {name}',
-    seed: '种子 {seed}',
-    start: '开局',
-    eventTitle: '第 {wave} 波 · 事件',
-    choice: '选择 {option}',
-    noChoice: '未选择',
-    victory: '通关',
-    stopAt: '止步第 {wave} 波',
-    endDetail: '已清 {cleared} 波 · 得分 {score} · 击杀 {kills}',
-    noRelics: '本局没有遗物。',
-    entryVictory: '通关',
-    entryWave: '第 {wave} 波',
-    entry: '{tag} · {score} 分 · 遗物 {relics} 件',
-    shareHint: '生成一段分享码，朋友可在大厅导入复现本局配置。',
-    shareAction: '生成分享码',
-    sharing: '生成中…',
-    timelineAction: '复制时间线',
-    codeLabel: '分享码',
-    copy: '复制',
-    copied: '已复制到剪贴板',
-    copyManual: '无法自动复制，已选中文本，请按 Ctrl+C 复制',
-    copyFailed: '无法自动复制，请手动选择文本',
-    shareFailed: '分享码生成失败，请稍后再试',
-    noData: '暂无可分享的回放数据',
-    network: '网络异常，请稍后再试',
-    timelineTitle: '渊塔守卫 · 回放摘要',
-    timelineRelic: '{name} Lv.{level}',
-    timelineRelics: '遗物：{list}',
-  },
-  'en-US': {
-    title: 'Recent replays',
-    hint: 'Review decisions and results from the last {limit} runs — no live re-simulation.',
-    loading: 'Loading replays…',
-    authRequired: 'Sign in to view your replays.',
-    loadFailed: 'Could not load replays',
-    empty: 'No replays to review yet.',
-    timelineLoading: 'Loading timeline…',
-    unknownMap: 'Unknown map',
-    unknownEvent: 'Unknown event',
-    modifier: 'Modifier {name}',
-    seed: 'Seed {seed}',
-    start: 'Start',
-    eventTitle: 'Wave {wave} · Event',
-    choice: 'Chose {option}',
-    noChoice: 'No choice',
-    victory: 'Victory',
-    stopAt: 'Fell at wave {wave}',
-    endDetail: '{cleared} waves cleared · Score {score} · Kills {kills}',
-    noRelics: 'No relics this run.',
-    entryVictory: 'Victory',
-    entryWave: 'Wave {wave}',
-    entry: '{tag} · {score} pts · {relics} relics',
-    shareHint: 'Generate a share code friends can import in the lobby to reproduce this run.',
-    shareAction: 'Generate share code',
-    sharing: 'Generating…',
-    timelineAction: 'Copy timeline',
-    codeLabel: 'Share code',
-    copy: 'Copy',
-    copied: 'Copied to clipboard',
-    copyManual: 'Automatic copy failed — the text is selected, press Ctrl+C to copy',
-    copyFailed: 'Automatic copy failed — please select the text manually',
-    shareFailed: 'Could not generate a share code — please try again later',
-    noData: 'No replay data to share',
-    network: 'Network error — please try again later',
-    timelineTitle: 'Abyss Tower · Replay summary',
-    timelineRelic: '{name} Lv.{level}',
-    timelineRelics: 'Relics: {list}',
-  },
-};
 
 const STYLE = `
   .replay-panel {
@@ -195,16 +113,6 @@ const STYLE = `
   }
 `;
 
-function copyFor(locale = getLocale()) {
-  return COPY[locale] || COPY[DEFAULT_LOCALE];
-}
-
-function fill(template, params = {}) {
-  return String(template).replace(/\{(\w+)\}/g, (match, key) =>
-    Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match
-  );
-}
-
 function fmt(n) {
   return Number(n || 0).toLocaleString('en-US');
 }
@@ -242,7 +150,6 @@ export function replayUrl(id) {
 // 把一局摘要压成线性时间线：开局面板 → 事件节点 → 结算节点。
 export function buildTimeline(replay, locale = getLocale()) {
   if (!replay) return [];
-  const copy = copyFor(locale);
   const map = replay.map || {};
   const waves = replay.waves || {};
   const result = replay.result || {};
@@ -250,9 +157,16 @@ export function buildTimeline(replay, locale = getLocale()) {
   const cleared = Number(waves.cleared ?? reached);
   const modifier = modifierName(map.modifier);
   const startDetail = [
-    map.archetypeName || map.archetype || copy.unknownMap,
-    modifier ? fill(copy.modifier, { name: modifier }) : null,
-    fill(copy.seed, { seed: replay.seed || '—' }),
+    // 时间线是带 locale 形参的纯函数：必须用显式 locale 取值，不能用当前语言的 tData。
+    map.archetype
+      ? tOrFor(
+          locale,
+          `data.mapArchetype.${map.archetype}.name`,
+          map.archetypeName || map.archetype
+        )
+      : tFor(locale, 'replay.unknownMap'),
+    modifier ? tFor(locale, 'replay.modifier', { name: modifier }) : null,
+    tFor(locale, 'replay.seed', { seed: replay.seed || '—' }),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -261,7 +175,7 @@ export function buildTimeline(replay, locale = getLocale()) {
     {
       kind: 'start',
       wave: 0,
-      title: copy.start,
+      title: tFor(locale, 'replay.start'),
       detail: startDetail,
     },
   ];
@@ -270,20 +184,24 @@ export function buildTimeline(replay, locale = getLocale()) {
   events.sort((a, b) => Number(a.wave) - Number(b.wave));
   for (const event of events) {
     const wave = Number(event.wave) || 0;
-    const choice = event.optionId ? fill(copy.choice, { option: event.optionId }) : copy.noChoice;
+    const choice = event.optionId
+      ? tFor(locale, 'replay.choice', { option: event.optionId })
+      : tFor(locale, 'replay.noChoice');
     nodes.push({
       kind: 'event',
       wave,
-      title: fill(copy.eventTitle, { wave }),
-      detail: `${event.eventId || copy.unknownEvent} · ${choice}`,
+      title: tFor(locale, 'replay.eventTitle', { wave }),
+      detail: `${event.eventId || tFor(locale, 'replay.unknownEvent')} · ${choice}`,
     });
   }
 
   nodes.push({
     kind: 'end',
     wave: reached,
-    title: result.victory ? copy.victory : fill(copy.stopAt, { wave: reached }),
-    detail: fill(copy.endDetail, {
+    title: result.victory
+      ? tFor(locale, 'career.win')
+      : tFor(locale, 'replay.stopAt', { wave: reached }),
+    detail: tFor(locale, 'replay.endDetail', {
       cleared,
       score: fmt(result.score),
       kills: fmt(result.kills),
@@ -295,11 +213,10 @@ export function buildTimeline(replay, locale = getLocale()) {
 
 export function formatReplayEntry(entry, locale = getLocale()) {
   if (!entry) return '';
-  const copy = copyFor(locale);
   const tag = entry.victory
-    ? copy.entryVictory
-    : fill(copy.entryWave, { wave: Number(entry.waveReached) || 0 });
-  return fill(copy.entry, {
+    ? tFor(locale, 'career.win')
+    : tFor(locale, 'hud.nextWave.meta', { wave: Number(entry.waveReached) || 0 });
+  return tFor(locale, 'replay.entry', {
     tag,
     score: fmt(entry.score),
     relics: Number(entry.relicCount) || 0,
@@ -309,22 +226,16 @@ export function formatReplayEntry(entry, locale = getLocale()) {
 // 纯文本时间线：只含地图、种子、事件、结果与遗物，绝不含账号、回放 id 或时间戳。
 export function formatTimelineText(replay, locale = getLocale()) {
   if (!replay) return '';
-  const copy = copyFor(locale);
-  const lines = [copy.timelineTitle];
+  const lines = [tFor(locale, 'replay.timelineTitle')];
   for (const node of buildTimeline(replay, locale)) {
     lines.push(`${node.title} · ${node.detail}`);
   }
   const relics = Array.isArray(replay.relics) ? replay.relics : [];
   if (relics.length) {
     const list = relics
-      .map((relic) =>
-        fill(copy.timelineRelic, {
-          name: relicName(relic.id),
-          level: Number(relic.level) || 1,
-        })
-      )
+      .map((relic) => `${relicName(relic.id)} Lv.${Number(relic.level) || 1}`)
       .join(' · ');
-    lines.push(fill(copy.timelineRelics, { list }));
+    lines.push(tFor(locale, 'replay.timelineRelics', { list }));
   }
   return lines.join('\n');
 }
@@ -373,8 +284,8 @@ export async function requestShareCode(run, { fetchImpl = globalThis.fetch } = {
 
 export function shareFailureText(response, locale = getLocale()) {
   if (response?.code) return errorText(response.code, locale);
-  if (response?.offline) return copyFor(locale).network;
-  return copyFor(locale).shareFailed;
+  if (response?.offline) return tFor(locale, 'share.network');
+  return tFor(locale, 'replay.shareFailed');
 }
 
 function injectStyle() {
@@ -386,7 +297,6 @@ function injectStyle() {
 }
 
 function renderTimeline(replay) {
-  const copy = copyFor();
   const nodes = buildTimeline(replay);
   const timeline = nodes
     .map(
@@ -404,15 +314,15 @@ function renderTimeline(replay) {
             `<span class="replay-relic">${escapeHtml(relicName(relic.id))} Lv.${Number(relic.level) || 1}</span>`
         )
         .join('')}</div>`
-    : `<p class="replay-empty">${escapeHtml(copy.noRelics)}</p>`;
+    : `<p class="replay-empty">${escapeHtml(t('replay.noRelics'))}</p>`;
   return `
     <div class="replay-timeline" data-replay-timeline>${timeline}</div>
     ${relics}
     <div class="replay-share">
-      <p class="replay-hint">${escapeHtml(copy.shareHint)}</p>
+      <p class="replay-hint">${escapeHtml(t('share.resultHint'))}</p>
       <div class="replay-actions">
-        <button class="replay-action" type="button" data-replay-share>${escapeHtml(copy.shareAction)}</button>
-        <button class="replay-action" type="button" data-replay-copy>${escapeHtml(copy.timelineAction)}</button>
+        <button class="replay-action" type="button" data-replay-share>${escapeHtml(t('share.generate'))}</button>
+        <button class="replay-action" type="button" data-replay-copy>${escapeHtml(t('replay.timelineAction'))}</button>
         <span class="replay-status" role="status" aria-live="polite" data-replay-status></span>
       </div>
       <div data-replay-share-output hidden></div>
@@ -444,7 +354,6 @@ class ReplayUI {
     const modal = root.querySelector('.result-modal .result');
     if (!modal) return;
     if (modal.querySelector('[data-replay-panel]')) return;
-    const copy = copyFor();
     const section = document.createElement('section');
     section.className = 'replay-panel';
     section.dataset.replayPanel = '';
@@ -453,9 +362,9 @@ class ReplayUI {
     this.selectedReplay = null;
     this.replays = [];
     section.innerHTML = `
-      <h3>${escapeHtml(copy.title)}</h3>
-      <p class="replay-hint">${escapeHtml(fill(copy.hint, { limit: LIMIT }))}</p>
-      <div class="replay-list" data-replay-list><span class="replay-empty">${escapeHtml(copy.loading)}</span></div>
+      <h3>${escapeHtml(t('replay.title'))}</h3>
+      <p class="replay-hint">${escapeHtml(t('replay.hint', { limit: LIMIT }))}</p>
+      <div class="replay-list" data-replay-list><span class="replay-empty">${escapeHtml(t('replay.loading'))}</span></div>
       <div data-replay-detail></div>
     `;
     const actions = modal.querySelector('.modal-actions');
@@ -466,7 +375,6 @@ class ReplayUI {
   async load() {
     const section = this.section;
     if (!section) return;
-    const copy = copyFor();
     const list = section.querySelector('[data-replay-list]');
     const detail = section.querySelector('[data-replay-detail]');
     try {
@@ -475,14 +383,14 @@ class ReplayUI {
         data = await api.request(replayUrl());
       } catch (error) {
         if (error?.status === 401) {
-          list.innerHTML = `<span class="replay-empty">${escapeHtml(copy.authRequired)}</span>`;
+          list.innerHTML = `<span class="replay-empty">${escapeHtml(t('replay.authRequired'))}</span>`;
           return;
         }
         throw error;
       }
       this.replays = Array.isArray(data?.replays) ? data.replays : [];
       if (!this.replays.length) {
-        list.innerHTML = `<span class="replay-empty">${escapeHtml(copy.empty)}</span>`;
+        list.innerHTML = `<span class="replay-empty">${escapeHtml(t('replay.empty'))}</span>`;
         detail.innerHTML = '';
         return;
       }
@@ -499,27 +407,26 @@ class ReplayUI {
       // 结算页默认展开最新一局（刚结算完的那局）。
       await this.select(this.replays[0].id);
     } catch (error) {
-      list.innerHTML = `<span class="replay-empty">${escapeHtml(error.message || copy.loadFailed)}</span>`;
+      list.innerHTML = `<span class="replay-empty">${escapeHtml(error.message || t('replay.loadFailed'))}</span>`;
     }
   }
 
   async select(id) {
     const section = this.section;
     if (!section || !id) return;
-    const copy = copyFor();
     const detail = section.querySelector('[data-replay-detail]');
     this.selectedId = id;
     section.querySelectorAll('[data-replay-id]').forEach((button) => {
       button.setAttribute('aria-pressed', String(button.dataset.replayId === id));
     });
-    detail.innerHTML = `<p class="replay-empty">${escapeHtml(copy.timelineLoading)}</p>`;
+    detail.innerHTML = `<p class="replay-empty">${escapeHtml(t('replay.timelineLoading'))}</p>`;
     try {
       let data;
       try {
         data = await api.request(replayUrl(id));
       } catch (error) {
         if (error?.status === 401) {
-          detail.innerHTML = `<p class="replay-empty">${escapeHtml(copy.authRequired)}</p>`;
+          detail.innerHTML = `<p class="replay-empty">${escapeHtml(t('replay.authRequired'))}</p>`;
           return;
         }
         throw error;
@@ -527,7 +434,7 @@ class ReplayUI {
       if (this.selectedId !== id) return;
       this.renderDetail(detail, data.replay || {});
     } catch (error) {
-      detail.innerHTML = `<p class="replay-empty">${escapeHtml(error.message || copy.loadFailed)}</p>`;
+      detail.innerHTML = `<p class="replay-empty">${escapeHtml(error.message || t('replay.loadFailed'))}</p>`;
     }
   }
 
@@ -544,12 +451,11 @@ class ReplayUI {
   }
 
   async generateShareCode(detail) {
-    const copy = copyFor();
     const status = detail.querySelector('[data-replay-status]');
     const output = detail.querySelector('[data-replay-share-output]');
     const button = detail.querySelector('[data-replay-share]');
     if (!this.selectedReplay) {
-      setStatus(status, copy.noData, 'error');
+      setStatus(status, t('replay.noData'), 'error');
       return;
     }
     const built = buildShareRun(this.selectedReplay);
@@ -562,7 +468,7 @@ class ReplayUI {
       return;
     }
     if (button) button.disabled = true;
-    setStatus(status, copy.sharing, null);
+    setStatus(status, t('share.generating'), null);
     const response = await requestShareCode(built.run);
     if (button) button.disabled = false;
     if (!response.ok) {
@@ -579,13 +485,12 @@ class ReplayUI {
 
   renderShareOutput(output, code) {
     if (!output) return;
-    const copy = copyFor();
     output.hidden = false;
     output.innerHTML = `
       <textarea class="replay-code-value" rows="3" readonly spellcheck="false"
-        aria-label="${escapeHtml(copy.codeLabel)}" data-replay-code></textarea>
+        aria-label="${escapeHtml(t('share.title'))}" data-replay-code></textarea>
       <div class="replay-actions">
-        <button class="replay-action" type="button" data-replay-code-copy>${escapeHtml(copy.copy)}</button>
+        <button class="replay-action" type="button" data-replay-code-copy>${escapeHtml(t('share.copy'))}</button>
         <span class="replay-status" role="status" aria-live="polite" data-replay-code-status></span>
       </div>
     `;
@@ -601,35 +506,40 @@ class ReplayUI {
       clipboard: globalThis.navigator?.clipboard,
       select: () => selectNodeText(codeNode),
     });
-    const copy = copyFor();
-    const message = result.ok ? copy.copied : result.selected ? copy.copyManual : copy.copyFailed;
+    const message = result.ok
+      ? t('share.copied')
+      : result.selected
+        ? t('replay.copyManual')
+        : t('replay.copyFailed');
     setStatus(status, message, result.ok ? 'ok' : 'error');
   }
 
   async copyTimeline(detail) {
-    const copy = copyFor();
     const status = detail.querySelector('[data-replay-status]');
     const text = formatTimelineText(this.selectedReplay);
     if (!text) {
-      setStatus(status, copy.noData, 'error');
+      setStatus(status, t('replay.noData'), 'error');
       return;
     }
     const result = await copyToClipboard(text, {
       clipboard: globalThis.navigator?.clipboard,
       select: () => selectNodeText(detail.querySelector('[data-replay-timeline]')),
     });
-    const message = result.ok ? copy.copied : result.selected ? copy.copyManual : copy.copyFailed;
+    const message = result.ok
+      ? t('share.copied')
+      : result.selected
+        ? t('replay.copyManual')
+        : t('replay.copyFailed');
     setStatus(status, message, result.ok ? 'ok' : 'error');
   }
 
   refreshCopy() {
     const section = this.section;
     if (!section || !section.isConnected) return;
-    const copy = copyFor();
     const heading = section.querySelector('h3');
     const hint = section.querySelector('.replay-hint');
-    if (heading) heading.textContent = copy.title;
-    if (hint) hint.textContent = fill(copy.hint, { limit: LIMIT });
+    if (heading) heading.textContent = t('replay.title');
+    if (hint) hint.textContent = t('replay.hint', { limit: LIMIT });
     section.querySelectorAll('[data-replay-id]').forEach((button) => {
       const entry = this.replays.find((item) => item.id === button.dataset.replayId);
       button.textContent = formatReplayEntry(entry);

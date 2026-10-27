@@ -123,8 +123,12 @@ test('成就摘要携带本赛季分组、进度与剩余天数', () => {
 test('成就页渲染本赛季区块的剩余天数与结束状态', () => {
   assert.match(ACHIEVEMENTS_UI, /seasonPanelView/, '面板必须复用剩余天数计算');
   assert.match(ACHIEVEMENTS_UI, /achievement-season-meta/, '本赛季区块需要状态行');
-  assert.match(ACHIEVEMENTS_UI, /剩余 \{days\} 天 \/ \{days\} days left/, '进行中状态中英双语');
-  assert.match(ACHIEVEMENTS_UI, /本赛季已结束 \/ Season ended/, '结束状态中英双语');
+  // 文案已收进词典：断言键值而不是源码字面量（英文由 en-US 词典提供）。
+  assert.equal(zhCN['achievements.seasonDaysLeft'], '剩余 {days} 天', '进行中状态中文文案');
+  assert.equal(enUS['achievements.seasonDaysLeft'], '{days} days left', '进行中状态英文文案');
+  assert.equal(zhCN['achievements.seasonEnded'], '本赛季已结束', '结束状态中文文案');
+  assert.equal(enUS['achievements.seasonEnded'], 'Season ended', '结束状态英文文案');
+  assert.match(ACHIEVEMENTS_UI, /t\('achievements\.seasonDaysLeft'/, '剩余天数未走词典');
 
   // tOr 只对字典命中项做插值 ⇒ 新文案必须真正落进中英字典，否则界面上会残留 {days}。
   for (const key of [

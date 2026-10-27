@@ -1,5 +1,6 @@
 // 输入层：Canvas 指针命中、建造/选择、塔面板操作与键盘快捷键。
 import { TOWER_ORDER } from '../shared/data.js';
+import { t } from '../i18n.js';
 
 // 触屏吸附与点击判定参数；纯函数与运行时共用同一份配置。
 export const DEFAULT_TOUCH_SETTINGS = Object.freeze({
@@ -224,7 +225,7 @@ export class InputController {
   selectShop(type) {
     const sim = this.state.sim;
     if (!sim || sim.phase === 'over') return;
-    if (!sim.unlockedTowers.includes(type)) return this.ui.toast('该防御塔尚未解锁');
+    if (!sim.unlockedTowers.includes(type)) return this.ui.toast(t('input.towerLocked'));
     sim.placementType = sim.placementType === type ? null : type;
     sim.selectedTower = null;
     this.ui.hideTowerPanel();
@@ -353,25 +354,25 @@ export class InputController {
     if (!sim) return false;
     if (this.ui.hasModal()) return false;
     if (!sim.skill || typeof sim.castSkill !== 'function') {
-      this.ui.toast('本局未携带主动技能');
+      this.ui.toast(t('input.noSkillEquipped'));
       return false;
     }
     if (sim.phase !== 'wave') {
-      this.ui.toast('战斗中可用');
+      this.ui.toast(t('skill.ui.status.prep'));
       return false;
     }
     if (sim.paused || this.state.app?.paused) {
-      this.ui.toast('暂停中无法释放技能');
+      this.ui.toast(t('input.skillPaused'));
       return false;
     }
     const cooldown = Number(sim.skill.cooldown ?? sim.skill.cd ?? 0);
     if (cooldown > 0) {
-      this.ui.toast(`技能冷却中 · ${Math.ceil(cooldown)} 秒`, 1400);
+      this.ui.toast(t('input.skillCooling', { s: Math.ceil(cooldown) }), 1400);
       return false;
     }
     const ok = !!sim.castSkill();
     if (ok) this.state.app?.emitHud(true);
-    else this.ui.toast('技能当前不可用');
+    else this.ui.toast(t('input.skillUnavailable'));
     return ok;
   }
 

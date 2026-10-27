@@ -144,7 +144,7 @@ class UI {
     button.id = 'btn-mutation';
     button.type = 'button';
     button.className = 'btn ghost';
-    button.textContent = '变异挑战';
+    button.textContent = t('hudUi.mutationChallenge');
     button.onclick = () => {
       if (this.handlers.onMutation) return this.handlers.onMutation();
       this.showMutationSelect();

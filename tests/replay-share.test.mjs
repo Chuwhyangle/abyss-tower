@@ -13,6 +13,8 @@ import {
 } from '../public/js/replay-ui.js';
 import { decodeRun, encodeRun } from '../public/js/shared/replay.js';
 import { errorText } from '../public/js/share-ui.js';
+import zhCN from '../public/js/shared/i18n/zh-CN.js';
+import enUS from '../public/js/shared/i18n/en-US.js';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 const SOURCE = read('public/js/replay-ui.js');
@@ -55,7 +57,8 @@ test('时间线文本格式固定，中文与英文都完整可读', () => {
     zh,
     [
       '渊塔守卫 · 回放摘要',
-      '开局 · 峡谷 · 词缀 涌流 · 种子 replay-seed-9c1f',
+      // 地图原型名走词典（真实数据里 ARCHETYPES.canyon.name 即「单径峡谷」）。
+      '开局 · 单径峡谷 · 词缀 涌流 · 种子 replay-seed-9c1f',
       '第 5 波 · 事件 · altar · 选择 blood',
       '止步第 14 波 · 已清 14 波 · 得分 4,321 · 击杀 210',
       '遗物：锐利箭簇 Lv.2 · 鹰眼徽记 Lv.1',
@@ -67,7 +70,7 @@ test('时间线文本格式固定，中文与英文都完整可读', () => {
     en,
     [
       'Abyss Tower · Replay summary',
-      'Start · 峡谷 · Modifier 涌流 · Seed replay-seed-9c1f',
+      'Start · Single Canyon · Modifier 涌流 · Seed replay-seed-9c1f',
       'Wave 5 · Event · altar · Chose blood',
       'Fell at wave 14 · 14 waves cleared · Score 4,321 · Kills 210',
       'Relics: 锐利箭簇 Lv.2 · 鹰眼徽记 Lv.1',
@@ -170,14 +173,21 @@ test('无数据时返回空占位，列表项也安全', () => {
   assert.deepEqual(buildTimeline(null), []);
   assert.deepEqual(buildShareRun(null), { ok: false, code: 'REPLAY_INVALID_RUN' });
   assert.equal(formatReplayEntry(null), '');
-  assert.match(SOURCE, /还没有可回看的对局/, '缺少无回放占位');
-  assert.match(SOURCE, /暂无可分享的回放数据/, '缺少无分享数据占位');
+  // 文案已收进词典：断言键存在且文案一致，不再断言源码字面量。
+  assert.equal(zhCN['replay.empty'], '还没有可回看的对局。', '缺少无回放占位');
+  assert.equal(zhCN['replay.noData'], '暂无可分享的回放数据', '缺少无分享数据占位');
+  assert.match(SOURCE, /t\('replay\.empty'\)/, '无回放占位未走词典');
 });
 
 test('新增文案中英双语齐备', () => {
-  for (const text of ['生成分享码', 'Generate share code', '复制时间线', 'Copy timeline']) {
-    assert.ok(SOURCE.includes(text), `缺少文案：${text}`);
+  for (const key of ['share.generate', 'replay.timelineAction']) {
+    assert.ok(zhCN[key], `缺少中文文案：${key}`);
+    assert.ok(enUS[key], `缺少英文文案：${key}`);
+    assert.notEqual(zhCN[key], enUS[key], `${key} 中英未区分`);
   }
-  assert.match(SOURCE, /'en-US'/, '缺少英文文案表');
-  assert.match(SOURCE, /'zh-CN'/, '缺少中文文案表');
+  assert.equal(zhCN['share.generate'], '生成分享码');
+  assert.equal(enUS['share.generate'], 'Generate share code');
+  assert.equal(zhCN['replay.timelineAction'], '复制时间线');
+  assert.equal(enUS['replay.timelineAction'], 'Copy timeline');
+  assert.match(SOURCE, /from '\.\/i18n\.js'/, '分享码文案未走统一词典');
 });

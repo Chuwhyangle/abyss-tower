@@ -211,6 +211,11 @@ test('可见正文字号不低于 12px 下限（含移动 HUD 与技能卡覆盖
     '.tower-card .lock',
     '#btn-relics-mobile',
     '.toast',
+    // 战斗桌面：HUD 状态、遗物侧栏与商店提示（AC-025 的最小字号样本）
+    '.wave-state',
+    '.relic-title',
+    '.relic-empty',
+    '.shop-hint',
     // 难度弹窗技能条（移动端）
     '.skill-chip',
     '.skill-chip .chip-glyph',

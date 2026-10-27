@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { startServer } from './test-server.mjs';
+import zhCN from '../public/js/shared/i18n/zh-CN.js';
 
 import {
   BOUNTIES_PER_PERIOD,
@@ -330,6 +331,8 @@ test('大厅悬赏面板：刷新按钮、确认与接口接线齐备', () => {
   assert.match(BOUNTIES_UI, /\/api\/bounties\/refresh/, '刷新未走悬赏接口');
   assert.match(BOUNTIES_UI, /window\.confirm/, '刷新缺少确认');
   assert.match(BOUNTIES_UI, /api\.request\('\/api\/bounties\/refresh'/, '刷新未走统一 API 客户端（同源凭据在其中统一携带）');
-  assert.match(BOUNTIES_UI, /本周已刷新/, '缺少已刷新状态');
+  // 文案已收进词典：断言键与词典值，不再断言源码字面量。
+  assert.match(BOUNTIES_UI, /bounty\.refreshedThisWeek/, '缺少已刷新状态');
+  assert.equal(zhCN['bounty.refreshedThisWeek'], '本周已刷新');
   assert.match(BOUNTIES_UI, /tierLabel/, '未展示难度分层');
 });

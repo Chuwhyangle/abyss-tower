@@ -1,6 +1,7 @@
 // 账号会话与大厅：资料刷新、标题页、改名、商店解锁、排行榜、技能养成。
 import { mountAuthWidget } from '../auth-ui.js';
 import { SKILLS, isSkillUnlocked } from '../shared/data.js';
+import { t } from '../i18n.js';
 import { skillApi, loadSelectedSkill, saveSelectedSkill } from './skills.js';
 
 export class SessionController {
@@ -27,7 +28,7 @@ export class SessionController {
     } catch (error) {
       if (silent) return;
       console.error('[session]', error);
-      this.ui.toast(`无法连接服务器：${error.message}`, 3200);
+      this.ui.toast(t('session.connectionFailed', { message: error.message }), 3200);
     }
   }
 
@@ -79,7 +80,9 @@ export class SessionController {
     if (!SKILLS[skillId]) return;
     const entry = this.state.skills?.skills?.find((skill) => skill.id === skillId);
     if (entry && !entry.unlocked) {
-      this.ui.toast(`尚未解锁：${entry.unlockHint || '完成对应难度首通'}`);
+      this.ui.toast(
+        t('session.skillLocked', { hint: entry.unlockHint || t('session.unlockDefault') })
+      );
       return;
     }
     this.state.selectedSkill = skillId;
@@ -105,11 +108,14 @@ export class SessionController {
       const upgraded = data?.upgraded;
       this.ui.toast(
         upgraded
-          ? `${entry?.name || SKILLS[skillId]?.name || '技能'} 升级至 ${upgraded.to} 级`
-          : '技能升级成功'
+          ? t('session.skillUpgraded', {
+              name: entry?.name || SKILLS[skillId]?.name || t('skill.ui.fallback'),
+              level: upgraded.to,
+            })
+          : t('session.skillUpgradeSuccess')
       );
     } catch (error) {
-      this.ui.toast(error.message || '升级失败', 2800);
+      this.ui.toast(error.message || t('session.skillUpgradeFailed'), 2800);
     }
   }
 
@@ -135,7 +141,7 @@ export class SessionController {
       const { profile } = await this.api.unlock(id);
       this.state.profile = profile;
       this.ui.showUnlocks(profile);
-      this.ui.toast('解锁成功');
+      this.ui.toast(t('session.unlockSuccess'));
     } catch (error) {
       this.ui.toast(error.message, 2800);
     }

@@ -9,7 +9,7 @@ import {
   normalizeSettings,
   presetSettings,
 } from '../settings.js';
-import { DEFAULT_LOCALE, LOCALES, getLocale, setLocale, t, tOr } from '../i18n.js';
+import { DEFAULT_LOCALE, LOCALES, getLocale, setLocale, t } from '../i18n.js';
 import { audio } from '../audio.js';
 import { escapeHtml } from './shared.js';
 
@@ -56,17 +56,6 @@ const SECTIONS = [
     items: ['language', 'notifications', 'account'],
   },
 ];
-
-// 新增文案不写进词典，按当前语言就地回退，避免为两个按钮扩大 i18n 改动面。
-const LOCAL_FALLBACK = {
-  'settings.exportAudit': { zh: '导出审计日志', en: 'Export audit log' },
-};
-
-function textFor(key) {
-  const entry = LOCAL_FALLBACK[key];
-  const fallback = entry ? (getLocale() === 'en-US' ? entry.en : entry.zh) : key;
-  return tOr(key, fallback);
-}
 
 // 重置只回到设置默认值；声音开关与语言不在 settings.js 的持久化对象里。
 function resetValue(key) {
@@ -142,7 +131,7 @@ function controlHtml(key, value) {
 function exportLinksHtml() {
   return `
         <div class="setting-export">
-          <span class="muted">${textFor('settings.exportAudit')}</span>
+          <span class="muted">${t('settingsPanel.exportAudit')}</span>
           <a class="btn small" href="/api/profile/audit/export?format=json" download>JSON</a>
           <a class="btn small ghost" href="/api/profile/audit/export?format=csv" download>CSV</a>
         </div>`;
@@ -150,7 +139,7 @@ function exportLinksHtml() {
 
 function rowHtml(key, value, canExportAudit = false) {
   const meta = ITEM_META[key];
-  const label = textFor(meta.label);
+  const label = t(meta.label);
   const isStatic = meta.type === 'static';
   const labelTag = isStatic ? 'span' : 'label';
   const forAttr = isStatic ? '' : ` for="${meta.id}"`;

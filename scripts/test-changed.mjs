@@ -35,11 +35,13 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/audio.js', tests: [
     'tests/audio-events.test.mjs',
+    'tests/audio-impacts.test.mjs',
     'tests/audio-mix.test.mjs',
     'tests/music.test.mjs',
     'tests/music-variants.test.mjs',
     'tests/skill-audio.test.mjs',
   ] },
+  { match: 'public/js/audio-impacts.js', tests: ['tests/audio-impacts.test.mjs'] },
   { match: 'public/js/auth-ui.js', tests: ['tests/controller-wiring.test.mjs'] },
   { match: 'public/js/bounties-ui.js', tests: ['tests/bounties.test.mjs'] },
   { match: 'public/js/cosmetics-ui.js', tests: ['tests/cosmetics.test.mjs'] },
@@ -48,6 +50,7 @@ export const TEST_MAP = [
     'tests/icon-system.test.mjs',
   ] },
   { match: 'public/js/game-app.js', tests: [
+    'tests/audio-impacts.test.mjs',
     'tests/hitstop.test.mjs',
     'tests/music-variants.test.mjs',
     'tests/skill-audio.test.mjs',

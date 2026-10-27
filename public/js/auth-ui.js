@@ -1,28 +1,30 @@
 // 登录/注册门槛与账号状态组件。样式独立在 auth.css，避免大改游戏 UI。
 import { api, clearLegacyToken, legacyToken } from './api.js';
+import { t } from './i18n.js';
 
 let gateOpen = false;
 
 const STRENGTH_LEVELS = [
-  { label: '太短', tone: 'weak' },
-  { label: '偏弱', tone: 'weak' },
-  { label: '一般', tone: 'fair' },
-  { label: '较强', tone: 'good' },
-  { label: '很强', tone: 'strong' },
+  { key: 'auth.strength.tooShort', tone: 'weak' },
+  { key: 'auth.strength.weak', tone: 'weak' },
+  { key: 'auth.strength.fair', tone: 'fair' },
+  { key: 'auth.strength.good', tone: 'good' },
+  { key: 'auth.strength.strong', tone: 'strong' },
 ];
 
 // 仅作前端提示，服务端仍只校验长度；分数越高越接近「长度 + 大小写 + 数字 + 符号」。
 export function passwordStrength(password) {
   const value = String(password || '');
-  if (!value) return { score: 0, label: '', tone: 'weak', hint: '至少 8 位' };
+  if (!value) return { score: 0, label: '', tone: 'weak', hint: t('auth.hint.minLength') };
   let score = 0;
   if (value.length >= 8) score += 1;
   if (value.length >= 12) score += 1;
   if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
   if (/[0-9]/.test(value) && /[^A-Za-z0-9]/.test(value)) score += 1;
   const level = STRENGTH_LEVELS[Math.min(score, 4)];
-  const hint = value.length < 8 ? '至少 8 位' : score < 2 ? '可加入大小写或符号' : '';
-  return { score: Math.min(score, 4), label: level.label, tone: level.tone, hint };
+  const hint =
+    value.length < 8 ? t('auth.hint.minLength') : score < 2 ? t('auth.hint.mixed') : '';
+  return { score: Math.min(score, 4), label: t(level.key), tone: level.tone, hint };
 }
 
 export async function ensureAuthGate() {
@@ -48,26 +50,26 @@ function openGate() {
   overlay.innerHTML = `
     <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
       <p class="auth-brand">ABYSS TOWER</p>
-      <h2 id="auth-title">登录</h2>
-      <p class="auth-sub">必须注册账号才能进入游戏。进度、星核与解锁会保存到账号，可在其他设备登录继续。</p>
+      <h2 id="auth-title">${t('auth.loginTitle')}</h2>
+      <p class="auth-sub">${t('auth.gateSubtitle')}</p>
 
       <div class="auth-legacy" hidden>
         <p class="auth-legacy-info"></p>
-        <button type="button" class="btn auth-claim-btn">绑定老账号并保留进度</button>
+        <button type="button" class="btn auth-claim-btn">${t('auth.claimButton')}</button>
       </div>
 
       <div class="auth-tabs" role="tablist">
-        <button type="button" data-mode="login" class="active">登录</button>
-        <button type="button" data-mode="register">注册</button>
+        <button type="button" data-mode="login" class="active">${t('auth.loginTitle')}</button>
+        <button type="button" data-mode="register">${t('auth.registerTab')}</button>
       </div>
 
       <form class="auth-form" novalidate>
         <label>
-          <span>用户名</span>
+          <span>${t('auth.username')}</span>
           <input name="username" autocomplete="username" maxlength="16" spellcheck="false" required />
         </label>
         <label>
-          <span>密码</span>
+          <span>${t('auth.password')}</span>
           <input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="128" required />
         </label>
         <div class="auth-strength" hidden aria-live="polite">
@@ -75,14 +77,14 @@ function openGate() {
           <span class="auth-strength-label"></span>
         </div>
         <label class="auth-confirm" hidden>
-          <span>确认密码</span>
+          <span>${t('auth.confirmPassword')}</span>
           <input name="confirm" type="password" autocomplete="new-password" minlength="8" maxlength="128" />
         </label>
         <p class="auth-error" hidden></p>
-        <button type="submit" class="btn primary auth-submit">登录</button>
+        <button type="submit" class="btn primary auth-submit">${t('auth.loginTitle')}</button>
       </form>
 
-      <p class="auth-note">用户名 3–16 位字母、数字或下划线 · 密码至少 8 位</p>
+      <p class="auth-note">${t('auth.note')}</p>
     </div>
   `;
   root.appendChild(overlay);
@@ -138,19 +140,19 @@ function openGate() {
     tabs.hidden = next === 'claim';
     legacyBox.hidden = true;
     if (next === 'login') {
-      title.textContent = '登录';
-      sub.textContent = '必须注册账号才能进入游戏。进度、星核与解锁会保存到账号。';
-      submit.textContent = '登录';
+      title.textContent = t('auth.loginTitle');
+      sub.textContent = t('auth.loginSubtitle');
+      submit.textContent = t('auth.loginTitle');
       passwordInput.autocomplete = 'current-password';
     } else if (next === 'register') {
-      title.textContent = '创建账号';
-      sub.textContent = '注册后自动登录。所有进度都会保存到账号，可在其他设备继续。';
-      submit.textContent = '注册并进入';
+      title.textContent = t('auth.registerTitle');
+      sub.textContent = t('auth.registerSubtitle');
+      submit.textContent = t('auth.registerSubmit');
       passwordInput.autocomplete = 'new-password';
     } else {
-      title.textContent = '绑定老账号';
-      sub.textContent = '设置用户名和密码，把旧浏览器的进度迁移到账号。';
-      submit.textContent = '绑定并进入';
+      title.textContent = t('auth.claimTitle');
+      sub.textContent = t('auth.claimSubtitle');
+      submit.textContent = t('auth.claimSubmit');
       passwordInput.autocomplete = 'new-password';
     }
     if (next !== 'claim' && legacyBox.dataset.available === '1') legacyBox.hidden = false;
@@ -177,21 +179,21 @@ function openGate() {
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
     if (mode !== 'login' && password !== confirmInput.value) {
-      showError('两次输入的密码不一致');
+      showError(t('auth.error.passwordMismatch'));
       return;
     }
     if (!/^[A-Za-z0-9_]{3,16}$/.test(username)) {
-      showError('用户名需为 3–16 位字母、数字或下划线');
+      showError(t('auth.error.usernameFormat'));
       return;
     }
     if (password.length < 8) {
-      showError('密码至少 8 位');
+      showError(t('auth.error.passwordLength'));
       return;
     }
 
     busy = true;
     submit.disabled = true;
-    submit.textContent = '请稍候…';
+    submit.textContent = t('auth.submitting');
     try {
       const result =
         mode === 'login'
@@ -209,20 +211,24 @@ function openGate() {
       busy = false;
       submit.disabled = false;
       submit.textContent =
-        mode === 'login' ? '登录' : mode === 'register' ? '注册并进入' : '绑定并进入';
-      showError(error.message || '操作失败，请稍后再试');
+        mode === 'login'
+          ? t('auth.loginTitle')
+          : mode === 'register'
+            ? t('auth.registerSubmit')
+            : t('auth.claimSubmit');
+      showError(error.message || t('auth.error.generic'));
     }
   });
 
   function showRecovery(code) {
     card.innerHTML = `
       <p class="auth-brand">ABYSS TOWER</p>
-      <h2>账号已创建</h2>
-      <p class="auth-sub">请保存下面的恢复码。忘记密码时只能凭它找回，之后不再显示。</p>
+      <h2>${t('auth.recoveryTitle')}</h2>
+      <p class="auth-sub">${t('auth.recoveryHint')}</p>
       <code class="auth-recovery"></code>
       <div class="auth-recovery-actions">
-        <button type="button" class="btn auth-copy">复制恢复码</button>
-        <button type="button" class="btn primary auth-done">我已保存，进入游戏</button>
+        <button type="button" class="btn auth-copy">${t('auth.copyRecovery')}</button>
+        <button type="button" class="btn primary auth-done">${t('auth.recoveryDone')}</button>
       </div>
       <p class="auth-error" hidden></p>
     `;
@@ -234,9 +240,9 @@ function openGate() {
     copy.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(code);
-        copy.textContent = '已复制';
+        copy.textContent = t('auth.copied');
       } catch {
-        error.textContent = '复制失败，请手动记录';
+        error.textContent = t('auth.copyFailed');
         error.hidden = false;
       }
     });
@@ -252,7 +258,11 @@ function openGate() {
         if (!status?.claimable) return;
         legacyBox.dataset.available = '1';
         legacyBox.hidden = false;
-        legacyInfo.textContent = `检测到旧进度：${status.displayName || '老玩家'} · ${status.summary?.cores || 0} 星核 · ${status.summary?.runs || 0} 局`;
+        legacyInfo.textContent = t('auth.legacyInfo', {
+          name: status.displayName || t('auth.legacyPlayer'),
+          cores: status.summary?.cores || 0,
+          runs: status.summary?.runs || 0,
+        });
       })
       .catch(() => {
         /* 没有旧账号或服务端不支持绑定 */
@@ -263,11 +273,11 @@ function openGate() {
 }
 
 function formatTime(value) {
-  if (!value) return '未知';
+  if (!value) return t('auth.unknown');
   try {
     return new Date(value).toLocaleString('zh-CN', { hour12: false });
   } catch {
-    return '未知';
+    return t('auth.unknown');
   }
 }
 
@@ -278,30 +288,30 @@ function sessionItem(item) {
   const head = document.createElement('div');
   head.className = 'auth-session-head';
   const title = document.createElement('span');
-  title.textContent = item.current ? '本次登录' : '其他设备';
+  title.textContent = item.current ? t('auth.sessionCurrent') : t('auth.sessionOther');
   head.appendChild(title);
   if (item.current) {
     const badge = document.createElement('span');
     badge.className = 'auth-session-badge';
-    badge.textContent = '当前';
+    badge.textContent = t('draft.current');
     head.appendChild(badge);
   }
   li.appendChild(head);
 
   const created = document.createElement('span');
   created.className = 'auth-session-meta';
-  created.textContent = `登录时间 ${formatTime(item.createdAt)}`;
+  created.textContent = t('auth.loginTime', { time: formatTime(item.createdAt) });
   li.appendChild(created);
 
   const active = document.createElement('span');
   active.className = 'auth-session-meta';
-  active.textContent = `最近活跃 ${formatTime(item.lastUsedAt)}`;
+  active.textContent = t('auth.lastActive', { time: formatTime(item.lastUsedAt) });
   li.appendChild(active);
 
   const ip = document.createElement('span');
   ip.className = 'auth-session-meta';
-  const shortIp = item.ipHash ? String(item.ipHash).slice(0, 12) : '未知';
-  ip.textContent = `IP 指纹 ${shortIp}`;
+  const shortIp = item.ipHash ? String(item.ipHash).slice(0, 12) : t('auth.unknown');
+  ip.textContent = t('auth.ipFingerprint', { ip: shortIp });
   li.appendChild(ip);
 
   return li;
@@ -315,13 +325,13 @@ function openSessionPanel() {
   overlay.innerHTML = `
     <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-sessions-title">
       <p class="auth-brand">ABYSS TOWER</p>
-      <h2 id="auth-sessions-title">登录设备</h2>
-      <p class="auth-sub">这些设备当前可以访问你的账号。撤销后其他设备需要重新登录，本次登录会保留。</p>
+      <h2 id="auth-sessions-title">${t('auth.sessionsTitle')}</h2>
+      <p class="auth-sub">${t('auth.sessionsSubtitle')}</p>
       <ul class="auth-sessions" aria-live="polite"></ul>
       <p class="auth-error" hidden></p>
       <div class="auth-session-actions">
-        <button type="button" class="btn auth-revoke-others">退出其他设备</button>
-        <button type="button" class="btn primary auth-sessions-close">关闭</button>
+        <button type="button" class="btn auth-revoke-others">${t('auth.revokeOthers')}</button>
+        <button type="button" class="btn primary auth-sessions-close">${t('common.close')}</button>
       </div>
     </div>
   `;
@@ -342,21 +352,23 @@ function openSessionPanel() {
       const data = await api.sessions();
       list.replaceChildren(...(data?.sessions || []).map(sessionItem));
     } catch (error) {
-      showError(error.message || '会话读取失败，请稍后再试');
+      showError(error.message || t('auth.error.sessionsLoad'));
     }
   }
 
   revokeButton.addEventListener('click', async () => {
     revokeButton.disabled = true;
-    revokeButton.textContent = '撤销中…';
+    revokeButton.textContent = t('auth.revoking');
     showError('');
     try {
       const result = await api.revokeOtherSessions();
       await refresh();
-      revokeButton.textContent = result?.revoked ? `已退出 ${result.revoked} 个设备` : '没有其他设备';
+      revokeButton.textContent = result?.revoked
+        ? t('auth.revokedDevices', { count: result.revoked })
+        : t('auth.noOtherDevices');
     } catch (error) {
-      revokeButton.textContent = '退出其他设备';
-      showError(error.message || '操作失败，请稍后再试');
+      revokeButton.textContent = t('auth.revokeOthers');
+      showError(error.message || t('auth.error.generic'));
     } finally {
       revokeButton.disabled = false;
     }
@@ -374,15 +386,15 @@ export function mountAuthWidget(profile, onLogout) {
   widget.className = 'auth-widget';
   widget.innerHTML = `
     <span class="auth-widget-name"></span>
-    <button type="button" class="auth-widget-sessions">设备</button>
-    <button type="button" class="auth-widget-logout">退出登录</button>
+    <button type="button" class="auth-widget-sessions">${t('auth.widgetSessions')}</button>
+    <button type="button" class="auth-widget-logout">${t('auth.logout')}</button>
   `;
   widget.querySelector('.auth-widget-name').textContent = profile.name || profile.username;
   widget.querySelector('.auth-widget-sessions').addEventListener('click', openSessionPanel);
   const button = widget.querySelector('.auth-widget-logout');
   button.addEventListener('click', async () => {
     button.disabled = true;
-    button.textContent = '退出中…';
+    button.textContent = t('auth.loggingOut');
     try {
       await onLogout();
     } finally {

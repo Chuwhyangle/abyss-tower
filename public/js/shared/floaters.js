@@ -1,19 +1,31 @@
 // 飘字分层与三档可见性：服务端与浏览器共用的纯数据/纯函数。
 // 不依赖 DOM / Canvas / 模拟 / 渲染，不含随机源；同一输入永远得到同一输出。
 //
+import { IMPACT_CLASSES } from './impact-class-feedback.js';
+
 // 契约（docs/PHASE_FEEL_ART.md §3.2/§3.3 的冻结表）：
-//   - 六层 damage/heal/reward/status/penalty/crit，z 越大越在上层；
+//   - 九层 damage/heal/reward/status/penalty/armor/bossHit/shield/crit，z 越大越在上层；
+//   - 类别层 armor/bossHit/shield 的色/字号/字重/z 由 shared/impact-class-feedback.js 单一持有；
 //   - 「关键」档判据沿用既有 key || big，不扩大；
 //   - 每帧预算：off 0 / key 12 / all 28；
 //   - 同层 + 0.3 格内 + 0.12s 窗口内合并数字，不可合并的重复项丢弃。
 
-// 每层的 z 序取自阶段冻结表；armor/bossHit/shield 预留更高 z，由后续任务追加。
+// 类别层：只取层模型需要的四个字段，类别表仍是配色/字号的唯一定义处。
+function classLayer(cls) {
+  const { z, size, weight, color } = IMPACT_CLASSES[cls].floater;
+  return Object.freeze({ z, size, weight, color });
+}
+
+// 每层的 z 序取自阶段冻结表；类别层位于 penalty 之上、crit 之下。
 export const FLOATER_LAYERS = Object.freeze({
   damage: Object.freeze({ z: 10, size: 13, weight: 600, color: '#eef3f8' }),
   heal: Object.freeze({ z: 20, size: 14, weight: 600, color: '#7ef0a5' }),
   reward: Object.freeze({ z: 30, size: 15, weight: 700, color: '#ffd36b' }),
   status: Object.freeze({ z: 40, size: 16, weight: 700, color: '#ffd36b' }),
   penalty: Object.freeze({ z: 50, size: 17, weight: 700, color: '#ff6b6b' }),
+  armor: classLayer('armor'),
+  bossHit: classLayer('bossHit'),
+  shield: classLayer('shieldBreak'),
   crit: Object.freeze({ z: 90, size: 15, weight: 800, color: '#ffd36b' }),
 });
 
@@ -29,14 +41,17 @@ export const STACK_RADIUS = 0.3;
 // big 的字号加成：让旧数据的「大号数字」仍比同层普通数字大一档。
 export const BIG_SIZE_BONUS = 4;
 
-// 预算裁剪的重要性：数字越小越先保留。
+// 预算裁剪的重要性：数字越小越先保留（阶段冻结序：crit 1 → damage 9）。
 const IMPORTANCE = Object.freeze({
   crit: 1,
-  penalty: 2,
-  status: 3,
-  reward: 4,
-  heal: 5,
-  damage: 6,
+  shield: 2,
+  bossHit: 3,
+  armor: 4,
+  penalty: 5,
+  status: 6,
+  reward: 7,
+  heal: 8,
+  damage: 9,
 });
 
 const HEAL_COLOR = '#7ef0a5';

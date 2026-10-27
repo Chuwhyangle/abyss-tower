@@ -1,5 +1,6 @@
 // 页面编排根控制器：持有实例状态，装配各子控制器并注册 UI 回调。
 import { api, errorMessage, isRetryableError } from '../api.js';
+import { t } from '../i18n.js';
 import { clearRetryableError, reportRetryableError } from './boot-errors.js';
 import { ui } from '../ui.js';
 import { audio } from '../audio.js';
@@ -85,7 +86,10 @@ export class GameController {
       await this.bootInternal();
       clearRetryableError();
     } catch (error) {
-      this.handleKeyRequestError(error, { title: '启动失败', onRetry: () => this.boot() });
+      this.handleKeyRequestError(error, {
+        title: t('controller.bootFailed'),
+        onRetry: () => this.boot(),
+      });
     }
   }
 
@@ -110,7 +114,7 @@ export class GameController {
           selectedSkill: this.state.selectedSkill,
         }),
       onDaily: () => {
-        if (this.state.dailyLeft === 0) return this.ui.toast('今日挑战次数已用完');
+        if (this.state.dailyLeft === 0) return this.ui.toast(t('controller.dailyExhausted'));
         this.ui.showDifficultySelect('daily', {
           dailyLeft: this.state.dailyLeft,
           daily: this.state.daily,
@@ -200,7 +204,7 @@ export class GameController {
 
   // 关键请求（启动/开局/续玩/结算）失败：网络类错误给顶部可重试提示，业务错误用 toast。
   // 完整错误始终写入控制台，界面文案不包含堆栈。
-  handleKeyRequestError(error, { title = '请求失败', onRetry = null } = {}) {
+  handleKeyRequestError(error, { title = t('controller.requestFailed'), onRetry = null } = {}) {
     console.error(`[${title}]`, error);
     const message = errorMessage(error);
     if (isRetryableError(error) && typeof onRetry === 'function') {
@@ -254,13 +258,13 @@ export class GameController {
         /* ignore */
       }
     } catch {
-      this.ui.toast('退出全屏失败', 2000);
+      this.ui.toast(t('controller.exitFullscreenFailed'), 2000);
     }
   }
 
   openSettings() {
     if (this.ui.hasModal()) {
-      this.ui.toast('请先完成当前的遗物选择或结算');
+      this.ui.toast(t('controller.modalBusy'));
       return;
     }
     const state = this.state;
@@ -276,7 +280,7 @@ export class GameController {
         this.settingsSync.push(state.settings);
         state.app?.applySettings(state.settings);
         if (inGame) state.app?.setPaused(wasPaused);
-        this.ui.toast('画质设置已应用', 1800);
+        this.ui.toast(t('controller.settingsApplied'), 1800);
       },
       onCancel: () => {
         if (inGame) state.app?.setPaused(wasPaused);

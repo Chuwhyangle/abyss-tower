@@ -28,7 +28,8 @@ import { generateWave } from '../public/js/shared/waves.js';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
-const LAYERS = ['damage', 'crit', 'reward', 'heal', 'penalty', 'status'];
+// 层序冻结表见 docs/PHASE_FEEL_ART.md §3.2：六层基础层 + AC-030 的三个类别层。
+const LAYERS = ['damage', 'crit', 'reward', 'heal', 'penalty', 'status', 'armor', 'bossHit', 'shield'];
 
 function makeSim(overrides = {}) {
   return new Simulation({
@@ -51,7 +52,7 @@ function damageFloater(x, y, text = '35', extra = {}) {
 
 // ---------- 层模型 ----------
 
-test('FLOATER_LAYERS 恰含六层，字段齐备且 z 两两不同', () => {
+test('FLOATER_LAYERS 恰含九层，字段齐备且 z 两两不同', () => {
   assert.deepEqual(Object.keys(FLOATER_LAYERS).sort(), [...LAYERS].sort());
   const zs = [];
   for (const name of LAYERS) {
@@ -79,10 +80,14 @@ test('floaterLayer 按六类真实调用签名判层', () => {
   assert.equal(floaterLayer({ text: '狂怒', color: '#ff6b6b', big: true, key: true }), 'status');
 });
 
-test('显式 layer 覆盖推导，未知 layer 回退 damage', () => {
+test('显式 layer 覆盖推导，类别层与未知 layer 分别按九层模型处理', () => {
   assert.equal(floaterLayer({ text: '35', layer: 'status' }), 'status');
   assert.equal(floaterLayer({ text: '狂怒', layer: 'heal' }), 'heal');
-  assert.equal(floaterLayer({ text: '35', layer: 'armor' }), 'damage');
+  // AC-030 追加的类别层是合法显式层；未知层仍回退 damage。
+  assert.equal(floaterLayer({ text: '35', layer: 'armor' }), 'armor');
+  assert.equal(floaterLayer({ text: '破盾 -12', layer: 'shield' }), 'shield');
+  assert.equal(floaterLayer({ text: '-80', layer: 'bossHit' }), 'bossHit');
+  assert.equal(floaterLayer({ text: '35', layer: 'unknown-layer' }), 'damage');
   assert.equal(floaterLayer({ text: '35', layer: '' }), 'damage');
   // 缺字段不抛错。
   assert.equal(floaterLayer({}), 'damage');

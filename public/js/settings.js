@@ -1,5 +1,7 @@
 // 画质设置：只影响表现，不参与战斗模拟。
 // 首次进入按设备能力解析自动档（桌面高配、移动/弱机低配）；损坏或不可写时同样回退自动解析。
+import { t } from './i18n.js';
+
 export const SETTINGS_KEY = 'abyss-tower.settings.v1';
 
 // 云同步：本地最后修改时间、写回节流与单账号设置体积上限（服务端同值校验）。
@@ -387,14 +389,15 @@ export class SettingsSync {
   }
 }
 
+// 标签表用 getter 惰性取词典：模块加载时不能锁定语言。
 export const DECORATION_LABELS = {
-  off: '关闭',
-  light: '精简',
-  full: '完整',
+  get off() { return t('common.close'); },
+  get light() { return t('settings.decor.light'); },
+  get full() { return t('settings.decor.full'); },
 };
 
 export const FLOATER_LABELS = {
-  off: '关闭',
-  key: '仅暴击与关键伤害',
-  all: '全部',
+  get off() { return t('common.close'); },
+  get key() { return t('settings.floater.key'); },
+  get all() { return t('settings.floater.all'); },
 };

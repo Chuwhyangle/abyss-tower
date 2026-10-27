@@ -4,6 +4,7 @@
 // 技能接口按 docs/PROGRESSION_DESIGN.md 13.2 的契约直接复用同源 Cookie / 旧令牌语义。
 // 服务端尚未上线对应路由时，调用方负责捕获错误并降级（无技能局仍可正常游玩）。
 import { legacyToken } from '../api.js';
+import { t } from '../i18n.js';
 
 const SELECTED_KEY = 'abyss-tower.skill.selected.v1';
 
@@ -21,7 +22,7 @@ async function request(path, { method = 'GET', body } = {}) {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    throw new Error('无法连接服务器，请检查服务是否在运行');
+    throw new Error(t('skillsUi.connectionFailed'));
   }
 
   let data = null;
@@ -32,7 +33,9 @@ async function request(path, { method = 'GET', body } = {}) {
   }
 
   if (!response.ok) {
-    const error = new Error(data?.error || `请求失败 (${response.status})`);
+    const error = new Error(
+      data?.error || t('skillsUi.requestFailed', { status: response.status })
+    );
     error.status = response.status;
     error.code = data?.code;
     error.data = data;

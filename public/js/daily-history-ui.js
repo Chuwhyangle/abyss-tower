@@ -1,7 +1,7 @@
 // 每日挑战历史面板：回看最近 14 天的日期、种子摘要、词缀与本人最佳成绩。
 import { MODIFIER_BY_ID } from './shared/mapgen.js';
 import { iconSvg } from './render/canvas-shapes.js';
-import { tData } from './i18n.js';
+import { t, tData } from './i18n.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
 import { createPanel } from './ui/kit/panel.js';
@@ -75,11 +75,11 @@ const STYLE = `
 function buildShell() {
   return `
     <div class="dh-head">
-      <h2>每日挑战 · 历史</h2>
+      <h2>${t('dailyHistory.title')}</h2>
       <span id="dh-summary" class="dh-summary"></span>
-      <button id="dh-close" class="icon-btn" data-panel-close type="button" title="关闭每日历史">${iconSvg('close')}</button>
+      <button id="dh-close" class="icon-btn" data-panel-close type="button" title="${t('dailyHistory.closeTitle')}">${iconSvg('close')}</button>
     </div>
-    <div id="dh-list" class="dh-list"><p class="dh-hint">正在读取每日历史…</p></div>
+    <div id="dh-list" class="dh-list"><p class="dh-hint">${t('dailyHistory.loading')}</p></div>
   `;
 }
 
@@ -101,10 +101,13 @@ function renderRows(panel, data) {
   const summary = panel.querySelector('#dh-summary');
   const history = Array.isArray(data.history) ? data.history : [];
   const played = history.filter((entry) => entry.played).length;
-  summary.textContent = `最近 ${history.length} 天 · 参与 ${played} 天`;
+  summary.textContent = t('dailyHistory.summary', {
+    days: history.length,
+    played,
+  });
 
   if (!history.length) {
-    list.innerHTML = '<p class="dh-hint">还没有每日历史。</p>';
+    list.innerHTML = `<p class="dh-hint">${t('dailyHistory.empty')}</p>`;
     return;
   }
 
@@ -112,11 +115,14 @@ function renderRows(panel, data) {
     .map((entry) => {
       const isToday = entry.day === data.today;
       const score = entry.played
-        ? `<span class="dh-score">${fmt(entry.bestScore)}<small>最佳 · ${entry.attempts} 次</small></span>`
-        : '<span class="dh-idle">未参与</span>';
+        ? `<span class="dh-score">${fmt(entry.bestScore)}<small>${t(
+            'dailyHistory.bestScore',
+            { attempts: entry.attempts }
+          )}</small></span>`
+        : `<span class="dh-idle">${t('dailyHistory.idle')}</span>`;
       return `
         <div class="dh-row ${isToday ? 'today' : ''}">
-          <span class="dh-day"><b>${escapeHtml(entry.day)}</b>${isToday ? ' · 今天' : ''}</span>
+          <span class="dh-day"><b>${escapeHtml(entry.day)}</b>${isToday ? t('dailyHistory.today') : ''}</span>
           <span class="dh-mods">${modifierChips(entry.modifiers)}</span>
           ${score}
         </div>`;
@@ -125,7 +131,7 @@ function renderRows(panel, data) {
 }
 
 function showLoading(panel) {
-  panel.querySelector('#dh-list').innerHTML = '<p class="dh-hint">正在读取每日历史…</p>';
+  panel.querySelector('#dh-list').innerHTML = `<p class="dh-hint">${t('dailyHistory.loading')}</p>`;
 }
 
 function showFailure(panel, error) {
@@ -134,10 +140,12 @@ function showFailure(panel, error) {
   if (error?.status === 401) {
     const summary = panel.querySelector('#dh-summary');
     if (summary) summary.textContent = '';
-    list.innerHTML = '<p class="dh-hint">请先登录后查看每日历史。</p>';
+    list.innerHTML = `<p class="dh-hint">${t('dailyHistory.login')}</p>`;
     return;
   }
-  list.innerHTML = `<p class="dh-hint">${escapeHtml(error?.message || '读取每日历史失败')}</p>`;
+  list.innerHTML = `<p class="dh-hint">${escapeHtml(
+    error?.message || t('dailyHistory.error')
+  )}</p>`;
 }
 
 function loadHistory() {

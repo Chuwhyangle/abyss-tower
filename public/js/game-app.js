@@ -5,10 +5,58 @@ import { detectReducedMotion } from './render/transition.js';
 import { weatherFor } from './render/background-renderer.js';
 import { audio } from './audio.js';
 import { normalizeSettings } from './settings.js';
+import { IMPACT_CLASSES, classFloaterText, classifyImpactClasses } from './shared/impact-class-feedback.js';
 
 const STEP = 1 / 60;
 const MAX_FRAME_MS_SAMPLES = 1200;
 const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
+
+// 命中类别消费端：逐帧把 sim.impactEvents 里新增的事件转成类别飘字 + 类别特效。
+// 只读事件数组；按对象身份去重（环形缓冲裁掉旧事件后既不重复也不抛错）；
+// 飘字/特效各自走 sim.addFloater / sim.addEffect 既有的档位门控，不新增设置项、不消耗 RNG。
+export class ImpactFeedbackConsumer {
+  constructor(sim) {
+    this.sim = sim;
+    this._seen = new WeakSet();
+    // 只读观测计数（浏览器验收与单测读取）。
+    this.stats = { consumed: 0, produced: 0, classes: Object.create(null) };
+  }
+
+  // 消费一批事件，返回本批命中的类别条数（同一事件第二次喂入返回 0）。
+  consume(events = []) {
+    const sim = this.sim;
+    if (!sim || !Array.isArray(events) || events.length === 0) return 0;
+    let produced = 0;
+    for (const event of events) {
+      if (!event || typeof event !== 'object') continue;
+      if (this._seen.has(event)) continue;
+      this._seen.add(event);
+      this.stats.consumed += 1;
+      for (const cls of classifyImpactClasses(event)) {
+        this._emit(event, cls);
+        produced += 1;
+        this.stats.produced += 1;
+        this.stats.classes[cls] = (this.stats.classes[cls] || 0) + 1;
+      }
+    }
+    return produced;
+  }
+
+  // 单条类别表现：类别飘字（含后缀，key 档可见）+ 类别特效（形状按类别区分）。
+  // 飘字起点按类别 lift 抬离武器层数字那一行，避免「-5 甲」与「25」叠成「-525 甲」。
+  _emit(event, cls) {
+    const sim = this.sim;
+    const meta = IMPACT_CLASSES[cls];
+    const text = classFloaterText(event, cls);
+    if (text) {
+      sim.addFloater(event.x, event.y - meta.floater.lift, text, meta.floater.color, meta.floater.big, {
+        key: true,
+        layer: meta.floater.layer,
+      });
+    }
+    sim.addEffect({ kind: meta.event, x: event.x, y: event.y, ttl: meta.vfx.duration });
+  }
+}
 
 export class GameApp {
   constructor(sim, canvas, { onHud, settings } = {}) {
@@ -25,6 +73,8 @@ export class GameApp {
       seed: sim.seed ?? 1,
       viewport: { width: sim.map?.cols || 1, height: sim.map?.rows || 1 },
     });
+    // 命中类别层：与镜头反馈共用事件源，但只产出类别飘字/特效，互不改写对方状态。
+    this.impactFeedback = new ImpactFeedbackConsumer(sim);
     this.speed = 1;
     this.paused = false;
     this.running = false;
@@ -137,6 +187,9 @@ export class GameApp {
     }
     // 只读消费本帧新增的结构化命中事件（对象身份去重，不要求事件带序号）。
     this.feedback.consume(sim.impactEvents || []);
+    this.impactFeedback.consume(sim.impactEvents || []);
+    // 命中音效层：同一事件源，限流/压缩只作用于表现，不改变模拟与结算。
+    audio.followCombatImpacts(sim, performance.now());
     sim.updateVisuals(raw);
     m.simMs += performance.now() - simStarted;
 
