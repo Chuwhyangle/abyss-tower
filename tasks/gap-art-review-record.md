@@ -155,3 +155,14 @@ worker 连续两次长时停滞（08:15、09:21 均以 SIGTERM 终止）；改�
 - 未通过项与归属：结算场景——顶部空金框（占位观感、且是首屏最大装饰）、移动横屏未重排导致分数标签/数据/分享出屏、孤立“远征难度”标签、奖励色与金色体系冲突，需结算场景的精灵内容与响应式布局修复；标题移动端固定账户栏遮挡技能区（布局侧）；选图左下无标题迷你框与卡片强调色统一（选图场景）。战斗移动端单位剪影与 letterbox 属可接受的下阶段优化，不构成本轮阻断。
 - 总体结论：未通过
 - 总分：6.9/10（四场景均值约 7.2；结算场景的占位框与移动端首屏问题属于退出条件内的阻断项，按 6.9 记）
+
+### 2026-10-27 第二轮复核（worker）：阻塞确认，非 AC 漏勾
+
+> 本节是给「为什么 AC 1、2 仍未勾」的**真因**留证——机械停派注记会把本轮写成 `ac-not-checked` /「AC 未全勾」，那只是现象，真因是依赖未落地。
+
+- 合并 develop：`git merge --no-edit develop` → clean（merge commit `c8a0d5d`，17 个 develop 提交，全部为 culmination 相关 sim/render 与任务文件，不含结算页面改动）。
+- anti-drift：`anti-drift-touches-check.ts --task gap-art-review-record --merge-target develop` → `ANTI-DRIFT OK`（4 个实际改动文件全部在 Touches 内）。
+- 现状复核：`node scripts/art-review.mjs --check` → 仍 exit 1，唯一红项是结算场景 result（5.0/10 未通过）；`node --test tests/art-review-record.test.mjs` → 7/7 pass。
+- 阻断源核验（关键）：`gap-result-scene-polish` 在 develop 上已是 `needs-human`（commit `8e381bf`，重试上限机械翻转），按仓库裁定 needs-human 没有机械再入队路径，须人工决定重派；且 `public/js/ui/result.js`、`public/styles.css`、`public/assets` 自评审 commit `a246670` 起到当前 develop **零改动** ⇒ 结算画面逐像素未变，现在重新采集 + 复评只会得到同一个「未通过」，复评无意义。
+- 结论：本任务在 `gap-result-scene-polish` 真实落地前**无法诚实地关闭**（AC 第 1、2 条要求检查器 exit 0，AC 的 acceptance 命令同样是 `node scripts/art-review.mjs --check`）。本轮不伪造通过、不改写评审结论、不动产品代码；AC 保持 4/6，Touches 不变。
+- 给人工的下一步：先把 `gap-result-scene-polish` 从 needs-human retreat 到 todo 并重派（其 Plan 已写明 result.js / styles.css 的具体修法与两视口浏览器断言，含 `LANG=zh_CN` 要求）；它落地后再派本任务，届时重跑 Plan 步骤 2–5（重新采集 → 全新上下文复评 result 场景 → 把该条目改写为通过）即可一次性收口 AC 1、2。
