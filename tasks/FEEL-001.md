@@ -1,7 +1,7 @@
 ---
 id: FEEL-001
 title: 默认自动画质与首次进入反馈链
-status: ready
+status: superseded
 labels:
   - feat
 parent: null
@@ -51,3 +51,6 @@ extra:
 ## Notes
 
 自动降档的判定必须可测试：把帧时间采样与档位决策拆成纯函数，浏览器只负责接线。旧 localStorage 配置升级后不能把用户显式选择的 low 覆盖掉。
+
+
+与 goal driver 依 AC-011 生成的 gap-auto-quality-default 重复；后者已通过 goal_ac 认领 AC-011 且 Plan/DoD 更完整，本任务退役。
