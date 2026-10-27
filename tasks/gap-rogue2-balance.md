@@ -8,7 +8,7 @@ parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/rogue2-balance-targets.test.mjs
+  acceptance: node scripts/rogue2-accept.mjs balance
 depends_on:
   - gap-factions-points
   - gap-starter-relic-upgrade-guarantee

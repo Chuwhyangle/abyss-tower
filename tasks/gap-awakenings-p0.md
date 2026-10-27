@@ -8,7 +8,7 @@ parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/awakenings.test.mjs
+  acceptance: node scripts/rogue2-accept.mjs awakenings
 depends_on:
   - DOCS-002
   - gap-factions-points

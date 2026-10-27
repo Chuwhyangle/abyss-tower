@@ -8,7 +8,7 @@ parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/rogue2-design.test.mjs
+  acceptance: node scripts/rogue2-accept.mjs design
 goal_ac: AC-032
 ---
 ## Proposal
