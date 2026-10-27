@@ -51,24 +51,24 @@ AC-023 的 criterion 是 `node --test tests/sprite-coverage.test.mjs`，该文�
 
 ## AC
 
-- [ ] `node --test tests/sprite-coverage.test.mjs` exit 0（AC-023 的 criterion）
-- [ ] 覆盖集与数据表严格相等：32 个塔形态（`TOWERS` 8 型 + 每型 `evolutions` 3 条）、12 个敌人类型（`ENEMIES`）+ 3 个首领变体（`BOSS_VARIANTS`，按 `enemy.variant` 解析，`null` 用通用首领）、召唤物 `skeleton`、5 个可破坏物类型（`DESTRUCTIBLE_TYPES`）、传送门、基地——每项恰有一个精灵组，多一个或少一个都失败
-- [ ] 每个实体 ≥2 个状态动画，且状态精灵 id 互不相同、对应图集帧的像素哈希互不相同（不是同一张图换名字）
-- [ ] 清单可解析：`public/assets/sprites/manifest.json` 中每个 id 的文件存在、PNG 尺寸与声明一致、图集帧在图片边界内、条目带 `provenance` / `license` / `generator` 字段
-- [ ] 生成器确定性：`node scripts/build-entity-sprites.mjs` 连跑两次，两张 PNG + atlas JSON + manifest 实体段字节一致（不含时间戳/随机量）
-- [ ] 纯函数状态选择：`enemySpriteState`（`cast > hit > move`）、`towerSpriteState`（`disabled > recoil > idle`）、`summonSpriteState`、`destructibleSpriteState`、`portalSpriteState`、`baseSpriteState` 各有单测，未知输入返回 `null` 且不抛错
-- [ ] 源码接线：`render.js` 把管线注入五个实体渲染器；五个实体渲染器按注册表 id 调用 `sprites.draw`，返回 `false` 时走完整既有程序化路径；实体渲染器仍不含 `new Image`（`tests/render-animations.test.mjs:192` 保持绿）；`sprite-coverage.js` 不含 `Math.random`、不 import sim/DOM
-- [ ] `node tests/browser-sprite-coverage.mjs` exit 0：真实 Chrome 下六类实体各自的精灵 id 均被绘制 ≥1 次，状态切换改变帧 id，缺资源臂（屏蔽 `*assets/sprites/*`）下程序化回退且 `window.__bootErrors` 为空
-- [ ] `npm test` exit 0；`npm run check:syntax`、`npm run check:style`、`npm run check:imports` exit 0
+- [x] `node --test tests/sprite-coverage.test.mjs` exit 0（AC-023 的 criterion）
+- [x] 覆盖集与数据表严格相等：32 个塔形态（`TOWERS` 8 型 + 每型 `evolutions` 3 条）、12 个敌人类型（`ENEMIES`）+ 3 个首领变体（`BOSS_VARIANTS`，按 `enemy.variant` 解析，`null` 用通用首领）、召唤物 `skeleton`、5 个可破坏物类型（`DESTRUCTIBLE_TYPES`）、传送门、基地——每项恰有一个精灵组，多一个或少一个都失败
+- [x] 每个实体 ≥2 个状态动画，且状态精灵 id 互不相同、对应图集帧的像素哈希互不相同（不是同一张图换名字）
+- [x] 清单可解析：`public/assets/sprites/manifest.json` 中每个 id 的文件存在、PNG 尺寸与声明一致、图集帧在图片边界内、条目带 `provenance` / `license` / `generator` 字段
+- [x] 生成器确定性：`node scripts/build-entity-sprites.mjs` 连跑两次，两张 PNG + atlas JSON + manifest 实体段字节一致（不含时间戳/随机量）
+- [x] 纯函数状态选择：`enemySpriteState`（`cast > hit > move`）、`towerSpriteState`（`disabled > recoil > idle`）、`summonSpriteState`、`destructibleSpriteState`、`portalSpriteState`、`baseSpriteState` 各有单测，未知输入返回 `null` 且不抛错
+- [x] 源码接线：`render.js` 把管线注入五个实体渲染器；五个实体渲染器按注册表 id 调用 `sprites.draw`，返回 `false` 时走完整既有程序化路径；实体渲染器仍不含 `new Image`（`tests/render-animations.test.mjs:192` 保持绿）；`sprite-coverage.js` 不含 `Math.random`、不 import sim/DOM
+- [x] `node tests/browser-sprite-coverage.mjs` exit 0：真实 Chrome 下六类实体各自的精灵 id 均被绘制 ≥1 次，状态切换改变帧 id，缺资源臂（屏蔽 `*assets/sprites/*`）下程序化回退且 `window.__bootErrors` 为空
+- [x] `npm test` exit 0；`npm run check:syntax`、`npm run check:style`、`npm run check:imports` exit 0
 
 ## DoD
 
-- [ ] 真实浏览器（Chrome，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`）六类实体实跑：打印每个实体的 id、精灵 id、状态帧 id 与绘制计数；截图人眼可见「实体确实来自图集贴图」而不是纯程序化形体
-- [ ] 状态动画对照：每个实体至少一组「状态 A / 状态 B」截图落盘（`docs/reviews/entity-sprite-coverage-contact-sheet.png` 覆盖 55 个实体的待机/行进帧，`docs/reviews/entity-sprite-states-contact-sheet.png` 覆盖攻击/受击/死亡/充能帧），前后对照说明哪些形体从程序化变成贴图
-- [ ] 缺资源实测：屏蔽 `*assets/sprites/*` 后重新加载，六类实体仍按既有程序化路径渲染、`window.__bootErrors` 为空、`stats().failed > 0`、不刷屏；截图落盘并说明回退路径
-- [ ] 覆盖拦截有效：临时从 `ENTITY_SPRITES` 删掉一个敌人 id，`node --test tests/sprite-coverage.test.mjs` 必须失败（证明它是覆盖证明，不是快照复位）；恢复后重跑通过
-- [ ] 性能不回归：`npm run perf:budget` exit 0，记录每帧新增 `drawImage` 次数、实体图集字节数与内存预算占用；`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` exit 0
-- [ ] `docs/ASSET_PIPELINE.md` / `docs/TECH_DESIGN.md` 的实体命名、状态优先级与接入规则同实现一致；Notes 记录实体计数、进化形态选择规则、DPR 变体与回退路径
+- [x] 真实浏览器（Chrome，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`）六类实体实跑：打印每个实体的 id、精灵 id、状态帧 id 与绘制计数；截图人眼可见「实体确实来自图集贴图」而不是纯程序化形体
+- [x] 状态动画对照：每个实体至少一组「状态 A / 状态 B」截图落盘（`docs/reviews/entity-sprite-coverage-contact-sheet.png` 覆盖 55 个实体的待机/行进帧，`docs/reviews/entity-sprite-states-contact-sheet.png` 覆盖攻击/受击/死亡/充能帧），前后对照说明哪些形体从程序化变成贴图
+- [x] 缺资源实测：屏蔽 `*assets/sprites/*` 后重新加载，六类实体仍按既有程序化路径渲染、`window.__bootErrors` 为空、`stats().failed > 0`、不刷屏；截图落盘并说明回退路径
+- [x] 覆盖拦截有效：临时从 `ENTITY_SPRITES` 删掉一个敌人 id，`node --test tests/sprite-coverage.test.mjs` 必须失败（证明它是覆盖证明，不是快照复位）；恢复后重跑通过
+- [x] 性能不回归：`npm run perf:budget` exit 0，记录每帧新增 `drawImage` 次数、实体图集字节数与内存预算占用；`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` exit 0
+- [x] `docs/ASSET_PIPELINE.md` / `docs/TECH_DESIGN.md` 的实体命名、状态优先级与接入规则同实现一致；Notes 记录实体计数、进化形态选择规则、DPR 变体与回退路径
 
 ## Touches
 
@@ -129,6 +129,7 @@ AC-023 的 criterion 是 `node --test tests/sprite-coverage.test.mjs`，该文�
 - `node --test tests/sprite-coverage.test.mjs`：13 pass / 0 fail（覆盖集严格相等、状态帧像素哈希互异、清单可解析、生成器确定性、六个选择器、接线源码断言）。
 - 覆盖拦截有效性：临时删掉 `herald` → 4 条用例转红（覆盖集、coverageGaps、状态帧、生成器一致性），恢复后 13 pass。
 - `node tests/browser-sprite-coverage.mjs`（`LANG=zh_CN.UTF-8`，真实 Chrome）：通过。基础采样 31 个状态帧、misses 0；24 条进化形态的待机帧与后坐帧全部出现；状态切换命中 attack 32 / disabled 8 / hit 12 / cast 3 / ruined 5 / hurt 1；缺资源臂 A（屏蔽 `*assets/sprites/*`）`stats.total=0`、draw 全 false、画面仍推进；臂 B（只屏蔽 `*.png`）`stats.failed=147`、`window.__bootErrors` 为空。
-- `npm test`：1564 pass / 0 fail；`check:syntax` / `check:style` / `check:imports` 全绿。
+- `npm test`（合并 develop 后）：1617 pass / 0 fail；`check:syntax` / `check:style` / `check:imports` 全绿。
 - `npm run perf:budget`：PASS（normal-1x-low / late-3x-high / skills-1x-high 三场景均 PASS，渲染耗时反而下降——一次 `drawImage` 取代多条路径重建）。每实体每帧新增 1 次 `drawImage`（塔 32、敌人 15、召唤物/可破坏物/传送门/基地各 1）；图集字节 @1x 53.7KB、@2x 84.0KB，解码后内存 1.3MB / 5.4MB。
 - `npm run smoke` / `npm run test:mobile`（`LANG=zh_CN.UTF-8`）：通过。
+- 反漂移：`anti-drift-touches-check --merge-target develop` 报 22 个文件全部在 Touches 内。
