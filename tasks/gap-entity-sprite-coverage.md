@@ -1,7 +1,7 @@
 ---
 id: gap-entity-sprite-coverage
 title: 单位精灵覆盖：六类实体独立精灵与 ≥2 状态动画（AC-023）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
