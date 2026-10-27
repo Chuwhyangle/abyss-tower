@@ -16,7 +16,10 @@ import { EffectRenderer } from './render/effect-renderer.js';
 import { FloaterRenderer } from './render/floater-renderer.js';
 import { OverlayRenderer } from './render/overlay-renderer.js';
 import { SkillRenderer } from './render/skill-renderer.js';
+import { CulminationRenderer } from './render/culmination-renderer.js';
 import { SpritePipeline } from './render/sprite-pipeline.js';
+import { detectReducedMotion } from './render/transition.js';
+import { t } from './i18n.js';
 
 const T = TILE;
 
@@ -46,6 +49,8 @@ export class Renderer {
     this.hurtFlash = 0;
     // 战斗场景回退状态：背景精灵不可用时置 true，并在画布上留 data-sprite-fallback 标记。
     this.sceneFallback = null;
+    // 系统级 reduced-motion：高潮演出与既有镜头震动的共同降级来源。
+    this.reducedMotion = detectReducedMotion(typeof window !== 'undefined' ? window.document : null);
 
     // 各层显式持有依赖：共享同一份光晕缓存。
     this.glow = new GlowRenderer();
@@ -75,6 +80,15 @@ export class Renderer {
       palette: this.palette,
       settings: this.settings,
       glow: this.glow,
+    });
+    // 高潮演出层（漏怪 / 清波 / 首领死亡）：屏幕空间，文案经注入的 t() 解析，
+    // 渲染器本身不 import i18n / sim / 随机源。
+    this.culmination = new CulminationRenderer(game, {
+      width: this.W,
+      height: this.H,
+      text: (key, params) => t(key, params),
+      settings: this.settings,
+      reducedMotion: this.reducedMotion,
     });
 
     this.bg = this.buildBackground();
@@ -116,6 +130,19 @@ export class Renderer {
       settings: this.settings,
       glow: this.glow,
     });
+    // 关闭震屏时已生成的演出立即转为静态降级，不等下一次事件。
+    this.culmination?.setSettings(this.settings);
+  }
+
+  // 系统 prefers-reduced-motion 变更：演出与镜头同源降级。
+  setReducedMotion(reduced) {
+    this.reducedMotion = reduced === true;
+    this.culmination?.setReducedMotion(this.reducedMotion);
+  }
+
+  // 高潮演出提供的视觉时间倍率（清波 / 首领慢动作）；无演出时为 1。
+  get visualTimeScale() {
+    return this.culmination?.timeScale() ?? 1;
   }
 
   buildBackground() {
@@ -221,6 +248,11 @@ export class Renderer {
     if (hurtAlpha > 0.01) {
       this.overlay.drawHurt(g, this.hurtOverlay, this.W, this.H, hurtAlpha);
     }
+
+    // 高潮演出：受击暗角之后、FPS 面板之前。只读 sim.culminations（按 seq 增量），
+    // 先推进再绘制；横幅/色块/边框不做运动降级，脉冲/扫光/扩散环受 motion 门控。
+    this.culmination.update(game, dt);
+    this.culmination.render(g);
 
     if (this.settings.showFps) {
       this.overlay.drawFps(g, this.fps, this.game.enemies.length);

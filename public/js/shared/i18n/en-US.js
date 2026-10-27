@@ -1531,6 +1531,14 @@ export default {
   'audio.ambience.water': 'Water drops',
   'hudUi.mutationChallenge': 'Mutation Challenge',
 
+  // ---- Culmination shows (leak / wave clear / boss kill, AC-017) ----
+  'feel.culmination.leak.title': 'Base Damaged',
+  'feel.culmination.leak.detail': 'Leak −{damage} HP · {baseHp} left',
+  'feel.culmination.waveClear.title': 'Wave {wave} Cleared',
+  'feel.culmination.waveClear.detail': 'Reward +{reward} gold · Interest +{interest}',
+  'feel.culmination.bossKill.title': 'Boss Slain',
+  'feel.culmination.bossKill.detail': '{name} has fallen',
+
   // ---- Season pass rewards / cosmetic names ----
   'seasonPass.seasonValue': '{month}/{year}',
   'seasonPass.rewardCores': '{n} cores',
