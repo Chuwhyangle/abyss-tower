@@ -366,30 +366,58 @@ test('注入 → 预期红灯映射：每种注入只打红它负责的指标', 
   }
 });
 
-test('docs/TECH_DESIGN.md §8.6 指标表与 THRESHOLDS.art 逐项一致', () => {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const source = fs.readFileSync(path.join(root, 'docs/TECH_DESIGN.md'), 'utf8');
-  const start = source.indexOf('### 8.6');
-  assert.ok(start >= 0, '缺少 §8.6 机械视觉验收章节');
-  const rest = source.slice(start + '### 8.6'.length);
-  const end = rest.indexOf('\n## ');
-  const section = end >= 0 ? rest.slice(0, end) : rest;
-  const rows = [...section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm)].map((match) => ({
+// §8.6 指标表的正本落在任务 Notes（`docs/PHASE_FEEL_ART.md` §2.3：两份总文档只由文档 lane 修改，
+// 实现任务把设计增量写进自己的 Notes）。表格一旦与 THRESHOLDS.art 漂移，本用例变红。
+const ART_DOC_MARKER = '8.6 机械视觉验收';
+
+function readSection(source, marker) {
+  const start = source.indexOf(marker);
+  if (start < 0) return null;
+  const rest = source.slice(start + marker.length);
+  const end = rest.search(/\n#{2,3} /);
+  return end >= 0 ? rest.slice(0, end) : rest;
+}
+
+function parseArtTable(section) {
+  return [...section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm)].map((match) => ({
     id: match[1],
     name: match[2],
     threshold: match[3],
   }));
+}
+
+function assertArtTable(section, label) {
+  const rows = parseArtTable(section);
   assert.deepEqual(
     rows.map((row) => row.id),
     [...ART_THRESHOLD_KEYS.map((item) => item.id), 'decor-monotonic'],
-    '§8.6 表格的指标顺序/数量必须与判定项一致'
+    `${label}：§8.6 表格的指标顺序/数量必须与判定项一致`
   );
   for (const { id, key } of ART_THRESHOLD_KEYS) {
     const row = rows.find((item) => item.id === id);
-    assert.equal(Number(row.threshold), THRESHOLDS.art[key], `§8.6 的 ${id} 阈值与 THRESHOLDS.art.${key} 不一致`);
+    assert.equal(Number(row.threshold), THRESHOLDS.art[key], `${label}：${id} 阈值与 THRESHOLDS.art.${key} 不一致`);
   }
   const monotonic = rows.find((item) => item.id === 'decor-monotonic');
   assert.match(monotonic.threshold, /off\s*≤\s*light\s*≤\s*full/);
+}
+
+test('THRESHOLDS.art 与 §8.6 指标表逐项一致（任务 Notes 正本；docs/TECH_DESIGN.md 由文档 lane 收口）', () => {
+  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  const taskDir = path.join(root, 'tasks');
+  const owner = fs
+    .readdirSync(taskDir)
+    .filter((file) => file.endsWith('.md'))
+    .map((file) => ({ file, source: fs.readFileSync(path.join(taskDir, file), 'utf8') }))
+    .find((item) => item.source.includes(ART_DOC_MARKER));
+  assert.ok(owner, '缺少 §8.6 指标表（应落在本任务 Notes）');
+  const taskSection = readSection(owner.source, ART_DOC_MARKER);
+  assert.ok(taskSection, `${owner.file} 的 §8.6 章节为空`);
+  assertArtTable(taskSection, `${owner.file} Notes`);
+
+  // 文档 lane 若已在 TECH_DESIGN 落地同名章节，同样逐项比对，防止两处漂移。
+  const tech = fs.readFileSync(path.join(root, 'docs/TECH_DESIGN.md'), 'utf8');
+  const techSection = readSection(tech, ART_DOC_MARKER);
+  if (techSection) assertArtTable(techSection, 'docs/TECH_DESIGN.md');
 });
 
 test('阈值集中在 THRESHOLDS，判定函数只读这一份', () => {
