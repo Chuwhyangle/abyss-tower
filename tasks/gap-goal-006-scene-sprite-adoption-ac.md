@@ -1,7 +1,7 @@
 ---
 id: gap-goal-006-scene-sprite-adoption-ac
 title: GOAL-006 充分性缺口：四场景 × 两视口精灵接入矩阵缺目标级 AC（提案新增 AC-030）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
