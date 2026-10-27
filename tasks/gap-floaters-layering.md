@@ -93,3 +93,11 @@ GOAL-005 退出条件要求「飘字在『全部』档可见且不刷屏，『�
   - off 档：存量过期后 `sim.floaters.length=0`，继续打暴击伤害后仍为 0（生成侧不产）。
   - 同 seed 两局（脚本化定步 2400 帧，all / off）：结算面板 `wave=1, clearedWave=1, kills=2, goldLeft=139, baseHp=23` 完全一致；all 局 `maxFloaters=2`、off 局 `0`。
 - 回归：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0；`node --test tests/floaters.test.mjs` 17/17；`sim-systems/combat/impact-events/ambience-presets/effect-variants/feel-defaults/settings/docs-phase-sync` 共 80 条相关用例全绿；`node scripts/check-doc-ownership.mjs` OK。
+
+## Blocker
+
+**2026-10-27T05:28:35.175Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=suite: name: 'AssertionError'
+- run_id：wk-prod-anchor
+- session_id：a576c95d-8b65-4dfd-a884-7cb1a890cb69
