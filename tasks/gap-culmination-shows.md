@@ -15,7 +15,7 @@ goal_ac: AC-017
 
 GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出；reduced-motion 或关闭震屏时仍保留非运动反馈」，AC-017 以 `node --test tests/feel-culmination.test.mjs` 见证；该文件当前不存在（AC 证据为 `criterion-capability-unevaluable`）。当前三处事件都只是「顺带」的表现，没有独立演出：
 
-- **漏怪**：`public/js/sim/enemy-system.js:262-272` 只做 `baseHp -= dmg`、`shake +7`、在**敌人位置**加一条通用 `leak` 特效（`public/js/render/effect-renderer.js:522-540`，与普通基地受击共用 `baseHit` 样式）、红色飘字与 `hurt` 音效；`public/js/render.js:167-183` 的红色暗角由 `baseHp` 差值推导。没有基地脉冲、没有横幅，也没有和普通命中区分开的演出签名。
+- **漏怪**：`public/js/sim/enemy-system.js:262-272` 只做 `baseHp -= dmg`、`shake +7`、在**敌人位置**加一条通用 `leak` 特效（`public/js/render/effect-renderer.js:522-540`，与普通基地受击共用 `baseHit` 样式）、红色飘字与 `hurt` 音效；`public/js/render.js:167-183` 的红色暗角由 `baseHp` 差值推导。没有基地脉冲、没有横幅，也没有和普通命中区分开来的演出签名。
 - **清波**：`public/js/sim/wave-director.js:165-202` 结算奖励后只回调 `onWaveClear`；`public/js/app/combat.js:57-63` 暂停并弹一条 DOM toast。没有慢动作、没有全屏横幅/扫光，清波与「商店刷新」在体感上没有区别。
 - **首领死亡**：`public/js/sim/combat-system.js:123-139` 的 `enemy.boss` 分支只做 `shake +10`、金币飘字、`bossKill` 音效；死亡特效靠半径 `BOSS_KILL_RADIUS` 反推 `bossKill` 变体（`public/js/render/effect-renderer.js:11,415-455`），没有任何屏幕空间演出、名字横幅或慢镜头，且「是不是首领」是渲染层猜测而非事件事实。
 - **没有统一模型与降级**：三者没有共享的纯数据规格，也没有 reduced-motion 语义；关闭震屏后只剩红色暗角和粒子，漏怪与首领死亡失去仪式感。
@@ -103,7 +103,7 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
 
 - **设计增量落点**：`docs/PHASE_FEEL_ART.md` §3.6 的签名表与降级规则即本实现的冻结值；`docs/PRD.md` §4.14 与 `docs/TECH_DESIGN.md` §5.5.2 由文档 lane 写入并引用 §3.6，本任务未改两份总文档（已核对：三层描述与实现一致，含「受击暗角之后、FPS 面板之前」的绘制层级与 `reducedMotion || !shake` 的降级口径）。
 - **三段视觉差异点**（实现与 §3.6 表逐项一致）：
-  - 漏怪 `leak`：强调色 `#ff5d5d` / 闪光 `#e03a3a` · 屏幕红色静态边框 + 以基地为圆心 3 层同心环 + 顶部「基地受损」横幅（暗号 `feel.culmination.leak.*`，时长 0.9s，timeScale **1**，不慢动作）。
+  - 漏怪 `leak`：强调色 `#ff5d5d` / 闪光 `#e03a3a` · 屏幕红色静态边框 + 以基地为圆心 3 层同心环 + 顶部「基地受损」横幅（键 `feel.culmination.leak.*`，时长 0.9s，timeScale **1**，不慢动作）。
   - 清波 `waveClear`：强调色 `#ffd36b` / 闪光 `#f2b53c` · 顶部/底部金线 + 水平金色扫光带 + 居中「第 N 波清除」横幅（`feel.culmination.waveClear.*`，时长 1.6s，timeScale **0.55**）。
   - 首领死亡 `bossKill`：强调色 `#e8f0ff` / 闪光 `#ffffff` · 白闪 + 双重细边框 + 4 层扩散环 + 居中「首领陨落 · {name} 已被击败」横幅（`feel.culmination.bossKill.*`，时长 2.2s，timeScale **0.4**，三者最慢）。
   - 降级（reduced-motion 或关闭震屏）：`timeScale=1`、不画基地脉冲/扫光/扩散环，横幅、色块与静态边框照常绘制；未知 kind 跳过并计数。
@@ -113,7 +113,8 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
   - reduced-motion（CDP `Emulation.setEmulatedMedia features=[{prefers-reduced-motion: reduce}]`）：`stats = {"leak":1,"waveClear":1,"bossKill":1,"drawn":{"leak":53,"waveClear":52,"bossKill":19},"drawnTotal":124,"reducedFallbacks":3,"skipped":0}`；`timeScale() = 1`；`feedback.budget.motion = false`；`feedback.update(0)` 返回 `offsetX=0, offsetY=0, zoom=1`（相机无位移/缩放）。
   - 同种子「演出开 / 关」两局（两台隔离服务 + 固定 seed，脚本完全相同）：`{"gold":460,"baseHp":24,"kills":1,"wave":1,"clearedWave":1,"enemies":[["swarm",19,0,true],["boss",990,0,true]]}` **逐字节一致**；开启局 `sim.culminations.length=3`，关闭局 `0`（`recordCulminations=false`）。
 - **截图**（`/tmp/culmination-shots/`）：`culm-01-leak.png`（红边框 + 基地同心环 + 「基地受损」）、`culm-02-wave-clear.png`（金色横扫带 + 居中标牌）、`culm-03-boss-kill.png`（白闪 + 扩散环 + 「首领陨落/渊主 已被击败」）；降级对照 `culm-04-leak-reduced.png`、`culm-05-wave-clear-reduced.png`、`culm-06-boss-kill-reduced.png`（无脉冲/扫光/扩散环，横幅与色块保留）。
-- **门禁**：`node --test tests/feel-culmination.test.mjs` 16/16；`npm test` 1648/1648（`/tmp/npmtest2.out`）；`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` / `npm run flow` exit 0。
+- **门禁**：`node --test tests/feel-culmination.test.mjs` 16/16；`npm test` 1643/1643（merge develop 后重跑，`/tmp/npmtest4.out`）；`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` / `npm run flow` exit 0。
 - **实现中新登记的 Touches**：
   - `scripts/test-changed.mjs`：新增源文件必须登记 TEST_MAP（`public/js/render/culmination-renderer.js → tests/feel-culmination.test.mjs`），否则 `tests/test-changed.test.mjs` 的「审计覆盖当前仓库全部源文件」会红。
   - `tests/sim-systems.test.mjs`：`Simulation.prototype` 导出面快照需要加入新增公共方法 `addCulmination`（`sim.js` 仍 572 行，低于 800 行上限）。
+- **跨任务解除阻塞**（同一文件内的死映射，非本任务设计范围）：合并 develop 后全量 suite 因 `scripts/test-changed.mjs` 里 4 条指向已 revert 删除的脚本/测试的 TEST_MAP 条目（`deploy-smoke` / `playtest-check` / `release-check` / `rogue2-accept`）而 exit 1；为让本任务 fan-in 的 suite 门变绿，在同一文件（已声明进 Touches）内删除这 4 条死映射。`gap-test-changed-stale-map-entries` 仍持有「`rule.match` 存在性断言」与 AC-005 连续两次绿复验，本任务不替代它。
