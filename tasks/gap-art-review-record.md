@@ -1,7 +1,7 @@
 ---
 id: gap-art-review-record
 title: 美术语义评审记录：四场景 × 两视口真实采集 + 全新上下文评审结论（AC-029）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
