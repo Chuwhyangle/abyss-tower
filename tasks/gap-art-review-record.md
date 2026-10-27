@@ -1,7 +1,7 @@
 ---
 id: gap-art-review-record
 title: 美术语义评审记录：四场景 × 两视口真实采集 + 全新上下文评审结论（AC-029）
-status: ready
+status: todo
 labels:
   - gap
 parent: null
@@ -14,6 +14,7 @@ depends_on:
   - ART-001
   - gap-ui-readability-font-floor
   - gap-mobile-visual-font-floor
+  - gap-scene-sprite-adoption
 goal_ac: AC-029
 ---
 ## Proposal
@@ -83,3 +84,6 @@ exit=1
 ## Notes
 
 评审记录是语义层证据，不能替代 `scripts/visual-check.mjs --suite art|ui|mobile` 的机械指标；两者同时成立才支撑 GOAL-006。记录必须诚实：如果画面仍不达标，宁可把结论写成不通过并立案修复，也不要为了关 AC 写通过——那会让 AC-029 重新退化成一条无法自证的证据。格式与判定以 VIS-001 落地的 `scripts/lib/review-record.mjs` 为准，不另发明格式。
+
+
+worker 连续两次长时停滞（08:15、09:21 均以 SIGTERM 终止）；改为等 gap-scene-sprite-adoption 落地后再评审最终画面，避免在未完成的美术上做语义结论。
