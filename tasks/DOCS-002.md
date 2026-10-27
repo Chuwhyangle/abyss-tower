@@ -68,3 +68,11 @@ goal_ac: AC-032
 - 见证：`node scripts/rogue2-accept.mjs design` → PASS；`node --test tests/rogue2-design.test.mjs` 12/12；
   `node scripts/check-doc-ownership.mjs` → OK（66 个任务）；`node --no-warnings scripts/docs-consistency.mjs` → 通过（21 文件）；
   `npm test` → 1644/1644 pass。
+
+## Blocker
+
+**2026-10-27T10:17:42.983Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：task status=ready (not done)
+- run_id：wk-prod-anchor
+- session_id：fbe83240-0672-42e6-8bd7-034fc36921c7
