@@ -1,7 +1,7 @@
 ---
 id: gap-playtest-v2-record
 title: v2.0.0 真人试玩记录：三档样本量与失败原因（待外部）
-status: needs-human
+status: superseded
 labels:
   - qa
 parent: null
@@ -44,3 +44,6 @@ goal_ac: AC-042
 ## Notes
 
 本任务状态是 `needs-human`：执行者不得代玩、不得代填、不得把不通过写成通过。检查器由 `DOCS-003` 落地；若检查器尚未存在，先等 `DOCS-003` 完成。内容版本填 v2.0.0 或对应提交短哈希。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

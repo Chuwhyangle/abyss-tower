@@ -1,7 +1,7 @@
 ---
 id: gap-boss-cores
 title: 首领核心：第 5/10/15/20/25 波清波后的五类核心选择
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -56,3 +56,6 @@ goal_ac: AC-035
 
 <!-- dedup-ref -->
 与 `gap-doctrines` / `gap-awakenings-p0` 的边界：本任务只提供核心入口与能力检查，教义/觉醒的具体行为由各自任务实现；本任务不得为了凑候选而先写空壳行为。与 `gap-contracts` 的边界：契约卡只替换普通三选一，不进入核心槽位。核心选项与每日/本周的固定规则共用同一 seed 派生，保证同组一致。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

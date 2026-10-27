@@ -52,27 +52,27 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
 
 ## AC
 
-- [ ] `node --test tests/feel-culmination.test.mjs` exit 0
-- [ ] 规格完整性：`CULMINATION_KINDS` 恰为 `leak/waveClear/bossKill` 三个且与 `Object.keys(CULMINATION_SPECS)` 一致；每项 `accent` 为合法 hex，`flash.color/peak/duration`、`duration`、`motion.timeScale/shake/zoom` 均为有限数且 `duration>0`、`0<timeScale<=1`、`pulse.rings>=1`；`culminationSpec('unknown')===null`
-- [ ] 独立可辨识：三个 `bannerKey` 两两不同、三个 `flash.color` 两两不同、三个 `pulse.shape` 两两不同、三个 `timeScale` 两两不同、三个 `duration` 两两不同（`new Set(...).size===3`）
-- [ ] 降级规则：对三个 kind 分别调用 `culminationPlan(kind, { reducedMotion:true })` 与 `{ shake:false }`，均满足 `motion.mode==='reduced'`、`motion.pulse===false`、`motion.shake===0`、`motion.zoom===0`、`motion.timeScale===1`，且 `bannerKey/detailKey/accent/flash.color` 与完整模式逐字段相等（非运动反馈保留）
-- [ ] 漏怪事件：`sim.leak(enemy)` 后 `sim.culminations` 末尾为 `{ kind:'leak' }` 且 `damage>0`、`baseHp` 等于漏怪后的基地生命；`seq` 严格递增且全局唯一
-- [ ] 清波事件：`completeWaveAt(sim, 3)`（phase='wave'、wave=3、waveDef.reward 固定）后末尾事件 `kind==='waveClear'`、`wave===3`、`reward`/`interest` 为有限数并与 `sim.gold` 增量一致
-- [ ] 首领死亡事件：`sim.spawnEnemy('boss', 0, hpMul)` 后 `sim.killEnemy(boss)`，末尾事件 `kind==='bossKill'`、`type==='boss'`、`name` 非空；普通怪击杀不产生 `bossKill`
-- [ ] 表现零接触模拟：同一 seed 两局执行同一脚本（漏怪 + 清波 + 首领击杀，中间推进相同步数），一局 `recordCulminations:true`、一局 `false`，序列化 `{gold,baseHp,kills,wave,clearedWave,enemies:[id,hp,progress,dead],floaters,effects}` 逐字节一致
-- [ ] 确定性源码：`public/js/shared/culmination.js` 与 `public/js/render/culmination-renderer.js` 不含 `Math.random`，且不 import `sim` / `shared/rng` / DOM
-- [ ] 接线源码断言：`public/js/sim/enemy-system.js` 的 `leak()` 调用 `addCulmination('leak'`；`public/js/sim/combat-system.js` 的首领分支调用 `addCulmination('bossKill'`；`public/js/sim/wave-director.js` 的 `completeWave()` 调用 `addCulmination('waveClear'`；`public/js/render.js` 构造 `CulminationRenderer` 并在渲染中调用其 `update`/`render`；`public/js/game-app.js` 用 `visualTimeScale` 缩放 `updateVisuals`
-- [ ] i18n 完整性：三组 `feel.culmination.*.title/detail` 键在 `zh-CN` 与 `en-US` 字典中都存在且非空，`t(key, params)` 插值后不含未替换的 `{...}` 占位符
-- [ ] `npm test` exit 0
+- [x] `node --test tests/feel-culmination.test.mjs` exit 0
+- [x] 规格完整性：`CULMINATION_KINDS` 恰为 `leak/waveClear/bossKill` 三个且与 `Object.keys(CULMINATION_SPECS)` 一致；每项 `accent` 为合法 hex，`flash.color/peak/duration`、`duration`、`motion.timeScale/shake/zoom` 均为有限数且 `duration>0`、`0<timeScale<=1`、`pulse.rings>=1`；`culminationSpec('unknown')===null`
+- [x] 独立可辨识：三个 `bannerKey` 两两不同、三个 `flash.color` 两两不同、三个 `pulse.shape` 两两不同、三个 `timeScale` 两两不同、三个 `duration` 两两不同（`new Set(...).size===3`）
+- [x] 降级规则：对三个 kind 分别调用 `culminationPlan(kind, { reducedMotion:true })` 与 `{ shake:false }`，均满足 `motion.mode==='reduced'`、`motion.pulse===false`、`motion.shake===0`、`motion.zoom===0`、`motion.timeScale===1`，且 `bannerKey/detailKey/accent/flash.color` 与完整模式逐字段相等（非运动反馈保留）
+- [x] 漏怪事件：`sim.leak(enemy)` 后 `sim.culminations` 末尾为 `{ kind:'leak' }` 且 `damage>0`、`baseHp` 等于漏怪后的基地生命；`seq` 严格递增且全局唯一
+- [x] 清波事件：`completeWaveAt(sim, 3)`（phase='wave'、wave=3、waveDef.reward 固定）后末尾事件 `kind==='waveClear'`、`wave===3`、`reward`/`interest` 为有限数并与 `sim.gold` 增量一致
+- [x] 首领死亡事件：`sim.spawnEnemy('boss', 0, hpMul)` 后 `sim.killEnemy(boss)`，末尾事件 `kind==='bossKill'`、`type==='boss'`、`name` 非空；普通怪击杀不产生 `bossKill`
+- [x] 表现零接触模拟：同一 seed 两局执行同一脚本（漏怪 + 清波 + 首领击杀，中间推进相同步数），一局 `recordCulminations:true`、一局 `false`，序列化 `{gold,baseHp,kills,wave,clearedWave,enemies:[id,hp,progress,dead],floaters,effects}` 逐字节一致
+- [x] 确定性源码：`public/js/shared/culmination.js` 与 `public/js/render/culmination-renderer.js` 不含 `Math.random`，且不 import `sim` / `shared/rng` / DOM
+- [x] 接线源码断言：`public/js/sim/enemy-system.js` 的 `leak()` 调用 `addCulmination('leak'`；`public/js/sim/combat-system.js` 的首领分支调用 `addCulmination('bossKill'`；`public/js/sim/wave-director.js` 的 `completeWave()` 调用 `addCulmination('waveClear'`；`public/js/render.js` 构造 `CulminationRenderer` 并在渲染中调用其 `update`/`render`；`public/js/game-app.js` 用 `visualTimeScale` 缩放 `updateVisuals`
+- [x] i18n 完整性：三组 `feel.culmination.*.title/detail` 键在 `zh-CN` 与 `en-US` 字典中都存在且非空，`t(key, params)` 插值后不含未替换的 `{...}` 占位符
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 真实对局驱动（`tests/harness.mjs` 的 `launchBrowser`）：同一局内制造一次漏怪、清一波、击杀首领，读取 `app.renderer.culmination.stats`，要求 `leak/waveClear/bossKill` 各 `>=1`、`drawn` 各 `>=1`（横幅确实绘制）、`window.__bootErrors` 为空；记录驱动脚本与输出摘要
-- [ ] reduced-motion 实跑：通过 CDP `Emulation.setEmulatedMedia` 注入 `prefers-reduced-motion: reduce` 后重复三类事件，`stats.reducedFallbacks >= 3`、三类横幅仍 `drawn >= 1`、`timeScale() === 1`、相机无位移；截图可见静态横幅与色块
-- [ ] 三张演出截图（漏怪 / 清波 / 首领死亡）与同一 seed「演出开 / 关」两局的金币、生命、击杀、波次、敌人 HP 摘要一致（实跑对比，不以单元测试代替），结果与截图路径写入任务 Notes
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` 与 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run flow` exit 0
-- [ ] `npm test` exit 0
-- [ ] `docs/PRD.md` §4.14 与 `docs/TECH_DESIGN.md` §5.5 的签名表、降级规则、绘制层级与实现一致；Notes 记录三段演出的视觉差异点（颜色 / 横幅 / 脉冲 / 慢动作倍率）
+- [x] 真实对局驱动（`tests/harness.mjs` 的 `launchBrowser`）：同一局内制造一次漏怪、清一波、击杀首领，读取 `app.renderer.culmination.stats`，要求 `leak/waveClear/bossKill` 各 `>=1`、`drawn` 各 `>=1`（横幅确实绘制）、`window.__bootErrors` 为空；记录驱动脚本与输出摘要
+- [x] reduced-motion 实跑：通过 CDP `Emulation.setEmulatedMedia` 注入 `prefers-reduced-motion: reduce` 后重复三类事件，`stats.reducedFallbacks >= 3`、三类横幅仍 `drawn >= 1`、`timeScale() === 1`、相机无位移；截图可见静态横幅与色块
+- [x] 三张演出截图（漏怪 / 清波 / 首领死亡）与同一 seed「演出开 / 关」两局的金币、生命、击杀、波次、敌人 HP 摘要一致（实跑对比，不以单元测试代替），结果与截图路径写入任务 Notes
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` 与 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run flow` exit 0
+- [x] `npm test` exit 0
+- [x] `docs/PRD.md` §4.14 与 `docs/TECH_DESIGN.md` §5.5 的签名表、降级规则、绘制层级与实现一致；Notes 记录三段演出的视觉差异点（颜色 / 横幅 / 脉冲 / 慢动作倍率）
 
 ## Touches
 
@@ -87,6 +87,8 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/feel-culmination.test.mjs` (new)
+- `tests/sim-systems.test.mjs`
+- `scripts/test-changed.mjs`
 - `tasks/gap-culmination-shows.md`
 
 ## Notes
@@ -96,3 +98,22 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
 - 首领事件的「是不是首领」由模拟侧显式记录，不再由渲染层按半径反推；既有按半径反推的 `bossKill` 特效保持不变，作为粒子层叠加。
 - 与高频命中层任务的共享文件由调度器按 Touches 串行；本任务只新增 `addCulmination` 与 `feel.culmination.*`，不修改既有命中的特效 / 音效 / 飘字路径。
 - 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
+
+### 实现记录（2026-10-27，gap-culmination-shows worker）
+
+- **设计增量落点**：`docs/PHASE_FEEL_ART.md` §3.6 的签名表与降级规则即本实现的冻结值；`docs/PRD.md` §4.14 与 `docs/TECH_DESIGN.md` §5.5.2 由文档 lane 写入并引用 §3.6，本任务未改两份总文档（已核对：三层描述与实现一致，含「受击暗角之后、FPS 面板之前」的绘制层级与 `reducedMotion || !shake` 的降级口径）。
+- **三段视觉差异点**（实现与 §3.6 表逐项一致）：
+  - 漏怪 `leak`：强调色 `#ff5d5d` / 闪光 `#e03a3a` · 屏幕红色静态边框 + 以基地为圆心 3 层同心环 + 顶部「基地受损」横幅（暗号 `feel.culmination.leak.*`，时长 0.9s，timeScale **1**，不慢动作）。
+  - 清波 `waveClear`：强调色 `#ffd36b` / 闪光 `#f2b53c` · 顶部/底部金线 + 水平金色扫光带 + 居中「第 N 波清除」横幅（`feel.culmination.waveClear.*`，时长 1.6s，timeScale **0.55**）。
+  - 首领死亡 `bossKill`：强调色 `#e8f0ff` / 闪光 `#ffffff` · 白闪 + 双重细边框 + 4 层扩散环 + 居中「首领陨落 · {name} 已被击败」横幅（`feel.culmination.bossKill.*`，时长 2.2s，timeScale **0.4**，三者最慢）。
+  - 降级（reduced-motion 或关闭震屏）：`timeScale=1`、不画基地脉冲/扫光/扩散环，横幅、色块与静态边框照常绘制；未知 kind 跳过并计数。
+- **浏览器验收脚本**：`/tmp/culm-browser.mjs`（未入库，避免新增未声明文件；基于 `tests/harness.mjs` 的 `startTestServer` / `launchBrowser` / `chooseFirstMap`，`startTestServer({ seedHeader: true })` + 固定 `x-test-seed`）。脚本内固定种子、`app.setPaused(true)` 后执行确定性直接调用（`sim.spawnEnemy`+`sim.leak`、`sim.completeWave`、`sim.spawnEnemy('boss')`+`sim.killEnemy`），画面仍按真实时间渲染。
+- **实跑输出摘要**（`/tmp/culmination-shots/culmination-report.json` 全量）：
+  - 完整运动：`stats = {"leak":1,"waveClear":1,"bossKill":1,"drawn":{"leak":54,"waveClear":52,"bossKill":21},"drawnTotal":127,"reducedFallbacks":0,"skipped":0}`；`__bootErrors = []`；漏怪时刻 `timeScale = 1`，清波时刻 `< 1`，首领时刻 `0.4`。
+  - reduced-motion（CDP `Emulation.setEmulatedMedia features=[{prefers-reduced-motion: reduce}]`）：`stats = {"leak":1,"waveClear":1,"bossKill":1,"drawn":{"leak":53,"waveClear":52,"bossKill":19},"drawnTotal":124,"reducedFallbacks":3,"skipped":0}`；`timeScale() = 1`；`feedback.budget.motion = false`；`feedback.update(0)` 返回 `offsetX=0, offsetY=0, zoom=1`（相机无位移/缩放）。
+  - 同种子「演出开 / 关」两局（两台隔离服务 + 固定 seed，脚本完全相同）：`{"gold":460,"baseHp":24,"kills":1,"wave":1,"clearedWave":1,"enemies":[["swarm",19,0,true],["boss",990,0,true]]}` **逐字节一致**；开启局 `sim.culminations.length=3`，关闭局 `0`（`recordCulminations=false`）。
+- **截图**（`/tmp/culmination-shots/`）：`culm-01-leak.png`（红边框 + 基地同心环 + 「基地受损」）、`culm-02-wave-clear.png`（金色横扫带 + 居中标牌）、`culm-03-boss-kill.png`（白闪 + 扩散环 + 「首领陨落/渊主 已被击败」）；降级对照 `culm-04-leak-reduced.png`、`culm-05-wave-clear-reduced.png`、`culm-06-boss-kill-reduced.png`（无脉冲/扫光/扩散环，横幅与色块保留）。
+- **门禁**：`node --test tests/feel-culmination.test.mjs` 16/16；`npm test` 1648/1648（`/tmp/npmtest2.out`）；`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` / `npm run flow` exit 0。
+- **实现中新登记的 Touches**：
+  - `scripts/test-changed.mjs`：新增源文件必须登记 TEST_MAP（`public/js/render/culmination-renderer.js → tests/feel-culmination.test.mjs`），否则 `tests/test-changed.test.mjs` 的「审计覆盖当前仓库全部源文件」会红。
+  - `tests/sim-systems.test.mjs`：`Simulation.prototype` 导出面快照需要加入新增公共方法 `addCulmination`（`sim.js` 仍 572 行，低于 800 行上限）。

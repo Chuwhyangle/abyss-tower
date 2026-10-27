@@ -1,7 +1,7 @@
 ---
 id: gap-contracts
 title: 契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两次
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -58,3 +58,6 @@ goal_ac: AC-036
 
 <!-- dedup-ref -->
 与 `gap-boss-cores` 的边界：契约只替换普通三选一，不进入首领核心槽位。与 `gap-starter-relic-upgrade-guarantee` 的边界：第 3 波起的保底升级卡优先于契约替换；同一槽位只能有一张契约。红线：契约绝不修改服务端生成的敌人 HP/速度/入口，测试要用同一 seed 对比证明。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。

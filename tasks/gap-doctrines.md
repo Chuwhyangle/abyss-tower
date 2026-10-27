@@ -1,7 +1,7 @@
 ---
 id: gap-doctrines
 title: 教义：通过首领核心选择 5 条塔专精，不可逆、塔身徽记
-status: todo
+status: superseded
 labels:
   - gap
 parent: null
@@ -57,3 +57,6 @@ goal_ac: AC-037
 
 <!-- dedup-ref -->
 与 `gap-boss-cores` 的边界：核心入口、波次门槛与每局上限由该任务提供，本任务只实现教义行为与表现，并在核心候选里注册教义项。与 `gap-awakenings-p0` 的边界：觉醒改单件遗物行为，教义改某一类塔的全部实例；两者可同时存在但不得互相覆盖效果键。表现层遵守 GOAL-006 的精灵/低配约束，不新增 `ctx.filter` / `shadowBlur`。
+
+
+人 2026-10-27：撤销本任务，等待重新设计（上得太快，先停）。
