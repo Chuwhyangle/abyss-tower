@@ -76,8 +76,6 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
 
 ## Touches
 
-- `docs/PRD.md`
-- `docs/TECH_DESIGN.md`
 - `public/js/shared/culmination.js` (new)
 - `public/js/render/culmination-renderer.js` (new)
 - `public/js/render.js`
@@ -97,3 +95,4 @@ GOAL-005 退出条件要求「漏怪、清波、首领死亡各有独立演出�
 - 慢动作只缩放 `updateVisuals` 的 dt 与渲染时间；`sim.update(STEP)` 仍按固定步长推进，不在本文档里改变模拟结果。
 - 首领事件的「是不是首领」由模拟侧显式记录，不再由渲染层按半径反推；既有按半径反推的 `bossKill` 特效保持不变，作为粒子层叠加。
 - 与高频命中层任务的共享文件由调度器按 Touches 串行；本任务只新增 `addCulmination` 与 `feel.culmination.*`，不修改既有命中的特效 / 音效 / 飘字路径。
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。

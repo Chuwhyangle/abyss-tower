@@ -91,10 +91,12 @@ GOAL-005 退出条件要求「八种武器都有可区分的命中音效，并�
 
 ## Touches
 
-- `docs/PRD.md`
-- `docs/TECH_DESIGN.md`
 - `public/js/audio-impacts.js`
 - `public/js/audio.js`
 - `public/js/game-app.js`
 - `tests/audio-impacts.test.mjs`
 - `tasks/gap-audio-impacts.md`
+
+## Notes
+
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。

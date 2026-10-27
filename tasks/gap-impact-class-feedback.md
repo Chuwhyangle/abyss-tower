@@ -70,8 +70,6 @@ AC-030 的 criterion 是 `node --test tests/impact-class-feedback.test.mjs`，�
 ## Touches
 
 - `tasks/gap-impact-class-feedback.md`
-- `docs/PRD.md`
-- `docs/TECH_DESIGN.md`
 - `public/js/shared/impact-class-feedback.js` (new)
 - `public/js/shared/floaters.js`
 - `public/js/game-app.js`
@@ -84,3 +82,4 @@ AC-030 的 criterion 是 `node --test tests/impact-class-feedback.test.mjs`，�
 - 依赖 `gap-floaters-layering`（AC-016）：本任务在其六层模型上追加三层，**不**重新实现层模型；若派发时该文件尚不存在，说明依赖未满足，停在本任务门口而不是自带一份六层副本。
 - `sim.addFloater` / `sim.addEffect` 自带的档位门控就是降级路径：飘字在 `off` 档不生成，特效在 `effects:'off'` 只保留 bolt/ring/leak——因此「任何档位类别层可见」由类别飘字承担，VFX 按既有档位语义降级，不新增设置项。
 - 消费者在 `game-app.js` 而不在 `render.js`：渲染门面只画，页面编排层才持有 sim 的逐帧推进与新增视觉对象的生产；游标基于对象引用，环形缓冲 240 条远大于单帧新增量。
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。

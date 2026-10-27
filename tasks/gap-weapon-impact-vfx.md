@@ -41,22 +41,22 @@ GOAL-005 退出条件要求「八种武器都有可区分的命中音效与命�
 
 ## AC
 
-- [ ] `node --test tests/impact-vfx.test.mjs` exit 0，且测试文件覆盖下列全部断言
-- [ ] `Object.keys(IMPACT_VFX)`（除 `fallback` 外的 8 个武器键）与 `TOWER_ORDER` 完全一致；每项 `color/accent/shape/particles/spread/duration/size/ring/spin` 均为有限值，且 `particles ≥ 1`（低档也不得为 0，任何画质档位命中链都可见）
-- [ ] 可分辨性：8 个 `color` 两两不同（`new Set(color).size === 8`）、8 个 `shape` 两两不同，且 `(shape, particles, spread)` 三元组两两不同 → 任意两种武器至少 2 维可分辨
-- [ ] 预算钳制：逐武器 `impactVariant(w, EFFECT_PROFILES.low|high).particles ≤ EFFECT_PROFILES[tier].maxParticles`；逐武器 `low < high` 严格成立；`impactVariant('no-such-weapon')` 返回 fallback 且同样受上限约束、不抛错
-- [ ] 并发预算：`ImpactVfxPool` 容量固定、跨帧复用同一槽位对象；`reset(impactBudget(profile))` 后注入 36 个同时命中，累计 `acquire()` 成功数 ≤ `impactBudget(profile)`；耗尽后渲染分支返回降级标记（`{ degraded: true }`）且不抛错
-- [ ] 接线源码断言：`public/js/render/effect-renderer.js` 的 `spark` 分支调用 `impactVariant`、渲染循环中执行 `impactPool.reset(impactBudget(...))`，并存在 `type === 'banner'` 的光环脉冲分支；`public/js/sim/projectile-system.js` 的 `spark`/`ring`/`bolt` 事件对象都带 `weapon`
-- [ ] 表现零接触模拟：`public/js/render/impact-vfx.js` 不含 `Math.random`、不 import `sim`/`shared/rng`；同 seed 两局（命中特效开 / 关）序列化 `gold / baseHp / kills / wave / enemies` 逐字节一致
-- [ ] `npm test` exit 0
+- [x] `node --test tests/impact-vfx.test.mjs` exit 0，且测试文件覆盖下列全部断言
+- [x] `Object.keys(IMPACT_VFX)`（除 `fallback` 外的 8 个武器键）与 `TOWER_ORDER` 完全一致；每项 `color/accent/shape/particles/spread/duration/size/ring/spin` 均为有限值，且 `particles ≥ 1`（低档也不得为 0，任何画质档位命中链都可见）
+- [x] 可分辨性：8 个 `color` 两两不同（`new Set(color).size === 8`）、8 个 `shape` 两两不同，且 `(shape, particles, spread)` 三元组两两不同 → 任意两种武器至少 2 维可分辨
+- [x] 预算钳制：逐武器 `impactVariant(w, EFFECT_PROFILES.low|high).particles ≤ EFFECT_PROFILES[tier].maxParticles`；逐武器 `low < high` 严格成立；`impactVariant('no-such-weapon')` 返回 fallback 且同样受上限约束、不抛错
+- [x] 并发预算：`ImpactVfxPool` 容量固定、跨帧复用同一槽位对象；`reset(impactBudget(profile))` 后注入 36 个同时命中，累计 `acquire()` 成功数 ≤ `impactBudget(profile)`；耗尽后渲染分支返回降级标记（`{ degraded: true }`）且不抛错
+- [x] 接线源码断言：`public/js/render/effect-renderer.js` 的 `spark` 分支调用 `impactVariant`、渲染循环中执行 `impactPool.reset(impactBudget(...))`，并存在 `type === 'banner'` 的光环脉冲分支；`public/js/sim/projectile-system.js` 的 `spark`/`ring`/`bolt` 事件对象都带 `weapon`
+- [x] 表现零接触模拟：`public/js/render/impact-vfx.js` 不含 `Math.random`、不 import `sim`/`shared/rng`；同 seed 两局（命中特效开 / 关）序列化 `gold / baseHp / kills / wave / enemies` 逐字节一致
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 真实对局驱动：用 `tests/harness.mjs` 的 `launchBrowser` 建 8 塔（战旗仅光环）跑满 2 波，在渲染层注入计数钩子，统计 7 种攻击塔的命中签名各绘制 ≥1 次、战旗光环脉冲 ≥1 次、单帧命中粒子峰值 ≤ `impactBudget(high)`，页面 `window.__bootErrors` 为空；输出统计摘要（记录驱动脚本与输出）
-- [ ] 36 敌混战压测：单帧命中粒子峰值不超预算，降级路径被触发时无未捕获异常、无整块命中表现消失（记录峰值与降级次数）
-- [ ] 同一 seed 实测两局（命中层开 / 关），结算面板的金币 / 生命 / 击杀 / 波次一致（实跑对比，不以单元测试代替）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（表现层无回归）
-- [ ] `docs/TECH_DESIGN.md` §5.5 的签名表、预算参数与降级路径与实现一致，Notes 记录 8 种签名的视觉差异点与战旗光环脉冲的触发条件
+- [x] 真实对局驱动：用 `tests/harness.mjs` 的 `launchBrowser` 建 8 塔（战旗仅光环）跑满 2 波，在渲染层注入计数钩子，统计 7 种攻击塔的命中签名各绘制 ≥1 次、战旗光环脉冲 ≥1 次、单帧命中粒子峰值 ≤ `impactBudget(high)`，页面 `window.__bootErrors` 为空；输出统计摘要（记录驱动脚本与输出）
+- [x] 36 敌混战压测：单帧命中粒子峰值不超预算，降级路径被触发时无未捕获异常、无整块命中表现消失（记录峰值与降级次数）
+- [x] 同一 seed 实测两局（命中层开 / 关），结算面板的金币 / 生命 / 击杀 / 波次一致（实跑对比，不以单元测试代替）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（表现层无回归）
+- [x] `docs/TECH_DESIGN.md` §5.5 的签名表、预算参数与降级路径与实现一致，Notes 记录 8 种签名的视觉差异点与战旗光环脉冲的触发条件
 
 ## Touches
 
@@ -64,5 +64,17 @@ GOAL-005 退出条件要求「八种武器都有可区分的命中音效与命�
 - `public/js/render/impact-vfx.js`
 - `public/js/render/effect-renderer.js`
 - `public/js/sim/projectile-system.js`
+- `scripts/test-changed.mjs`
 - `tests/impact-vfx.test.mjs`
+- `tests/impact-vfx-drive.mjs`
 - `tasks/gap-weapon-impact-vfx.md`
+
+## Notes
+
+真机验收驱动：`tests/impact-vfx-drive.mjs`（隔离服务端 + 无头 Chrome + 固定测试种子，命令 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node tests/impact-vfx-drive.mjs`）：
+
+- **2 波真实对局**（8 塔，战旗仅光环）：7 种攻击塔命中签名各绘制 ≥1 次（arrow 27 / cannon 20 / frost 24 / arc 22 / poison 24 / shock 21 / sniper 6），战旗光环脉冲 159 次，单帧命中粒子峰值 25 ≤ `impactBudget(high)=128`，`window.__bootErrors` 为空。
+- **36 敌混战压测**：单帧峰值 128（恰为预算上限），降级 4 次；降级帧仍画出 224 arc / 314 stroke / 367 fill，`error: null`，无整块命中表现消失。
+- **同种子两局（命中层开 / 关）实跑**：gold 1000053、baseHp 200、kills 5、wave 1、clearedWave 1 完全一致（seed `test-rtd-perf-fixed-seed`）。
+- `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0。
+- 新增渲染模块已在 `scripts/test-changed.mjs` 的 TEST_MAP 登记（审计覆盖不红）。
