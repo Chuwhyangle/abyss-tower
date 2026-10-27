@@ -1,27 +1,51 @@
 // 飘字：伤害数字与关键提示。
+// 分层绘制：层决定 z 序/字号/字重/颜色，帧预算与同层合并由 shared/floaters.js 统一裁决。
 import { TILE } from '../shared/data.js';
+import {
+  BIG_SIZE_BONUS,
+  FLOATER_LAYERS,
+  STACK_STEP,
+  floaterBudget,
+  planFloaterFrame,
+} from '../shared/floaters.js';
 
 const T = TILE;
 
 export class FloaterRenderer {
   constructor(game) {
     this.game = game;
+    // 本帧统计：浏览器验收读取 drawn / suppressed / visible / layers。
+    this.stats = { drawn: 0, suppressed: 0, visible: 0, layers: [] };
   }
 
   render(g) {
+    const mode = this.game.floatersMode || 'all';
+    const { draw, suppressed, visible } = planFloaterFrame(this.game.floaters, {
+      mode,
+      budget: floaterBudget(mode),
+    });
+    this.stats = {
+      drawn: draw.length,
+      suppressed,
+      visible,
+      layers: [...new Set(draw.map((floater) => floater.layer))],
+    };
+
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    for (const floater of this.game.floaters) {
+    for (const floater of draw) {
+      const layer = FLOATER_LAYERS[floater.layer] || FLOATER_LAYERS.damage;
       const alpha = Math.max(0, Math.min(1, floater.ttl / floater.maxTtl));
       const x = floater.x * T;
-      const y = floater.y * T;
-      const size = floater.big ? 17 : 13;
+      // 同层近邻按 stack 逐级上移，避免数字叠成一坨。
+      const y = floater.y * T - (floater.stack || 0) * STACK_STEP * T;
+      const size = layer.size + (floater.big ? BIG_SIZE_BONUS : 0);
       g.globalAlpha = alpha;
-      g.font = `700 ${size}px "DejaVu Sans Mono", ui-monospace, monospace`;
+      g.font = `${layer.weight} ${size}px "DejaVu Sans Mono", ui-monospace, monospace`;
       g.lineWidth = 3;
       g.strokeStyle = 'rgba(0, 0, 0, 0.75)';
       g.strokeText(floater.text, x, y);
-      g.fillStyle = floater.color;
+      g.fillStyle = floater.color || layer.color;
       g.fillText(floater.text, x, y);
       g.globalAlpha = 1;
     }
