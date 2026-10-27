@@ -4,7 +4,9 @@
 
 export const ANCHORS = Object.freeze(['center', 'foot', 'top-left', 'muzzle']);
 export const ENTRY_STATUS = Object.freeze(['placeholder', 'ready', 'deprecated']);
-export const SPRITE_ID_PATTERN = /^[a-z]+\/[a-z0-9-]+$/;
+// id 允许两种写法：ASSET_PIPELINE 的 `<类别>/<名称>` 与 PHASE_FEEL_ART §4.1 的
+// `<family>.<entity-id>.<state>`；都只允许小写段，拒绝空格/大写/空段。
+export const SPRITE_ID_PATTERN = /^[a-z][a-z0-9-]*(?:[./][a-z0-9-]+)+$/;
 
 const DEFAULT_PIVOT = Object.freeze({ x: 0.5, y: 0.5 });
 const DEFAULT_SIZE = Object.freeze({ w: 1, h: 1 });

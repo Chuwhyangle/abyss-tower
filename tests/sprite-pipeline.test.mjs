@@ -162,6 +162,19 @@ test('清单校验：path 可推导 src，未知 shape 不抛错', () => {
   assert.deepEqual(normalizeManifest(null).entries, []);
 });
 
+test('清单校验：id 同时接受 类别/名称 与 family.entity.state 两种写法', () => {
+  const { entries, errors } = normalizeManifest(
+    manifestOf([
+      entry({ id: 'fx/probe' }),
+      entry({ id: 'enemy.grunt.move' }),
+      entry({ id: 'Bad Id' }),
+      entry({ id: 'fx/' }),
+    ])
+  );
+  assert.deepEqual(entries.map((item) => item.id), ['fx/probe', 'enemy.grunt.move']);
+  assert.equal(errors.filter((error) => error.code === 'invalid-id').length, 2);
+});
+
 // ── DPR 变体 ────────────────────────────────────────────────────────────────
 
 test('resolveDprVariant：取不超过设备 DPR 的最高档，非法设备 DPR 按 1', () => {
