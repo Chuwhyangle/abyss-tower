@@ -1,7 +1,9 @@
 // Canvas 渲染门面：只负责状态（画质/DPR/时间/FPS/受击闪烁）与分层编排，
 // 具体绘制由 ./render/ 下职责单一的渲染器完成。
 import { TILE } from './shared/data.js';
+import { hashString, mulberry32 } from './shared/rng.js';
 import { normalizeSettings } from './settings.js';
+import { composeCameraTransform } from './render/camera-feedback.js';
 import { biomePalette } from './render/palette.js';
 import { GlowRenderer } from './render/glow-renderer.js';
 import { BackgroundRenderer } from './render/background-renderer.js';
@@ -39,6 +41,9 @@ export class Renderer {
     this.fps = 60;
     this.lastBaseHp = null;
     this.hurtFlash = 0;
+    // 旧 game.shake（漏怪/首领死亡等无命中事件的来源）用播种抖动替代无种子随机，
+    // 同一帧序列可复现；命中事件的定向冲量由 CameraFeedback 负责。
+    this._shakeRandom = mulberry32(hashString('render:legacy-shake')());
 
     // 各层显式持有依赖：共享同一份光晕缓存。
     this.glow = new GlowRenderer();
@@ -126,7 +131,8 @@ export class Renderer {
     return { c: Math.floor(x / T), r: Math.floor(y / T) };
   }
 
-  render(dt) {
+  // dt：真实帧间隔；feedback：CameraFeedback.update() 的帧结果（缺省时只走旧 game.shake）。
+  render(dt, feedback = null) {
     this.time += dt;
     const now = performance.now();
     this.fpsFrames++;
@@ -141,9 +147,26 @@ export class Renderer {
     const game = this.game;
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
+    // 镜头反馈：运动关闭时 composeCameraTransform 返回精确恒等（x/y = 0、zoom = 1）。
+    const camera = composeCameraTransform({
+      feedback,
+      budget: {
+        motion: feedback
+          ? feedback.motion === true
+          : this.settings.shake === true && this.settings.decorations !== 'off',
+      },
+      legacyShake: game.shake > 0.2 ? game.shake : 0,
+      jitter: () => this._shakeRandom(),
+    });
     g.save();
-    if (this.settings.shake && game.shake > 0.2) {
-      g.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
+    if (camera.x !== 0 || camera.y !== 0) g.translate(camera.x, camera.y);
+    if (camera.zoom !== 1) {
+      // 以命中点为锚做缩放冲击；焦点是格坐标，先换成逻辑像素。
+      const fx = camera.focusX * T;
+      const fy = camera.focusY * T;
+      g.translate(fx, fy);
+      g.scale(camera.zoom, camera.zoom);
+      g.translate(-fx, -fy);
     }
     g.drawImage(this.bg, 0, 0, this.W, this.H);
 
@@ -173,6 +196,9 @@ export class Renderer {
     // L3：屏幕空间（色调 / 暗角 / 时间环 / 技能名横幅），在受击警示之前。
     this.skillRenderer.renderL3(g, this.time, this.settings);
 
+    // 命中闪光 / 致死边缘染色：非运动反馈，reduced-motion 与关闭震屏时照常绘制。
+    this.drawHitFlash(g, camera);
+
     // 基地受击 / 低血警示（屏幕空间，不参与震屏）
     const hpRatio = game.maxBaseHp > 0 ? game.baseHp / game.maxBaseHp : 1;
     if (this.lastBaseHp == null) this.lastBaseHp = game.baseHp;
@@ -190,6 +216,35 @@ export class Renderer {
 
     if (this.settings.showFps) {
       this.overlay.drawFps(g, this.fps, this.game.enemies.length);
+    }
+  }
+
+  // 命中闪光与致死边缘染色：addition 径向渐变 + 红边框，只吃 camera.flash/lethal，
+  // 与位移/缩放无关，因此在运动关闭时仍然可见（非运动反馈不降级）。
+  drawHitFlash(g, camera) {
+    if (!camera) return;
+    const flash = camera.flash;
+    if (flash > 0.01) {
+      const x = camera.flashX * T;
+      const y = camera.flashY * T;
+      const radius = Math.max(T * 1.4, 1);
+      const gradient = g.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, `rgba(255, 246, 222, ${(0.55 * flash).toFixed(3)})`);
+      gradient.addColorStop(0.55, `rgba(255, 214, 150, ${(0.22 * flash).toFixed(3)})`);
+      gradient.addColorStop(1, 'rgba(255, 200, 120, 0)');
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = gradient;
+      g.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      g.restore();
+    }
+    if (camera.lethal > 0.02) {
+      const width = Math.max(4, Math.round(T * 0.35));
+      g.save();
+      g.strokeStyle = `rgba(226, 96, 110, ${(0.75 * camera.lethal).toFixed(3)})`;
+      g.lineWidth = width;
+      g.strokeRect(width / 2, width / 2, this.W - width, this.H - width);
+      g.restore();
     }
   }
 
