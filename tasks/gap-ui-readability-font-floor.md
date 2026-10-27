@@ -1,7 +1,7 @@
 ---
 id: gap-ui-readability-font-floor
 title: UI 可读性字号下限：修掉 10px 海克斯倍率角标，让 ui 视觉套件 exit 0（AC-025）
-status: ready
+status: done
 labels:
   - gap
 parent: null
