@@ -126,7 +126,9 @@ export class Renderer {
     return { c: Math.floor(x / T), r: Math.floor(y / T) };
   }
 
-  render(dt) {
+  // dt：真实帧间隔；camera：已算好的镜头变换（composeCameraTransform 的结果）。
+  // 渲染层不取随机数、不读设置决定运动：运动关闭时 camera 已是精确恒等。
+  render(dt, camera = null) {
     this.time += dt;
     const now = performance.now();
     this.fpsFrames++;
@@ -142,8 +144,14 @@ export class Renderer {
     g.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     g.clearRect(0, 0, this.W, this.H);
     g.save();
-    if (this.settings.shake && game.shake > 0.2) {
-      g.translate((Math.random() - 0.5) * game.shake, (Math.random() - 0.5) * game.shake);
+    if (camera && (camera.x !== 0 || camera.y !== 0)) g.translate(camera.x, camera.y);
+    if (camera && camera.zoom !== 1) {
+      // 以命中点为锚做缩放冲击；焦点是格坐标，先换成逻辑像素。
+      const fx = camera.focusX * T;
+      const fy = camera.focusY * T;
+      g.translate(fx, fy);
+      g.scale(camera.zoom, camera.zoom);
+      g.translate(-fx, -fy);
     }
     g.drawImage(this.bg, 0, 0, this.W, this.H);
 
@@ -173,6 +181,9 @@ export class Renderer {
     // L3：屏幕空间（色调 / 暗角 / 时间环 / 技能名横幅），在受击警示之前。
     this.skillRenderer.renderL3(g, this.time, this.settings);
 
+    // 命中闪光 / 致死边缘染色：非运动反馈，reduced-motion 与关闭震屏时照常绘制。
+    this.drawHitFlash(g, camera);
+
     // 基地受击 / 低血警示（屏幕空间，不参与震屏）
     const hpRatio = game.maxBaseHp > 0 ? game.baseHp / game.maxBaseHp : 1;
     if (this.lastBaseHp == null) this.lastBaseHp = game.baseHp;
@@ -190,6 +201,35 @@ export class Renderer {
 
     if (this.settings.showFps) {
       this.overlay.drawFps(g, this.fps, this.game.enemies.length);
+    }
+  }
+
+  // 命中闪光与致死边缘染色：addition 径向渐变 + 红边框，只吃 camera.flash/lethal，
+  // 与位移/缩放无关，因此在运动关闭时仍然可见（非运动反馈不降级）。
+  drawHitFlash(g, camera) {
+    if (!camera) return;
+    const flash = camera.flash;
+    if (flash > 0.01) {
+      const x = camera.flashX * T;
+      const y = camera.flashY * T;
+      const radius = Math.max(T * 1.4, 1);
+      const gradient = g.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, `rgba(255, 246, 222, ${(0.55 * flash).toFixed(3)})`);
+      gradient.addColorStop(0.55, `rgba(255, 214, 150, ${(0.22 * flash).toFixed(3)})`);
+      gradient.addColorStop(1, 'rgba(255, 200, 120, 0)');
+      g.save();
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = gradient;
+      g.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+      g.restore();
+    }
+    if (camera.lethal > 0.02) {
+      const width = Math.max(4, Math.round(T * 0.35));
+      g.save();
+      g.strokeStyle = `rgba(226, 96, 110, ${(0.75 * camera.lethal).toFixed(3)})`;
+      g.lineWidth = width;
+      g.strokeRect(width / 2, width / 2, this.W - width, this.H - width);
+      g.restore();
     }
   }
 

@@ -1,7 +1,7 @@
 ---
 id: gap-impact-class-feedback
 title: 命中类别层：首领命中 / 破盾 / 护甲吸收各有独立可辨识反馈（AC-030）
-status: todo
+status: ready
 labels:
   - gap
 parent: null

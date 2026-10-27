@@ -48,6 +48,7 @@ export const TEST_MAP = [
     'tests/icon-system.test.mjs',
   ] },
   { match: 'public/js/game-app.js', tests: [
+    'tests/hitstop.test.mjs',
     'tests/music-variants.test.mjs',
     'tests/skill-audio.test.mjs',
   ] },
@@ -107,9 +108,11 @@ export const TEST_MAP = [
 
   // 渲染层
   { match: 'public/js/render.js', tests: [
+    'tests/hitstop.test.mjs',
     'tests/render-visuals.test.mjs',
     'tests/skill-visuals.test.mjs',
   ] },
+  { match: 'public/js/render/camera-feedback.js', tests: ['tests/hitstop.test.mjs'] },
   { match: 'public/js/render/ally-renderer.js', tests: ['tests/hex-runtime.test.mjs'] },
   { match: 'public/js/render/art-tokens.js', tests: [
     'tests/art-spec.test.mjs',

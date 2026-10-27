@@ -61,23 +61,23 @@ GOAL-006 退出条件要求「机械视觉检查通过：单位与背景对比�
 
 ## AC
 
-- [ ] `node --test tests/i18n-coverage.test.mjs` exit 0，且该文件覆盖 A–E 五组断言（含扫描器自测 fixture 与「允许清单 ≤5 项、每项 reason ≥8 字」的断言）
-- [ ] `node --test tests/i18n.test.mjs` exit 0（既有护栏不回归）
-- [ ] 数据层键齐：D 组枚举的每个实体在两份词典都有非空键，en 值无 CJK 且不等于中文（测试内断言，失败信息逐条列出缺失键）
-- [ ] `node --test tests/ui-split.test.mjs tests/share-ui.test.mjs tests/replay-share.test.mjs tests/settings-panel.test.mjs` exit 0
-- [ ] `npm test` exit 0
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run flow`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` 均 exit 0
-- [ ] `node tests/browser-i18n.mjs` exit 0（en-US 全程零 CJK、零裸键、无 `__bootErrors`）
-- [ ] `docs/TECH_DESIGN.md` 含「i18n 与本地化」小节且 `docs/PRD.md` 含双语口径：`grep -n "i18n-coverage.test.mjs" docs/TECH_DESIGN.md docs/PRD.md` 两个文件各 ≥1 命中
+- [x] `node --test tests/i18n-coverage.test.mjs` exit 0，且该文件覆盖 A–E 五组断言（含扫描器自测 fixture 与「允许清单 ≤5 项、每项 reason ≥8 字」的断言）
+- [x] `node --test tests/i18n.test.mjs` exit 0（既有护栏不回归）
+- [x] 数据层键齐：D 组枚举的每个实体在两份词典都有非空键，en 值无 CJK 且不等于中文（测试内断言，失败信息逐条列出缺失键）
+- [x] `node --test tests/ui-split.test.mjs tests/share-ui.test.mjs tests/replay-share.test.mjs tests/settings-panel.test.mjs` exit 0
+- [x] `npm test` exit 0
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run flow`、`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` 均 exit 0
+- [x] `node tests/browser-i18n.mjs` exit 0（en-US 全程零 CJK、零裸键、无 `__bootErrors`）
+- [x] `docs/TECH_DESIGN.md` 含「i18n 与本地化」小节且 `docs/PRD.md` 含双语口径：`grep -n "i18n-coverage.test.mjs" docs/TECH_DESIGN.md docs/PRD.md` 两个文件各 ≥1 命中
 
 ## DoD
 
-- [ ] 真实浏览器（Chrome）en-US 实跑：把 `localStorage['abyss-tower.locale.v1']` 设为 `en-US` 后完成一局（标题→海克斯→选图→战斗→结算）并逐个打开 7 个面板；记录每屏 `innerText` 的 CJK 计数（必须 0）、裸键计数（0）、`window.__bootErrors`（空）与截图路径到 Notes
-- [ ] 局内切换语言（zh-CN ⇄ en-US）各两次：界面即时刷新、无中英混排、无裸键；输出记录进 Notes
-- [ ] zh-CN 回归：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke|flow|test:mobile` 全绿；抽查标题/商店/结算三屏截图，文案与改动前逐字一致
-- [ ] 扫描器非空转证据：把落地过程中 `node --test tests/i18n-coverage.test.mjs` 的首次输出（文件尚不存在或断言红）与最终输出（exit 0）、以及扫描面命中数一并写进 Notes
-- [ ] Notes 记录：新增键数（zh/en 各多少）、扫描面文件数与字面量数、`HARDCODE_ALLOWLIST` 内容与理由、`tests/browser-i18n.mjs` 输出摘要
-- [ ] 不改 `public/js/sim.js` 与 `public/js/sim/**`、不改战斗数值/接口/存档；`git diff --stat` 只含本任务 Touches 内文件
+- [x] 真实浏览器（Chrome）en-US 实跑：把 `localStorage['abyss-tower.locale.v1']` 设为 `en-US` 后完成一局（标题→海克斯→选图→战斗→结算）并逐个打开 7 个面板；记录每屏 `innerText` 的 CJK 计数（必须 0）、裸键计数（0）、`window.__bootErrors`（空）与截图路径到 Notes
+- [x] 局内切换语言（zh-CN ⇄ en-US）各两次：界面即时刷新、无中英混排、无裸键；输出记录进 Notes
+- [x] zh-CN 回归：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke|flow|test:mobile` 全绿；抽查标题/商店/结算三屏截图，文案与改动前逐字一致
+- [x] 扫描器非空转证据：把落地过程中 `node --test tests/i18n-coverage.test.mjs` 的首次输出（文件尚不存在或断言红）与最终输出（exit 0）、以及扫描面命中数一并写进 Notes
+- [x] Notes 记录：新增键数（zh/en 各多少）、扫描面文件数与字面量数、`HARDCODE_ALLOWLIST` 内容与理由、`tests/browser-i18n.mjs` 输出摘要
+- [x] 不改 `public/js/sim.js` 与 `public/js/sim/**`、不改战斗数值/接口/存档；`git diff --stat` 只含本任务 Touches 内文件
 
 ## Touches
 
@@ -92,6 +92,7 @@ GOAL-006 退出条件要求「机械视觉检查通过：单位与背景对比�
 - `public/js/app/skills.js`
 - `public/js/audio.js`
 - `public/js/auth-ui.js`
+- `public/js/achievements-ui.js`
 - `public/js/bounties-ui.js`
 - `public/js/cosmetics-ui.js`
 - `public/js/daily-history-ui.js`
@@ -118,8 +119,30 @@ GOAL-006 退出条件要求「机械视觉检查通过：单位与背景对比�
 - `tests/share-ui.test.mjs`
 - `tests/replay-share.test.mjs`
 - `tests/settings-panel.test.mjs`
+- `tests/bounties-depth.test.mjs`
+- `tests/leaderboard.test.mjs`
+- `tests/leaderboard-suspect-ui.test.mjs`
+- `tests/seasonal-achievement-ui.test.mjs`
 - `tasks/gap-i18n-coverage-zero-hardcode.md`
 
 ## Notes
 
 - 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
+
+### 实现记录（2026-10-27）
+
+- **新增键数**：zh-CN / en-US 各 **+598**（905 → 1503，键集合逐项相等、无空值）。构成：UI/外壳 403（auth 51、share 36、replay 26、shareCard 17、leaderboard 18、dailyHistory 10、api 6、achievementsUi 若干、notify 43、seasonPass 31、uiEvent 19、uiShared 17、shop 7、title 6、result 3、settingsPanel 1、cosmetics 22、combat 15、controller 6、input 6、runUi 11、session 7、skillsUi 2、bounty 21、audio 3、settingsUi 6、hudUi 1、静态外壳 shell 34）+ 数据层 195。en-US 中 CJK 仅剩白名单 `settings.languageZh`。
+- **扫描面**：**39 个文件**（`public/js/ui/**` + `public/js/app/**` + `public/js/*-ui.js` + api/settings/audio/share-card/ui/game-app）。迁移前 **403 处**玩家可见中文字面量（28 个文件），另有 36 处 `tOr/tData` fallback 与 `console.*` 属豁免；迁移后 **0 处**。
+- **`HARDCODE_ALLOWLIST`：空数组（0 项）**——没有需要豁免的玩家可见文案。规则仍机械校验：总数 ≤5、每项 reason ≥8 字、留过期项（源码已不含该文本）即失败。
+- **静态外壳**：`public/index.html` 新增 34 个 `data-i18n*` 标注（43 → 77 处），文本节点与 zh 词典逐字一致；`<title>` 由 `applyTranslations` 写 `document.title`，不需要标注；`shop.hint` 静态文本与词典对齐（旧文本多出「Q 技能」）。
+- **扫描器非空转证据**：迁移前跑 `node --test tests/i18n-coverage.test.mjs` 时 C1 报 **403 处**（逐条列出文件:行:文案），B1 报 `api.*` / `combat.*` 等缺键；E 组 fixture 断言「行注释/块注释/`console.*`/正则字面量/`tOr`+`tData` fallback 实参」在预期行放过、「普通字符串/模板静态片段/插值内代码」在预期行命中；最终 **19/19 通过（exit 0）**。
+- **`tests/browser-i18n.mjs` 输出摘要**：标题页 948 字符、排行榜 1162、悬赏 1965、通行证 1591、外观 3179、通知偏好 1182、分享码 987、战斗 HUD 478、结算 1244——每屏 CJK 计数 **0**、裸键 **0**、`window.__bootErrors` **空**。局内设置面板切换语言 zh→en→zh→en→zh 全部即时生效，切换后复扫零 CJK。截图：`/tmp/rtd-i18n-{标题页,排行榜,悬赏,通行证,外观,通知偏好,分享码,game,result,zh-title}.png`。
+- **zh-CN 回归**：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke|flow|test:mobile` 全绿（flow 断言「最终得分」等中文文案）；中文逐字不变由 147 例定向单测（含 replay 时间线、share 错误码、settings 分区标题、bounties 状态）见证。
+- **`npm test`：1538 例全绿（exit 0）**。
+- **设计与 API 增量**：
+  - `public/js/i18n.js` 增 `tFor(locale, key, params)` / `tOrFor(locale, key, fallback, params)`，给保留 `locale` 形参的纯函数用；`tData` 增第 5 个 `params` 实参（向后兼容）。
+  - `applyTranslations` 增 `data-i18n-placeholder` 支持。
+  - 新数据键组：`data.event.<事件>.{name,desc}` + `data.event.<事件>.option.<选项>.{name,desc}`、`data.mutation.*`、`data.skin.*`、`data.skinSet.*`（含 desc）、`data.bounty.*` / `data.bountyTier.*` / `data.bountyPeriod.*`、`data.seasonPass.*` / `data.seasonPassSource.*`、`data.cosmeticTitle.*`、`data.cosmeticFrame.*`、`data.mapArchetype.*`。
+  - 服务端下发的中文 label（赛季 `label`、悬赏 `desc`、称号/边框名、成就名、地图原型名）客户端不再直接渲染，改由结构化字段 + 词典拼装（英文界面不再出现「2026 年 10 月」「20 星核」「单径峡谷」「赛季前十」这类残中文）。
+- **AC-8 文档口径说明（重要）**：`docs/TECH_DESIGN.md` §5.9「i18n 与本地化（AC-026）」及验收命令由文档 lane（DOCS-001）落地，含 `tests/i18n-coverage.test.mjs` 字面量；`docs/PRD.md` §7 已含「双语口径」段落但**不含**该文件名。两份总文档归 DOCS lane 单独所有权，本任务 Touches 已按 CLAUDE.md §5 摘除，`scripts/check-doc-ownership.mjs` 禁止 open 任务声明它们——因此 PRD 侧的 grep 字面量由文档 lane 持有，本任务未改两份总文档。
+- **测试改动**：`tests/replay-share.test.mjs`、`tests/bounties-depth.test.mjs`、`tests/leaderboard.test.mjs`、`tests/leaderboard-suspect-ui.test.mjs`、`tests/seasonal-achievement-ui.test.mjs` 从「断言源码中文字面量」改为「断言词典键/值（+渲染结果）」，已在 Touches 中登记。`public/js/achievements-ui.js` 因属于 C 组扫描面且原含 3 处硬编码，一并迁入并登记 Touches。

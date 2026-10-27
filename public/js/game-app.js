@@ -1,11 +1,14 @@
 // 浏览器运行时：固定步长模拟、按画质限帧渲染、HUD 节流、性能指标与后台暂停。
 import { Renderer } from './render.js';
+import { CameraFeedback, composeCameraTransform } from './render/camera-feedback.js';
+import { detectReducedMotion } from './render/transition.js';
 import { weatherFor } from './render/background-renderer.js';
 import { audio } from './audio.js';
 import { normalizeSettings } from './settings.js';
 
 const STEP = 1 / 60;
 const MAX_FRAME_MS_SAMPLES = 1200;
+const MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 export class GameApp {
   constructor(sim, canvas, { onHud, settings } = {}) {
@@ -14,6 +17,14 @@ export class GameApp {
     this.onHud = onHud;
     this.settings = normalizeSettings(settings);
     this.renderer = new Renderer(canvas, sim, this.settings);
+    // 镜头反馈：只作用于表现；reduced-motion / 关闭震屏时运动分量为 0，保留命中闪光。
+    this.reducedMotion = detectReducedMotion(globalThis.document);
+    this.feedback = new CameraFeedback({
+      settings: this.settings,
+      reducedMotion: this.reducedMotion,
+      seed: sim.seed ?? 1,
+      viewport: { width: sim.map?.cols || 1, height: sim.map?.rows || 1 },
+    });
     this.speed = 1;
     this.paused = false;
     this.running = false;
@@ -42,6 +53,15 @@ export class GameApp {
       this.lastRenderAt = 0;
     };
     document.addEventListener('visibilitychange', this._onVisibility);
+
+    // 系统级 reduced-motion 变更即时刷新运动预算，不需要重开对局。
+    this._onMotionPreference = (event) => {
+      this.reducedMotion = event?.matches === true;
+      this.feedback.setSettings(this.settings, { reducedMotion: this.reducedMotion });
+    };
+    this._motionQuery =
+      typeof globalThis.matchMedia === 'function' ? globalThis.matchMedia(MOTION_QUERY) : null;
+    this._motionQuery?.addEventListener?.('change', this._onMotionPreference);
   }
 
   _resetMetrics() {
@@ -71,6 +91,7 @@ export class GameApp {
     this.running = false;
     if (this.raf) cancelAnimationFrame(this.raf);
     document.removeEventListener('visibilitychange', this._onVisibility);
+    this._motionQuery?.removeEventListener?.('change', this._onMotionPreference);
     this.renderer?.dispose?.();
     audio.stopAmbience();
   }
@@ -99,9 +120,11 @@ export class GameApp {
 
     const sim = this.sim;
     const paused = this.paused || sim.paused;
+    // 镜头反馈先按真实时间推进：冻结期 timeScale 只放慢步进，渲染与衰减照常。
+    const frame = this.feedback.update(raw);
     const simStarted = performance.now();
     if (!paused && sim.phase === 'wave') {
-      this.acc += raw * this.speed;
+      this.acc += raw * this.speed * frame.timeScale;
       let steps = 0;
       while (this.acc >= STEP && steps < 24) {
         sim.update(STEP);
@@ -112,14 +135,25 @@ export class GameApp {
       }
       if (steps >= 24) this.acc = 0;
     }
+    // 只读消费本帧新增的结构化命中事件（对象身份去重，不要求事件带序号）。
+    this.feedback.consume(sim.impactEvents || []);
     sim.updateVisuals(raw);
     m.simMs += performance.now() - simStarted;
+
+    // 渲染层只接收算好的镜头变换：旧 game.shake（漏怪/首领死亡等无命中事件的来源）
+    // 与命中冲量在这里合成，抖动来自 CameraFeedback 的播种序列。
+    const camera = composeCameraTransform({
+      feedback: frame,
+      budget: this.feedback.budget,
+      legacyShake: sim.shake > 0.2 ? sim.shake : 0,
+      jitter: () => this.feedback.nextRandom(),
+    });
 
     // 30 FPS 只限制绘制次数，模拟仍按固定 60Hz 步长推进。
     const renderInterval = 1000 / this.settings.fps;
     if (!this.lastRenderAt || now - this.lastRenderAt >= renderInterval - 2) {
       const renderStarted = performance.now();
-      this.renderer.render(raw);
+      this.renderer.render(raw, camera);
       m.renderMs += performance.now() - renderStarted;
       if (this.lastRenderAt) {
         m.renderIntervals.push(now - this.lastRenderAt);
@@ -181,6 +215,8 @@ export class GameApp {
   applySettings(settings) {
     this.settings = normalizeSettings(settings);
     this.renderer.applySettings(this.settings);
+    // 设置护栏即时生效：关闭震屏的下一帧，位移与缩放归零，闪光照常。
+    this.feedback.setSettings(this.settings, { reducedMotion: this.reducedMotion });
     this.sim.setVisualQuality({
       effects: this.settings.decorations,
       floaters: this.settings.floaters,
