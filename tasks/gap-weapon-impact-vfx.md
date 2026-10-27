@@ -60,9 +60,12 @@ GOAL-005 退出条件要求「八种武器都有可区分的命中音效与命�
 
 ## Touches
 
-- `docs/TECH_DESIGN.md`
 - `public/js/render/impact-vfx.js`
 - `public/js/render/effect-renderer.js`
 - `public/js/sim/projectile-system.js`
 - `tests/impact-vfx.test.mjs`
 - `tasks/gap-weapon-impact-vfx.md`
+
+## Notes
+
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
