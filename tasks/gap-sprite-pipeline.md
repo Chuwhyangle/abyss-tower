@@ -1,7 +1,7 @@
 ---
 id: gap-sprite-pipeline
 title: 精灵管线：清单加载、图集切帧、DPR 变体与缺资源回退
-status: ready
+status: done
 labels:
   - gap
 parent: null
