@@ -193,6 +193,7 @@ export const TEST_MAP = [
   { match: 'scripts/art-review.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/backup.mjs', tests: ['tests/ops-cli.test.mjs'] },
   { match: 'scripts/build-sprite-atlas.mjs', tests: ['tests/sprite-pipeline.test.mjs'] },
+  { match: 'scripts/check-doc-ownership.mjs', tests: ['tests/docs-phase-sync.test.mjs'] },
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },

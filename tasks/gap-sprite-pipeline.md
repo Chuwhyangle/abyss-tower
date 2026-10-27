@@ -73,7 +73,6 @@ GOAL-006 退出条件要求「四个场景全部走精灵资源，缺失资源�
 
 ## Touches
 
-- `docs/TECH_DESIGN.md`
 - `public/js/render/sprite-manifest.js` (new)
 - `public/js/render/sprite-pipeline.js` (new)
 - `public/js/render.js`
@@ -93,3 +92,4 @@ GOAL-006 退出条件要求「四个场景全部走精灵资源，缺失资源�
 - 管线是**基础设施**，不是视觉改动：默认 manifest 缺资源 / 空清单时画面必须与今天逐像素一致（回退即既有程序化绘制）。任何"看起来变了"都应视为缺陷。
 - 与 AC-023 的边界：实体渲染器只接收注入的 `SpritePipeline`，自己不 load 图片（`tests/render-animations.test.mjs:192` 的断言保持有效）。
 - 自检资源同时是图集生成脚本的回归夹具：`scripts/build-sprite-atlas.mjs` 的可重复性是 AC-023 批量出图的前提。
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
