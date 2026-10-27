@@ -42,10 +42,10 @@ TEST-001/TEST-002（均 `done`，均声明 `goal_ac: AC-002`）修的是端口�
 
 ## Acceptance Criteria
 
-- [ ] 逐字执行 AC-002 criterion（含 `for i in 1 2 3` 循环）exit 0
-- [ ] 在该 HEAD 上独立连续 3 轮 `node --test tests/*.test.mjs` 均 exit 0，且每轮的 `# tests / # pass / # fail` 已写入 Notes
-- [ ] Notes 记录修复提交 hash 与 `git log --oneline -1` 输出，证明被测 HEAD 含 `gap-test-changed-stale-map-entries` 的修复提交
-- [ ] Notes 含三轮读数；若任一轮非零，Notes 另含该轮 `not ok` 用例名、失败文本与后续处理（不得只写「重跑通过」）
+- [x] 逐字执行 AC-002 criterion（含 `for i in 1 2 3` 循环）exit 0
+- [x] 在该 HEAD 上独立连续 3 轮 `node --test tests/*.test.mjs` 均 exit 0，且每轮的 `# tests / # pass / # fail` 已写入 Notes
+- [x] Notes 记录修复提交 hash 与 `git log --oneline -1` 输出，证明被测 HEAD 含 `gap-test-changed-stale-map-entries` 的修复提交
+- [x] Notes 含三轮读数；若任一轮非零，Notes 另含该轮 `not ok` 用例名、失败文本与后续处理（不得只写「重跑通过」）
 
 ## Definition of Done
 
@@ -58,3 +58,16 @@ TEST-001/TEST-002（均 `done`，均声明 `goal_ac: AC-002`）修的是端口�
 - 本轮直测命令：`node --test tests/*.test.mjs`（cwd = 仓库根），读数 `# tests 1627 / # pass 1626 / # fail 1`，exit 1；失败点 `tests/test-changed.test.mjs:94`，error `scripts/playtest-check.mjs 映射到不存在的测试 tests/playtest-record.test.mjs`。
 - 台账旁证：AC-002 最近三次 pass（08:11:53Z / 09:13:39Z / 10:14:19Z）的 treeSha 均含 `scripts/playtest-check.mjs`；失败（11:19:47Z、11:21:14Z）的 treeSha `ccac0246` 已不含该文件（`git ls-tree` 实测）。
 - 本任务不改仓库代码，属于 AC-002 的复验/见证任务；机制修复的正主是 `gap-test-changed-stale-map-entries`。
+
+### 复验执行记录（2026-10-27，worktree `.worktrees/gap-ac-002-full-suite-3x-green`，branch `task/gap-ac-002-full-suite-3x-green`）
+
+- **被测 HEAD**：`git log --oneline -1` → `0ee3ee8 tasks: gap-art-review-record task_write by cli:1768903`（与 `develop` 同一 commit）。Node `v22.23.2`。
+- **修复提交已在 HEAD 上**（不是只在 worktree 里）：`git merge-base --is-ancestor 8d0651a HEAD` 与 `git merge-base --is-ancestor 793ad3b HEAD` 均成立；`git log --oneline -5 -- scripts/test-changed.mjs tests/test-changed.test.mjs` → `793ad3b fix(test-changed): TEST_MAP 增加 match 存在性断言` / `8d0651a fix(test-changed): 移除 revert 残留的 4 条 TEST_MAP 失效映射`。即依赖任务 `gap-test-changed-stale-map-entries`（已 done）的两笔修复都在被测 HEAD 上。
+- **AC-002 criterion 逐字执行**（`for i in 1 2 3; do node --test tests/*.test.mjs >/dev/null || { echo "CAUSE=full suite failed on run $i" >&2; exit 1; }; done`）：run 1 / run 2 / run 3 均打出 `exit 0`，循环整体 **exit 0**（无 `CAUSE=` 输出）。wall time 8.9s（三轮并行执行，user 2m54.9s）。
+- **独立三轮裸命令读数**（`node --test tests/*.test.mjs`，cwd = worktree 根，各自单独进程、输出落 `/tmp/ac002-round-<i>.log`）：
+  - round 1: `# tests 1643 / # pass 1643 / # fail 0`（cancelled 0 / skipped 0 / todo 0），`# duration_ms 2682.40279`，**exit 0**，`not ok` 行 0 条
+  - round 2: `# tests 1643 / # pass 1643 / # fail 0`（cancelled 0 / skipped 0 / todo 0），`# duration_ms 2813.936667`，**exit 0**，`not ok` 行 0 条
+  - round 3: `# tests 1643 / # pass 1643 / # fail 0`（cancelled 0 / skipped 0 / todo 0），`# duration_ms 2796.951554`，**exit 0**，`not ok` 行 0 条
+- **driver suite 命令旁证**：`npm test`（= `node --test --test-concurrency=2 tests/*.test.mjs`）在同一 HEAD 上 `# tests 1643 / # pass 1643 / # fail 0`、`# duration_ms 23695.27`、**exit 0**。
+- 用例总数从立案时的 1627 升到 1643（依赖任务 `793ad3b` 新增的 `rule.match` 存在性断言 + 其他已合并任务带来），三轮读数一致、无 `not ok`，故无需按 `## 要求` 第三条登记残留失败。
+- **未改仓库代码**：`git status --short` 为空；本任务 commit 不含 `scripts/test-changed.mjs` / `tests/test-changed.test.mjs` 的改动，未与 `gap-test-changed-stale-map-entries` 并发编辑同一文件。
