@@ -1,7 +1,7 @@
 ---
 id: gap-background-atmosphere-gate
 title: 背景与氛围机械闸：让 art 套件见证氛围层与分带层次，并证明它会变红
-status: ready
+status: done
 labels:
   - gap
 parent: null
@@ -57,10 +57,11 @@ GOAL-006 退出条件要求「背景与氛围的机械视觉检查通过」，AC
    - `--suite art` 一次采集三档（full / light / off）并计算 8 项；`--json` 输出稳定 schema `{ suite, ok, checks: [{ id, name, value, threshold, ok, detail }] }`。
    - `--inject` 白名单加入 `units-hidden | flat-background | decor-noop`，与既有 feel 注入并列；注入只影响它该影响的指标。
    - 退出码：判定不通过 1；采集/解码/环境异常 2（有明确报错，不静默通过）。
-4. **文档（`docs/TECH_DESIGN.md` 新增 §8.6「机械视觉验收（art 套件）」）**
+4. **文档（§8.6「机械视觉验收（art 套件）」，落点按文档 lane 规则）**
    - 8 项指标表：id / 中文名 / 阈值 / 含义 / 失败模式 / 依据（GOAL-006 退出条件与实测余量）。
    - 一次真实读数：日期、commit、8 项实测值与余量。
    - 约定一句话：**改阈值必须同时改本节**，否则单测变红（见下条）。
+   - 落地位置：文档 lane（`docs/PHASE_FEEL_ART.md` §2.3，2026-10-27）规定两份总文档只由 `DOCS-*` 修改，本任务 Touches 已摘除 `docs/TECH_DESIGN.md`；§8.6 表格正本落本任务 Notes，单测按 Notes 表逐项守卫。
 5. **单测（`tests/visual-check.test.mjs`）**
    - 解析 §8.6 指标表并与 `THRESHOLDS.art` 逐项比对，任一处放宽即红；
    - `bandStats` / `decorationDelta` / `decorationMonotonic` 的边界（空带、单色图、全同图）；
@@ -71,22 +72,22 @@ GOAL-006 退出条件要求「背景与氛围的机械视觉检查通过」，AC
 
 ## AC
 
-- [ ] `node scripts/visual-check.mjs --suite art` exit 0，报告逐项打印 8 项（单位 ΔE / 塔 ΔE / 剪影 / 层次 / 跨度 / 分带层次 / 氛围层贡献 / 装饰档位单调）与对应阈值
-- [ ] `node scripts/visual-check.mjs --suite art --inject units-hidden --json` exit 1，且 `silhouette` 与 `unit-background` 为 false，`background-levels`、`background-spread`、`atmosphere-contribution` 仍为 true
-- [ ] `node scripts/visual-check.mjs --suite art --inject flat-background --json` exit 1，且 `background-levels`、`background-spread`、`background-bands` 为 false
-- [ ] `node scripts/visual-check.mjs --suite art --inject decor-noop --json` exit 1，且 `atmosphere-contribution` 为 false，`background-levels`、`background-spread`、`background-bands` 仍为 true
-- [ ] 同 HEAD 连跑两次 `node scripts/visual-check.mjs --suite art --json`，8 项 `value` 完全相等（按报告精度）
-- [ ] `node --test tests/visual-check.test.mjs` exit 0，且包含「`THRESHOLDS.art` 与 `docs/TECH_DESIGN.md` §8.6 表格逐项一致」用例
-- [ ] `npm test` exit 0；`npm run check:syntax`、`npm run check:style`、`npm run check:imports`、`npm run check:docs` 均 exit 0
+- [x] `node scripts/visual-check.mjs --suite art` exit 0，报告逐项打印 8 项（单位 ΔE / 塔 ΔE / 剪影 / 层次 / 跨度 / 分带层次 / 氛围层贡献 / 装饰档位单调）与对应阈值
+- [x] `node scripts/visual-check.mjs --suite art --inject units-hidden --json` exit 1，且 `silhouette` 与 `unit-background` 为 false，`background-levels`、`background-spread`、`atmosphere-contribution` 仍为 true
+- [x] `node scripts/visual-check.mjs --suite art --inject flat-background --json` exit 1，且 `background-levels`、`background-spread`、`background-bands` 为 false
+- [x] `node scripts/visual-check.mjs --suite art --inject decor-noop --json` exit 1，且 `atmosphere-contribution` 为 false，`background-levels`、`background-spread`、`background-bands` 仍为 true
+- [x] 同 HEAD 连跑两次 `node scripts/visual-check.mjs --suite art --json`，8 项 `value` 完全相等（按报告精度）
+- [x] `node --test tests/visual-check.test.mjs` exit 0，且包含「`THRESHOLDS.art` 与 §8.6 表格逐项一致」用例（正本在任务 Notes，见 Notes 偏差说明）
+- [x] `npm test` exit 0；`npm run check:syntax`、`npm run check:style`、`npm run check:imports`、`npm run check:docs` 均 exit 0
 
 ## DoD
 
-- [ ] 三种注入在真实浏览器下复跑，红/绿归属符合 AC（命令 + 输出摘要写入本任务 Notes）
-- [ ] `docs/TECH_DESIGN.md` §8.6 落盘：8 项阈值表 + 一次真实读数（日期 / commit / 实测值 / 余量）
-- [ ] 阈值守卫实证：临时把 `THRESHOLDS.art` 任一项改低 → `node --test tests/visual-check.test.mjs` 变红；还原后全绿（两次命令与结果写入 Notes）
-- [ ] 人工可复核：一次真实采集的背景图/contact sheet 落盘，肉眼可见天气粒子、氛围光点与地形层次（临时路径 + 采集命令记录在 Notes，图不入库）
-- [ ] 若某项真实读数未达标：修正氛围层后重采，记录前后两组读数；不得以调低阈值收口
-- [ ] 产品默认画面不变：`tests/render-visuals.test.mjs`、`tests/biome-visuals.test.mjs`、`tests/weather-visuals.test.mjs` 全绿
+- [x] 三种注入在真实浏览器下复跑，红/绿归属符合 AC（命令 + 输出摘要写入本任务 Notes）
+- [x] §8.6 落盘（任务 Notes 正本）：8 项阈值表 + 一次真实读数（日期 / commit / 实测值 / 余量）
+- [x] 阈值守卫实证：临时把 `THRESHOLDS.art` 任一项改低 → `node --test tests/visual-check.test.mjs` 变红；还原后全绿（两次命令与结果写入 Notes）
+- [x] 人工可复核：一次真实采集的背景图/contact sheet 落盘，肉眼可见天气粒子、氛围光点与地形层次（临时路径 + 采集命令记录在 Notes，图不入库）
+- [x] 若某项真实读数未达标：修正氛围层后重采，记录前后两组读数；不得以调低阈值收口（本次 8 项全部达标，无需改渲染器；`background-renderer.js` 未出现在 diff 中）
+- [x] 产品默认画面不变：`tests/render-visuals.test.mjs`、`tests/biome-visuals.test.mjs`、`tests/weather-visuals.test.mjs` 全绿
 
 ## Touches
 
@@ -104,3 +105,44 @@ GOAL-006 退出条件要求「背景与氛围的机械视觉检查通过」，AC
 - 注入全部落在测试 shim；`ART-001` 与精灵管线任务都要求「默认画面看起来没变」，因此不得为通过检查改动默认渲染输出。
 - 若最终需要新增 `scripts/` 源文件（本 Plan 预期不需要），必须同步 `scripts/test-changed.mjs` 的 `TEST_MAP` 并把该文件加进 Touches。
 - 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
+- 执行记录（2026-10-27，分支 `task/gap-background-atmosphere-gate`，代码 commit `0d175c149db5`）：
+  - 无注入：`node scripts/visual-check.mjs --suite art` exit 0；8 项 = 16.99 / 25.29 / 0.60 / 15 / 10.70 / 14 / 0.0056 / true。
+  - 连跑两次 `--suite art --json`：8 项 `value` 完全相等（16.99 / 25.29 / 0.6 / 15 / 10.7 / 14 / 0.0056 / true）。
+  - `--inject units-hidden --json` exit 1；红：`unit-background`、`silhouette`；`background-levels` / `background-spread` / `background-bands` / `atmosphere-contribution` 仍绿。
+  - `--inject flat-background --json` exit 1；红：`background-levels`、`background-spread`、`background-bands`。
+  - `--inject decor-noop --json` exit 1；红：`atmosphere-contribution`；`background-levels` / `background-spread` / `background-bands` 仍绿。
+  - 三种注入均在真实 Chrome + 测试服务器下复跑（合并 develop 后再复跑一遍，红/绿归属不变）。
+  - 阈值守卫实证：把 `THRESHOLDS.art.minAtmosphereContribution` 0.002→0.001 → `node --test tests/visual-check.test.mjs` 28 项红 1（§8.6 表格与阈值不一致）；还原后 28/28 绿。
+  - `npm test` 1485 pass / 0 fail；`check:syntax` / `check:style` / `check:imports` / `check:docs` 均 exit 0；`render-visuals` + `biome-visuals` + `weather-visuals` 22/22 绿。
+  - 人工复核采集：`node scripts/visual-check.mjs --suite art --json --out /tmp/art-atmos-verify`，落盘 `/tmp/art-atmos-verify/{combat-desktop-combat-impact-high.png,contact-sheet.png,manifest.json}`；画面肉眼可见雨丝（天气粒子）、生物群系道具、氛围光点与远景/雾霭/地面/装饰分层。图不入库。
+  - 偏差说明：AC-6 / Plan-4 原写 `docs/TECH_DESIGN.md` §8.6；文档 lane 收口后本任务 Touches 已摘除该文件（`docs/PHASE_FEEL_ART.md` §2.3：两份总文档只由 `DOCS-*` 修改，`scripts/check-doc-ownership.mjs` + `tests/docs-phase-sync.test.mjs` 强制）。§8.6 指标表正本改落本 Notes，单测按本表逐项守卫；若文档 lane 后续在 TECH_DESIGN 落地同名章节，单测会一并比对两处。
+
+### §8.6 机械视觉验收（art 套件）指标表
+
+`node scripts/visual-check.mjs --suite art` 采集一次桌面战斗场景（1440×900、quality high、固定种子），在同一帧截图与背景离屏烘焙上计算 8 项指标；判定在 `scripts/lib/visual-metrics.mjs` 的 `evaluateArt`，阈值集中在同文件的 `THRESHOLDS.art`。`--inject` 提供三种回归注入（`units-hidden` / `flat-background` / `decor-noop`），全部只存在于 `tests/visual-scenes.mjs` 的测试 shim，不改产品默认渲染路径。
+
+| id | 中文名 | 阈值 | 含义 | 失败模式 | 依据 |
+| --- | --- | --- | --- | --- | --- |
+| `unit-background` | 单位与背景 ΔE | 12 | 敌人核心区与外环背景的平均 Lab 色差 | 单位被背景吞掉（低对比、染色过重） | GOAL-006「单位清晰可辨」；实测 16.99 |
+| `tower-background` | 防御塔与背景 ΔE | 10 | 塔核心区与外环背景的平均 Lab 色差 | 塔与地形混在一起 | GOAL-006「防御塔清晰可辨」；实测 25.29 |
+| `silhouette` | 剪影像素覆盖 | 0.32 | 敌人包围盒内明显不同于背景的像素占比 | 单位层被删/不可见（注入 `units-hidden`） | 实测 0.60，纯背景对照 0.00 |
+| `background-levels` | 背景亮度层次数 | 6 | 背景烘焙的亮度桶数（全图） | 景物塌成少数几个亮度层 | GOAL-006「背景有层次」；实测 15 |
+| `background-spread` | 背景亮度跨度 | 8 | 背景烘焙的亮度标准差 | 背景整体拍平（注入 `flat-background`） | GOAL-006「背景有层次」；实测 10.70 |
+| `background-bands` | 分带亮度层次（上/中/下） | 5 | 背景纵向三等分后每段各自的最小亮度桶数 | 全图桶数达标但画面塌成上中下三段同亮度 | GOAL-006「背景分带层次」；实测三段各 14 |
+| `atmosphere-contribution` | 氛围层贡献 | 0.002 | 高配烘焙与关闭档烘焙的像素差异占比（ΔE > 8） | 天气粒子/生物群系道具/氛围光点被整体删除或高配按关闭档执行（注入 `decor-noop`） | GOAL-006「雾/余烬/光池等氛围层」；实测 0.0056，关闭档 0.0000 |
+| `decor-monotonic` | 装饰档位单调（off ≤ light ≤ full） | off ≤ light ≤ full | 关闭档 / 低配 / 高配三档烘焙的氛围层贡献单调不减 | 低配比高配更「花」，或档位接错 | 画质档位契约；实测 off=0.0000 / light=0.0021 / full=0.0056 |
+
+**一次真实读数**（2026-10-27，commit `0d175c149db5`，Chrome headless，1440×900，quality high，seed `visual-scene-seed`）：
+
+| 指标 | 实测 | 阈值 | 余量 |
+| --- | --- | --- | --- |
+| 单位与背景 ΔE | 16.99 | ≥ 12 | +4.99 |
+| 防御塔与背景 ΔE | 25.29 | ≥ 10 | +15.29 |
+| 剪影像素覆盖 | 0.60 | ≥ 0.32 | +0.28 |
+| 背景亮度层次数 | 15 | ≥ 6 | +9 |
+| 背景亮度跨度 | 10.70 | ≥ 8 | +2.70 |
+| 分带亮度层次（最小带） | 14 | ≥ 5 | +9 |
+| 氛围层贡献 | 0.0056 | ≥ 0.002 | ≈ 2.8× |
+| 装饰档位单调 | true（0.0000 / 0.0021 / 0.0056） | off ≤ light ≤ full | 严格单调 |
+
+**约定**：改阈值必须同时改本节表格；`tests/visual-check.test.mjs` 会解析本表并逐项比对 `THRESHOLDS.art`，只改代码或只改文档都会变红。阈值只允许在真实读数留出可解释余量的前提下收紧，不得为转绿下调。
