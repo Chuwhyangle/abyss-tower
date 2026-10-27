@@ -1,7 +1,7 @@
 ---
 id: gap-culmination-shows
 title: 漏怪 / 清波 / 首领死亡：三段独立演出与 reduced-motion 降级
-status: ready
+status: done
 labels:
   - gap
 parent: null
