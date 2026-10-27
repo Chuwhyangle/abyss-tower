@@ -1,7 +1,7 @@
 ---
 id: gap-goal-006-ui-skin-ac
 title: GOAL-006 充分性缺口：UI 图标与卡面皮肤化缺目标级 AC（提案新增 AC-043）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
