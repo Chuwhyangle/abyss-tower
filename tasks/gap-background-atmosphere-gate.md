@@ -95,7 +95,6 @@ GOAL-006 退出条件要求「背景与氛围的机械视觉检查通过」，AC
 - `tests/visual-scenes.mjs`
 - `tests/visual-check.test.mjs`
 - `public/js/render/background-renderer.js`
-- `docs/TECH_DESIGN.md`
 - `tasks/gap-background-atmosphere-gate.md`
 
 ## Notes
@@ -104,3 +103,4 @@ GOAL-006 退出条件要求「背景与氛围的机械视觉检查通过」，AC
 - 剪影指标的对照读数：纯背景图 0.0000 / 真实帧 0.5989，说明局部采样法本身是有效的，**不要**改成对背景图的整图差分（背景画布是 1056×576，帧是 1440×900，尺度不同，会引入重采样误差）。
 - 注入全部落在测试 shim；`ART-001` 与精灵管线任务都要求「默认画面看起来没变」，因此不得为通过检查改动默认渲染输出。
 - 若最终需要新增 `scripts/` 源文件（本 Plan 预期不需要），必须同步 `scripts/test-changed.mjs` 的 `TEST_MAP` 并把该文件加进 Touches。
+- 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
