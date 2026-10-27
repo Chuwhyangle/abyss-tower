@@ -4,6 +4,15 @@
 import { TILE, BOSS_SKILLS } from '../shared/data.js';
 import { BALANCE } from '../shared/config.js';
 import { Palette, SKILL_WARNING_STYLE } from './palette.js';
+import {
+  IMPACT_POOL_CAPACITY,
+  ImpactVfxPool,
+  drawImpactFallback,
+  drawImpactShape,
+  impactBudget,
+  impactPlan,
+  impactVariant,
+} from './impact-vfx.js';
 
 const T = TILE;
 const PI2 = Math.PI * 2;
@@ -233,6 +242,13 @@ export function classifyEffect(effect) {
   return EFFECT_KIND_EVENTS[kind] || kind || 'unknown';
 }
 
+// 事件对象上的 weapon 决定命中签名；缺字段（旧事件、非塔来源）返回 null 走通用外观。
+function impactFor(effect, profile) {
+  const weapon = effect && effect.weapon;
+  if (typeof weapon !== 'string' || weapon === '') return null;
+  return impactVariant(weapon, profile);
+}
+
 // 返回 { p, fade }：p 是已播放进度（可按事件时长提前播完），fade 是剩余生命比例。
 // 传入 out 可复用同一对象，避免渲染循环每帧为每个特效新建临时对象。
 export function effectProgress(effect, style = null, out = null) {
@@ -278,7 +294,15 @@ export class EffectRenderer {
     this.glow = glow;
     // 池容量固定为高配上限，低配只通过每帧 poolBudget 收缩，不重建池。
     this.pool = new ParticlePool(EFFECT_PROFILES.high.poolBudget);
+    // 命中层独立预算：与死亡/漏怪粒子分开计，36 敌混战时也不会互相挤掉。
+    this.impactPool = new ImpactVfxPool(IMPACT_POOL_CAPACITY);
     this._progress = { p: 0, fade: 0 };
+    this._impactPlan = { degraded: false, count: 0 };
+    // 只读观测计数（与 ProjectileRenderer.drawn / drawCalls 同性质，供测试与性能记录读取）。
+    this.impactDrawn = Object.create(null);
+    this.impactDegraded = 0;
+    this.impactPeak = 0;
+    this.auraPulses = 0;
   }
 
   render(g, time, settings) {
@@ -287,6 +311,7 @@ export class EffectRenderer {
     const halo = glow && profile.halo;
     const t = time;
     this.pool.reset(profile.poolBudget);
+    this.impactPool.reset(impactBudget(profile));
     if (this.glow && typeof this.glow.configure === 'function') this.glow.configure(settings);
 
     let drawn = 0;
@@ -306,52 +331,83 @@ export class EffectRenderer {
       const color = effect.color || Palette.semanticColor('buff');
 
       if (effect.kind === 'ring') {
+        // 带 weapon 的溅射命中（炮台/震荡塔）按武器 accent 与线宽拉开差异；
+        // 无 weapon 的旧事件保持既有通用外观。
+        const impact = impactFor(effect, profile);
         const radius = (effect.r0 + (effect.r1 - effect.r0) * p) * T;
+        const weight = impact ? Math.max(0.9, impact.size * 0.55) : 1;
+        if (impact) this.impactDrawn[effect.weapon] = (this.impactDrawn[effect.weapon] || 0) + 1;
         g.save();
         if (glow) g.globalCompositeOperation = 'lighter';
         if (halo && p < 0.45) {
-          this.glow.draw(g, color, x, y, radius * 0.75, 0.42 * (1 - p / 0.45));
+          this.glow.draw(g, impact ? impact.accent : color, x, y, radius * 0.75, 0.42 * (1 - p / 0.45));
         }
         g.globalAlpha = fade * 0.95;
-        g.strokeStyle = color;
-        g.lineWidth = 0.8 + 3 * (1 - p);
+        g.strokeStyle = impact ? impact.accent : color;
+        g.lineWidth = (0.8 + 3 * (1 - p)) * weight;
         g.beginPath();
         g.arc(x, y, radius, 0, PI2);
         g.stroke();
         g.globalAlpha = fade * 0.4;
-        g.lineWidth = 1.1;
+        g.strokeStyle = impact ? impact.color : color;
+        g.lineWidth = 1.1 * weight;
         g.beginPath();
         g.arc(x, y, radius * 0.74, 0, PI2);
         g.stroke();
         g.restore();
       } else if (effect.kind === 'spark') {
-        const rays = scaledCount(6, profile);
-        g.save();
-        if (glow) g.globalCompositeOperation = 'lighter';
-        g.globalAlpha = fade;
-        g.strokeStyle = color;
-        g.lineWidth = 1.7;
-        g.lineCap = 'round';
-        for (let i = 0; i < rays; i++) {
-          const a = (i / rays) * PI2 + 0.35;
-          const inner = 2.5 + p * 3;
-          const outer = 6 + p * (9 + (i % 2) * 4);
+        const weapon = typeof effect.weapon === 'string' ? effect.weapon : '';
+        const variant = weapon ? impactVariant(weapon, profile) : null;
+        if (variant) {
+          // 武器签名命中：粒子从命中层并发池取，预算耗尽时降级为「核心闪白 + 武器色环」。
+          const plan = impactPlan(this.impactPool, variant, this._impactPlan);
+          this.impactDrawn[effect.weapon] = (this.impactDrawn[effect.weapon] || 0) + 1;
+          g.save();
+          if (glow) g.globalCompositeOperation = 'lighter';
+          g.globalAlpha = fade;
+          g.lineCap = 'round';
+          g.strokeStyle = variant.color;
+          g.fillStyle = variant.accent;
+          g.lineWidth = 1.7;
+          drawImpactShape(g, variant, x, y, p, fade, plan.count);
+          if (plan.degraded) {
+            this.impactDegraded++;
+            drawImpactFallback(g, variant, x, y, p, fade);
+          }
+          g.restore();
+        } else {
+          // 无 weapon 的旧火花：保持既有通用外观（6 条放射线的历史行为不变）。
+          const rays = scaledCount(6, profile);
+          g.save();
+          if (glow) g.globalCompositeOperation = 'lighter';
+          g.globalAlpha = fade;
+          g.strokeStyle = color;
+          g.lineWidth = 1.7;
+          g.lineCap = 'round';
+          for (let i = 0; i < rays; i++) {
+            const a = (i / rays) * PI2 + 0.35;
+            const inner = 2.5 + p * 3;
+            const outer = 6 + p * (9 + (i % 2) * 4);
+            g.beginPath();
+            g.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
+            g.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
+            g.stroke();
+          }
+          g.fillStyle = Palette.withAlpha('#ffffff', fade * 0.85);
           g.beginPath();
-          g.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
-          g.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
-          g.stroke();
+          g.arc(x, y, 2.6 * (1 - p * 0.6), 0, PI2);
+          g.fill();
+          g.restore();
         }
-        g.fillStyle = Palette.withAlpha('#ffffff', fade * 0.85);
-        g.beginPath();
-        g.arc(x, y, 2.6 * (1 - p * 0.6), 0, PI2);
-        g.fill();
-        g.restore();
       } else if (effect.kind === 'bolt') {
+        // 电弧签名：链闪固定归属电弧塔，用其 accent 与线宽区别于通用闪电。
+        const impact = impactFor(effect, profile);
+        if (impact) this.impactDrawn[effect.weapon] = (this.impactDrawn[effect.weapon] || 0) + 1;
         g.save();
         if (halo) {
           g.globalCompositeOperation = 'lighter';
           g.globalAlpha = (1 - p) * 0.28;
-          g.strokeStyle = color;
+          g.strokeStyle = impact ? impact.accent : color;
           g.lineWidth = 7;
           this.strokeBolt(g, effect.points, x, y);
           g.globalAlpha = (1 - p) * 0.5;
@@ -360,8 +416,8 @@ export class EffectRenderer {
           g.globalCompositeOperation = 'source-over';
         }
         g.globalAlpha = 1 - p * 0.85;
-        g.strokeStyle = '#f6f0ff';
-        g.lineWidth = 1.6;
+        g.strokeStyle = impact ? impact.accent : '#f6f0ff';
+        g.lineWidth = impact ? 1.6 + impact.size * 0.18 : 1.6;
         this.strokeBolt(g, effect.points, x, y);
         g.restore();
       } else if (effect.kind === 'muzzle') {
@@ -773,6 +829,47 @@ export class EffectRenderer {
         g.restore();
       }
     }
+
+    // 命中层实测峰值：本帧命中粒子槽占用数（测试与性能记录读取）。
+    if (this.impactPool.active > this.impactPeak) this.impactPeak = this.impactPool.active;
+    // 战旗签名：光环脉冲是纯渲染层表现，不产生模拟事件。
+    this.renderAuraPulses(g, t, profile);
+  }
+
+  // 战旗光环脉冲：按 (time * 0.6) % 1 的相位从塔心向外扩散，标记支援塔的作用范围。
+  // 只读 game.towers，不新增模拟事件、不消耗命中层粒子预算。
+  renderAuraPulses(g, time, profile) {
+    const towers = this.game && this.game.towers;
+    if (!Array.isArray(towers) || towers.length === 0) return 0;
+    const variant = impactVariant('banner', profile);
+    const phase = (time * 0.6) % 1;
+    let drawn = 0;
+    for (const tower of towers) {
+      const isBanner = !!tower && tower.type === 'banner';
+      if (!isBanner) continue;
+      const range = Number(tower.range ?? tower.stats?.range);
+      const cx = tower.x * T;
+      const cy = tower.y * T;
+      const reach = (Number.isFinite(range) && range > 0 ? range : 2.6) * T;
+      const radius = reach * (0.25 + phase * 0.7);
+      g.save();
+      g.globalAlpha = (1 - phase) * 0.22;
+      g.strokeStyle = variant.accent;
+      g.lineWidth = 1.6 + (1 - phase);
+      g.beginPath();
+      g.arc(cx, cy, radius, 0, PI2);
+      g.stroke();
+      g.globalAlpha = (1 - phase) * 0.1;
+      g.strokeStyle = variant.color;
+      g.lineWidth = 1;
+      g.beginPath();
+      g.arc(cx, cy, radius * 0.72, 0, PI2);
+      g.stroke();
+      g.restore();
+      drawn++;
+    }
+    this.auraPulses += drawn;
+    return drawn;
   }
 
   strokeBolt(g, points, offsetX = 0, offsetY = 0) {
