@@ -2,7 +2,7 @@
 id: gap-i18n-coverage-zero-hardcode
 title: 双语零缺译、零硬编码：新建 tests/i18n-coverage.test.mjs，UI
   文案收进词典并补齐事件/变异/皮肤/悬赏/通行证译名（AC-026）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
