@@ -8,7 +8,7 @@ parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/factions.test.mjs
+  acceptance: node scripts/rogue2-accept.mjs factions
 depends_on:
   - DOCS-002
 goal_ac: AC-033
