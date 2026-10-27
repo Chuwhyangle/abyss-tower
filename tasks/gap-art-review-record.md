@@ -166,3 +166,11 @@ worker 连续两次长时停滞（08:15、09:21 均以 SIGTERM 终止）；改�
 - 阻断源核验（关键）：`gap-result-scene-polish` 在 develop 上已是 `needs-human`（commit `8e381bf`，重试上限机械翻转），按仓库裁定 needs-human 没有机械再入队路径，须人工决定重派；且 `public/js/ui/result.js`、`public/styles.css`、`public/assets` 自评审 commit `a246670` 起到当前 develop **零改动** ⇒ 结算画面逐像素未变，现在重新采集 + 复评只会得到同一个「未通过」，复评无意义。
 - 结论：本任务在 `gap-result-scene-polish` 真实落地前**无法诚实地关闭**（AC 第 1、2 条要求检查器 exit 0，AC 的 acceptance 命令同样是 `node scripts/art-review.mjs --check`）。本轮不伪造通过、不改写评审结论、不动产品代码；AC 保持 4/6，Touches 不变。
 - 给人工的下一步：先把 `gap-result-scene-polish` 从 needs-human retreat 到 todo 并重派（其 Plan 已写明 result.js / styles.css 的具体修法与两视口浏览器断言，含 `LANG=zh_CN` 要求）；它落地后再派本任务，届时重跑 Plan 步骤 2–5（重新采集 → 全新上下文复评 result 场景 → 把该条目改写为通过）即可一次性收口 AC 1、2。
+
+## Blocker
+
+**2026-10-27T13:13:48.976Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 10/12，剩余未勾 2）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：6faa9c67-7534-41b7-a9f1-ccd8a39c5314
