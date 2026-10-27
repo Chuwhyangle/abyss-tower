@@ -1,7 +1,7 @@
 ---
 id: gap-floaters-layering
 title: 伤害飘字分层与设置三档不刷屏
-status: ready
+status: done
 labels:
   - gap
 parent: null
