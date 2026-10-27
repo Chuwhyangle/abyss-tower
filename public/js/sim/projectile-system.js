@@ -32,7 +32,8 @@ export class ProjectileSystem {
         }
         current = next;
       }
-      this.sim.addEffect({ kind: 'bolt', points, ttl: 0.18, color: '#c9a8ff' });
+      // weapon 仅为表现字段：让渲染层按武器分派命中签名，不参与结算与随机数。
+      this.sim.addEffect({ kind: 'bolt', points, ttl: 0.18, color: '#c9a8ff', weapon: 'arc' });
       return;
     }
 
@@ -118,6 +119,7 @@ export class ProjectileSystem {
         r1: proj.splash,
         ttl: 0.25,
         color: '#ffb066',
+        weapon: proj.towerType,
       });
       this.sim.shake = Math.min(10, this.sim.shake + (hits > 3 ? 2.4 : 1));
       return;
@@ -139,7 +141,14 @@ export class ProjectileSystem {
     }
     if (target) {
       this.sim.hitEnemy(target, proj);
-      this.sim.addEffect({ kind: 'spark', x: proj.x, y: proj.y, ttl: 0.15, color: '#ffe4b0' });
+      this.sim.addEffect({
+        kind: 'spark',
+        x: proj.x,
+        y: proj.y,
+        ttl: 0.15,
+        color: '#ffe4b0',
+        weapon: proj.towerType,
+      });
     }
   }
 }

@@ -135,6 +135,12 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/render/effect-renderer.js', tests: [
     'tests/effect-variants.test.mjs',
+    'tests/impact-vfx.test.mjs',
+    'tests/render-effects.test.mjs',
+  ] },
+  { match: 'public/js/render/impact-vfx.js', tests: [
+    'tests/effect-variants.test.mjs',
+    'tests/impact-vfx.test.mjs',
     'tests/render-effects.test.mjs',
   ] },
   { match: 'public/js/render/glow-renderer.js', tests: [

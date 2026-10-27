@@ -1,7 +1,7 @@
 ---
 id: gap-weapon-impact-vfx
 title: 八种武器命中特效：可辨识形态与粒子预算约束
-status: ready
+status: done
 labels:
   - gap
 parent: null
