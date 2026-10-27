@@ -11,6 +11,8 @@
 - 平衡模拟记录：[docs/BALANCE.md](docs/BALANCE.md)
 - 真人试玩记录：[docs/PLAYTEST.md](docs/PLAYTEST.md)
 - 技能与养成设计：[docs/PROGRESSION_DESIGN.md](docs/PROGRESSION_DESIGN.md)
+- 打击感评审记录：[docs/FEEL_REVIEW.md](docs/FEEL_REVIEW.md)
+- 美术评审记录：[docs/ART_REVIEW.md](docs/ART_REVIEW.md)
 - 动态性能记录：[docs/PERFORMANCE.md](docs/PERFORMANCE.md)
 - 名词表：[docs/GLOSSARY.md](docs/GLOSSARY.md)
 - 更新日志：[CHANGELOG.md](CHANGELOG.md)
@@ -148,9 +150,37 @@ npm run test:auth     # 账号接口：注册/登录/限流/CSRF/旧令牌绑定
 npm run test:auth:ui  # 登录门槛端到端：注册→恢复码→进入大厅→退出→登录
 npm run verify:browser # 依次跑全部浏览器验收
 npm run perf          # 动态战斗性能（固定种子，约 1 分钟）
+npm run visual:capture # 确定性场景截图：5 场景 × 桌面/移动视口 → PNG + contact sheet + manifest
+npm run visual:check   # 视觉机械检查：feel / art / ui / mobile 四套指标
+npm run visual:review  # 语义评审记录门：docs/FEEL_REVIEW.md 与 docs/ART_REVIEW.md
 npm run balance       # 40 种子平衡模拟（约 20 秒）
 npm run balance:write # 重写 docs/BALANCE.md
 ```
+
+### 视觉与手感验收
+
+```bash
+# 单场景（战斗）采集，产出 3 张 PNG + manifest；--repeat 2 会额外比对两次采集的像素指纹
+node tests/visual-scenes.mjs --scene combat --quality high --out /tmp/visual-smoke
+node tests/visual-scenes.mjs --scene all --quality high --out /tmp/visual-all --repeat 2
+
+# 机械指标（exit 0 = 达标）
+node scripts/visual-check.mjs --suite feel    # 反馈覆盖 / 命中特效 / 飘字 / 敌我反差 / 特效预算
+node scripts/visual-check.mjs --suite art     # 单位与背景 ΔE / 剪影 / 背景层次
+node scripts/visual-check.mjs --suite ui      # 最小字号 / 对比度 / 未解锁卡可读性
+node scripts/visual-check.mjs --suite mobile  # 移动视口溢出 / 触控尺寸 / 画布尺寸
+
+# 回归注入自检：故意把特效层拿掉，feel 套件必须 exit 1
+node scripts/visual-check.mjs --suite feel --inject effects-invisible
+
+# 语义评审记录（缺记录或结论不为「通过」时 exit 1）
+node scripts/feel-review.mjs --check
+node scripts/art-review.mjs --check
+```
+
+场景采集是**确定性**的：固定种子、固定 1/60 模拟步长、固定视口与 DPR，并在截图前冻结 CSS 动画、
+把大厅动态背景重绘到固定相位；同一提交重复采集的像素哈希应一致（DOM 场景允许指纹容差，
+见 `determinism.json` 的 `meanAbs` / `diffRatio`）。
 
 浏览器测试会自行启动独立服务端（临时 SQLite + 随机端口）与独立 Chrome profile，不需要线上服务，也不会污染真实玩家数据；只要求本机有 `google-chrome`。
 
