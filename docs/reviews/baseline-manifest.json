@@ -1,0 +1,240 @@
+{
+  "generatedAt": "2026-10-27T02:31:50.527Z",
+  "commit": "785475921db72c2b6180c8cf9b9647a2568ed459",
+  "seed": "visual-scene-seed",
+  "testSeed": "visual-fixed-seed",
+  "quality": "high",
+  "totalMs": 38165,
+  "timings": {
+    "title@desktop": 371,
+    "title@mobile": 168,
+    "lobby@desktop": 403,
+    "lobby@mobile": 149,
+    "map@desktop": 846,
+    "map@mobile": 477,
+    "combat@desktop": 3492,
+    "combat@mobile-landscape": 2266,
+    "result@desktop": 2886,
+    "result@mobile-landscape": 2497
+  },
+  "scenes": [
+    {
+      "scene": "title",
+      "viewport": "desktop",
+      "quality": "high",
+      "elapsedMs": 371,
+      "notes": "",
+      "frames": [
+        {
+          "id": "title",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "74871b0edb77ce52a6d215133d56debdc31865f57077e5265e3fd26f19f1abff",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "title",
+      "viewport": "mobile",
+      "quality": "high",
+      "elapsedMs": 168,
+      "notes": "",
+      "frames": [
+        {
+          "id": "title",
+          "width": 390,
+          "height": 844,
+          "pixelHash": "8f936196b718606eccf862203d6aacbdfc2d97d5245a5786b435db54778fd290",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "lobby",
+      "viewport": "desktop",
+      "quality": "high",
+      "elapsedMs": 403,
+      "notes": "",
+      "frames": [
+        {
+          "id": "lobby",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "c8bafab080dfca186962f4ed07f6763700e70c96957d005ae8407e825c9ef0f8",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "lobby",
+      "viewport": "mobile",
+      "quality": "high",
+      "elapsedMs": 149,
+      "notes": "",
+      "frames": [
+        {
+          "id": "lobby",
+          "width": 390,
+          "height": 844,
+          "pixelHash": "8758ff8d3b49020ec52b628b33890c55df126531e031a70e95a82a57cd47da09",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "map",
+      "viewport": "desktop",
+      "quality": "high",
+      "elapsedMs": 846,
+      "notes": "",
+      "frames": [
+        {
+          "id": "map",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "47ecc591f7b83646b0999b27c68538db0d0733a6736225cf766deb7911d44cda",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "map",
+      "viewport": "mobile",
+      "quality": "high",
+      "elapsedMs": 477,
+      "notes": "",
+      "frames": [
+        {
+          "id": "map",
+          "width": 390,
+          "height": 844,
+          "pixelHash": "d04f9f2ceae38ef1926413242b47d551ebbba87fa94eee5c76c591ddf0b77fa3",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "combat",
+      "viewport": "desktop",
+      "quality": "high",
+      "elapsedMs": 3492,
+      "notes": "wave=wave t=8s enemies=13",
+      "frames": [
+        {
+          "id": "combat-contact",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "fd16bf6e679b7f382f63f23e606210a62c950c49394170cc0f53c5674a547861",
+          "snapshot": {
+            "time": 2,
+            "enemies": 6,
+            "effects": 7,
+            "floaters": 3
+          }
+        },
+        {
+          "id": "combat-mixed",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "8b8b09b6889a653343e5e8baa6ca25d577d9e6971e3228503b7a7543e03eb8eb",
+          "snapshot": {
+            "time": 4.5,
+            "enemies": 11,
+            "effects": 6,
+            "floaters": 3
+          }
+        },
+        {
+          "id": "combat-impact",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "209a9142fb966ce13f341c76d63ff3f1e3282efc02d3baa1c3de0d9c891445b5",
+          "snapshot": {
+            "time": 8,
+            "enemies": 13,
+            "effects": 7,
+            "floaters": 3
+          }
+        }
+      ]
+    },
+    {
+      "scene": "combat",
+      "viewport": "mobile-landscape",
+      "quality": "high",
+      "elapsedMs": 2266,
+      "notes": "wave=wave t=8s enemies=13",
+      "frames": [
+        {
+          "id": "combat-contact",
+          "width": 844,
+          "height": 390,
+          "pixelHash": "4a398d0bf58065d556d265c2dbfdf87ac197e7b9f29491982c30c1d3c47f79ac",
+          "snapshot": {
+            "time": 2,
+            "enemies": 6,
+            "effects": 7,
+            "floaters": 3
+          }
+        },
+        {
+          "id": "combat-mixed",
+          "width": 844,
+          "height": 390,
+          "pixelHash": "18c5df01595afda72d92928f16a555b87004c4339197ce292608eb3084f2c713",
+          "snapshot": {
+            "time": 4.5,
+            "enemies": 11,
+            "effects": 6,
+            "floaters": 3
+          }
+        },
+        {
+          "id": "combat-impact",
+          "width": 844,
+          "height": 390,
+          "pixelHash": "507df67d6d0ed51da30e30e62450b791e5a15999fb9805caa86f03a6e8b6e20e",
+          "snapshot": {
+            "time": 8,
+            "enemies": 13,
+            "effects": 7,
+            "floaters": 3
+          }
+        }
+      ]
+    },
+    {
+      "scene": "result",
+      "viewport": "desktop",
+      "quality": "high",
+      "elapsedMs": 2886,
+      "notes": "",
+      "frames": [
+        {
+          "id": "result",
+          "width": 1440,
+          "height": 900,
+          "pixelHash": "5ba33fd4470015b75b300b1f81c138992448d9f5164d3747a84a3a509820ce6a",
+          "snapshot": null
+        }
+      ]
+    },
+    {
+      "scene": "result",
+      "viewport": "mobile-landscape",
+      "quality": "high",
+      "elapsedMs": 2497,
+      "notes": "",
+      "frames": [
+        {
+          "id": "result",
+          "width": 844,
+          "height": 390,
+          "pixelHash": "3d1344e4c206362f32e26046ae609c6536a9fc38ce8b9dbf165cd443d496dbf5",
+          "snapshot": null
+        }
+      ]
+    }
+  ]
+}
