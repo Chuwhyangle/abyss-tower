@@ -3,6 +3,7 @@
 // 首领系列：蓄力、咆哮、召唤、震击、防御塔停摆。
 import { TILE, BOSS_SKILLS } from '../shared/data.js';
 import { BALANCE } from '../shared/config.js';
+import { IMPACT_CLASSES } from '../shared/impact-class-feedback.js';
 import { Palette, SKILL_WARNING_STYLE } from './palette.js';
 import {
   IMPACT_POOL_CAPACITY,
@@ -19,6 +20,29 @@ const PI2 = Math.PI * 2;
 
 // 首领体型（ENEMIES.boss.r = 0.58）与普通怪（≤0.42）的分界，用于从死亡特效还原事件。
 export const BOSS_KILL_RADIUS = 0.5;
+
+// 类别层事件（AC-030）：配色/形态/时长/环半径取自类别表的唯一来源，
+// 这里只声明档位粒子数；低档也必须 ≥ 1 颗，任何档位都保留核心闪白 + 类别色环。
+function classEventSpec(cls, { particles, lowParticles }) {
+  const vfx = IMPACT_CLASSES[cls].vfx;
+  return {
+    color: vfx.color,
+    accent: vfx.accent,
+    shape: vfx.shape,
+    duration: vfx.duration,
+    particles,
+    ring: vfx.ring,
+    spin: vfx.spin,
+    glow: 0.45,
+    size: 2.8,
+    rise: 6,
+    key: true,
+    tiers: {
+      low: { particles: lowParticles },
+      high: { particles },
+    },
+  };
+}
 
 // 单一事件配置表：颜色、时长、粒子、光晕、尺寸都只在这里声明，渲染分支不再散落魔法数。
 // key 事件在所有画质档位都保留；非关键事件（进化）只在完整画质出现。
@@ -79,6 +103,10 @@ export const EFFECT_EVENTS = {
       high: { particles: 10, extras: true },
     },
   },
+  // 类别层：首领命中 / 破盾 / 护甲吸收，形状与配色与类别表一致，三者在低档仍各留 ≥1 颗粒子。
+  bossHit: classEventSpec('bossHit', { particles: 10, lowParticles: 3 }),
+  shieldBreak: classEventSpec('shieldBreak', { particles: 14, lowParticles: 4 }),
+  armorAbsorb: classEventSpec('armor', { particles: 8, lowParticles: 2 }),
   towerDisable: {
     color: '#ff8a6b',
     accent: '#ffd7c2',
@@ -133,6 +161,8 @@ export const EFFECT_KIND_EVENTS = {
   leak: 'baseHit',
   towerDisable: 'towerDisable',
   evolve: 'evolve',
+  // 类别层：addEffect 传的 kind 既可以是事件键，也可以是类别名（armor → armorAbsorb）。
+  armor: 'armorAbsorb',
 };
 
 export const EFFECT_PROFILES = {
@@ -300,6 +330,8 @@ export class EffectRenderer {
     this._impactPlan = { degraded: false, count: 0 };
     // 只读观测计数（与 ProjectileRenderer.drawn / drawCalls 同性质，供测试与性能记录读取）。
     this.impactDrawn = Object.create(null);
+    // 类别层绘制计数：按事件键累计，浏览器验收读取三类各绘制 ≥1 次。
+    this.classDrawn = Object.create(null);
     this.impactDegraded = 0;
     this.impactPeak = 0;
     this.auraPulses = 0;
@@ -763,6 +795,11 @@ export class EffectRenderer {
           g.fill();
         }
         g.restore();
+      } else if (event === 'bossHit' || event === 'shieldBreak' || event === 'armorAbsorb') {
+        // 命中类别层：核心闪白 + 类别色环是任何档位的保底层，粒子按档位裁剪。
+        const entry = style || eventVariant(event, profile);
+        this.classDrawn[event] = (this.classDrawn[event] || 0) + 1;
+        this.drawClassImpact(g, entry, event, x, y, p, fade, halo);
       } else if (effect.kind === 'towerDisable') {
         // 停摆：短路环 + 闪烁电弧（持续整个停摆时长），参数全部来自事件表。
         const entry = style || eventVariant('towerDisable', profile);
@@ -834,6 +871,85 @@ export class EffectRenderer {
     if (this.impactPool.active > this.impactPeak) this.impactPeak = this.impactPool.active;
     // 战旗签名：光环脉冲是纯渲染层表现，不产生模拟事件。
     this.renderAuraPulses(g, t, profile);
+  }
+
+  // 命中类别特效：同一分支内按 shape 区分形态（burst / hexring / shards）。
+  // 核心闪白 + 类别色环与档位无关（低档/粒子耗尽的保底层）；粒子取自共用池，池满时静默降级。
+  drawClassImpact(g, entry, event, x, y, p, fade, halo) {
+    const rr = entry.ring * T * (0.3 + p * 0.8);
+    g.save();
+    if (halo) g.globalCompositeOperation = 'lighter';
+    if (halo) this.glow.draw(g, entry.accent, x, y, rr * 1.05, fade * entry.glow);
+
+    g.globalAlpha = fade * 0.95;
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(x, y, Math.max(0.6, (1 - p) * 3.4), 0, PI2);
+    g.fill();
+
+    g.globalAlpha = fade * 0.85;
+    g.strokeStyle = entry.color;
+    g.lineWidth = 1.6 + 2.6 * (1 - p);
+    if (event === 'shieldBreak') {
+      // 破盾：六边环，和圆形冲击/死亡环拉开形状差异。
+      g.beginPath();
+      for (let i = 0; i <= 6; i++) {
+        const a = (i / 6) * PI2 + entry.spin;
+        const px = x + Math.cos(a) * rr;
+        const py = y + Math.sin(a) * rr;
+        if (i === 0) g.moveTo(px, py);
+        else g.lineTo(px, py);
+      }
+      g.stroke();
+    } else if (event === 'armorAbsorb') {
+      // 护甲吸收：向内收拢的三段弧，表现「被吃掉」而不是爆发。
+      g.lineWidth = 1.4 + 2 * (1 - p);
+      for (let i = 0; i < 3; i++) {
+        const a0 = (i / 3) * PI2 + entry.spin + p * 0.6;
+        g.beginPath();
+        g.arc(x, y, rr * (1 - p * 0.35), a0, a0 + 0.7);
+        g.stroke();
+      }
+    } else {
+      // 首领命中：双环 + 放射尖刺（高配 8 根、低配 4 根），是轻量命中层而非死亡演出。
+      g.beginPath();
+      g.arc(x, y, rr, 0, PI2);
+      g.stroke();
+      g.globalAlpha = fade * 0.5;
+      g.beginPath();
+      g.arc(x, y, rr * 0.62, 0, PI2);
+      g.stroke();
+      const spikes = entry.extras ? 8 : 4;
+      g.globalAlpha = fade * 0.8;
+      g.lineWidth = 1.6;
+      g.lineCap = 'round';
+      for (let i = 0; i < spikes; i++) {
+        const a = (i / spikes) * PI2 + entry.spin;
+        const inner = rr * 0.72;
+        const outer = rr * (1.05 + (i % 2) * 0.18);
+        g.beginPath();
+        g.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
+        g.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
+        g.stroke();
+      }
+    }
+
+    // 粒子方向按类别：破盾外扩、护甲内收、首领命中由内向外；任何档位至少 1 颗。
+    g.globalAlpha = fade * 0.85;
+    for (let i = 0; i < entry.particles; i++) {
+      const slot = this.pool.acquire();
+      if (!slot) break;
+      const a = (i / Math.max(1, entry.particles)) * PI2 + entry.spin;
+      const dist = event === 'armorAbsorb' ? rr * (1 - p * 0.8) : rr * (0.4 + p * 0.8);
+      slot.size = Math.max(0.8, entry.size * (1 - p * 0.55));
+      slot.x = x + Math.cos(a) * dist;
+      slot.y = y + Math.sin(a) * dist;
+      g.fillStyle = i % 2 === 0 ? entry.accent : entry.color;
+      g.beginPath();
+      g.arc(slot.x, slot.y, slot.size, 0, PI2);
+      g.fill();
+    }
+    g.restore();
   }
 
   // 战旗光环脉冲：按 (time * 0.6) % 1 的相位从塔心向外扩散，标记支援塔的作用范围。
