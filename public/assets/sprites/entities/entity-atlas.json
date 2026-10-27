@@ -1,0 +1,2934 @@
+{
+  "name": "entity-atlas",
+  "image": "entity-atlas@1x",
+  "size": {
+    "w": 1008,
+    "h": 336
+  },
+  "pivot": {
+    "x": 0.5,
+    "y": 0.5
+  },
+  "frames": {
+    "tower.arrow.idle": {
+      "x": 0,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow.attack": {
+      "x": 48,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow.disabled": {
+      "x": 96,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-longbow.idle": {
+      "x": 144,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-longbow.attack": {
+      "x": 192,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-longbow.disabled": {
+      "x": 240,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-rapid.idle": {
+      "x": 288,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-rapid.attack": {
+      "x": 336,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-rapid.disabled": {
+      "x": 384,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-ranger.idle": {
+      "x": 432,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-ranger.attack": {
+      "x": 480,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arrow-ranger.disabled": {
+      "x": 528,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon.idle": {
+      "x": 576,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon.attack": {
+      "x": 624,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon.disabled": {
+      "x": 672,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-siege.idle": {
+      "x": 720,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-siege.attack": {
+      "x": 768,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-siege.disabled": {
+      "x": 816,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-barrage.idle": {
+      "x": 864,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-barrage.attack": {
+      "x": 912,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-barrage.disabled": {
+      "x": 960,
+      "y": 0,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-mortar.idle": {
+      "x": 0,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-mortar.attack": {
+      "x": 48,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.cannon-mortar.disabled": {
+      "x": 96,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost.idle": {
+      "x": 144,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost.attack": {
+      "x": 192,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost.disabled": {
+      "x": 240,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-deepfreeze.idle": {
+      "x": 288,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-deepfreeze.attack": {
+      "x": 336,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-deepfreeze.disabled": {
+      "x": 384,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-icelance.idle": {
+      "x": 432,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-icelance.attack": {
+      "x": 480,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-icelance.disabled": {
+      "x": 528,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-blizzard.idle": {
+      "x": 576,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-blizzard.attack": {
+      "x": 624,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.frost-blizzard.disabled": {
+      "x": 672,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc.idle": {
+      "x": 720,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc.attack": {
+      "x": 768,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc.disabled": {
+      "x": 816,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-storm.idle": {
+      "x": 864,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-storm.attack": {
+      "x": 912,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-storm.disabled": {
+      "x": 960,
+      "y": 48,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-overload.idle": {
+      "x": 0,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-overload.attack": {
+      "x": 48,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-overload.disabled": {
+      "x": 96,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-conductor.idle": {
+      "x": 144,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-conductor.attack": {
+      "x": 192,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.arc-conductor.disabled": {
+      "x": 240,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison.idle": {
+      "x": 288,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison.attack": {
+      "x": 336,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison.disabled": {
+      "x": 384,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-virulent.idle": {
+      "x": 432,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-virulent.attack": {
+      "x": 480,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-virulent.disabled": {
+      "x": 528,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-blight.idle": {
+      "x": 576,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-blight.attack": {
+      "x": 624,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-blight.disabled": {
+      "x": 672,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-miasma.idle": {
+      "x": 720,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-miasma.attack": {
+      "x": 768,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.poison-miasma.disabled": {
+      "x": 816,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner.idle": {
+      "x": 864,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner.attack": {
+      "x": 912,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner.disabled": {
+      "x": 960,
+      "y": 96,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-horn.idle": {
+      "x": 0,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-horn.attack": {
+      "x": 48,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-horn.disabled": {
+      "x": 96,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-standard.idle": {
+      "x": 144,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-standard.attack": {
+      "x": 192,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-standard.disabled": {
+      "x": 240,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-drum.idle": {
+      "x": 288,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-drum.attack": {
+      "x": 336,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.banner-drum.disabled": {
+      "x": 384,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock.idle": {
+      "x": 432,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock.attack": {
+      "x": 480,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock.disabled": {
+      "x": 528,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-quake.idle": {
+      "x": 576,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-quake.attack": {
+      "x": 624,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-quake.disabled": {
+      "x": 672,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-glacier.idle": {
+      "x": 720,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-glacier.attack": {
+      "x": 768,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-glacier.disabled": {
+      "x": 816,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-resonance.idle": {
+      "x": 864,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-resonance.attack": {
+      "x": 912,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.shock-resonance.disabled": {
+      "x": 960,
+      "y": 144,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper.idle": {
+      "x": 0,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper.attack": {
+      "x": 48,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper.disabled": {
+      "x": 96,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-piercer.idle": {
+      "x": 144,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-piercer.attack": {
+      "x": 192,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-piercer.disabled": {
+      "x": 240,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-marksman.idle": {
+      "x": 288,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-marksman.attack": {
+      "x": 336,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-marksman.disabled": {
+      "x": 384,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-overwatch.idle": {
+      "x": 432,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-overwatch.attack": {
+      "x": 480,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "tower.sniper-overwatch.disabled": {
+      "x": 528,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.grunt.move": {
+      "x": 576,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.grunt.hit": {
+      "x": 624,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.runner.move": {
+      "x": 672,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.runner.hit": {
+      "x": 720,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.swarm.move": {
+      "x": 768,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.swarm.hit": {
+      "x": 816,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.tank.move": {
+      "x": 864,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.tank.hit": {
+      "x": 912,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.flyer.move": {
+      "x": 960,
+      "y": 192,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.flyer.hit": {
+      "x": 0,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.healer.move": {
+      "x": 48,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.healer.hit": {
+      "x": 96,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.boss.move": {
+      "x": 144,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.boss.hit": {
+      "x": 192,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.boss.cast": {
+      "x": 240,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.shielder.move": {
+      "x": 288,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.shielder.hit": {
+      "x": 336,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.splitter.move": {
+      "x": 384,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.splitter.hit": {
+      "x": 432,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.splitling.move": {
+      "x": 480,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.splitling.hit": {
+      "x": 528,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.herald.move": {
+      "x": 576,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.herald.hit": {
+      "x": 624,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.caster.move": {
+      "x": 672,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.caster.hit": {
+      "x": 720,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.armored.move": {
+      "x": 768,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.armored.hit": {
+      "x": 816,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.armored.cast": {
+      "x": 864,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.summoner.move": {
+      "x": 912,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.summoner.hit": {
+      "x": 960,
+      "y": 240,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.summoner.cast": {
+      "x": 0,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.berserk.move": {
+      "x": 48,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.berserk.hit": {
+      "x": 96,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "enemy.berserk.cast": {
+      "x": 144,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "summon.skeleton.idle": {
+      "x": 192,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "summon.skeleton.attack": {
+      "x": 240,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.vein.alive": {
+      "x": 288,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.vein.ruined": {
+      "x": 336,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.obelisk.alive": {
+      "x": 384,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.obelisk.ruined": {
+      "x": 432,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.cache.alive": {
+      "x": 480,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.cache.ruined": {
+      "x": 528,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.nest.alive": {
+      "x": 576,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.nest.ruined": {
+      "x": 624,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.totem.alive": {
+      "x": 672,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.totem.ruined": {
+      "x": 720,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "portal.spawn.idle": {
+      "x": 768,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "portal.spawn.charge": {
+      "x": 816,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "base.crystal.idle": {
+      "x": 864,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "base.crystal.hurt": {
+      "x": 912,
+      "y": 288,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    }
+  }
+}

@@ -2,12 +2,20 @@
 // 数据全部来自 sim.allies，渲染层只读（不写模拟状态、不消耗随机数）。
 // 每帧每个盟友固定 3 次绘制（投影 / 身体 / 武器），不创建临时对象或贴图。
 import { TILE } from '../shared/data.js';
+import { SUMMON_SPRITE_RADIUS, summonSpriteId } from './sprite-coverage.js';
 
 const T = TILE;
 
 export class AllyRenderer {
   constructor(game) {
     this.game = game;
+    // 精灵管线由 Renderer 注入（setSprites）：未注入 / 缺资源时走下面的程序化盟友。
+    this.sprites = null;
+  }
+
+  setSprites(sprites) {
+    this.sprites = sprites || null;
+    return this;
   }
 
   render(g, time = 0, settings = {}) {
@@ -40,22 +48,31 @@ export class AllyRenderer {
         g.arc(x, y, r * 1.7 * pulse, 0, Math.PI * 2);
         g.fill();
       }
-      g.fillStyle = color;
-      g.strokeStyle = 'rgba(10, 18, 26, 0.85)';
-      g.lineWidth = 1.2;
-      g.beginPath();
-      g.arc(x, y, r * pulse, 0, Math.PI * 2);
-      g.fill();
-      g.stroke();
 
       // 朝向：攻击方向的短刺，空闲时按模拟时间轻微摆动
       const angle = Number.isFinite(ally.angle) ? ally.angle : Math.sin(time * 2) * 0.3;
-      g.strokeStyle = color;
-      g.lineWidth = Math.max(1.4, r * 0.28);
-      g.beginPath();
-      g.moveTo(x + Math.cos(angle) * r * 0.7, y + Math.sin(angle) * r * 0.7);
-      g.lineTo(x + Math.cos(angle) * r * 1.5, y + Math.sin(angle) * r * 1.5);
-      g.stroke();
+      // 精灵优先：注册表命中且有可用帧时用图集贴图替换形体与朝向刺（帧里自带朝向），
+      // draw 返回 false 时完整走下面的程序化盟友。
+      const spriteId = summonSpriteId(ally);
+      const spriteDrawn = spriteId
+        ? this.sprites?.draw(g, spriteId, x, y, { scale: (r / SUMMON_SPRITE_RADIUS) * pulse, rotation: angle }) === true
+        : false;
+      if (!spriteDrawn) {
+        g.fillStyle = color;
+        g.strokeStyle = 'rgba(10, 18, 26, 0.85)';
+        g.lineWidth = 1.2;
+        g.beginPath();
+        g.arc(x, y, r * pulse, 0, Math.PI * 2);
+        g.fill();
+        g.stroke();
+
+        g.strokeStyle = color;
+        g.lineWidth = Math.max(1.4, r * 0.28);
+        g.beginPath();
+        g.moveTo(x + Math.cos(angle) * r * 0.7, y + Math.sin(angle) * r * 0.7);
+        g.lineTo(x + Math.cos(angle) * r * 1.5, y + Math.sin(angle) * r * 1.5);
+        g.stroke();
+      }
       g.restore();
     }
   }

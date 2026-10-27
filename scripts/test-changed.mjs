@@ -109,11 +109,12 @@ export const TEST_MAP = [
   // 渲染层
   { match: 'public/js/render.js', tests: [
     'tests/hitstop.test.mjs',
+    'tests/sprite-coverage.test.mjs',
     'tests/render-visuals.test.mjs',
     'tests/skill-visuals.test.mjs',
   ] },
   { match: 'public/js/render/camera-feedback.js', tests: ['tests/hitstop.test.mjs'] },
-  { match: 'public/js/render/ally-renderer.js', tests: ['tests/hex-runtime.test.mjs'] },
+  { match: 'public/js/render/ally-renderer.js', tests: ['tests/hex-runtime.test.mjs', 'tests/sprite-coverage.test.mjs'] },
   { match: 'public/js/render/art-tokens.js', tests: [
     'tests/art-spec.test.mjs',
     'tests/a11y-color.test.mjs',
@@ -122,10 +123,16 @@ export const TEST_MAP = [
     'tests/skill-style.test.mjs',
   ] },
   { match: 'public/js/render/canvas-shapes.js', tests: ['tests/icon-system.test.mjs'] },
-  { match: 'public/js/render/destructible-renderer.js', tests: ['tests/destructibles-ui.test.mjs'] },
+  { match: 'public/js/render/destructible-renderer.js', tests: [
+    'tests/destructibles-ui.test.mjs',
+    'tests/sprite-coverage.test.mjs',
+  ] },
   { match: 'public/js/render/floater-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
   { match: 'public/js/render/overlay-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
-  { match: 'public/js/render/tower-renderer.js', tests: ['tests/render-animations.test.mjs'] },
+  { match: 'public/js/render/tower-renderer.js', tests: [
+    'tests/render-animations.test.mjs',
+    'tests/sprite-coverage.test.mjs',
+  ] },
   { match: 'public/js/render/background-renderer.js', tests: [
     'tests/biome-visuals.test.mjs',
     'tests/render-visuals.test.mjs',
@@ -151,7 +158,10 @@ export const TEST_MAP = [
     'tests/render-effects.test.mjs',
     'tests/render-budget.test.mjs',
   ] },
-  { match: 'public/js/render/enemy-renderer.js', tests: ['tests/enemies-depth.test.mjs'] },
+  { match: 'public/js/render/enemy-renderer.js', tests: [
+    'tests/enemies-depth.test.mjs',
+    'tests/sprite-coverage.test.mjs',
+  ] },
   { match: 'public/js/render/projectile-renderer.js', tests: ['tests/render-budget.test.mjs'] },
   { match: 'public/js/render/skill-renderer.js', tests: [
     'tests/render-budget.test.mjs',
@@ -159,7 +169,11 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/render/sprite-manifest.js', tests: ['tests/sprite-pipeline.test.mjs'] },
   { match: 'public/js/render/sprite-pipeline.js', tests: ['tests/sprite-pipeline.test.mjs'] },
-  { match: 'public/js/render/portal-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
+  { match: 'public/js/render/portal-renderer.js', tests: [
+    'tests/render-visuals.test.mjs',
+    'tests/sprite-coverage.test.mjs',
+  ] },
+  { match: 'public/js/render/sprite-coverage.js', tests: ['tests/sprite-coverage.test.mjs'] },
   { match: 'public/js/render/transition.js', tests: ['tests/transition.test.mjs'] },
 
   // 服务端
@@ -202,6 +216,7 @@ export const TEST_MAP = [
   { match: 'scripts/art-review.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/backup.mjs', tests: ['tests/ops-cli.test.mjs'] },
   { match: 'scripts/build-sprite-atlas.mjs', tests: ['tests/sprite-pipeline.test.mjs'] },
+  { match: 'scripts/build-entity-sprites.mjs', tests: ['tests/sprite-coverage.test.mjs'] },
   { match: 'scripts/check-doc-ownership.mjs', tests: ['tests/docs-phase-sync.test.mjs'] },
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },

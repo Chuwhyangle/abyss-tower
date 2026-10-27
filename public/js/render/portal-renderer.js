@@ -1,6 +1,7 @@
 // 入口传送门与基地水晶：入口状态既用于绘制，也通过 portalStates() 暴露给验收测试。
 import { TILE } from '../shared/data.js';
 import { Palette } from './palette.js';
+import { baseSpriteId, portalSpriteId } from './sprite-coverage.js';
 
 const T = TILE;
 
@@ -49,6 +50,8 @@ export function portalChargeLevel(phase, time) {
 export class PortalRenderer {
   constructor(game) {
     this.game = game;
+    // 精灵管线由 Renderer 注入（setSprites）：未注入 / 缺资源时走程序化传送门与水晶。
+    this.sprites = null;
     const map = game.map;
     this.spawns = map.spawns?.length
       ? map.spawns
@@ -62,6 +65,11 @@ export class PortalRenderer {
       dimmed: false,
       charge: 0,
     }));
+  }
+
+  setSprites(sprites) {
+    this.sprites = sprites || null;
+    return this;
   }
 
   // 入口视觉状态：整备阶段全部常态；波中仅激活入口高亮，其余变暗。
@@ -82,7 +90,7 @@ export class PortalRenderer {
     return this._states;
   }
 
-  render(g, time, glowOn) {
+  render(g, time, glowOn, hurtFlash = 0) {
     const game = this.game;
     const map = game.map;
     const t = time;
@@ -142,26 +150,31 @@ export class PortalRenderer {
         g.restore();
       }
 
-      g.rotate(t * 1.6 + index);
-      g.strokeStyle = Palette.hexToRgba(color, 0.85);
-      g.lineWidth = 2.3;
-      for (let i = 0; i < profile.rings; i++) {
-        g.beginPath();
-        g.arc(0, 0, 13 + i * 4, i * 2.1, i * 2.1 + 1.9);
-        g.stroke();
-      }
+      // 精灵优先：传送门形体（环与环绕粒子）由图集帧替换；编号与方向箭头是覆盖层，照旧绘制。
+      const portalId = portalSpriteId(game.phase, t);
+      const portalDrawn = portalId ? this.sprites?.draw(g, portalId, 0, 0) === true : false;
+      if (!portalDrawn) {
+        g.rotate(t * 1.6 + index);
+        g.strokeStyle = Palette.hexToRgba(color, 0.85);
+        g.lineWidth = 2.3;
+        for (let i = 0; i < profile.rings; i++) {
+          g.beginPath();
+          g.arc(0, 0, 13 + i * 4, i * 2.1, i * 2.1 + 1.9);
+          g.stroke();
+        }
 
-      // 环绕粒子：位置由时间解析计算，不保存、不新建粒子对象。
-      for (let i = 0; i < sparks; i++) {
-        const a = (i / sparks) * Math.PI * 2 + t * (0.8 + (i % 3) * 0.16) + index * 1.3;
-        const r = 13 + (i % 4) * 3.6 + Math.sin(t * 2 + i) * 1.8;
-        g.fillStyle = Palette.hexToRgba(color, 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3 + i)));
-        g.beginPath();
-        g.arc(Math.cos(a) * r, Math.sin(a) * r, 1.1 + (i % 2) * 0.6, 0, Math.PI * 2);
-        g.fill();
-      }
+        // 环绕粒子：位置由时间解析计算，不保存、不新建粒子对象。
+        for (let i = 0; i < sparks; i++) {
+          const a = (i / sparks) * Math.PI * 2 + t * (0.8 + (i % 3) * 0.16) + index * 1.3;
+          const r = 13 + (i % 4) * 3.6 + Math.sin(t * 2 + i) * 1.8;
+          g.fillStyle = Palette.hexToRgba(color, 0.35 + 0.35 * (0.5 + 0.5 * Math.sin(t * 3 + i)));
+          g.beginPath();
+          g.arc(Math.cos(a) * r, Math.sin(a) * r, 1.1 + (i % 2) * 0.6, 0, Math.PI * 2);
+          g.fill();
+        }
 
-      g.rotate(-(t * 1.6 + index));
+        g.rotate(-(t * 1.6 + index));
+      }
 
       // 入口编号
       g.fillStyle = color;
@@ -224,36 +237,42 @@ export class PortalRenderer {
     g.arc(bx, by, 25, -Math.PI / 2, -Math.PI / 2 + ratio * Math.PI * 2);
     g.stroke();
 
-    // 水晶
-    g.save();
-    g.translate(bx, by);
-    g.rotate(Math.sin(t * 1.2) * 0.08);
-    if (glowOn) {
-      const crystal = g.createLinearGradient(0, -18, 0, 18);
-      crystal.addColorStop(0, '#c8fff5');
-      crystal.addColorStop(0.5, '#4fd8c8');
-      crystal.addColorStop(1, '#1c7d86');
-      g.fillStyle = crystal;
-    } else {
-      g.fillStyle = '#3fc8bb';
+    // 水晶：精灵优先（低血 / 受击各自一帧）；缺资源时走既有程序化水晶。
+    const baseId = baseSpriteId(ratio, hurtFlash);
+    const baseDrawn = baseId
+      ? this.sprites?.draw(g, baseId, bx, by, { rotation: Math.sin(t * 1.2) * 0.08 }) === true
+      : false;
+    if (!baseDrawn) {
+      g.save();
+      g.translate(bx, by);
+      g.rotate(Math.sin(t * 1.2) * 0.08);
+      if (glowOn) {
+        const crystal = g.createLinearGradient(0, -18, 0, 18);
+        crystal.addColorStop(0, '#c8fff5');
+        crystal.addColorStop(0.5, '#4fd8c8');
+        crystal.addColorStop(1, '#1c7d86');
+        g.fillStyle = crystal;
+      } else {
+        g.fillStyle = '#3fc8bb';
+      }
+      g.strokeStyle = 'rgba(220, 255, 250, 0.8)';
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.moveTo(0, -19);
+      g.lineTo(12, -5);
+      g.lineTo(8, 14);
+      g.lineTo(0, 19);
+      g.lineTo(-8, 14);
+      g.lineTo(-12, -5);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.strokeStyle = 'rgba(255,255,255,0.35)';
+      g.beginPath();
+      g.moveTo(0, -19);
+      g.lineTo(0, 17);
+      g.stroke();
+      g.restore();
     }
-    g.strokeStyle = 'rgba(220, 255, 250, 0.8)';
-    g.lineWidth = 1.2;
-    g.beginPath();
-    g.moveTo(0, -19);
-    g.lineTo(12, -5);
-    g.lineTo(8, 14);
-    g.lineTo(0, 19);
-    g.lineTo(-8, 14);
-    g.lineTo(-12, -5);
-    g.closePath();
-    g.fill();
-    g.stroke();
-    g.strokeStyle = 'rgba(255,255,255,0.35)';
-    g.beginPath();
-    g.moveTo(0, -19);
-    g.lineTo(0, 17);
-    g.stroke();
-    g.restore();
   }
 }

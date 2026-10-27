@@ -115,6 +115,31 @@ public/assets/
 - 生成脚本放在 `scripts/` 下的专用目录；脚本本身走正常代码评审。
 - 重生成不改变已有 manifest 的 `id`；只允许改 `path` 指向的新文件与 `provenance.retrievedAt`。
 
+## 实体精灵条目（单位覆盖）
+
+战斗内六类实体（塔、敌人、召唤物、可破坏物、传送门、基地）的覆盖集、状态优先级与缺资源回退，
+权威定义在 `docs/PHASE_FEEL_ART.md` §4.3；本节只规定它们在**本清单里怎么落条目**。
+
+- 精灵 id：`<family>.<entity-id>.<state>`，`family ∈ tower / enemy / summon / destructible / portal / base`，
+  `entity-id` 与 `public/js/shared/data.js`、`public/js/shared/destructibles.js` 的实体 id 对齐
+  （如 `tower.arrow-longbow.attack`、`enemy.berserk.cast`、`destructible.vein.ruined`、`portal.spawn.charge`）。
+- **一个状态一条**：每个 `<family>.<entity>.<state>` 是独立清单条目，`frame` 指向该状态在图集里的帧，
+  `frames: 1`、`compression: lossless`、`status: ready`。条目的 `states` 记录该状态对应的动效令牌
+  （`idle / attack / hit / death` 的映射见 `public/js/render/sprite-coverage.js` 的 `ENTITY_STATE_TOKENS`），
+  实体自己的状态名（`move / cast / ruined / charge / hurt / disabled / alive`）由覆盖表持有。
+- 覆盖集：`TOWERS` 8 型 + 每型 3 条进化 = 32 个塔形态；`ENEMIES` 12 型 + `BOSS_VARIANTS` 3 变体 = 15；
+  召唤物 `kind`（当前 `skeleton`）；`DESTRUCTIBLE_TYPES` 5 型；传送门 `spawn`；基地 `crystal`。
+  合计 55 个实体、146 个状态帧；新增实体必须同时进覆盖表与 `tests/sprite-coverage.test.mjs`，否则测试直接红。
+- 帧与锚点：单帧 48×48（= 1 格），同一实体的各状态帧在画布内预对齐，`pivot` 统一 `{ "x": 0.5, "y": 0.5 }`；
+  `anchor` 记录语义（单位 `foot`、塔与场景物 `center`），绘制原点仍是模拟坐标，不同帧因此不漂移。
+- 进化形态：`tower.evolutions` 为完整列表时取**最后一个已应用形态**作为主体精灵，其余形态只影响数值与挂饰，不再叠图。
+- 图集：`public/assets/sprites/entities/entity-atlas@1x.png` + `@2x.png` + `entity-atlas.json`，
+  生成器 `scripts/build-entity-sprites.mjs`（`procedural-canvas2d`，无随机源、无时间戳，同输入两次执行字节一致）。
+- 合并纪律：清单由 `build-sprite-atlas.mjs`（probe）与 `build-entity-sprites.mjs`（实体）共同维护，
+  各自只改自己的条目与图集声明，条目按 id、图集名按字典序排序，任一脚本跑完都是同一份字节。
+- 缺资源回退：`status` 非 `ready` 或文件加载失败时，渲染器 `sprites.draw()` 返回 `false`，
+  实体按既有程序化路径绘制；实体渲染器自己不 `new Image`。
+
 ## 示例资源条目
 
 以下两条是**真实实体**（现有 `public/js/shared/data.js` 中的箭塔与步兵），按本规范走通全流程。

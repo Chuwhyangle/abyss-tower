@@ -4,6 +4,7 @@ import { BOSS_VARIANTS } from '../shared/data/enemies.js';
 import { BALANCE } from '../shared/config.js';
 import { Palette } from './palette.js';
 import { CanvasShapes } from './canvas-shapes.js';
+import { ENEMY_SPRITE_RADIUS, enemySpriteId } from './sprite-coverage.js';
 import { activeSkin, skinColorFor } from '../shared/skins.js';
 
 const T = TILE;
@@ -104,9 +105,11 @@ export function hitFlashAlpha(flash, variant = ENEMY_ANIM_VARIANTS.full) {
 }
 
 export class EnemyRenderer {
-  constructor(game, { glow }) {
+  constructor(game, { glow, sprites = null } = {}) {
     this.game = game;
     this.glow = glow;
+    // 注入式精灵管线：敌人渲染器自己不加载图片；未注入 / 缺资源时走既有程序化形体。
+    this.sprites = sprites;
   }
 
   render(g, time, settings) {
@@ -171,19 +174,27 @@ export class EnemyRenderer {
       if (def.shape === 'dart') g.rotate(enemy.angle + lean);
       else if (def.shape === 'hex') g.rotate(Math.sin(enemy.id) * 0.08 + lean);
       else if (walk.enabled) g.rotate(lean);
-      this.drawEnemyBody(
-        g,
-        time,
-        enemy,
-        def,
-        vr,
-        walk.enabled,
-        variantDef
-          ? Palette.presentColor(variantDef.color, settings)
-          : skinColorFor(skin, Palette.enemyColor(enemy.type, settings)),
-        outline,
-        mergeOutline
-      );
+      // 精灵优先：注册表命中且有可用帧时用图集贴图替换形体（帧内是标称半径的同一画布，
+      // 按实体模拟半径等比缩放）；draw 返回 false 时完整走既有程序化路径。
+      const spriteId = enemySpriteId(enemy);
+      const spriteDrawn = spriteId
+        ? this.sprites?.draw(g, spriteId, 0, 0, { scale: vr / ENEMY_SPRITE_RADIUS }) === true
+        : false;
+      if (!spriteDrawn) {
+        this.drawEnemyBody(
+          g,
+          time,
+          enemy,
+          def,
+          vr,
+          walk.enabled,
+          variantDef
+            ? Palette.presentColor(variantDef.color, settings)
+            : skinColorFor(skin, Palette.enemyColor(enemy.type, settings)),
+          outline,
+          mergeOutline
+        );
+      }
 
       // 皮肤轮廓：高配单独描环；低配已并进本体主描边，不再新增绘制调用。
       if (outline && !mergeOutline) {

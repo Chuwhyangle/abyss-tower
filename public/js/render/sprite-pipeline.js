@@ -377,10 +377,17 @@ export class SpritePipeline {
     record.url = null;
   }
 
+  // 预算按「解码后的唯一图片」计：图集条目共享同一张 PNG（每条只切不同 frame），
+  // 逐条目累加会把同一张图重复算 N 次，内存预算因此误判并成批跳帧。
   bytes() {
+    const seen = new Set();
     let total = 0;
     for (const record of this.records.values()) {
-      if (record.state === 'ready' && record.image) total += record.bytes;
+      if (record.state !== 'ready' || !record.image) continue;
+      const key = record.url || record.image;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      total += record.bytes;
     }
     return total;
   }

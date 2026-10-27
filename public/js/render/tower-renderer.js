@@ -3,6 +3,7 @@ import { TILE, TOWERS } from '../shared/data.js';
 import { BALANCE } from '../shared/config.js';
 import { Palette } from './palette.js';
 import { CanvasShapes } from './canvas-shapes.js';
+import { towerSpriteId } from './sprite-coverage.js';
 import { activeSkin, skinColorFor } from '../shared/skins.js';
 
 const T = TILE;
@@ -187,9 +188,12 @@ export function towerUpgradePulse(level, time, variant = TOWER_ANIM_VARIANTS.ful
 }
 
 export class TowerRenderer {
-  constructor(game, { glow }) {
+  constructor(game, { glow, sprites = null } = {}) {
     this.game = game;
     this.glow = glow;
+    // 注入式精灵管线：渲染器自己不加载图片，缺资源 / 未注入时 draw() 不可用，
+    // 塔身继续走下面的程序化路径（画面与接入前一致）。
+    this.sprites = sprites;
   }
 
   renderRanges(g, settings) {
@@ -251,6 +255,12 @@ export class TowerRenderer {
       g.translate(x, y);
       g.scale(1.06, 1.06);
 
+      // 精灵优先：注册表命中且有可用帧时，用图集贴图替换塔身（石台/炮塔/停摆表现都在帧里）；
+      // draw 返回 false（未注入 / 缺资源 / 未登记）时完整走下面的程序化路径。
+      // 射程圈、升级脉冲、选中框属于覆盖层，无论走哪条路径都照旧绘制。
+      const spriteId = towerSpriteId(tower, game.time);
+      const spriteDrawn = spriteId ? this.sprites?.draw(g, spriteId, 0, 0, { rotation: tower.angle }) === true : false;
+
       // 升级脉冲：只在高配出现，相位固定到塔位避免整场同频闪烁。
       const pulse = towerUpgradePulse(level, time, anim, tower.x * 0.37 + tower.y * 0.21);
       if (pulse > 0) {
@@ -261,110 +271,112 @@ export class TowerRenderer {
         g.stroke();
       }
 
-      const oct = (radius) => {
-        g.beginPath();
-        for (let i = 0; i < 8; i++) {
-          const a = Math.PI / 8 + (i / 8) * Math.PI * 2;
-          const px = Math.cos(a) * radius;
-          const py = Math.sin(a) * radius;
-          i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      if (!spriteDrawn) {
+        const oct = (radius) => {
+          g.beginPath();
+          for (let i = 0; i < 8; i++) {
+            const a = Math.PI / 8 + (i / 8) * Math.PI * 2;
+            const px = Math.cos(a) * radius;
+            const py = Math.sin(a) * radius;
+            i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+          }
+          g.closePath();
+        };
+
+        // 石台：低配把皮肤轮廓并入这一圈外描边，避免额外 stroke。
+        oct(22);
+        g.fillStyle = '#0a1116';
+        g.fill();
+        if (mergeOutline) {
+          g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
+          g.lineWidth = outline.width;
+        } else {
+          g.strokeStyle = Palette.hexToRgba(color, 0.42);
+          g.lineWidth = 2;
         }
-        g.closePath();
-      };
-
-      // 石台：低配把皮肤轮廓并入这一圈外描边，避免额外 stroke。
-      oct(22);
-      g.fillStyle = '#0a1116';
-      g.fill();
-      if (mergeOutline) {
-        g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
-        g.lineWidth = outline.width;
-      } else {
-        g.strokeStyle = Palette.hexToRgba(color, 0.42);
-        g.lineWidth = 2;
-      }
-      g.stroke();
-
-      oct(17.5);
-      g.fillStyle = '#121d24';
-      g.fill();
-      g.strokeStyle = Palette.hexToRgba(color, 0.16);
-      g.lineWidth = 1;
-      g.stroke();
-
-      // 能量环
-      g.strokeStyle = Palette.hexToRgba(color, 0.5);
-      g.lineWidth = 1.4;
-      g.beginPath();
-      g.arc(0, 0, 14, time * 0.4, time * 0.4 + Math.PI * 1.1);
-      g.stroke();
-
-      // 皮肤轮廓：高配单独描环；低配已并进石台外描边，不再新增绘制调用。
-      if (outline && !mergeOutline) {
-        g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
-        g.lineWidth = outline.width;
-        g.beginPath();
-        g.arc(0, 0, 24, 0, Math.PI * 2);
         g.stroke();
-      }
 
-      // 铆钉
-      g.fillStyle = '#1c2a33';
-      for (let i = 0; i < 4; i++) {
-        const a = Math.PI / 4 + (i / 4) * Math.PI * 2;
-        g.beginPath();
-        g.arc(Math.cos(a) * 19, Math.sin(a) * 19, 1.7, 0, Math.PI * 2);
+        oct(17.5);
+        g.fillStyle = '#121d24';
         g.fill();
-      }
+        g.strokeStyle = Palette.hexToRgba(color, 0.16);
+        g.lineWidth = 1;
+        g.stroke();
 
-      // 等级宝石
-      for (let i = 0; i < 3; i++) {
-        const filled = i <= level;
-        const offset = (i - 1) * 7;
+        // 能量环
+        g.strokeStyle = Palette.hexToRgba(color, 0.5);
+        g.lineWidth = 1.4;
         g.beginPath();
-        g.moveTo(offset, 25);
-        g.lineTo(offset + 2.4, 27.5);
-        g.lineTo(offset, 30);
-        g.lineTo(offset - 2.4, 27.5);
-        g.closePath();
-        g.fillStyle = filled ? '#ffd36b' : 'rgba(255,211,107,0.15)';
-        g.fill();
-        if (filled && glow) {
-          g.strokeStyle = 'rgba(255,211,107,0.5)';
-          g.lineWidth = 0.8;
+        g.arc(0, 0, 14, time * 0.4, time * 0.4 + Math.PI * 1.1);
+        g.stroke();
+
+        // 皮肤轮廓：高配单独描环；低配已并进石台外描边，不再新增绘制调用。
+        if (outline && !mergeOutline) {
+          g.strokeStyle = Palette.hexToRgba(outline.color, outline.alpha);
+          g.lineWidth = outline.width;
+          g.beginPath();
+          g.arc(0, 0, 24, 0, Math.PI * 2);
           g.stroke();
         }
-      }
 
-      // 进化标识：每条路线独有的轮廓 + 符文组合，开销随画质档位递增。
-      if (evolution) {
-        this.drawEvolutionMark(
+        // 铆钉
+        g.fillStyle = '#1c2a33';
+        for (let i = 0; i < 4; i++) {
+          const a = Math.PI / 4 + (i / 4) * Math.PI * 2;
+          g.beginPath();
+          g.arc(Math.cos(a) * 19, Math.sin(a) * 19, 1.7, 0, Math.PI * 2);
+          g.fill();
+        }
+
+        // 等级宝石
+        for (let i = 0; i < 3; i++) {
+          const filled = i <= level;
+          const offset = (i - 1) * 7;
+          g.beginPath();
+          g.moveTo(offset, 25);
+          g.lineTo(offset + 2.4, 27.5);
+          g.lineTo(offset, 30);
+          g.lineTo(offset - 2.4, 27.5);
+          g.closePath();
+          g.fillStyle = filled ? '#ffd36b' : 'rgba(255,211,107,0.15)';
+          g.fill();
+          if (filled && glow) {
+            g.strokeStyle = 'rgba(255,211,107,0.5)';
+            g.lineWidth = 0.8;
+            g.stroke();
+          }
+        }
+
+        // 进化标识：每条路线独有的轮廓 + 符文组合，开销随画质档位递增。
+        if (evolution) {
+          this.drawEvolutionMark(
+            g,
+            time,
+            evolutionVisual(evolution.id),
+            evolutionVisualBudget(settings.decorations),
+            accent
+          );
+        }
+
+        // 炮塔：整机后退 + 高配追加炮管回缩，二者都只读模拟层已有的 recoil。
+        g.save();
+        g.rotate(tower.angle);
+        g.translate(-recoil * anim.recoil.distance, 0);
+        this.drawTowerShape(
           g,
           time,
-          evolutionVisual(evolution.id),
-          evolutionVisualBudget(settings.decorations),
-          accent
+          tower.type,
+          Math.min(1, recoil * anim.recoil.barrel),
+          1,
+          level,
+          glow,
+          color
         );
+        g.restore();
+
+        // 被首领震击停摆：变暗 + 电弧 + 剩余时间弧线。
+        if (disabled) this.drawDisabled(g, time, disableLeft);
       }
-
-      // 炮塔：整机后退 + 高配追加炮管回缩，二者都只读模拟层已有的 recoil。
-      g.save();
-      g.rotate(tower.angle);
-      g.translate(-recoil * anim.recoil.distance, 0);
-      this.drawTowerShape(
-        g,
-        time,
-        tower.type,
-        Math.min(1, recoil * anim.recoil.barrel),
-        1,
-        level,
-        glow,
-        color
-      );
-      g.restore();
-
-      // 被首领震击停摆：变暗 + 电弧 + 剩余时间弧线。
-      if (disabled) this.drawDisabled(g, time, disableLeft);
 
       if (game.selectedTower === tower) {
         g.strokeStyle = 'rgba(255, 211, 107, 0.95)';

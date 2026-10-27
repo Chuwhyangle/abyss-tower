@@ -2,6 +2,17 @@
   "version": 1,
   "generator": "scripts/build-sprite-atlas.mjs",
   "atlases": {
+    "entity-atlas": {
+      "json": "/assets/sprites/entities/entity-atlas.json",
+      "images": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 1008,
+        "h": 336
+      }
+    },
     "probe-atlas": {
       "json": "/assets/sprites/probe/probe-atlas.json",
       "images": {
@@ -15,6 +26,1800 @@
     }
   },
   "entries": [
+    {
+      "id": "base.crystal.hurt",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "base.crystal.hurt",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "base.crystal.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "base.crystal.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.cache.alive",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.cache.alive",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.cache.ruined",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "death"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.cache.ruined",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.nest.alive",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.nest.alive",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.nest.ruined",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "death"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.nest.ruined",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.obelisk.alive",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.obelisk.alive",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.obelisk.ruined",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "death"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.obelisk.ruined",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.totem.alive",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.totem.alive",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.totem.ruined",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "death"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.totem.ruined",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.vein.alive",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.vein.alive",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "destructible.vein.ruined",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "death"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "destructible.vein.ruined",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.armored.cast",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.armored.cast",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.armored.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.armored.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.armored.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.armored.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.berserk.cast",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.berserk.cast",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.berserk.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.berserk.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.berserk.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.berserk.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.boss.cast",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.boss.cast",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.boss.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.boss.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.boss.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.boss.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.caster.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.caster.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.caster.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.caster.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.flyer.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.flyer.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.flyer.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.flyer.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.grunt.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.grunt.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.grunt.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.grunt.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.healer.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.healer.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.healer.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.healer.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.herald.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.herald.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.herald.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.herald.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.runner.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.runner.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.runner.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.runner.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.shielder.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.shielder.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.shielder.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.shielder.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.splitling.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.splitling.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.splitling.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.splitling.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.splitter.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.splitter.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.splitter.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.splitter.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.summoner.cast",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.summoner.cast",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.summoner.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.summoner.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.summoner.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.summoner.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.swarm.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.swarm.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.swarm.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.swarm.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.tank.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.tank.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.tank.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.tank.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
     {
       "id": "fx/probe",
       "path": "public/assets/sprites/probe/probe.png",
@@ -47,6 +1852,3906 @@
       "provenance": {
         "source": "自带程序生成",
         "author": "scripts/build-sprite-atlas.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "portal.spawn.charge",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "portal.spawn.charge",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "portal.spawn.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "portal.spawn.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "summon.skeleton.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "summon.skeleton.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "summon.skeleton.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "summon.skeleton.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-conductor.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-conductor.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-conductor.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-conductor.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-conductor.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-conductor.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-overload.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-overload.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-overload.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-overload.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-overload.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-overload.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-storm.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-storm.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-storm.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-storm.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc-storm.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc-storm.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arc.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arc.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-longbow.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-longbow.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-longbow.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-longbow.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-longbow.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-longbow.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-ranger.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-ranger.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-ranger.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-ranger.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-ranger.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-ranger.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-rapid.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-rapid.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-rapid.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-rapid.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow-rapid.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow-rapid.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.arrow.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.arrow.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-drum.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-drum.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-drum.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-drum.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-drum.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-drum.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-horn.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-horn.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-horn.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-horn.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-horn.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-horn.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-standard.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-standard.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-standard.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-standard.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner-standard.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner-standard.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.banner.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.banner.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-barrage.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-barrage.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-barrage.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-barrage.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-barrage.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-barrage.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-mortar.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-mortar.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-mortar.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-mortar.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-mortar.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-mortar.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-siege.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-siege.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-siege.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-siege.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon-siege.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon-siege.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.cannon.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.cannon.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-blizzard.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-blizzard.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-blizzard.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-blizzard.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-blizzard.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-blizzard.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-deepfreeze.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-deepfreeze.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-deepfreeze.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-deepfreeze.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-deepfreeze.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-deepfreeze.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-icelance.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-icelance.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-icelance.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-icelance.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost-icelance.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost-icelance.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.frost.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.frost.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-blight.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-blight.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-blight.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-blight.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-blight.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-blight.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-miasma.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-miasma.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-miasma.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-miasma.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-miasma.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-miasma.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-virulent.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-virulent.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-virulent.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-virulent.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison-virulent.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison-virulent.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.poison.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.poison.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-glacier.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-glacier.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-glacier.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-glacier.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-glacier.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-glacier.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-quake.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-quake.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-quake.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-quake.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-quake.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-quake.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-resonance.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-resonance.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-resonance.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-resonance.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock-resonance.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock-resonance.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.shock.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.shock.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-marksman.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-marksman.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-marksman.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-marksman.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-marksman.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-marksman.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-overwatch.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-overwatch.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-overwatch.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-overwatch.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-overwatch.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-overwatch.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-piercer.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-piercer.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-piercer.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-piercer.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper-piercer.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper-piercer.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper.attack",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "attack"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper.attack",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper.disabled",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper.disabled",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "tower.sniper.idle",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "tower.sniper.idle",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
         "license": "proprietary-internal",
         "url": "-",
         "retrievedAt": "2026-10-27"

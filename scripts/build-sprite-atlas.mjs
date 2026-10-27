@@ -140,20 +140,49 @@ export function buildManifest(spec = SPRITE_SPEC) {
   };
 }
 
+// 清单是多生成器共享的：本脚本只负责自己的 probe 条目与图集声明，其它条目原样保留。
+// 条目按 id 排序、图集名按字典序，任一生成器跑完都得到同一份字节（可重复构建）。
+export function mergeManifest(previous, own) {
+  const base = previous && typeof previous === 'object' ? previous : {};
+  const ownIds = new Set(own.entries.map((entry) => entry.id));
+  const kept = (Array.isArray(base.entries) ? base.entries : []).filter(
+    (entry) => !ownIds.has(String(entry?.id || ''))
+  );
+  const entries = [...kept, ...own.entries].sort((a, b) => (String(a?.id) < String(b?.id) ? -1 : 1));
+  const atlases = { ...(base.atlases || {}), ...own.atlases };
+  const orderedAtlases = Object.fromEntries(
+    Object.entries(atlases).sort(([a], [b]) => (a < b ? -1 : 1))
+  );
+  return {
+    version: base.version || own.version,
+    generator: base.generator || own.generator,
+    atlases: orderedAtlases,
+    entries,
+  };
+}
+
+function readDiskManifest(root = ROOT) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(root, MANIFEST_PATH), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
 // 产物清单：路径相对仓库根 → Buffer。顺序固定，便于比较。
-export function buildArtifacts(spec = SPRITE_SPEC) {
+export function buildArtifacts(spec = SPRITE_SPEC, { root = ROOT, previous = readDiskManifest(root) } = {}) {
   const json = (value) => Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8');
   return [
     { path: ATLAS_IMAGE_PATH, data: encodePng(buildAtlasImage(spec)) },
     { path: ATLAS_IMAGE_2X_PATH, data: encodePng(buildAtlas2x(spec)) },
     { path: ATLAS_JSON_PATH, data: json(buildAtlasJson(spec)) },
-    { path: MANIFEST_PATH, data: json(buildManifest(spec)) },
+    { path: MANIFEST_PATH, data: json(mergeManifest(previous, buildManifest(spec))) },
   ];
 }
 
 // 写出全部产物；返回写入的路径。--check 只比对不写。
 export function writeArtifacts({ root = ROOT, check = false, spec = SPRITE_SPEC } = {}) {
-  const artifacts = buildArtifacts(spec);
+  const artifacts = buildArtifacts(spec, { root });
   const changed = [];
   for (const artifact of artifacts) {
     const target = path.join(root, artifact.path);

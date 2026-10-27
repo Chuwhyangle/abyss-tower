@@ -5,6 +5,7 @@
 import { TILE } from '../shared/data.js';
 import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
 import { Palette } from './palette.js';
+import { destructibleSpriteId } from './sprite-coverage.js';
 
 const T = TILE;
 
@@ -137,6 +138,13 @@ function hashId(value) {
 export class DestructibleRenderer {
   constructor(game) {
     this.game = game;
+    // 精灵管线由 Renderer 注入（setSprites）：未注入 / 缺资源时走程序化图形与废墟。
+    this.sprites = null;
+  }
+
+  setSprites(sprites) {
+    this.sprites = sprites || null;
+    return this;
   }
 
   items() {
@@ -161,11 +169,14 @@ export class DestructibleRenderer {
       const cy = (item.r + 0.5) * T;
       const color = Palette.presentColor(type.color, settings);
       g.save();
+      // 精灵优先：存活 / 已毁各有独立帧；draw 返回 false 时完整走程序化图形与废墟残迹。
+      const spriteId = destructibleSpriteId(item);
+      const spriteDrawn = spriteId ? this.sprites?.draw(g, spriteId, cx, cy) === true : false;
       if (item.destroyed) {
-        drawRuins(g, cx, cy, item, color);
+        if (!spriteDrawn) drawRuins(g, cx, cy, item, color);
       } else {
         if (hover && hover.c === item.c && hover.r === item.r) drawHover(g, cx, cy, color);
-        drawAlive(g, cx, cy, type, color, profile, t);
+        if (!spriteDrawn) drawAlive(g, cx, cy, type, color, profile, t);
       }
       g.restore();
       drawn += 1;

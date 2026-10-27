@@ -44,13 +44,19 @@ export class Renderer {
     this.glow = new GlowRenderer();
     this.backgroundRenderer = new BackgroundRenderer(game);
     this.portals = new PortalRenderer(game);
-    this.towers = new TowerRenderer(game, { glow: this.glow });
-    this.enemies = new EnemyRenderer(game, { glow: this.glow });
+    // 实体渲染器只接收注入的精灵管线（自己不加载图片）：
+    // 有可用帧时用图集贴图替换形体，缺资源时完整回退既有程序化绘制。
+    this.towers = new TowerRenderer(game, { glow: this.glow, sprites: this.sprites });
+    this.enemies = new EnemyRenderer(game, { glow: this.glow, sprites: this.sprites });
     // 友方单位（海克斯召唤物）：塔之上、敌人之下的独立层。
     this.allyRenderer = new AllyRenderer(game);
     this.projectiles = new ProjectileRenderer(game, { glow: this.glow });
     // 场景可破坏物：地面层，塔之下、范围圈之上（只读 game.destructibles）。
     this.destructibleRenderer = new DestructibleRenderer(game);
+    // 这三个渲染器的构造签名被既有测试断言固定为 (game)，精灵管线用 setter 注入。
+    this.portals.setSprites(this.sprites);
+    this.allyRenderer.setSprites(this.sprites);
+    this.destructibleRenderer.setSprites(this.sprites);
     this.effects = new EffectRenderer(game, { glow: this.glow });
     this.floaters = new FloaterRenderer(game);
     this.overlay = new OverlayRenderer();
@@ -158,7 +164,8 @@ export class Renderer {
     // L0：背景之后（极光帘幕 / 星海 / 冷暖底色）
     this.skillRenderer.renderL0(g, this.time, this.settings);
 
-    this.portals.render(g, this.time, this.settings.glow);
+    // 传送门与基地：hurtFlash 用上一帧的值（低血/受击帧），不改变本帧的受击检测顺序。
+    this.portals.render(g, this.time, this.settings.glow, this.hurtFlash);
     this.towers.renderRanges(g, this.settings);
     // 前摇预警：射程圈之上、塔与敌人之下，保持路径信息可读。
     this.skillRenderer.renderWarnings(g, this.time, this.settings);
