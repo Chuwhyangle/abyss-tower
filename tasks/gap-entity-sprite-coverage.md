@@ -81,7 +81,10 @@ AC-023 的 criterion 是 `node --test tests/sprite-coverage.test.mjs`，该文�
 - `public/js/render/ally-renderer.js`
 - `public/js/render/destructible-renderer.js`
 - `public/js/render/portal-renderer.js`
+- `public/js/render/sprite-pipeline.js`
 - `scripts/build-entity-sprites.mjs` (new)
+- `scripts/build-sprite-atlas.mjs`
+- `scripts/test-changed.mjs`
 - `public/assets/sprites/manifest.json`
 - `public/assets/sprites/entities/entity-atlas.json` (new)
 - `public/assets/sprites/entities/entity-atlas@1x.png` (new)
@@ -99,3 +102,33 @@ AC-023 的 criterion 是 `node --test tests/sprite-coverage.test.mjs`，该文�
 - 精灵是**替换形体**而不是叠加：`draw()` 返回 `true` 时跳过对应的程序化形体绘制（否则会双重描边、且每帧 drawImage 预算翻倍）；覆盖层（射程圈、血条、首领名、受击闪白、选中框）照旧。
 - 命中/飘字/音效逻辑不写、不读本任务新增状态；`sim` 的状态字段是只读输入，禁止为了让动画更好看而改模拟层或 RNG 调用顺序。
 - 文档 lane（DOCS-001，2026-10-27）：本任务的设计增量已收口到 `docs/PHASE_FEEL_ART.md`；两份总文档不再由本任务修改（Touches 已摘除），实现中新发现的设计增量写进本任务 Notes。
+
+### 实现记录（gap-entity-sprite-coverage，2026-10-27）
+
+**覆盖规模**：55 个实体 / 146 个状态帧 —— 塔 32 形态（8 型 + 24 进化）× 3 状态（idle/attack/disabled）；敌人 12 型 × 2（move/hit）+ 首领（`boss` 与 3 变体）× 3（多一帧 cast）；召唤物 `skeleton` × 2（idle/attack）；可破坏物 5 型 × 2（alive/ruined）；传送门 `portal.spawn` × 2（idle/charge）；基地 `base.crystal` × 2（idle/hurt）。
+
+**状态名与令牌映射**（`ENTITY_STATE_TOKENS`）：实体状态名 `move/cast/alive/ruined/charge/hurt/disabled` 不在 `MOTION_TOKENS` 里，清单条目的 `states` 字段记对应令牌（move→idle、cast→attack、ruined→death、charge→attack、hurt→hit、disabled→hit），实体自己的状态机只活在覆盖表里；每个状态一条清单条目（`frames: 1`），`frame` = 精灵 id。该约定已写入 `docs/ASSET_PIPELINE.md` 新增「实体精灵条目（单位覆盖）」小节。
+
+**进化形态选择（冻结）**：`tower.evolutions` 是完整列表时取**最后一个已应用形态**作为主体精灵；未知进化 id 回退底座形态；`tower.evolution` 仅在旧存档里作为单值兼容。
+
+**帧与缩放**：单帧 48×48，各状态帧在画布内预对齐，`pivot` 统一 (0.5, 0.5)，`anchor` 记语义（enemy/summon=foot，其余 center）。单位帧按模拟半径等比缩放：`ENEMY_SPRITE_RADIUS=14`、`SUMMON_SPRITE_RADIUS=12`（生成器与渲染器共用同一常量，不各写魔数）；塔/可破坏物/传送门/基地按 1:1 绘制。
+
+**DPR 变体**：仍由 `Renderer.applyDpr()` 唯一权威，管线只 `configure({ dpr })` 重选变体；@1x 图集 1008×336、@2x 2016×672（都在 2048 上限内），每次只请求一档。
+
+**回退路径**：`draw()` 返回 `false`（未注入管线 / 清单不可用 / 该 id 未就绪 / 内存预算跳过）时，五个渲染器完整走既有程序化绘制；覆盖层（射程圈、升级脉冲、选中框、血条、首领名、受击闪白、减速/中毒、护盾、光晕、入口编号与方向箭头、生命环）无论走哪条路径都照旧。`renderPlacement` 的放置预览仍用程序化塔身（不是实体实例）。
+
+**管线修复（Plan 第 8 条允许的 ABI 同步）**：图集条目共享同一张 PNG，`SpritePipeline.bytes()` 原先逐条目累加，把 146 条目 × 整图尺寸误算成 ~198MB > 64MiB 预算，导致预载后成批 `skipped`（浏览器臂最初只画出 5 座塔的实测原因）。改为按唯一图片 URL 计（`public/js/render/sprite-pipeline.js`），真实占用 ~1.3MB(@1x)/5.4MB(@2x)；`stats().bytes` 语义从「条目字节和」变为「唯一图片字节和」，`tests/sprite-pipeline.test.mjs` 全绿（其用例本就一 URL 一条目）。
+
+**清单共享**：`scripts/build-sprite-atlas.mjs` 改为只负责自己的 probe 条目与图集声明，其它条目原样保留；两个生成器统一「条目按 id 排序、图集名按字典序」，任一脚本跑完字节一致（否则 probe 重生成会把实体段抹掉，`tests/sprite-pipeline.test.mjs` 的资源可追溯用例会红）。
+
+**注入方式**：塔/敌人经构造参数 `{ glow, sprites }`；传送门/盟友/可破坏物经 `setSprites()`（保持既有 `new DestructibleRenderer(game)` 源码断言不变）。
+
+**伴生登记**：`scripts/test-changed.mjs` 的 TEST_MAP 增补 `sprite-coverage.js` / `build-entity-sprites.mjs`，并把新测试加进五个渲染器与 `render.js` 的映射（新增源文件不登记会让全量 suite 的审计覆盖变红）。
+
+**实测证据**：
+- `node --test tests/sprite-coverage.test.mjs`：13 pass / 0 fail（覆盖集严格相等、状态帧像素哈希互异、清单可解析、生成器确定性、六个选择器、接线源码断言）。
+- 覆盖拦截有效性：临时删掉 `herald` → 4 条用例转红（覆盖集、coverageGaps、状态帧、生成器一致性），恢复后 13 pass。
+- `node tests/browser-sprite-coverage.mjs`（`LANG=zh_CN.UTF-8`，真实 Chrome）：通过。基础采样 31 个状态帧、misses 0；24 条进化形态的待机帧与后坐帧全部出现；状态切换命中 attack 32 / disabled 8 / hit 12 / cast 3 / ruined 5 / hurt 1；缺资源臂 A（屏蔽 `*assets/sprites/*`）`stats.total=0`、draw 全 false、画面仍推进；臂 B（只屏蔽 `*.png`）`stats.failed=147`、`window.__bootErrors` 为空。
+- `npm test`：1564 pass / 0 fail；`check:syntax` / `check:style` / `check:imports` 全绿。
+- `npm run perf:budget`：PASS（normal-1x-low / late-3x-high / skills-1x-high 三场景均 PASS，渲染耗时反而下降——一次 `drawImage` 取代多条路径重建）。每实体每帧新增 1 次 `drawImage`（塔 32、敌人 15、召唤物/可破坏物/传送门/基地各 1）；图集字节 @1x 53.7KB、@2x 84.0KB，解码后内存 1.3MB / 5.4MB。
+- `npm run smoke` / `npm run test:mobile`（`LANG=zh_CN.UTF-8`）：通过。
