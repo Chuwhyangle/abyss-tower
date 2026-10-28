@@ -333,10 +333,6 @@ export function scenarioPlan(id) {
   return MATERIALIZED.get(id);
 }
 
-export function scenarioIds() {
-  return Object.keys(SPECS);
-}
-
 // 计划自检：采集器在启动浏览器之前先跑一遍，计划本身不成立就不该产生任何帧。
 export function validateScenarioPlans() {
   const errors = [];
@@ -403,7 +399,8 @@ export function validateScenarioPlans() {
 
 export function frameKey(result, frame) {
   const scope = result.scenario || result.scene;
-  const group = result.towerType ? `:${result.towerType}` : '';
+  const towerType = result.towerType || frame.towerType;
+  const group = towerType ? `:${towerType}` : '';
   return `${scope}@${result.viewport}${group}#${frame.id}`;
 }
 
@@ -462,6 +459,10 @@ function groupEvidence(result, group) {
     ? [...effectSignatures].filter((signature) => signature.endsWith(`:${towerType}`)).sort()
     : [];
   const firingKinds = [...effectKinds].filter((kind) => kind !== 'place' && kind !== 'spawn');
+  const culminations = new Set();
+  for (const frame of frames) {
+    for (const kind of frame.snapshot?.culminations || []) culminations.add(kind);
+  }
   return {
     key: group.key,
     towerType,
@@ -475,6 +476,7 @@ function groupEvidence(result, group) {
     maxFloaters,
     effectKinds: [...effectKinds].sort(),
     effectSignatures: [...effectSignatures].sort(),
+    culminations: [...culminations].sort(),
   };
 }
 
