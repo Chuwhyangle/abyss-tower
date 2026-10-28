@@ -21,6 +21,7 @@ import {
   resolveMotionBudget,
   shakeImpulseFor,
 } from '../public/js/render/camera-feedback.js';
+import { ENEMY_ANIM_VARIANTS } from '../public/js/render/enemy-renderer.js';
 
 const SOURCE = {
   camera: fs.readFileSync(
@@ -183,6 +184,26 @@ test('① 运动预算：四种组合 + 最低画质，关闭运动时运动分�
   // 缺省设置（含 undefined）不抛错且按关闭运动处理。
   assert.equal(resolveMotionBudget().motion, false);
   assert.equal(resolveMotionBudget(null, { reducedMotion: false }).motion, false);
+});
+
+test('①b 降级只关运动：最低画质 / 关闭震屏下受击高光仍开启', () => {
+  // 命中可见性是非运动反馈：运动分量归零时不允许把受击高光一起关掉。
+  for (const budget of [
+    resolveMotionBudget(FULL_MOTION, { reducedMotion: true }),
+    resolveMotionBudget({ shake: false, decorations: 'full' }),
+  ]) {
+    assert.equal(budget.motion, false);
+    assert.equal(budget.flashScale, 1, '命中高光不随运动降级');
+  }
+  for (const tier of ['light', 'full']) {
+    const anim = ENEMY_ANIM_VARIANTS[tier];
+    assert.equal(anim.hitFlash.enabled, true, `${tier} 档受击高光必须开启`);
+    assert.ok(anim.hitFlash.alpha > 0, `${tier} 档受击高光强度必须为正`);
+    assert.ok(anim.hitFlash.radius >= 1, `${tier} 档高光半径不得小于本体`);
+  }
+  // 低配先砍行走位移（运动），命中（非运动）保留。
+  assert.equal(ENEMY_ANIM_VARIANTS.light.walk.enabled, false);
+  assert.equal(ENEMY_ANIM_VARIANTS.off.hitFlash.enabled, false, '最低档才真正关闭高光');
 });
 
 test('② hitstop：dot 为 0、暴击/致死单调递增、永不超过上限', () => {

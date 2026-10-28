@@ -272,6 +272,58 @@ export function classifyEffect(effect) {
   return EFFECT_KIND_EVENTS[kind] || kind || 'unknown';
 }
 
+// 锐利命中星芒（FEEL-001 观感回归修复）：六向白色放射线 + 核心闪白。
+// 这是 3b8e1fd 里「这一下打中了」的可辨识锐利切分；武器形态（impact-vfx）只提供
+// 颜色语言与方向感，两者叠加而不是互相替代——所以武器命中在任何画质档都画满 6 条。
+// 几何与历史版本一致（长短交错、随进度外扩）。
+export const SHARP_HIT_STAR = Object.freeze({
+  rays: 6,
+  rotate: 0.35,
+  inner: 2.5,
+  innerGrowth: 3,
+  base: 6,
+  reach: 9,
+  reachAlt: 4,
+  width: 1.7,
+  coreScale: 2.6,
+  coreAlpha: 0.85,
+  color: '#ffffff',
+});
+
+// 纯绘制：只画在传入的上下文上，返回实际画出的线数（0 = 未绘制）。
+// rays 只给旧火花（无 weapon）沿用历史的档位缩放；武器命中一律画满，保证可辨识切分。
+export function drawSharpHitStar(
+  g,
+  x,
+  y,
+  p,
+  fade,
+  { color = SHARP_HIT_STAR.color, rays = SHARP_HIT_STAR.rays, star = SHARP_HIT_STAR } = {}
+) {
+  if (!(fade > 0)) return 0;
+  const count = Math.max(1, Math.round(rays));
+  g.save();
+  g.globalAlpha = fade;
+  g.strokeStyle = color;
+  g.lineWidth = star.width;
+  g.lineCap = 'round';
+  for (let i = 0; i < count; i++) {
+    const a = (i / count) * PI2 + star.rotate;
+    const inner = star.inner + p * star.innerGrowth;
+    const outer = star.base + p * (star.reach + (i % 2) * star.reachAlt);
+    g.beginPath();
+    g.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
+    g.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
+    g.stroke();
+  }
+  g.fillStyle = Palette.withAlpha(star.color, fade * star.coreAlpha);
+  g.beginPath();
+  g.arc(x, y, star.coreScale * (1 - p * 0.6), 0, PI2);
+  g.fill();
+  g.restore();
+  return count;
+}
+
 // 事件对象上的 weapon 决定命中签名；缺字段（旧事件、非塔来源）返回 null 走通用外观。
 function impactFor(effect, profile) {
   const weapon = effect && effect.weapon;
@@ -406,29 +458,15 @@ export class EffectRenderer {
             this.impactDegraded++;
             drawImpactFallback(g, variant, x, y, p, fade);
           }
+          // 锐利层叠在最上：武器色语言 + 白色星芒，命中在任何预算状态下都有可辨识切分。
+          drawSharpHitStar(g, x, y, p, fade, { color: variant.accent });
           g.restore();
         } else {
-          // 无 weapon 的旧火花：保持既有通用外观（6 条放射线的历史行为不变）。
-          const rays = scaledCount(6, profile);
+          // 无 weapon 的旧火花：武器形态缺省，仍保留同一套锐利星芒，
+          // 线数沿用历史的档位缩放（与低配预算单调的既有契约一致）。
           g.save();
           if (glow) g.globalCompositeOperation = 'lighter';
-          g.globalAlpha = fade;
-          g.strokeStyle = color;
-          g.lineWidth = 1.7;
-          g.lineCap = 'round';
-          for (let i = 0; i < rays; i++) {
-            const a = (i / rays) * PI2 + 0.35;
-            const inner = 2.5 + p * 3;
-            const outer = 6 + p * (9 + (i % 2) * 4);
-            g.beginPath();
-            g.moveTo(x + Math.cos(a) * inner, y + Math.sin(a) * inner);
-            g.lineTo(x + Math.cos(a) * outer, y + Math.sin(a) * outer);
-            g.stroke();
-          }
-          g.fillStyle = Palette.withAlpha('#ffffff', fade * 0.85);
-          g.beginPath();
-          g.arc(x, y, 2.6 * (1 - p * 0.6), 0, PI2);
-          g.fill();
+          drawSharpHitStar(g, x, y, p, fade, { color, rays: scaledCount(SHARP_HIT_STAR.rays, profile) });
           g.restore();
         }
       } else if (effect.kind === 'bolt') {
