@@ -64,20 +64,20 @@ assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open �
 
 ## AC
 
-- [ ] 在被评估 HEAD 上逐字执行 `node --test --test-concurrency=2 tests/*.test.mjs` exit 0 且 `# fail 0`、`grep -c '^not ok'` = 0；Notes 记录 HEAD sha 与完整 `# tests / # pass / # fail / # duration_ms`
-- [ ] 同一 HEAD 上连续第二次执行同一命令同样 exit 0，Notes 给出第二次完整读数，证明不是偶然绿
-- [ ] `git merge-base --is-ancestor <依赖任务修复提交> HEAD` exit 0；Notes 写明该 hash 与其来源任务 id `gap-ac-002-full-suite-3x-witness-live-store`
-- [ ] 立案读数被复算：`git show 93c7601:tests/phase-refactor-sync.test.mjs | sed -n '135,137p'` 仍含 `openGoalTasks.length > 0`，且 `git show 93c7601:docs/PHASE_REFACTOR.md` 的 §7 不含漂移（`node scripts/check-doc-ownership.mjs` exit 0），说明本轮红点是任务库存量而非文档漂移
-- [ ] 若出现非「活任务库耦合」机制的残留失败，对应源文件已先写进本任务 `## Touches`，且 Notes 记录失败文本与根因（本轮若全绿，本条以「无残留失败，Touches 未扩张」勾选）
-- [ ] 本任务 diff 只含 `tasks/gap-ac-005-full-suite-reverify-witness-live-store.md`（`git diff --name-only <base>..HEAD` 逐字核对）
+- [x] 在被评估 HEAD 上逐字执行 `node --test --test-concurrency=2 tests/*.test.mjs` exit 0 且 `# fail 0`、`grep -c '^not ok'` = 0；Notes 记录 HEAD sha 与完整 `# tests / # pass / # fail / # duration_ms`
+- [x] 同一 HEAD 上连续第二次执行同一命令同样 exit 0，Notes 给出第二次完整读数，证明不是偶然绿
+- [x] `git merge-base --is-ancestor <依赖任务修复提交> HEAD` exit 0；Notes 写明该 hash 与其来源任务 id `gap-ac-002-full-suite-3x-witness-live-store`
+- [x] 立案读数被复算：`git show 93c7601:tests/phase-refactor-sync.test.mjs | sed -n '135,137p'` 仍含 `openGoalTasks.length > 0`，且 `git show 93c7601:docs/PHASE_REFACTOR.md` 的 §7 不含漂移（`node scripts/check-doc-ownership.mjs` exit 0），说明本轮红点是任务库存量而非文档漂移
+- [x] 若出现非「活任务库耦合」机制的残留失败，对应源文件已先写进本任务 `## Touches`，且 Notes 记录失败文本与根因（本轮若全绿，本条以「无残留失败，Touches 未扩张」勾选）
+- [x] 本任务 diff 只含 `tasks/gap-ac-005-full-suite-reverify-witness-live-store.md`（`git diff --name-only <base>..HEAD` 逐字核对）
 
 ## DoD
 
-- [ ] 读数可被 driver 独立复算：Notes 同时给出命令原文、每次 stdout 尾部与退出码；被评估 HEAD 已提交、`git status --short` 无本任务相关未提交改动
-- [ ] 判定未被放宽：`tests/phase-refactor-sync.test.mjs`、`scripts/check-stability.mjs`、`package.json` 均不在本任务 diff 中；未新增 skip、忽略或豁免
-- [ ] 不重复实现根因修复：`tests/phase-refactor-sync.test.mjs` 不在本任务 Touches，Notes 指明根因编辑的唯一归属者是 `gap-ac-002-full-suite-3x-witness-live-store`
-- [ ] Notes 写清为何此前 AC-005 的三笔修复都没守住（各修一个具体机制、未建立不变量；同反模式在第二份副本重现且未扫描同类文件）
-- [ ] Notes 写清取舍：为何 AC-005 的见证不折叠进 AC-002 / AC-007 任务（criterion 命令不同、`goal_ac` 单值标量、Touches 文件 lane 不同）
+- [x] 读数可被 driver 独立复算：Notes 同时给出命令原文、每次 stdout 尾部与退出码；被评估 HEAD 已提交、`git status --short` 无本任务相关未提交改动
+- [x] 判定未被放宽：`tests/phase-refactor-sync.test.mjs`、`scripts/check-stability.mjs`、`package.json` 均不在本任务 diff 中；未新增 skip、忽略或豁免
+- [x] 不重复实现根因修复：`tests/phase-refactor-sync.test.mjs` 不在本任务 Touches，Notes 指明根因编辑的唯一归属者是 `gap-ac-002-full-suite-3x-witness-live-store`
+- [x] Notes 写清为何此前 AC-005 的三笔修复都没守住（各修一个具体机制、未建立不变量；同反模式在第二份副本重现且未扫描同类文件）
+- [x] Notes 写清取舍：为何 AC-005 的见证不折叠进 AC-002 / AC-007 任务（criterion 命令不同、`goal_ac` 单值标量、Touches 文件 lane 不同）
 
 ## Touches
 
@@ -89,4 +89,67 @@ assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open �
 
 任务库存量扫描（同 `scripts/check-doc-ownership.mjs` 的 `CLOSED_STATUSES = ['done','superseded','retired','rejected']` 口径）：`goal_ac` 落在 AC-043…AC-049 的 `tasks/*.md` 共 11 个，全部 `done`，open 计数 **0**。归零提交 `6c7cfb2`（2026-10-29T01:56:06+08:00）。
 
-本轮是只读见证任务：不修根因、不改产品代码、不改门禁脚本，Touches 只含自身任务文件（与先例 `gap-ac-005-full-suite-reverify`、`gap-ac-044-full-suite-reverify-landed-fix` 一致）。复验读数待执行后补入。
+本轮是只读见证任务：不修根因、不改产品代码、不改门禁脚本，Touches 只含自身任务文件（与先例 `gap-ac-005-full-suite-reverify`、`gap-ac-044-full-suite-reverify-landed-fix` 一致）。
+
+### 复验读数（2026-10-29，只读见证执行）
+
+被评估 HEAD：`07138c8`（`git rev-parse HEAD` = `07138c80725322601e7fe45448e269e2f2be777b`；`main` == `develop` == 本分支起点）。执行目录为本任务的隔离 worktree（起点与 develop 同一 commit，零代码改动）。
+
+**依赖修复已在祖先链**：`git merge-base --is-ancestor 509cc4b HEAD` → exit **0**。`509cc4b`（`fix(tests): (b) 判定反空转见证改为 fixture 正对照，不再耦合活任务库存量（AC-002）`，2026-10-29T03:04:18+08:00）来自任务 `gap-ac-002-full-suite-3x-witness-live-store`；其后的 `bbf2276`（driver 机械 fan-in 翻 done）亦在链上。当前 `tests/phase-refactor-sync.test.mjs` 已无 `openGoalTasks` 存量断言，改为 `:143` 的 fixture 正对照（`fixture-open` / `AC-048`）。
+
+**第一次执行**（同一 HEAD，命令逐字来自 `extra.acceptance`）：
+
+```
+$ node --test --test-concurrency=2 tests/*.test.mjs
+# tests 1748
+# pass 1748
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 25074.685637
+$ echo $?
+0
+```
+
+`grep -c '^not ok'` = **0**（无任何 `not ok` 行）。
+
+**第二次执行**（同一 HEAD，紧接着）：
+
+```
+$ node --test --test-concurrency=2 tests/*.test.mjs
+# tests 1748
+# pass 1748
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 25468.776474
+$ echo $?
+0
+```
+
+`grep -c '^not ok'` = **0**。测试总数由立案时的 1747 变为 1748（`509cc4b` 新增 fixture 正对照用例），失败集为空，两次读数同源可比，故不是「偶然绿」。
+
+**立案读数复算**（AC 第 4 条）：
+
+- `git show 93c7601:tests/phase-refactor-sync.test.mjs | sed -n '135,137p'` 仍含 `const openGoalTasks = repo.tasks.filter((task) => task.goalAc && PHASE_AC_SET.has(task.goalAc) && isOpen(task.status));` 与 `assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open 的 AC-043…AC-049 任务');` —— 证实立案时的红点正是该存量断言。
+- `git show 93c7601:docs/PHASE_REFACTOR.md` 的 §7（`:126-132`）逐行含 AC-043…AC-049 且命令非空，无漂移；`node scripts/check-doc-ownership.mjs` → exit **0**（`check-doc-ownership: OK — 0 个 open 任务声明总文档（已扫描 98 个任务）`）。结论：红点是**任务库存量**，不是文档漂移。
+
+**无残留失败**：两次全绿，未出现「活任务库耦合」以外的任何失败，故 `## Touches` 未扩张、未编辑任何源文件。
+
+**根因唯一归属**：`tests/phase-refactor-sync.test.mjs` 的根因编辑只属于 `gap-ac-002-full-suite-3x-witness-live-store`（其修复即 `509cc4b`）；本任务全程未触碰该文件、`scripts/check-stability.mjs`、`package.json`。
+
+### 为何此前 AC-005 的三笔修复都没守住
+
+三笔前序任务各只修一个具体机制、都未建立不变量：`gap-test-changed-stale-map-entries`（done）只清理 `scripts/test-changed.mjs` 里 revert 残留的 TEST_MAP 失效映射；`gap-ac-005-full-suite-reverify`（done）与 `gap-ac-005-full-suite-reverify-planned-blocks`（done）都只是只读见证，读数只在别人落地那一刻为真；`gap-goal-001-exit-condition-test-coverage`（superseded）只裁定目标库 AC 集合（验收是 grep `goals/`），不落在仓库代码上。更根本的是**同一反模式蔓延未被扫描**：`gap-phase-ac-mapping-decouple-live-task-store`（done，AC-007）已在 `tests/docs-phase-sync.test.mjs` 删过一次「open 任务存量 > 0」见证，但只落一个文件；随后 `a88f702` 在 `tests/phase-refactor-sync.test.mjs` 原样写回第二份副本，`6c7cfb2` 使其到期（把最后一个 `goal_ac: AC-043` 任务翻 done 后 open 计数归零，此后不存在任何正常任务状态能让它变绿）。教训：修「瞬态事实被写成永久不变量」这一类问题，必须在修口处同时删除**所有副本**，否则每次 AC-005 转绿都只是下一次变红前的间隙。
+
+### 取舍：为何 AC-005 的见证不折叠进 AC-002 / AC-007
+
+1. **criterion 命令不同**：AC-005 逐字为 `node --test --test-concurrency=2 tests/*.test.mjs`；AC-002 是裸 `node --test tests/*.test.mjs` 连跑 3 次；AC-007 是稳定性门禁的另一套口径。`extra.acceptance` 只放得下一条命令，折叠任一条都会让另一条 AC 落成无主缺口。
+2. **`goal_ac` 是单值标量**：一个任务只能落在一个 AC 上，AC-005 立案时无在飞任务声明，折叠即产生无主 AC。
+3. **Touches 文件 lane 不同**：AC-002 拥有 `tests/phase-refactor-sync.test.mjs` 的编辑权，本任务 Touches 只含自身任务文件——同文件并发编辑违反 CLAUDE.md「禁止多个代理同时改同一文件」。
+
+### 交付面
+
+本任务 diff 只含 `tasks/gap-ac-005-full-suite-reverify-witness-live-store.md`；实现期间 `git status --short` 为空；未新增 skip / 忽略 / 豁免；判据未被放宽。
