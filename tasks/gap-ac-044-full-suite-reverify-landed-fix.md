@@ -1,7 +1,7 @@
 ---
 id: gap-ac-044-full-suite-reverify-landed-fix
 title: AC-044 复验：planned 块修复并入主线后 `npm test` exit 0（台账上一轮失败读数早于 fan-in）
-status: ready
+status: done
 labels:
   - gap
   - defect
