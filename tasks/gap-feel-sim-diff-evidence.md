@@ -40,9 +40,9 @@ FEEL-001 的评审者（E.8）要求：用伤害事件日志与 RNG 调用序列
 
 ## Touches
 
-- `scripts/feel-sim-diff.mjs`
-- `tests/feel-sim-diff.test.mjs`
-- `docs/reviews/feel-sim-diff.md`
+- `scripts/feel-sim-diff.mjs` (new)
+- `tests/feel-sim-diff.test.mjs` (new)
+- `docs/reviews/feel-sim-diff.md` (new)
 - `tasks/gap-feel-sim-diff-evidence.md`
 
 ## Notes
