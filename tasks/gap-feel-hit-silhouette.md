@@ -1,7 +1,7 @@
 ---
 id: gap-feel-hit-silhouette
 title: 恢复命中锐利层且不糊掉敌人剪影
-status: ready
+status: done
 labels:
   - gap
 parent: null
