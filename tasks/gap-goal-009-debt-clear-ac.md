@@ -1,7 +1,7 @@
 ---
 id: gap-goal-009-debt-clear-ac
 title: GOAL-009 充分性缺口：退出条件第一条的「债务登记清空」无在域 AC 可读（提案新增 AC-051）
-status: todo
+status: needs-human
 labels:
   - gap
   - refactor
