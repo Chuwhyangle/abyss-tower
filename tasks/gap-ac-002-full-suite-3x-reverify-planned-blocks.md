@@ -1,7 +1,7 @@
 ---
 id: gap-ac-002-full-suite-3x-reverify-planned-blocks
 title: AC-002 复验：planned 块修复落地后全量测试连续 3 次 0 失败（计划态文档产物红由 AC-044 拥有）
-status: todo
+status: ready
 labels:
   - gap
   - defect
