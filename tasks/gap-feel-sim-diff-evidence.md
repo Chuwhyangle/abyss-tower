@@ -27,16 +27,16 @@ FEEL-001 的评审者（E.8）要求：用伤害事件日志与 RNG 调用序列
 
 ## AC
 
-- [ ] `node scripts/feel-sim-diff.mjs --scene combat --seed visual-fixed-seed --out /tmp/feel-sim-diff` exit 0，产出 events/rng/state 三份 JSON
-- [ ] 对两个产物目录执行 diff：一致时 exit 0，任何差异时 exit 1 且打印第一处差异
-- [ ] `node --test tests/feel-sim-diff.test.mjs` 全绿，且含「RNG 序列变化必须报红」的反向断言
-- [ ] `docs/reviews/feel-sim-diff.md` 记录 before/after 对比结论（一致或分叉，附命令与哈希）
+- [x] `node scripts/feel-sim-diff.mjs --scene combat --seed visual-fixed-seed --out /tmp/feel-sim-diff` exit 0，产出 events/rng/state 三份 JSON
+- [x] 对两个产物目录执行 diff：一致时 exit 0，任何差异时 exit 1 且打印第一处差异
+- [x] `node --test tests/feel-sim-diff.test.mjs` 全绿，且含「RNG 序列变化必须报红」的反向断言
+- [x] `docs/reviews/feel-sim-diff.md` 记录 before/after 对比结论（一致或分叉，附命令与哈希）
 
 ## DoD
 
-- [ ] `npm test` 全绿
-- [ ] 工具不改变模拟结果（对比工具只读运行，不改 `public/js/**`）
-- [ ] 结论可用于关闭 FEEL-001 的「30/30 vs 68」疑点，或给出真实分叉的立案依据
+- [x] `npm test` 全绿
+- [x] 工具不改变模拟结果（对比工具只读运行，不改 `public/js/**`）
+- [x] 结论可用于关闭 FEEL-001 的「30/30 vs 68」疑点，或给出真实分叉的立案依据
 
 ## Touches
 
@@ -59,5 +59,6 @@ FEEL-001 的评审者（E.8）要求：用伤害事件日志与 RNG 调用序列
 - 踩坑一：`startedAt: 0` 会退化成墙钟（`opts.startedAt || Date.now()`），两次运行的状态哈希因此不同；固定值必须用真值（取 1）。`toSnapshot()` 的 `savedAt` 是唯一读墙钟的字段，必须剔除。
 - 踩坑二：场景必须自带 `crit` 遗物，否则暴击率为 0、`combatRng` 在本场景空跑，「RNG 序列一致」只剩波次生成，证明力不足。
 - 结论：`3b8e1fd` ↔ HEAD 在 `visual-fixed-seed` / `feel-sim-diff-seed-b` / `feel-sim-diff-seed-c` 三个 seed 上 events / rng / state 三份哈希逐字节相等，**无分叉**；命令与哈希见 `docs/reviews/feel-sim-diff.md`。
+- 验收自证：`/tmp/feel-sim-diff` 三份 JSON 落盘（294 条命中事件 / 326 次 RNG 调用 / 10 条流）；before↔after diff exit 0；把 rng 最后一个值改 0.25 后 diff exit 1 并打印 `rng.json.sequence[325].value`；`node --test tests/feel-sim-diff.test.mjs` 10/10；`npm test` 1653/1653（合并 develop 后复跑）。
 - `scripts/test-changed.mjs`：新增 `scripts/` 源文件必须登记 TEST_MAP（审计覆盖），否则全量套件会在「存在未覆盖源文件」那条红。
 - `docs/PHASE_FEEL_ART.md`：develop 上 `docs-phase-sync` 的「AC 映射缺少 open 任务」本来就已红（5 个 AC-020 支撑任务缺 id，本任务也是其中之一）；此次在 AC-020 行后补一行支撑任务说明，未改动任何 AC 语义，也未触碰 PRD / TECH_DESIGN。
