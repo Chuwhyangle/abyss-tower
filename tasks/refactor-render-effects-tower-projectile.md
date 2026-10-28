@@ -1,7 +1,7 @@
 ---
 id: refactor-render-effects-tower-projectile
 title: 重构 R2：拆分 effect/tower/projectile 渲染器
-status: ready
+status: done
 labels:
   - gap
   - refactor
