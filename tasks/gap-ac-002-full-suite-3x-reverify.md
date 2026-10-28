@@ -1,7 +1,7 @@
 ---
 id: gap-ac-002-full-suite-3x-reverify
 title: AC-002 复验：验证全量测试连续 3 次 0 失败（活任务库耦合修复由在飞任务拥有）
-status: todo
+status: ready
 labels:
   - gap
   - defect
