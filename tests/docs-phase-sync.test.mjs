@@ -83,11 +83,48 @@ test('三份文档的链接、代码路径与 npm 脚本都可达（check:docs �
   }
 });
 
-test('AC 映射覆盖 AC-011…AC-031 与全部 open 的 GOAL-005/006 任务', () => {
-  const phase = read(PHASE_DOC);
-  const mapping = phase.slice(phase.indexOf('## 5. AC 映射'));
-  const taskDir = path.join(ROOT, 'tasks');
-  const tasks = fs
+// ---- AC 映射契约 -------------------------------------------------------------
+// 判定抽成纯函数：真实仓库用例与 fixture 正/反例共用同一实现，避免两处各抄一套判据。
+// 契约（不读可变的任务 id 清单，只读阶段文档自身）：
+//   (a) AC-011…AC-031 每个 AC id 都出现在 §5；
+//   (b) 每个 open 的 GOAL-005/006 任务，其 `goal_ac` 必须是被 §5 映射到的 AC——
+//       新立案任务由它自己的 AC 行自动覆盖，不再要求任务 id 逐字进表；
+//   (c) §5 表格「任务」列引用的任务 id 必须在 tasks/ 下有对应文件（拦改名/删任务留下的悬空引用）。
+// 任务 id 级完整清单若仍要强制，应由文档 lane 在阶段文档里维护成独立检查，
+// 不能挂在 3 轮全量稳定性门禁上：任务库经 task_write 持续增长，登记与立案不同步即全量转红。
+const PHASE_ACS = Object.freeze(Array.from({ length: 21 }, (_, index) => `AC-${String(11 + index).padStart(3, '0')}`));
+const AC_MAPPING_HEADING = '## 5. AC 映射';
+const TASK_ID_TOKEN = /^[A-Za-z][A-Za-z0-9]*(?:-[A-Za-z0-9]+)+$/;
+
+function sliceAcMapping(phaseMarkdown) {
+  const start = phaseMarkdown.indexOf(AC_MAPPING_HEADING);
+  return start === -1 ? '' : phaseMarkdown.slice(start);
+}
+
+// §5 表格「任务」列里的任务 id；`—（goal 级）` 这类占位不算。
+function extractMappedTaskIds(mappingMarkdown) {
+  const ids = new Set();
+  let taskColumn = -1;
+  for (const line of mappingMarkdown.split(/\r?\n/)) {
+    if (!line.trim().startsWith('|')) {
+      taskColumn = -1;
+      continue;
+    }
+    const cells = line.trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
+    if (taskColumn === -1) {
+      const header = cells.indexOf('任务');
+      if (header !== -1) taskColumn = header;
+      continue;
+    }
+    for (const token of (cells[taskColumn] ?? '').replace(/`/g, '').split(/[\s、,，/]+/)) {
+      if (TASK_ID_TOKEN.test(token)) ids.add(token);
+    }
+  }
+  return ids;
+}
+
+function loadTasks(taskDir) {
+  return fs
     .readdirSync(taskDir)
     .filter((name) => name.endsWith('.md'))
     .map((name) => {
@@ -95,16 +132,109 @@ test('AC 映射覆盖 AC-011…AC-031 与全部 open 的 GOAL-005/006 任务', (
       const goalAc = /^goal_ac:\s*(\S+)\s*$/m.exec(markdown.split(/^---$/m)[1] ?? '');
       return { id: name.replace(/\.md$/, ''), status: parseStatus(markdown), goalAc: goalAc ? goalAc[1] : null };
     });
+}
 
-  for (let ac = 11; ac <= 31; ac += 1) {
-    const id = `AC-${String(ac).padStart(3, '0')}`;
-    assert.ok(mapping.includes(id), `AC 映射缺少 ${id}`);
+export function checkAcMapping({ phaseMarkdown, tasks }) {
+  const problems = [];
+  const mapping = sliceAcMapping(phaseMarkdown);
+  const mappedAcs = new Set([...mapping.matchAll(/\bAC-\d{3}\b/g)].map((match) => match[0]));
+  for (const ac of PHASE_ACS) {
+    if (!mappedAcs.has(ac)) problems.push(`AC 映射缺少 ${ac}`);
+  }
+  const knownIds = new Set(tasks.map((task) => task.id));
+  for (const id of extractMappedTaskIds(mapping)) {
+    if (!knownIds.has(id)) problems.push(`AC 映射引用的任务 ${id} 在 tasks/ 下没有对应文件`);
   }
   const openPhaseTasks = tasks.filter((task) => task.goalAc && PHASE_AC.test(task.goalAc) && isOpen(task.status));
-  assert.ok(openPhaseTasks.length > 0, '任务库里应存在 open 的 GOAL-005/006 任务');
   for (const task of openPhaseTasks) {
-    assert.ok(mapping.includes(task.id), `AC 映射缺少 open 任务 ${task.id}（${task.goalAc}）`);
+    if (!mappedAcs.has(task.goalAc)) {
+      problems.push(`open 任务 ${task.id} 的 goal_ac ${task.goalAc} 未出现在 AC 映射`);
+    }
   }
+  return problems;
+}
+
+function acMappingRows({ omit = [], withTask = {} } = {}) {
+  return PHASE_ACS.filter((ac) => !omit.includes(ac))
+    .map((ac) => `| ${ac} fixture | ${withTask[ac] ?? '—（goal 级）'} | goal | fixture | fixture |`)
+    .join('\n');
+}
+
+function acMappingDoc(rows) {
+  return `# fixture 阶段文档\n\n## 1. 背景\n\nfixture\n\n## 5. AC 映射\n\n| AC | 任务 | 状态 | 见证 | 文档落点 |\n|---|---|---|---|---|\n${rows}\n`;
+}
+
+test('AC 映射覆盖 AC-011…AC-031，且 open 的 GOAL-005/006 任务都落在已映射 AC 上', () => {
+  const problems = checkAcMapping({ phaseMarkdown: read(PHASE_DOC), tasks: loadTasks(path.join(ROOT, 'tasks')) });
+  assert.deepEqual(problems, [], `AC 映射存在缺口：\n${problems.join('\n')}`);
+});
+
+test('AC 映射反例：§5 缺任一 AC-011…AC-031 的 id 时返回 problem', () => {
+  for (const missing of ['AC-011', 'AC-021', 'AC-031']) {
+    const problems = checkAcMapping({ phaseMarkdown: acMappingDoc(acMappingRows({ omit: [missing] })), tasks: [] });
+    assert.deepEqual(problems, [`AC 映射缺少 ${missing}`]);
+  }
+});
+
+test('AC 映射反例：open 任务的 goal_ac 未出现在 §5 时返回 problem', () => {
+  const tasks = [
+    { id: 'gap-unmapped-case', status: 'ready', goalAc: 'AC-020' },
+    { id: 'gap-closed-case', status: 'done', goalAc: 'AC-021' },
+  ];
+  const problems = checkAcMapping({ phaseMarkdown: acMappingDoc(acMappingRows({ omit: ['AC-020'] })), tasks });
+  assert.ok(
+    problems.some((problem) => problem.includes('gap-unmapped-case') && problem.includes('AC-020')),
+    problems.join('\n')
+  );
+  assert.ok(!problems.some((problem) => problem.includes('gap-closed-case')), '已关闭任务不参与判定');
+});
+
+test('AC 映射反例：§5 引用的任务 id 在 tasks/ 下无对应文件时返回 problem', () => {
+  const rows = acMappingRows({ withTask: { 'AC-011': 'gap-ghost-task' } });
+  const problems = checkAcMapping({
+    phaseMarkdown: acMappingDoc(rows),
+    tasks: [{ id: 'gap-auto-quality-default', status: 'done', goalAc: 'AC-011' }],
+  });
+  assert.deepEqual(problems, ['AC 映射引用的任务 gap-ghost-task 在 tasks/ 下没有对应文件']);
+});
+
+test('AC 映射正例：新立案 open 任务与已映射 AC 同 goal_ac、且 open 阶段任务为 0 时都返回空 problems', () => {
+  const rows = acMappingRows({ withTask: { 'AC-020': 'gap-feel-review-record' } });
+  const closedOnly = [{ id: 'gap-feel-review-record', status: 'done', goalAc: 'AC-020' }];
+  assert.deepEqual(checkAcMapping({ phaseMarkdown: acMappingDoc(rows), tasks: closedOnly }), []);
+  assert.deepEqual(
+    checkAcMapping({ phaseMarkdown: acMappingDoc(rows), tasks: [...closedOnly, { id: 'gap-newly-filed', status: 'ready', goalAc: 'AC-020' }] }),
+    [],
+    '新立案任务的 id 不必逐字进 §5，只要 goal_ac 已被映射'
+  );
+});
+
+test('解耦复演：真实 tasks/ + 真实阶段文档，注入一个新的 open 任务后仍无 problem', (t) => {
+  // 只读真实文件（源），全部写入都落在临时根，绝不写仓库目录。
+  const realTasksDir = path.join(ROOT, 'tasks');
+  const realTasks = fs
+    .readdirSync(realTasksDir)
+    .filter((entry) => entry.endsWith('.md'))
+    .map((name) => [name, fs.readFileSync(path.join(realTasksDir, name), 'utf8')]);
+  const realPhaseMarkdown = read(PHASE_DOC);
+
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-ac-mapping-replay-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'tasks'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+  for (const [name, markdown] of realTasks) fs.writeFileSync(path.join(root, 'tasks', name), markdown);
+  fs.writeFileSync(path.join(root, 'docs', 'PHASE_FEEL_ART.md'), realPhaseMarkdown);
+
+  const injected = 'gap-replay-newly-filed';
+  fs.writeFileSync(
+    path.join(root, 'tasks', `${injected}.md`),
+    `---\nid: ${injected}\ntitle: 复演注入的新立案任务\nstatus: ready\ngoal_ac: AC-020\n---\n## Proposal\n\n只存在于临时根的复演注入，模拟 task_write 新立案。\n`
+  );
+
+  const phaseMarkdown = fs.readFileSync(path.join(root, 'docs', 'PHASE_FEEL_ART.md'), 'utf8');
+  assert.equal(phaseMarkdown.includes(injected), false, '真实阶段文档本不该提到合成任务 id（旧契约会因此转红）');
+  const problems = checkAcMapping({ phaseMarkdown, tasks: loadTasks(path.join(root, 'tasks')) });
+  assert.deepEqual(problems, [], `注入新立案 open 任务后仍应无 problem：\n${problems.join('\n')}`);
 });
 
 test('当前任务库：open 任务不再声明两份总文档（CLI exit 0）', () => {

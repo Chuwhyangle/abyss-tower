@@ -227,6 +227,7 @@ export const TEST_MAP = [
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/docs-consistency.mjs', tests: ['tests/docs-consistency.test.mjs'] },
   { match: 'scripts/docs-preview.mjs', tests: ['tests/docs-preview.test.mjs'] },
+  { match: 'scripts/feel-sim-diff.mjs', tests: ['tests/feel-sim-diff.test.mjs'] },
   { match: 'scripts/feel-review.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/import-graph.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/install-hooks.mjs', tests: ['tests/hooks.test.mjs'] },
