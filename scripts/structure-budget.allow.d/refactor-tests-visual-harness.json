@@ -1,7 +1,0 @@
-{
-  "entries": [
-    { "path": "tests/visual-scenes.mjs", "maxLines": 1257, "owner": "refactor-tests-visual-harness" },
-    { "path": "tests/visual-scenarios.mjs", "maxLines": 942, "owner": "refactor-tests-visual-harness" },
-    { "path": "tests/visual-check.test.mjs", "maxLines": 900, "owner": "refactor-tests-visual-harness" }
-  ]
-}
