@@ -2,13 +2,11 @@
 // 不启动浏览器：浏览器路径由 tests/visual-scenes.mjs / scripts/visual-check.mjs 的 CLI 承担。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { RgbaImage, blit, decodePng, encodePng, fillRect, resizeNearest } from '../scripts/lib/png.mjs';
+import { RgbaImage, blit, decodePng, encodePng, resizeNearest } from '../scripts/lib/png.mjs';
 import {
-  ART_THRESHOLD_KEYS,
   THRESHOLDS,
   bandStats,
   contrastRatio,
@@ -39,24 +37,32 @@ import {
 import { checkArtReview } from '../scripts/art-review.mjs';
 import { checkFeelReview } from '../scripts/feel-review.mjs';
 import {
+  INJECTION_EXPECTATIONS,
   INJECTIONS,
+  METRIC_FIXTURES,
+  artInjectionFixture,
   artMetrics,
+  assertArtThresholdDocument,
   feelMetrics,
+  makeImage,
   minTouchTarget,
   mobileMetrics,
+  paint,
   toScreenBoxes,
   toScreenPoints,
   uiMetrics,
-} from '../scripts/visual-check.mjs';
+} from './lib/visual/metrics.mjs';
+import { VIEWPORTS, resolveQuality } from './lib/visual/session.mjs';
 import {
   CONTACT_CELL_HEIGHT,
   CONTACT_CELL_WIDTH,
+  buildContactSheet,
+} from './lib/visual/contact-sheet.mjs';
+import {
   COMBAT_TIMELINE,
   QUALITY_CHOICES,
-  buildContactSheet,
   compareRuns,
   orderCombatFrames,
-  resolveQuality,
 } from './visual-scenes.mjs';
 import {
   EVENT_SCENARIOS,
@@ -66,67 +72,41 @@ import {
   SCENARIOS,
   WEAPON_TYPES,
   TimeDriftError,
-  buildScenarioManifestEntry,
-  buildScenarioRuntimeSource,
   checkFrameTimes,
-  frameManifestEntry,
+  planFrame,
+  planGroupFrames,
   scenarioPlan,
   validateScenarioPlans,
+} from './lib/visual/plan.mjs';
+import {
+  buildScenarioManifestEntry,
+  buildScenarioRuntimeSource,
+  frameManifestEntry,
 } from './visual-scenarios.mjs';
 import { TOWERS } from '../public/js/shared/data.js';
 
-function makeImage(width, height, color = [0, 0, 0, 255]) {
-  const image = new RgbaImage(width, height);
-  fillRect(image, 0, 0, width, height, color);
-  return image;
-}
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
-function paint(image, x, y, width, height, color) {
-  fillRect(image, x, y, width, height, color);
-  return image;
-}
+// 基线样本与图像助手由 harness 提供：正例全部指标在阈值内，反例由单点劣化构造。
+const { feel: GOOD_FEEL, art: GOOD_ART, ui: GOOD_UI, mobile: GOOD_MOBILE } = METRIC_FIXTURES;
 
-const GOOD_FEEL = Object.freeze({
-  feedbackCoverage: 0.02,
-  effectCoverage: 0.01,
-  hitFlashCoverage: 0.004,
-  floaterCoverage: 0.001,
-  effects: 12,
-  floaters: 3,
-  enemyContrast: 18,
-});
-
-const GOOD_ART = Object.freeze({
-  unitBackgroundDeltaE: 20,
-  towerBackgroundDeltaE: 16,
-  silhouetteCoverage: 0.5,
-  backgroundLevels: 12,
-  backgroundLumaSpread: 12,
-  backgroundBands: [
-    { index: 0, levels: 9 },
-    { index: 1, levels: 8 },
-    { index: 2, levels: 7 },
-  ],
-  atmosphereContribution: 0.006,
-  atmosphereByTier: { off: 0, light: 0.002, full: 0.006 },
-  decorMonotonic: true,
-});
-
-const GOOD_UI = Object.freeze({
-  minFontSize: 13,
-  hudContrast: 7,
-  shopContrast: 9,
-  lockedFontSize: 13,
-  lockedOpacity: 0.5,
-});
-
-const GOOD_MOBILE = Object.freeze({
-  overflowX: 0,
-  portraitOverflowX: 0,
-  minTouchTarget: 44,
-  canvasWidth: 458,
-  canvasHeight: 250,
-  minFontSize: 13,
+test('harness 模块：session / plan / metrics / contact-sheet 的纯函数可直接单测', () => {
+  // session：视口定义与画质解析（不需要浏览器）
+  assert.deepEqual(Object.keys(VIEWPORTS), ['desktop', 'mobile', 'mobile-landscape']);
+  assert.equal(resolveQuality('low').settings.qualityMode, 'manual');
+  // plan：帧时长组内累加成 requestedTime，且单调递增
+  const planned = planGroupFrames([
+    planFrame({ id: 'a', steps: [{ sim: 30 }] }),
+    planFrame({ id: 'b', steps: [{ sim: 15 }] }),
+  ]);
+  assert.deepEqual(planned.map((frame) => frame.requestedTime), [0.5, 0.75]);
+  // metrics：注入样本只打红它负责的项，基线样本保持全绿
+  assert.equal(evaluateArt(METRIC_FIXTURES.art).ok, true);
+  assert.equal(evaluateArt(artInjectionFixture('decor-noop')).ok, false);
+  // contact-sheet：单元格尺寸固定，与源图大小无关
+  const sheet = buildContactSheet([{ image: makeImage(10, 10), file: 'x.png' }]);
+  assert.ok(sheet.width >= CONTACT_CELL_WIDTH && sheet.width < CONTACT_CELL_WIDTH * 2);
+  assert.ok(sheet.height >= CONTACT_CELL_HEIGHT && sheet.height < CONTACT_CELL_HEIGHT * 2);
 });
 
 test('PNG 编解码往返保持像素不变', () => {
@@ -341,44 +321,10 @@ test('art 套件：分带 / 氛围层 / 档位单调三项各自能红', () => {
 });
 
 test('注入 → 预期红灯映射：每种注入只打红它负责的指标', () => {
-  const expectations = [
-    {
-      injection: 'units-hidden',
-      red: ['unit-background', 'silhouette'],
-      green: ['background-levels', 'background-spread', 'background-bands', 'atmosphere-contribution'],
-    },
-    {
-      injection: 'flat-background',
-      red: ['background-levels', 'background-spread', 'background-bands'],
-      green: [],
-    },
-    {
-      injection: 'decor-noop',
-      red: ['atmosphere-contribution'],
-      green: ['background-levels', 'background-spread', 'background-bands'],
-    },
-  ];
-  // 与采集 shim 的真实效果一一对应：注入只能影响它该影响的指标。
-  const applyInjection = (injection) => {
-    if (injection === 'units-hidden') {
-      return { ...GOOD_ART, unitBackgroundDeltaE: 0, silhouetteCoverage: 0 };
-    }
-    if (injection === 'flat-background') {
-      return {
-        ...GOOD_ART,
-        backgroundLevels: 1,
-        backgroundLumaSpread: 0,
-        backgroundBands: [{ index: 0, levels: 1 }, { index: 1, levels: 1 }, { index: 2, levels: 1 }],
-      };
-    }
-    if (injection === 'decor-noop') {
-      return { ...GOOD_ART, atmosphereContribution: 0 };
-    }
-    return { ...GOOD_ART };
-  };
-  for (const { injection, red, green } of expectations) {
+  // 注入样本与预期映射由 harness 提供（与采集 shim 的真实效果一一对应）。
+  for (const { injection, red, green } of INJECTION_EXPECTATIONS) {
     assert.ok(INJECTIONS.includes(injection), `注入 ${injection} 必须在 CLI 白名单里`);
-    const report = evaluateArt(applyInjection(injection));
+    const report = evaluateArt(artInjectionFixture(injection));
     assert.equal(report.ok, false, `${injection} 必须让 art 变红`);
     const byId = new Map(report.checks.map((item) => [item.id, item.ok]));
     for (const id of red) assert.equal(byId.get(id), false, `${injection} 未让 ${id} 变红`);
@@ -387,57 +333,9 @@ test('注入 → 预期红灯映射：每种注入只打红它负责的指标', 
 });
 
 // §8.6 指标表的正本落在任务 Notes（`docs/PHASE_FEEL_ART.md` §2.3：两份总文档只由文档 lane 修改，
-// 实现任务把设计增量写进自己的 Notes）。表格一旦与 THRESHOLDS.art 漂移，本用例变红。
-const ART_DOC_MARKER = '8.6 机械视觉验收';
-
-function readSection(source, marker) {
-  const start = source.indexOf(marker);
-  if (start < 0) return null;
-  const rest = source.slice(start + marker.length);
-  const end = rest.search(/\n#{2,3} /);
-  return end >= 0 ? rest.slice(0, end) : rest;
-}
-
-function parseArtTable(section) {
-  return [...section.matchAll(/^\|\s*`([a-z-]+)`\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/gm)].map((match) => ({
-    id: match[1],
-    name: match[2],
-    threshold: match[3],
-  }));
-}
-
-function assertArtTable(section, label) {
-  const rows = parseArtTable(section);
-  assert.deepEqual(
-    rows.map((row) => row.id),
-    [...ART_THRESHOLD_KEYS.map((item) => item.id), 'decor-monotonic'],
-    `${label}：§8.6 表格的指标顺序/数量必须与判定项一致`
-  );
-  for (const { id, key } of ART_THRESHOLD_KEYS) {
-    const row = rows.find((item) => item.id === id);
-    assert.equal(Number(row.threshold), THRESHOLDS.art[key], `${label}：${id} 阈值与 THRESHOLDS.art.${key} 不一致`);
-  }
-  const monotonic = rows.find((item) => item.id === 'decor-monotonic');
-  assert.match(monotonic.threshold, /off\s*≤\s*light\s*≤\s*full/);
-}
-
+// 实现任务把设计增量写进自己的 Notes）。逐项比对由 harness 提供（tests/lib/visual/metrics.mjs）。
 test('THRESHOLDS.art 与 §8.6 指标表逐项一致（任务 Notes 正本；docs/TECH_DESIGN.md 由文档 lane 收口）', () => {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const taskDir = path.join(root, 'tasks');
-  const owner = fs
-    .readdirSync(taskDir)
-    .filter((file) => file.endsWith('.md'))
-    .map((file) => ({ file, source: fs.readFileSync(path.join(taskDir, file), 'utf8') }))
-    .find((item) => item.source.includes(ART_DOC_MARKER));
-  assert.ok(owner, '缺少 §8.6 指标表（应落在本任务 Notes）');
-  const taskSection = readSection(owner.source, ART_DOC_MARKER);
-  assert.ok(taskSection, `${owner.file} 的 §8.6 章节为空`);
-  assertArtTable(taskSection, `${owner.file} Notes`);
-
-  // 文档 lane 若已在 TECH_DESIGN 落地同名章节，同样逐项比对，防止两处漂移。
-  const tech = fs.readFileSync(path.join(root, 'docs/TECH_DESIGN.md'), 'utf8');
-  const techSection = readSection(tech, ART_DOC_MARKER);
-  if (techSection) assertArtTable(techSection, 'docs/TECH_DESIGN.md');
+  assertArtThresholdDocument({ root: PROJECT_ROOT });
 });
 
 test('阈值集中在 THRESHOLDS，判定函数只读这一份', () => {

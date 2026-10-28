@@ -275,7 +275,7 @@ function plannedBodyLines(text) {
   return [...all];
 }
 
-function codePathProblems(lines) {
+function codePathProblems(lines, root = ROOT) {
   const problems = [];
   for (const { line, lineNo, inFence } of lines) {
     const segments = inFence ? [line] : [...line.matchAll(/`([^`\n]+)`/g)].map((match) => match[1]);
@@ -284,7 +284,7 @@ function codePathProblems(lines) {
         const candidate = normalizeCodePath(match[0]);
         if (!candidate) continue;
         if (!REPO_DIRS.some((dir) => candidate === `${dir}/` || candidate.startsWith(`${dir}/`))) continue;
-        const problem = checkCodePath(ROOT, candidate);
+        const problem = checkCodePath(root, candidate);
         if (problem) problems.push(`${lineNo}: ${problem}`);
       }
     }
@@ -292,7 +292,7 @@ function codePathProblems(lines) {
   return problems;
 }
 
-test('计划正本 PHASE_REFACTOR：块外无缺失路径，块内确实豁免了未落地产物', () => {
+test('计划正本 PHASE_REFACTOR：块外无缺失路径，块内确实豁免了未落地产物', (t) => {
   const phaseDoc = fs.readFileSync(path.join(ROOT, 'docs/PHASE_REFACTOR.md'), 'utf8');
   assert.ok(phaseDoc.includes(PLANNED_START), '计划正本必须使用 planned 块');
   assert.ok(phaseDoc.includes(PLANNED_END));
@@ -303,7 +303,18 @@ test('计划正本 PHASE_REFACTOR：块外无缺失路径，块内确实豁免�
   assert.deepEqual(codePathProblems(outside), []);
 
   // 块内：确实存在落地前不存在的产物，块是被这个冲突逼出来的，而不是无差别豁免。
-  assert.ok(codePathProblems(plannedBodyLines(phaseDoc).map((line) => ({ line, lineNo: 0, inFence: false }))).length > 0);
+  // 真实计划正本的产物全部落地后（R1–R5 收口时），块内便不再有缺失路径；该语义改由
+  // 固定 fixture 证明——机制仍在（块内缺失路径被豁免、块外同样一条被判红），不依赖进度。
+  const plannedFixtureRoot = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': [PLANNED_OPEN, '块内计划产物：`public/js/planned.js`。', PLANNED_CLOSE, '块外：`public/js/planned.js`。', ''].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+  });
+  const plannedFixture = fs.readFileSync(path.join(plannedFixtureRoot, 'README.md'), 'utf8');
+  assert.ok(
+    codePathProblems(plannedBodyLines(plannedFixture).map((line) => ({ line, lineNo: 0, inFence: false })), plannedFixtureRoot).length > 0,
+    '块内豁免机制失效：planned 块内的缺失路径必须仍被判为「已豁免的缺失」'
+  );
 });
 
 test('真实仓库文档一致：check:docs 的判定为通过', () => {

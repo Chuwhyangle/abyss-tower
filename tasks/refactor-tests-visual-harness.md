@@ -1,7 +1,7 @@
 ---
 id: refactor-tests-visual-harness
 title: 重构 R5：拆分视觉采集/断言三件套
-status: ready
+status: done
 labels:
   - gap
   - refactor
