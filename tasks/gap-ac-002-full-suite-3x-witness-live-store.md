@@ -1,7 +1,7 @@
 ---
 id: gap-ac-002-full-suite-3x-witness-live-store
 title: AC-002 复验：全量套件唯一红点来自 phase-refactor-sync 的反空转见证耦合活任务库，改为 fixture 正对照
-status: todo
+status: ready
 labels:
   - gap
   - defect
