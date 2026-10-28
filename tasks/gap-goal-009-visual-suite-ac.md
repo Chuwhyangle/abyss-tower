@@ -1,7 +1,7 @@
 ---
 id: gap-goal-009-visual-suite-ac
 title: GOAL-009 充分性缺口：`visual-check --suite all` 通过无在域 AC（提案新增 AC-050）
-status: todo
+status: needs-human
 labels:
   - gap
   - refactor
