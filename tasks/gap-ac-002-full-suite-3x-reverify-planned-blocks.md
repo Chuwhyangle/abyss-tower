@@ -81,6 +81,8 @@ exit 0，stderr 无 `CAUSE=`；三轮合计 `real 0m9.223s`。
 
 **`npm test`（= `node --test --test-concurrency=2 tests/*.test.mjs`）**：exit 0，`# tests 1684 / # pass 1684 / # fail 0`，`# duration_ms 24611.821526` —— 满足 DoD「≥1679 项、0 fail」。
 
+**合入 develop 后同一 HEAD 复核**（worktree `git merge --no-edit develop` 为 fast-forward，`15fca2a..4c2aa23`，delta 仅 `tasks/gap-ac-002-full-suite-3x-reverify-planned-blocks.md` 与 `tasks/gap-ac-044-full-suite-reverify-landed-fix.md` 两个任务文件）：HEAD `4c2aa23` 上再跑三轮 `node --test tests/*.test.mjs`，退出码 0/0/0，三轮均 `# tests 1684 / # pass 1684 / # fail 0`、`not ok` 0 条，`# duration_ms` 依次 `2846.514772` / `2714.915861` / `16050.914237`；同 HEAD `npm test` exit 0，`# tests 1684 / # pass 1684 / # fail 0`，`# duration_ms 24410.32873`。即 fan-in 实际评估的合并后 HEAD 也连续三轮 0 失败。
+
 **本轮失败面证据（复验前基线）**：
 - 全量套件唯一失败点：`not ok 322 - 真实仓库文档一致：check:docs 的判定为通过`（`tests/docs-consistency.test.mjs:133`），读数 `# tests 1679 / # pass 1678 / # fail 1`（HEAD `4c91312`，criterion 首轮即非零）。
 - 确定性——本 worker 在 `4c91312` 的 detached worktree 上独立复现（`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node --test tests/docs-consistency.test.mjs` 连跑两次）：两次均 exit 1、均 `not ok 6 - 真实仓库文档一致：check:docs 的判定为通过`、读数同为 `# tests 6 / # pass 5 / # fail 1`。文件单跑是 `not ok 6`、全量跑是 `not ok 322`，只是同一用例在各自运行里的序号不同；用例名与失败文本一致，故不是并发/时序偶发。
