@@ -27,9 +27,9 @@ GOAL-009 的其余任务都需要同一块地基：可执行的结构预算门�
    `refactor-server-run-leaderboard.json`（run-service 1017、leaderboard 893）、
    `refactor-shared-achievements-audio.json`（achievements 1027、audio 1221）、
    `refactor-tests-visual-harness.json`（visual-scenes 1257、visual-scenarios 942、visual-check.test 900）；
-   其余超限文件（background 727、sprite-pipeline 649、relic-codex-ui 632、balance-sim 1289、dynamic-perf 790、
-   i18n-coverage 764、render-visuals 699、sim-skills 669、build-entity-sprites 686、style-check 685、
-   build-sprite-atlas 618、browser-map 606）放进 `refactor-closeout.json`。
+   `refactor-closeout.json` 只登记运行时剩余三件：background-renderer 727、sprite-pipeline 649、relic-codex-ui 632。
+   （预算口径：`public/js` 与 `server` ≤600；`scripts` 与 `tests` ≤800，故 balance-sim 1289 / visual-scenes 1257 /
+   visual-scenarios 942 / visual-check.test 900 由对应任务处理，其余工具与测试不超 800。）
 3. `tests/structure-budget.test.mjs`：正/负对照——超限必红、allow 覆盖内必绿、导入环必红、数据模块 import 运行时必红。
 4. `scripts/visual-parity.mjs`：复用 `tests/visual-scenes.mjs` 采集路径（5 场景 × 两视口 + 16 scenario × 两视口），
    每帧落 `pixelHash`；`--check` 与基线逐帧对照，任一不一致 exit 1。
