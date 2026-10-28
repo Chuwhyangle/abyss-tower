@@ -29,6 +29,7 @@
     "check:style": "node --no-warnings scripts/style-check.mjs",
     "check:docs": "node --no-warnings scripts/docs-consistency.mjs",
     "check:doc-ownership": "node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs",
+    "check:static": "npm run check:syntax && npm run check:imports && npm run check:style && npm run check:docs",
     "verify:local": "npm run check:syntax && npm run check:style && npm run check:imports && npm run check:structure && npm run check:version && npm run check:docs && npm test && npm run coverage:changed",
     "smoke": "node tests/browser-smoke.mjs",
     "flow": "node tests/browser-flow.mjs",
