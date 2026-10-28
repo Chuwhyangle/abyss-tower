@@ -97,3 +97,7 @@ GOAL-009 的 AC-049（`node scripts/check-doc-ownership.mjs && node scripts/docs
 单一入口，并给 §7 的 AC 映射加一道漂移钉子。`depends_on: gap-ac-044-full-suite-green` 是硬前置：`check:doc-ownership`
 的第二段（`docs-consistency`）在 planned 块落地前仍会因 14 处计划态路径 exit 1，本任务的 AC 要求它 exit 0，
 因此必须在那之后 dispatch，否则会白烧一轮。
+
+执行提示（2026-10-28 实测的坑）：`docs/PHASE_REFACTOR.md` 在主检出里当前是**未跟踪文件**（`git status` 显示
+`?? docs/PHASE_REFACTOR.md`）。worker 的 worktree 里若不存在该文件，从主检出复制后再改 §7，不要重写正文口径；
+§7 很可能已被 AC-044 包进 `docs-consistency:planned-start/end` 块内，改行时要保持在块内，别把标记删掉。
