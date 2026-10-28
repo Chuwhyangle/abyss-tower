@@ -58,22 +58,22 @@ assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open �
 
 ## AC
 
-- [ ] `node --test tests/phase-refactor-sync.test.mjs` exit 0，且 `# tests` ≥ 11（现有 10 条 + 新增 fixture 正对照，证明是补见证而非删测试）
-- [ ] `grep -n 'openGoalTasks' tests/phase-refactor-sync.test.mjs` exit 1（无命中），即活任务库存量见证已移除
-- [ ] 新增的 fixture 正对照用例在修复后 HEAD 上绿：完整真实 §7 + `{ id: 'fixture-open', status: 'ready', goalAc: 'AC-048' }` → `checkPhaseRefactorSync` 返回 `[]`
-- [ ] 既有负对照仍绿且未被削弱：删 §7 的 AC-048 行 + 同一 open fixture → problems 含 `open 任务 fixture-open 的 goal_ac AC-048 未出现在 §7`；同一任务改 `done` 后不报（`node --test tests/phase-refactor-sync.test.mjs` 中这两条 `ok`）
-- [ ] 真实仓库契约未被放宽：`checkPhaseRefactorSync` 对真实 §7 仍返回 `[]`，`npm run check:doc-ownership` exit 0（`node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs`）
-- [ ] 在修复后 HEAD 上逐字执行 criterion（`for i in 1 2 3; do node --test tests/*.test.mjs >/dev/null || …`）exit 0，stderr 无 `CAUSE=`
-- [ ] 本任务 diff 只含 `tests/phase-refactor-sync.test.mjs` 与 `tasks/gap-ac-002-full-suite-3x-witness-live-store.md`（`git diff --name-only <base>..HEAD` 逐字核对）
+- [x] `node --test tests/phase-refactor-sync.test.mjs` exit 0，且 `# tests` ≥ 11（现有 10 条 + 新增 fixture 正对照，证明是补见证而非删测试）
+- [x] `grep -n 'openGoalTasks' tests/phase-refactor-sync.test.mjs` exit 1（无命中），即活任务库存量见证已移除
+- [x] 新增的 fixture 正对照用例在修复后 HEAD 上绿：完整真实 §7 + `{ id: 'fixture-open', status: 'ready', goalAc: 'AC-048' }` → `checkPhaseRefactorSync` 返回 `[]`
+- [x] 既有负对照仍绿且未被削弱：删 §7 的 AC-048 行 + 同一 open fixture → problems 含 `open 任务 fixture-open 的 goal_ac AC-048 未出现在 §7`；同一任务改 `done` 后不报（`node --test tests/phase-refactor-sync.test.mjs` 中这两条 `ok`）
+- [x] 真实仓库契约未被放宽：`checkPhaseRefactorSync` 对真实 §7 仍返回 `[]`，`npm run check:doc-ownership` exit 0（`node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs`）
+- [x] 在修复后 HEAD 上逐字执行 criterion（`for i in 1 2 3; do node --test tests/*.test.mjs >/dev/null || …`）exit 0，stderr 无 `CAUSE=`
+- [x] 本任务 diff 只含 `tests/phase-refactor-sync.test.mjs` 与 `tasks/gap-ac-002-full-suite-3x-witness-live-store.md`（`git diff --name-only <base>..HEAD` 逐字核对）
 
 ## DoD
 
-- [ ] 三轮读数可被 driver 独立复算：Notes 给出命令原文、每轮 `# tests / # pass / # fail / # duration_ms` 与退出码；同 HEAD 另跑 `npm test` exit 0
-- [ ] 红→绿因果可独立复现：Notes 同时记录修复前在 `6c7cfb2` 上的读数（`# fail 1`，`not ok 975`，断言消息原文）与修复后读数，并给出修复前后 `node --test tests/phase-refactor-sync.test.mjs` 的用例数对比
-- [ ] 不靠删检查达标：Notes 附三条对照用例（open fixture 正对照 / 删行负对照 / done 不报）在修复后 HEAD 上的 `ok` 行，说明 (b) 判定的不空转证明从「活任务库存量」搬到了「fixture」，覆盖面不降
-- [ ] 反例实测：Notes 记录一次「把 §7 里 AC-048 那行临时删掉 + 保留 fixture」仍打红的实测（可临时改 fixture 输入，不提交），证明正对照不是恒真断言
-- [ ] Notes 写清为何此前修复没守住（AC-007 那份同型修复只落一个文件、`a88f702` 在另一文件写回第二份、`6c7cfb2` 使其到期），以及为何不能靠保留一个 open 的 AC-043 任务哄断言
-- [ ] 无产品行为、玩法、数值改动；无第三方依赖；`git status --short` 无本任务相关未提交改动
+- [x] 三轮读数可被 driver 独立复算：Notes 给出命令原文、每轮 `# tests / # pass / # fail / # duration_ms` 与退出码；同 HEAD 另跑 `npm test` exit 0
+- [x] 红→绿因果可独立复现：Notes 同时记录修复前在 `6c7cfb2` 上的读数（`# fail 1`，`not ok 975`，断言消息原文）与修复后读数，并给出修复前后 `node --test tests/phase-refactor-sync.test.mjs` 的用例数对比
+- [x] 不靠删检查达标：Notes 附三条对照用例（open fixture 正对照 / 删行负对照 / done 不报）在修复后 HEAD 上的 `ok` 行，说明 (b) 判定的不空转证明从「活任务库存量」搬到了「fixture」，覆盖面不降
+- [x] 反例实测：Notes 记录一次「把 §7 里 AC-048 那行临时删掉 + 保留 fixture」仍打红的实测（可临时改 fixture 输入，不提交），证明正对照不是恒真断言
+- [x] Notes 写清为何此前修复没守住（AC-007 那份同型修复只落一个文件、`a88f702` 在另一文件写回第二份、`6c7cfb2` 使其到期），以及为何不能靠保留一个 open 的 AC-043 任务哄断言
+- [x] 无产品行为、玩法、数值改动；无第三方依赖；`git status --short` 无本任务相关未提交改动
 
 ## Touches
 
@@ -85,3 +85,59 @@ assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open �
 立案依据（2026-10-29，本 agent 在被评估 HEAD 上直接测量，非台账陈旧尾巴）：`main` == `develop` == `6c7cfb2`。三轮 `node --test tests/*.test.mjs` 均为 `# tests 1747 / # pass 1746 / # fail 1`、退出码 1、唯一 `not ok 975`，失败文本 `真实任务库里应至少有一个 open 的 AC-043…AC-049 任务`。按 `scripts/check-doc-ownership.mjs` 的 `CLOSED_STATUSES = ['done','superseded','retired','rejected']` 口径扫描，AC-043…AC-049 的 11 个任务全部 done、open 计数 0。
 
 修复形态参照 `gap-phase-ac-mapping-decouple-live-task-store`（AC-007，done）在 `tests/docs-phase-sync.test.mjs` 里做过的同一动作：删掉「open 任务存量 > 0」的瞬态见证，用 fixture 正/反例证明判定会打红且不空跑。本任务是把同一动作补到尚未被覆盖的第二个文件上。
+
+### 修复前读数（worktree base `6d65359`，树内容 == 立案时 `6c7cfb2`）
+
+`node --test tests/phase-refactor-sync.test.mjs`：
+`# tests 10 / # pass 9 / # fail 1 / # duration_ms 84.78`，exit 1。
+失败用例：`not ok 1 - §7 覆盖 AC-043…AC-049、open 任务 goal_ac 都落在表内、判据有单一入口（真实仓库）`，断言消息 `真实任务库里应至少有一个 open 的 AC-043…AC-049 任务`（即立案时全量套件里的 `not ok 975`）。同一次运行里 `checkPhaseRefactorSync(realRepo())` 的 `deepEqual(problems, [])` 是通过的——红的只有存量见证。
+
+### 修复后读数（分支 `task/gap-ac-002-full-suite-3x-witness-live-store`，提交 `509cc4b`，base `6d65359`）
+
+criterion 原文：`for i in 1 2 3; do node --test tests/*.test.mjs >/dev/null || { echo "CAUSE=full suite failed on run $i" >&2; exit 1; }; done`
+
+| 轮 | 退出码 | # tests | # pass | # fail | # duration_ms | `not ok` | stderr `CAUSE=` |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 | 1748 | 1748 | 0 | 2940.80 | 0 | 0 |
+| 2 | 0 | 1748 | 1748 | 0 | 2945.29 | 0 | 0 |
+| 3 | 0 | 1748 | 1748 | 0 | 2924.00 | 0 | 0 |
+
+（`# tests` 1747 → 1748，恰为新增的 fixture 正对照一条；这是补见证而非删测试。）
+
+同 HEAD `npm test`：`# tests 1748 / # pass 1748 / # fail 0 / # duration_ms 25439.02`，exit 0。
+同 HEAD `npm run check:doc-ownership`：`check-doc-ownership: OK — 0 个 open 任务声明总文档（已扫描 98 个任务）` + `docs-consistency: 文档一致性检查通过（21 个文件）`，exit 0。
+目标文件 `node --test tests/phase-refactor-sync.test.mjs`：`# tests 11 / # pass 11 / # fail 0 / # duration_ms 90.35`，exit 0（修复前 10 / 9 / 1）。
+`grep -n 'openGoalTasks' tests/phase-refactor-sync.test.mjs`：无命中，exit 1。
+
+### (b) 判定不空转的三条对照用例（修复后 HEAD 的 `ok` 行）
+
+```
+ok 2 - (b) 正对照：完整真实 §7 + open fixture 任务 → 不打红
+ok 5 - (b) 负对照：删掉 AC-048 行且存在 open 的 goal_ac: AC-048 任务 → 指名该任务
+ok 6 - (b) 正对照：同一任务改成 done 后再跑不报它（只看 open）
+```
+
+正对照用例输入为 `{ ...realRepo(), tasks: [...repo.tasks, { id: 'fixture-open', status: 'ready', goalAc: 'AC-048' }] }`（完整真实 §7 + 真实任务库 + 一个 open fixture），断言 `checkPhaseRefactorSync(...)` 为 `[]`；负对照与 done 不报用例保持原文未改。三者合起来：判定会打红（负对照）、会放过合法 open（正对照）、只看 open（done 不报），不空转证明因此从「活任务库存量」完整搬到「fixture」，覆盖面不降。
+
+### 反例实测（正对照不是恒真断言）
+
+临时把正对照的输入改成「§7 删掉 AC-048 行 + 保留同一 open fixture」（只改 fixture 输入，未提交，跑完 `git checkout --` 还原）：
+
+```
+not ok 2 - (b) 正对照：完整真实 §7 + open fixture 任务 → 不打红
+    + 'open 任务 fixture-open 的 goal_ac AC-048 未出现在 §7'
+# tests 11 / # pass 10 / # fail 1
+```
+
+即正对照确实依赖 §7 的 AC-048 行实际存在，不是恒真断言；还原后 `git status --short` 为空，HEAD 上的 11/11 绿成立。
+
+### 归因：为何此前修复没守住、为何不能靠留一个 open 任务哄断言
+
+- 断言引入：`a88f702 feat(docs): AC-049 判据收成 check:doc-ownership 单一入口 + §7 映射漂移钉子（AC-049）`（2026-10-28 22:36:31）。写入时 GOAL-009 仍在进行，`openGoalTasks.length > 0` 为真。
+- 断言到期：`6c7cfb2 tasks: 翻 refactor-closeout done（driver 机械 fan-in）`（2026-10-29 01:56:06）把最后一个 `goal_ac: AC-043` 的任务翻成 `done`，open 计数归零。GOAL-009 已收口，此后正常流程下不会再有 open 的 AC-043…AC-049 任务——断言不是「暂时红」，而是永久不可满足。
+- 同型修复只落一处：AC-007 的 `gap-phase-ac-mapping-decouple-live-task-store` 在 `tests/docs-phase-sync.test.mjs` 删掉过同一个反模式（`openPhaseTasks.length > 0`），但当时只修这一个文件、没有扫描同类文件；`a88f702` 随后在 `tests/phase-refactor-sync.test.mjs` 原样写回第二份，于是同一机制再次到期。本次修复同时把「不空转证明不得依赖活任务库存量」的原因写进该文件的头注释，降低第三份被写回的概率。
+- 不能靠保留一个 open 的 AC-043…AC-049 任务哄断言：那会让任务库变成测试夹具（一个为喂测试而存在的假任务），且它一旦被正常做完，断言立刻再次转红——把「阶段进行中」的瞬态事实固化成不变量，正是本条红点的根因；修的应该是见证方式（改用 fixture），不是任务数据。
+
+### Touches 合规
+
+`git diff --name-only 6d65359..HEAD` 在实现提交后只有 `tests/phase-refactor-sync.test.mjs`；`task_write` 自动提交的 `tasks/gap-ac-002-full-suite-3x-witness-live-store.md` 是 Touches 内第二条。未碰 `docs/PHASE_REFACTOR.md`、`package.json`、`scripts/check-doc-ownership.mjs`；无新增源文件，故无需登记 `scripts/test-changed.mjs` 的 `TEST_MAP`；无产品行为/玩法/数值改动，无第三方依赖。
