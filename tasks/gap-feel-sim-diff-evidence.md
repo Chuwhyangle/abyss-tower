@@ -1,7 +1,7 @@
 ---
 id: gap-feel-sim-diff-evidence
 title: 同 seed 模拟一致性：伤害事件日志 + RNG 序列 diff
-status: todo
+status: ready
 labels:
   - gap
 parent: null
