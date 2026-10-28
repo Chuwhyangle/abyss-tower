@@ -7,7 +7,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { QUALITY_PRESETS } from '../public/js/settings.js';
+import { QUALITY_PRESETS, DEFAULT_SETTINGS } from '../public/js/settings.js';
 import { decodePng, encodePng, RgbaImage, fillRect, blit } from '../scripts/lib/png.mjs';
 import { lumaSignature, pixelHash, regionStats } from '../scripts/lib/visual-metrics.mjs';
 import {
@@ -16,11 +16,23 @@ import {
   registerAndLogin,
   startTestServer,
 } from './harness.mjs';
+import {
+  SCENARIOS,
+  FRAME_TIME_TOLERANCE,
+  TimeDriftError,
+  buildScenarioManifestEntry,
+  captureScenario,
+  checkFrameTimes,
+  frameKey,
+  validateScenarioPlans,
+} from './visual-scenarios.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const TEST_SEED = 'visual-fixed-seed';
 export const GAME_SEED = 'visual-scene-seed';
 export const SCENES = Object.freeze(['title', 'lobby', 'map', 'combat', 'result']);
+// --quality 的取值：auto 由页面按设备能力解析（与首次进入同一条路径），其余是显式预设。
+export const QUALITY_CHOICES = Object.freeze(['auto', ...Object.keys(QUALITY_PRESETS)]);
 
 // 视口固定：桌面 1440×900；移动竖屏 390×844；移动横屏 844×390（战斗只在横屏发生）。
 export const VIEWPORTS = Object.freeze({
@@ -44,25 +56,59 @@ const CONTACT_GUTTER = 14;
 const CONTACT_COLUMNS = 3;
 const CONTACT_BG = [12, 18, 22, 255];
 
+// combat 三帧的固定时刻（秒）：接触战 2s → 混战 4.5s → 密集命中 8s。
+// 之前按「等到条件满足」取帧，实际时间会漂到 6/8/12s，前后采集对不上同 t 对照。
+// 这里改成按步数精确推进，每帧记录 requestedTime，漂移即失败（FEEL-001 的 E.0 缺陷）。
+export const COMBAT_TIMELINE = Object.freeze([
+  Object.freeze({ id: 'combat-contact', requestedTime: 2, role: 'before', manifestOrder: 2 }),
+  Object.freeze({ id: 'combat-mixed', requestedTime: 4.5, role: 'during', manifestOrder: 1 }),
+  Object.freeze({ id: 'combat-impact', requestedTime: 8, role: 'after', manifestOrder: 0 }),
+]);
+
+// manifest 按「对照顺序」列出三帧：impact(8s) → mixed(4.5s) → contact(2s)，
+// 与请求的 t=8/4.5/2 一一对应；contact sheet 仍按时间顺序排，方便人看。
+export function orderCombatFrames(frames) {
+  const order = new Map(COMBAT_TIMELINE.map((item) => [item.id, item.manifestOrder]));
+  return [...frames].sort((a, b) => (order.get(a.id) ?? 99) - (order.get(b.id) ?? 99));
+}
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// 画质解析：auto 交给页面按设备能力解析（首次进入的默认路径），显式档位原样写入。
+// 显式档位必须标 qualityMode: 'manual'，否则 loadSettings 会把它当成自动档再解析一次。
 export function resolveQuality(name = 'high') {
+  if (name === 'auto') {
+    return { name: 'auto', settings: { ...DEFAULT_SETTINGS, qualityMode: 'auto' } };
+  }
   const preset = QUALITY_PRESETS[name];
-  if (!preset) throw new Error(`未知画质：${name}（可选 ${Object.keys(QUALITY_PRESETS).join(' / ')}）`);
-  return { name, settings: preset };
+  if (!preset) throw new Error(`未知画质：${name}（可选 ${QUALITY_CHOICES.join(' / ')}）`);
+  return { name, settings: { ...preset, qualityMode: 'manual' } };
 }
 
 // 页面初始化脚本：固定 Math.random、固定测试种子请求头、预置画质设置。
+// __reseedRandom 让战斗/场景接管时把随机序列拉回同一起点（同 seed 两次采集指纹一致）。
 export function buildInitScript({ seed, quality, settings }) {
   const source = JSON.stringify(settings);
   return `
 (() => {
   let state = (${JSON.stringify(seed)} >>> 0) || 1;
-  Math.random = function seededRandom() {
+  const nextRandom = () => {
     state = (state + 0x6D2B79F5) >>> 0;
     let t = Math.imul(state ^ (state >>> 15), 1 | state);
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  Math.random = nextRandom;
+  // 同一页面里多次接管时钟（combat 场景、每个注入场景）都从固定起点重播 Math.random。
+  window.__reseedRandom = (key) => {
+    const text = ${JSON.stringify(TEST_SEED)} + ':' + String(key);
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619) >>> 0;
+    }
+    state = (h >>> 0) || 1;
+    return state;
   };
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input, init = {}) => {
@@ -119,6 +165,8 @@ const COMBAT_SETUP_SCRIPT = `
   const { TOWERS } = await import('/js/shared/data.js');
   const { generateWave } = await import('/js/shared/waves.js');
 
+  // 接管时钟前把随机序列拉回固定起点：同 seed 两次采集的画面因此逐步一致。
+  window.__reseedRandom?.('combat');
   app.destroy();
   app.paused = false;
   app.speed = 1;
@@ -472,6 +520,8 @@ export class VisualSceneSession {
     this.browser = null;
     this.session = null;
     this.stage = 'closed';
+    // 当前战斗已推进的模拟步数：stepToTime 用累计口径（2s→4.5s→8s 只补差值）。
+    this.simTicks = 0;
   }
 
   async open({ cookie } = {}) {
@@ -577,6 +627,7 @@ export class VisualSceneSession {
       // 等待过场动画自行结束：这里只等状态，不让模拟推进（phase 仍是 prep）。
       await sleep(900);
       const setup = await this.browser.evaluate(COMBAT_SETUP_SCRIPT);
+      this.simTicks = 0;
       if (injection) {
         await this.browser.evaluate(`window.__visual.setInjection(${JSON.stringify(injection)})`);
       }
@@ -595,6 +646,22 @@ export class VisualSceneSession {
       if (predicate(snapshot)) break;
     }
     return { steps, snapshot };
+  }
+
+  // 精确推进到目标模拟时间（累计口径）：2s=120 步、4.5s=270 步、8s=480 步。
+  // 记自己走过多少步，所以 4.5s 的帧只会补 150 步，而不是再走 270 步。
+  // extraTicks 只给漂移验收用：多走的步数会让 snapshot.time 超过 requestedTime。
+  async stepToTime(seconds, { extraTicks = 0, chunk = 6 } = {}) {
+    const target = Math.round(seconds / (1 / 60)) + Math.max(0, extraTicks);
+    let remaining = target - this.simTicks;
+    let snapshot = null;
+    while (remaining > 0) {
+      const batch = Math.min(chunk, remaining);
+      snapshot = await this.browser.evaluate(`window.__visual.step(${batch})`);
+      remaining -= batch;
+    }
+    this.simTicks = target;
+    return { steps: target, snapshot };
   }
 
   async renderFrame(dt = 0) {
@@ -669,28 +736,23 @@ async function captureScene(session, scene, options = {}) {
   await session.setDecorations(options.decorations || 'full');
   const frames = [];
 
-  // 第一帧：敌人刚进入射程，接触战开始。时间兜底保证注入回归时场景仍然非空。
-  const contact = await session.stepUntil((snap) => snap.enemies >= 5 || snap.time >= 6);
-  await session.renderFrame(1 / 60);
-  frames.push({ id: 'combat-contact', image: await session.screenshot(), snapshot: contact.snapshot });
+  // 三帧按固定时刻精确推进：t=2 / 4.5 / 8s。每帧记录 requestedTime，
+  // 实际时间对不上由 checkFrameTimes 判红（不再产出「等条件凑出来」的漂移帧）。
+  // driftTicks 只给验收用：故意多走几步模拟真实漂移，验证断言确实会失败。
+  for (const [index, entry] of COMBAT_TIMELINE.entries()) {
+    const drift = index === 0 ? options.driftTicks || 0 : 0;
+    const step = await session.stepToTime(entry.requestedTime, { extraTicks: drift });
+    await session.renderFrame(1 / 60);
+    frames.push({
+      id: entry.id,
+      role: entry.role,
+      requestedTime: entry.requestedTime,
+      image: await session.screenshot(),
+      snapshot: step.snapshot,
+    });
+  }
 
-  // 第二帧：混战高峰（敌人数与特效数同时上来）。
-  const mixed = await session.stepUntil(
-    (snap) => (snap.enemies >= 10 && snap.effects >= 6) || snap.time >= 8,
-    { maxSteps: 1800 }
-  );
-  await session.renderFrame(1 / 60);
-  frames.push({ id: 'combat-mixed', image: await session.screenshot(), snapshot: mixed.snapshot });
-
-  // 第三帧：战线铺开后的密集命中帧（飘字 + 多个持续特效），作为指标帧。
-  const impact = await session.stepUntil(
-    (snap) => (snap.time >= 8 && snap.floaters >= 1 && snap.effects >= 6) || snap.time >= 12,
-    { maxSteps: 2400 }
-  );
-  await session.renderFrame(1 / 60);
-  const onFrame = await session.screenshot();
-  frames.push({ id: 'combat-impact', image: onFrame, snapshot: impact.snapshot });
-
+  const impactFrame = frames.find((frame) => frame.id === 'combat-impact');
   const payload = await session.combatPayload();
   const references = {};
   for (const [key, options] of Object.entries({
@@ -713,7 +775,7 @@ async function captureScene(session, scene, options = {}) {
     references,
     payload,
     dom,
-    notes: `wave=${impact.snapshot.phase} t=${impact.snapshot.time}s enemies=${impact.snapshot.enemies}`,
+    notes: `phase=${impactFrame?.snapshot?.phase} t=${impactFrame?.snapshot?.time}s enemies=${impactFrame?.snapshot?.enemies}`,
     elapsedMs: Date.now() - started,
   };
 }
@@ -793,15 +855,22 @@ export function gitCommit() {
 
 export async function capture({
   scenes = SCENES,
+  scenarios = [],
   viewports = null,
   quality = 'high',
   outDir,
   seed = GAME_SEED,
   injection = null,
   decorations = 'full',
+  driftTicks = 0,
   log = () => {},
 } = {}) {
   const started = Date.now();
+  // 场景计划先自检：计划本身不成立时不该启动浏览器，更不该产出帧。
+  if (scenarios.length) {
+    const plan = validateScenarioPlans();
+    if (!plan.ok) throw new Error(`场景计划自检失败：\n  - ${plan.errors.join('\n  - ')}`);
+  }
   const server = await startTestServer({ seedHeader: true });
   // 固定账号：标题页会显示指挥官昵称，随机账号名会让截图每次不同。
   const session0 = await registerAndLogin(server.base, {
@@ -809,6 +878,7 @@ export async function capture({
     password: 'rtd-visual-password',
   });
   const results = [];
+  const scenarioResults = [];
   const timings = {};
   try {
     for (const scene of scenes) {
@@ -830,7 +900,7 @@ export async function capture({
         });
         try {
           await session.open({ cookie: session0.rawCookie });
-          const captured = await captureScene(session, scene, { quality, injection, decorations });
+          const captured = await captureScene(session, scene, { quality, injection, decorations, driftTicks });
           const entry = { scene, viewport: viewportId, quality, ...captured };
           results.push(entry);
           timings[`${scene}@${viewportId}`] = captured.elapsedMs;
@@ -840,13 +910,65 @@ export async function capture({
         }
       }
     }
+    // 场景：同一视口复用一个会话（每个场景开始时都会重置战场与随机序列）。
+    for (const viewportId of scenarios.length ? viewports || ['desktop'] : []) {
+      const viewport = VIEWPORTS[viewportId];
+      if (!viewport) throw new Error(`未知视口：${viewportId}`);
+      const session = new VisualSceneSession({
+        base: server.base,
+        viewport,
+        quality,
+        seed,
+        prefix: 'rtd-visual-scenario',
+      });
+      try {
+        await session.open({ cookie: session0.rawCookie });
+        await session.beginCombat();
+        for (const scenario of scenarios) {
+          log(`[visual] 场景 ${scenario} @ ${viewportId} (${viewport.width}×${viewport.height})`);
+          const captured = await captureScenario(session, scenario, { seed, quality, log });
+          scenarioResults.push({ ...captured, viewport: viewportId });
+          timings[`${scenario}@${viewportId}`] = captured.elapsedMs;
+          log(`[visual] 场景 ${scenario} @ ${viewportId} 完成 ${captured.elapsedMs}ms（${captured.frames.length} 帧）`);
+        }
+      } finally {
+        await session.close();
+      }
+    }
   } finally {
     await server.stop();
   }
 
+  const commit = gitCommit();
+  // 时间断言：所有带 requestedTime 的帧（combat 三帧 + 全部场景帧）都要对得上。
+  const timedFrames = [
+    ...results.flatMap((result) => result.frames.map((frame) => ({
+      key: frameKey(result, frame),
+      requestedTime: frame.requestedTime,
+      snapshot: frame.snapshot,
+    }))),
+    ...scenarioResults.flatMap((result) => result.frames.map((frame) => ({
+      key: frameKey(result, frame),
+      requestedTime: frame.requestedTime,
+      snapshot: frame.snapshot,
+    }))),
+  ];
+  const timing = checkFrameTimes(timedFrames, { tolerance: FRAME_TIME_TOLERANCE });
+  if (!timing.ok) {
+    // 漂移时只写一份失败记录：不写任何 PNG / contact sheet，避免被当成同 t 对照。
+    if (outDir) {
+      fs.mkdirSync(outDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(outDir, 'manifest.json'),
+        `${JSON.stringify({ ok: false, error: 'time-drift', commit, seed, generatedAt: new Date().toISOString(), drifts: timing.drifts }, null, 2)}\n`
+      );
+    }
+    throw new TimeDriftError(timing.drifts);
+  }
+
   const manifest = {
     generatedAt: new Date().toISOString(),
-    commit: gitCommit(),
+    commit,
     seed,
     gameSeed: seed,
     testSeed: TEST_SEED,
@@ -854,6 +976,7 @@ export async function capture({
     injection: injection || null,
     decorations,
     scenes: [],
+    scenarios: [],
     timings,
     totalMs: Date.now() - started,
   };
@@ -880,8 +1003,10 @@ export async function capture({
         quality: result.quality,
         notes: result.notes || '',
         elapsedMs: result.elapsedMs,
-        frames: result.frames.map((frame) => ({
+        // combat 三帧按对照顺序（impact→mixed→contact）列出，snapshot.time 因此是 8 / 4.5 / 2。
+        frames: orderCombatFrames(result.frames).map((frame) => ({
           id: frame.id,
+          requestedTime: Number.isFinite(frame.requestedTime) ? frame.requestedTime : null,
           width: frame.image.width,
           height: frame.image.height,
           pixelHash: pixelHash(frame.image),
@@ -890,6 +1015,31 @@ export async function capture({
         })),
         dom: result.dom || null,
       });
+    }
+    for (const result of scenarioResults) {
+      result.files = [];
+      for (const frame of result.frames) {
+        const scope = frame.towerType ? `${frame.towerType}-` : '';
+        const file = `${result.scenario}-${result.viewport}-${scope}${frame.id}-${result.quality}.png`;
+        fs.writeFileSync(path.join(outDir, file), encodePng(frame.image));
+        result.files.push(file);
+        entries.push({
+          scene: result.scenario,
+          viewport: result.viewport,
+          frame: `${scope}${frame.id}`,
+          file,
+          image: frame.image,
+          quality: result.quality,
+          group: frame.group,
+        });
+      }
+      manifest.scenarios.push(
+        buildScenarioManifestEntry(result, {
+          commit,
+          seed,
+          fingerprints: () => ({ pixelHash, lumaSignature }),
+        })
+      );
     }
     if (entries.length) {
       const sheet = buildContactSheet(entries);
@@ -904,6 +1054,7 @@ export async function capture({
         })
       );
     }
+    manifest.ok = true;
     manifest.artifacts = {
       dir: outDir,
       contactSheet: entries.length ? 'contact-sheet.png' : null,
@@ -912,18 +1063,20 @@ export async function capture({
     fs.writeFileSync(path.join(outDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   }
 
-  return { manifest, results, entries };
+  return { manifest, results, scenarioResults, entries };
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
   const options = {
     scenes: [...SCENES],
+    scenarios: [],
     viewports: null,
     quality: 'high',
     outDir: '/tmp/rtd-visual',
     seed: GAME_SEED,
     repeat: 1,
+    driftTicks: 0,
     json: false,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -932,6 +1085,13 @@ function parseArgs(argv) {
     if (arg === '--scene') {
       const value = next();
       options.scenes = value === 'all' ? [...SCENES] : String(value).split(',').map((item) => item.trim()).filter(Boolean);
+      options.scenesExplicit = true;
+    } else if (arg === '--scenario') {
+      const value = next();
+      options.scenarios = value === 'all' ? [...SCENARIOS] : String(value).split(',').map((item) => item.trim()).filter(Boolean);
+    } else if (arg === '--drift-test') {
+      // 仅验收用：让 combat 首帧多走 30 步（0.5s），验证时间断言会非零退出。
+      options.driftTicks = 30;
     } else if (arg === '--viewport') {
       const value = next();
       options.viewports = value === 'all' ? null : String(value).split(',').map((item) => item.trim()).filter(Boolean);
@@ -954,46 +1114,61 @@ function parseArgs(argv) {
   for (const scene of options.scenes) {
     if (!SCENES.includes(scene)) throw new Error(`未知场景：${scene}（可选 ${SCENES.join(' / ')} / all）`);
   }
+  for (const scenario of options.scenarios) {
+    if (!SCENARIOS.includes(scenario)) {
+      throw new Error(`未知采集场景：${scenario}（可选 ${SCENARIOS.join(' / ')} / all）`);
+    }
+  }
+  // 只点名了 --scenario 时不再顺带跑五个基础场景；同时点名则两者都采。
+  if (options.scenarios.length && !options.scenesExplicit) options.scenes = [];
   return options;
 }
 
 // 两次采集的指纹对比：图片逐帧比较 32×32 亮度签名，容差内视为一致。
+// 键与采集来源一致：场景/scenario + 视口 +（武器组）towerType + 帧 id。
+function comparisonKey(result, frame) {
+  const scope = result.scenario || result.scene;
+  const group = result.towerType || frame.towerType ? `:${result.towerType || frame.towerType}` : '';
+  return `${scope}@${result.viewport}${group}#${frame.id}`;
+}
+
 export function compareRuns(first, second) {
   const index = new Map();
-  for (const result of first) {
-    for (const frame of result.frames) index.set(`${result.scene}@${result.viewport}#${frame.id}`, frame.image);
+  const collect = (runs) => runs.flatMap((result) => [
+    ...(result.frames || []).map((frame) => ({ result, frame })),
+  ]);
+  for (const { result, frame } of collect(first)) {
+    index.set(comparisonKey(result, frame), frame.image);
   }
   const comparisons = [];
   const seen = new Set();
-  for (const result of second) {
-    for (const frame of result.frames) {
-      const key = `${result.scene}@${result.viewport}#${frame.id}`;
-      seen.add(key);
-      const other = index.get(key);
-      if (!other) {
-        comparisons.push({ key, ok: false, reason: 'missing-first-run' });
-        continue;
-      }
-      const a = lumaSignature(other);
-      const b = lumaSignature(frame.image);
-      const exact = pixelHash(other) === pixelHash(frame.image);
-      let sum = 0;
-      let changed = 0;
-      for (let i = 0; i < a.length; i++) {
-        const d = Math.abs(a[i] - b[i]);
-        sum += d;
-        if (d > 6) changed++;
-      }
-      const meanAbs = sum / a.length;
-      const diffRatio = changed / a.length;
-      comparisons.push({
-        key,
-        ok: meanAbs <= 2.5 && diffRatio <= 0.08,
-        exact,
-        meanAbs: Number(meanAbs.toFixed(3)),
-        diffRatio: Number(diffRatio.toFixed(4)),
-      });
+  for (const { result, frame } of collect(second)) {
+    const key = comparisonKey(result, frame);
+    seen.add(key);
+    const other = index.get(key);
+    if (!other) {
+      comparisons.push({ key, ok: false, reason: 'missing-first-run' });
+      continue;
     }
+    const a = lumaSignature(other);
+    const b = lumaSignature(frame.image);
+    const exact = pixelHash(other) === pixelHash(frame.image);
+    let sum = 0;
+    let changed = 0;
+    for (let i = 0; i < a.length; i++) {
+      const d = Math.abs(a[i] - b[i]);
+      sum += d;
+      if (d > 6) changed++;
+    }
+    const meanAbs = sum / a.length;
+    const diffRatio = changed / a.length;
+    comparisons.push({
+      key,
+      ok: meanAbs <= 2.5 && diffRatio <= 0.08,
+      exact,
+      meanAbs: Number(meanAbs.toFixed(3)),
+      diffRatio: Number(diffRatio.toFixed(4)),
+    });
   }
   for (const key of index.keys()) {
     if (!seen.has(key)) comparisons.push({ key, ok: false, reason: 'missing-second-run' });
@@ -1004,7 +1179,11 @@ export function compareRuns(first, second) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   if (options.help) {
-    console.log('用法：node tests/visual-scenes.mjs --scene combat --quality high --out /tmp/visual-smoke [--viewport desktop] [--repeat 2]');
+    console.log([
+      '用法：node tests/visual-scenes.mjs [--scene combat|all] [--scenario weapons|crit|… |all] [--quality high|low|auto]',
+      '                              [--out /tmp/visual-smoke] [--viewport desktop] [--repeat 2] [--drift-test]',
+      `采集场景：${SCENARIOS.join(' / ')}`,
+    ].join('\n'));
     return 0;
   }
   resolveQuality(options.quality);
@@ -1016,10 +1195,12 @@ async function main() {
     runs.push(
       await capture({
         scenes: options.scenes,
+        scenarios: options.scenarios,
         viewports: options.viewports,
         quality: options.quality,
         outDir,
         seed: options.seed,
+        driftTicks: options.driftTicks,
         log: (line) => console.log(line),
       })
     );
@@ -1027,7 +1208,10 @@ async function main() {
 
   let determinism = null;
   if (runs.length > 1) {
-    determinism = compareRuns(runs[0].results, runs[1].results);
+    determinism = compareRuns(
+      [...runs[0].results, ...runs[0].scenarioResults],
+      [...runs[1].results, ...runs[1].scenarioResults]
+    );
     fs.writeFileSync(
       path.join(options.outDir, 'determinism.json'),
       `${JSON.stringify(determinism, null, 2)}\n`
@@ -1042,6 +1226,7 @@ async function main() {
   const summary = {
     out: options.outDir,
     scenes: options.scenes,
+    scenarios: options.scenarios,
     viewports: options.viewports,
     quality: options.quality,
     frames: runs[0].entries.length,
@@ -1061,6 +1246,11 @@ if (isDirectEntry) {
   main()
     .then((code) => process.exit(code))
     .catch((error) => {
+      // 时间漂移是「采集结论」而不是程序崩溃：只打印请求 vs 实际，退出码 3。
+      if (error instanceof TimeDriftError) {
+        console.error(`[visual-scenes] ${error.message}`);
+        process.exit(3);
+      }
       console.error(`[visual-scenes] ${error.stack || error.message}`);
       process.exit(2);
     });

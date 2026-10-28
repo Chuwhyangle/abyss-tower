@@ -51,9 +51,29 @@ import {
 import {
   CONTACT_CELL_HEIGHT,
   CONTACT_CELL_WIDTH,
+  COMBAT_TIMELINE,
+  QUALITY_CHOICES,
   buildContactSheet,
   compareRuns,
+  orderCombatFrames,
+  resolveQuality,
 } from './visual-scenes.mjs';
+import {
+  EVENT_SCENARIOS,
+  FLOATER_SCENARIOS,
+  QUALITY_SCENARIOS,
+  REDUCED_MOTION_SCENARIOS,
+  SCENARIOS,
+  WEAPON_TYPES,
+  TimeDriftError,
+  buildScenarioManifestEntry,
+  buildScenarioRuntimeSource,
+  checkFrameTimes,
+  frameManifestEntry,
+  scenarioPlan,
+  validateScenarioPlans,
+} from './visual-scenarios.mjs';
+import { TOWERS } from '../public/js/shared/data.js';
 
 function makeImage(width, height, color = [0, 0, 0, 255]) {
   const image = new RgbaImage(width, height);
@@ -639,4 +659,242 @@ test('两次采集比对：同图通过、改图失败', () => {
 
   const missing = compareRuns(runA, [{ scene: 'combat', viewport: 'mobile', frames: [{ id: 'combat-impact', image: frame }] }]);
   assert.equal(missing.ok, false);
+});
+
+// ── 采集场景：时间断言 + 事件触发帧（gap-feel-capture-scenarios） ─────────────
+// 这些用例不启动浏览器：场景计划是纯数据，页面运行时只按计划注入。
+
+test('画质解析：auto 走设备解析路径，显式档位标记 manual，未知档位抛错', () => {
+  const auto = resolveQuality('auto');
+  assert.equal(auto.name, 'auto');
+  assert.equal(auto.settings.qualityMode, 'auto');
+
+  const low = resolveQuality('low');
+  assert.equal(low.settings.qualityMode, 'manual');
+  assert.equal(low.settings.fps, 30);
+  assert.equal(resolveQuality('high').settings.fps, 60);
+  assert.deepEqual(QUALITY_CHOICES, ['auto', 'low', 'high']);
+  assert.throws(() => resolveQuality('ultra'), /未知画质/);
+});
+
+test('场景目录：武器 × 事件 × 飘字 × reduced-motion × 画质，id 不重复', () => {
+  assert.equal(new Set(SCENARIOS).size, SCENARIOS.length);
+  for (const id of ['weapons', ...EVENT_SCENARIOS, ...Object.keys(FLOATER_SCENARIOS), ...Object.keys(REDUCED_MOTION_SCENARIOS), ...Object.keys(QUALITY_SCENARIOS)]) {
+    assert.ok(SCENARIOS.includes(id), `目录缺少 ${id}`);
+  }
+  assert.equal(EVENT_SCENARIOS.length, 7);
+  assert.deepEqual([...Object.values(FLOATER_SCENARIOS)], ['all', 'key', 'off']);
+  assert.deepEqual([...Object.values(QUALITY_SCENARIOS)], ['auto', 'low', 'high']);
+  assert.deepEqual([...Object.values(REDUCED_MOTION_SCENARIOS)], [true, false]);
+});
+
+test('场景计划自检通过：每个场景都有帧组、帧 id 唯一、requestedTime 单调', () => {
+  const report = validateScenarioPlans();
+  assert.deepEqual(report.errors, []);
+  assert.equal(report.ok, true);
+});
+
+test('weapons：8 组帧，towerType 覆盖 TOWERS 且互不相同，每组都放置自己的塔', () => {
+  const plan = scenarioPlan('weapons');
+  const types = plan.groups.map((group) => group.towerType);
+  assert.equal(types.length, 8);
+  assert.equal(new Set(types).size, 8);
+  assert.deepEqual([...types].sort(), Object.keys(TOWERS).sort());
+  assert.deepEqual([...WEAPON_TYPES].sort(), Object.keys(TOWERS).sort());
+  for (const group of plan.groups) {
+    assert.ok(group.setup.some((step) => step.type === 'tower' && step.tower === group.towerType), `${group.key} 没有放置 ${group.towerType}`);
+    assert.equal(group.frames.length, 6);
+    assert.deepEqual(group.frames.map((frame) => frame.requestedTime), [0.5, 1, 1.5, 2, 2.5, 3]);
+    assert.equal(group.support, group.towerType === 'banner');
+  }
+});
+
+test('事件场景：七个都有事件前后帧序列，注入动作只走确定性入口', () => {
+  for (const id of EVENT_SCENARIOS) {
+    const plan = scenarioPlan(id);
+    const [group] = plan.groups;
+    const frames = group.frames;
+    assert.ok(frames.length >= 2, `${id} 帧数不足`);
+    assert.equal(frames[0].role, 'before');
+    assert.ok(frames.slice(1).every((frame) => frame.role === 'after'), `${id} 缺少事件后帧`);
+    assert.ok(frames[0].requestedTime > 0);
+    assert.ok(frames.every((frame, index) => index === 0 || frame.requestedTime >= frames[index - 1].requestedTime));
+    const actions = frames.flatMap((frame) => frame.steps.filter((step) => typeof step.type === 'string'));
+    assert.ok(actions.length >= 1, `${id} 没有注入动作`);
+    // 只允许确定性动作：damage / leak / complete-wave / wave 等，没有随机源。
+    for (const action of actions) {
+      assert.ok(['damage', 'leak', 'complete-wave', 'wave'].includes(action.type), `${id} 出现非确定性动作 ${action.type}`);
+    }
+  }
+  // 清波后模拟时钟停在 prep：后续帧必须走视觉时钟，requestedTime 不变。
+  const waveclear = scenarioPlan('waveclear').groups[0].frames;
+  assert.deepEqual(waveclear.map((frame) => frame.requestedTime), [1, 1, 1, 1]);
+  assert.ok(waveclear.slice(1).every((frame) => frame.steps.every((step) => !Number.isFinite(step.sim))));
+  assert.deepEqual(waveclear.slice(2).map((frame) => frame.visualMs), [250, 250]);
+});
+
+test('飘字三档 / reduced-motion 开关 / 画质三档：同 seed 同 t 各一帧', () => {
+  const floaterFrames = Object.keys(FLOATER_SCENARIOS).map((id) => {
+    const plan = scenarioPlan(id);
+    assert.equal(plan.floaters, FLOATER_SCENARIOS[id]);
+    assert.ok(plan.groups[0].setup.some((step) => step.type === 'floaters' && step.value === FLOATER_SCENARIOS[id]));
+    const frames = plan.groups.flatMap((group) => group.frames);
+    assert.equal(frames.length, 1, `${id} 必须恰好一帧`);
+    return frames[0].requestedTime;
+  });
+  assert.deepEqual(floaterFrames, [1.25, 1.25, 1.25]);
+
+  const motionFrames = Object.keys(REDUCED_MOTION_SCENARIOS).map((id) => {
+    const plan = scenarioPlan(id);
+    assert.equal(plan.reducedMotion, REDUCED_MOTION_SCENARIOS[id]);
+    const frames = plan.groups.flatMap((group) => group.frames);
+    assert.equal(frames.length, 1);
+    assert.equal(frames[0].event, 'leak');
+    assert.ok(plan.groups[0].setup.some((step) => step.type === 'reduced-motion'));
+    return frames[0].requestedTime;
+  });
+  assert.deepEqual(motionFrames, [1, 1]);
+
+  for (const id of Object.keys(QUALITY_SCENARIOS)) {
+    const plan = scenarioPlan(id);
+    assert.equal(plan.quality, QUALITY_SCENARIOS[id]);
+    assert.ok(plan.groups[0].setup.some((step) => step.type === 'quality' && step.value === QUALITY_SCENARIOS[id]));
+    const frames = plan.groups.flatMap((group) => group.frames);
+    assert.equal(frames.length, 1);
+    assert.equal(frames[0].requestedTime, 1.5);
+  }
+});
+
+test('时间断言：requestedTime 与 snapshot.time 不一致时判红并写明请求 vs 实际', () => {
+  const ok = checkFrameTimes([
+    { key: 'combat@desktop#combat-contact', requestedTime: 2, snapshot: { time: 2 } },
+    { key: 'combat@desktop#combat-mixed', requestedTime: 4.5, snapshot: { time: 4.5 } },
+  ]);
+  assert.equal(ok.ok, true);
+  assert.deepEqual(ok.drifts, []);
+
+  const drift = checkFrameTimes([
+    { key: 'combat@desktop#combat-contact', requestedTime: 2, snapshot: { time: 2 } },
+    { key: 'combat@desktop#combat-impact', requestedTime: 8, snapshot: { time: 12 } },
+    { key: 'combat@desktop#combat-mixed', requestedTime: 4.5, snapshot: { time: 8 } },
+  ]);
+  assert.equal(drift.ok, false);
+  assert.deepEqual(drift.drifts.map((item) => item.key), ['combat@desktop#combat-impact', 'combat@desktop#combat-mixed']);
+  assert.equal(drift.drifts[0].requestedTime, 8);
+  assert.equal(drift.drifts[0].actualTime, 12);
+
+  const missing = checkFrameTimes([{ key: 'x#y', requestedTime: 1, snapshot: null }]);
+  assert.equal(missing.ok, false);
+  assert.equal(missing.drifts[0].reason, '缺少 snapshot.time');
+
+  // 没有 requestedTime 的帧（title/lobby/map/result）不参与断言。
+  assert.equal(checkFrameTimes([{ key: 'title@desktop#title', snapshot: { time: 0 } }]).ok, true);
+
+  const error = new TimeDriftError(drift.drifts);
+  assert.match(error.message, /请求 t=8s/);
+  assert.match(error.message, /实际 t=12s/);
+});
+
+test('combat 三帧：请求 2 / 4.5 / 8s，manifest 按对照顺序给出 8 / 4.5 / 2', () => {
+  assert.deepEqual(COMBAT_TIMELINE.map((frame) => frame.requestedTime), [2, 4.5, 8]);
+  const frames = [
+    { id: 'combat-contact', requestedTime: 2, snapshot: { time: 2 } },
+    { id: 'combat-mixed', requestedTime: 4.5, snapshot: { time: 4.5 } },
+    { id: 'combat-impact', requestedTime: 8, snapshot: { time: 8 } },
+  ];
+  const ordered = orderCombatFrames(frames);
+  assert.deepEqual(ordered.map((frame) => frame.id), ['combat-impact', 'combat-mixed', 'combat-contact']);
+  assert.deepEqual(ordered.map((frame) => frame.snapshot.time), [8, 4.5, 2]);
+  // 非 combat 帧不受影响。
+  assert.deepEqual(orderCombatFrames([{ id: 'title' }]).map((frame) => frame.id), ['title']);
+});
+
+test('两次采集比对：场景帧按 scenario + towerType 分组，互不串味', () => {
+  const image = makeImage(24, 24, [40, 40, 40, 255]);
+  const changed = makeImage(24, 24, [200, 200, 200, 255]);
+  const arrow = [{ scenario: 'weapons', viewport: 'desktop', towerType: 'arrow', frames: [{ id: 'f1', image }] }];
+  const cannon = [{ scenario: 'weapons', viewport: 'desktop', towerType: 'cannon', frames: [{ id: 'f1', image }] }];
+  const same = compareRuns(arrow, arrow);
+  assert.equal(same.ok, true);
+  assert.equal(same.comparisons[0].exact, true);
+  assert.match(same.comparisons[0].key, /weapons@desktop:arrow#f1/);
+
+  const wrongGroup = compareRuns(arrow, [{ ...arrow[0], towerType: 'cannon', frames: [{ id: 'f1', image: changed }] }]);
+  assert.equal(wrongGroup.ok, false);
+  assert.ok(wrongGroup.comparisons.some((item) => item.reason === 'missing-first-run'));
+
+  const differ = compareRuns([{ scenario: 'crit', viewport: 'desktop', frames: [{ id: 't0', image }] }], [{ scenario: 'crit', viewport: 'desktop', frames: [{ id: 't0', image: changed }] }]);
+  assert.equal(differ.ok, false);
+  assert.equal(differ.comparisons[0].exact, false);
+
+  // cannon 与 arrow 是两组不同的帧，不互为对照。
+  assert.equal(compareRuns(arrow, cannon).ok, false);
+});
+
+test('页面运行时不含 Math.random 调用（同 seed 两次采集因此逐帧一致）', () => {
+  const source = buildScenarioRuntimeSource('visual-scene-seed');
+  assert.equal(/Math\.random\s*\(/.test(source), false, '运行时不得调用 Math.random()');
+  // 允许替换成确定性序列（赋值不是调用）。
+  assert.match(source, /Math\.random\s*=/);
+  assert.match(source, /__visualScenario/);
+  assert.match(source, /visual-scene-seed/);
+});
+
+test('manifest 记录 scenario / seed / commit / frames[] 与每组证据', () => {
+  const image = makeImage(8, 6, [10, 10, 10, 255]);
+  const result = {
+    scenario: 'weapons',
+    viewport: 'desktop',
+    quality: 'high',
+    qualityActual: 'high',
+    description: '八种武器',
+    notes: 'n',
+    elapsedMs: 12,
+    groups: [{
+      key: 'weapons-arrow',
+      towerType: 'arrow',
+      trace: { effectKinds: ['spark'], effectSignatures: ['spark:arrow'], maxProjectiles: 1, maxEffects: 2, maxFloaters: 3 },
+    }, {
+      key: 'weapons-banner',
+      towerType: 'banner',
+      support: true,
+      trace: { effectKinds: ['place'], effectSignatures: [], maxProjectiles: 0, maxEffects: 1, maxFloaters: 0 },
+    }],
+    frames: [{
+      id: 'f1',
+      group: 'weapons-arrow',
+      towerType: 'arrow',
+      role: 'evidence',
+      requestedTime: 0.5,
+      timeDriven: 'sim',
+      visualMs: 0,
+      image,
+      snapshot: { time: 0.5, effects: 2, floaters: 1, projectiles: 1, effectKinds: ['spark'], effectSignatures: ['spark:arrow'] },
+    }],
+    files: ['weapons-desktop-arrow-f1-high.png'],
+  };
+  const entry = buildScenarioManifestEntry(result, {
+    commit: 'deadbeef',
+    seed: 'visual-scene-seed',
+    fingerprints: () => ({ pixelHash: () => 'hash', lumaSignature: () => [1, 2] }),
+  });
+  assert.equal(entry.scenario, 'weapons');
+  assert.equal(entry.seed, 'visual-scene-seed');
+  assert.equal(entry.commit, 'deadbeef');
+  assert.equal(entry.frames.length, 1);
+  assert.equal(entry.frames[0].requestedTime, 0.5);
+  assert.equal(entry.frames[0].snapshot.time, 0.5);
+  assert.equal(entry.frames[0].towerType, 'arrow');
+  assert.equal(entry.frames[0].file, 'weapons-desktop-arrow-f1-high.png');
+  assert.equal(entry.frames[0].pixelHash, 'hash');
+  assert.equal(entry.groups[0].fired, true);
+  assert.deepEqual(entry.groups[0].weaponSignatures, ['spark:arrow']);
+  // 只有建造特效的组不算开过火；support 塔照实标注。
+  assert.equal(entry.groups[1].fired, false);
+  assert.equal(entry.groups[1].support, true);
+  assert.deepEqual(entry.groups[1].weaponSignatures, []);
+
+  const frame = frameManifestEntry({ id: 'x', requestedTime: 2, snapshot: { time: 2 }, image }, 'x.png');
+  assert.equal(frame.pixelHash, null);
+  assert.equal(frame.requestedTime, 2);
 });
