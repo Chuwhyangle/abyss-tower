@@ -2,7 +2,7 @@
 id: gap-ac-005-full-suite-reverify-witness-live-store
 title: AC-005 复验：全量测试（--test-concurrency=2）exit 0 —— 根因（phase-refactor-sync
   反空转见证耦合活任务库）由在飞任务拥有，本任务只做只读见证
-status: ready
+status: done
 labels:
   - gap
   - defect
