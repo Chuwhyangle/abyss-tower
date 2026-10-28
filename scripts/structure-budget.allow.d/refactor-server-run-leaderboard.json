@@ -1,0 +1,6 @@
+{
+  "entries": [
+    { "path": "server/services/run-service.mjs", "maxLines": 1017, "owner": "refactor-server-run-leaderboard" },
+    { "path": "server/db/leaderboard.mjs", "maxLines": 893, "owner": "refactor-server-run-leaderboard" }
+  ]
+}

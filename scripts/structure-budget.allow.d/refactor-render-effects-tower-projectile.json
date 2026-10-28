@@ -1,0 +1,7 @@
+{
+  "entries": [
+    { "path": "public/js/render/effect-renderer.js", "maxLines": 1049, "owner": "refactor-render-effects-tower-projectile" },
+    { "path": "public/js/render/tower-renderer.js", "maxLines": 1054, "owner": "refactor-render-effects-tower-projectile" },
+    { "path": "public/js/render/projectile-renderer.js", "maxLines": 772, "owner": "refactor-render-effects-tower-projectile" }
+  ]
+}

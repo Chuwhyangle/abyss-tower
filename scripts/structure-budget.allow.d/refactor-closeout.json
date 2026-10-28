@@ -1,0 +1,8 @@
+{
+  "entries": [
+    { "path": "public/js/render/background-renderer.js", "maxLines": 727, "owner": "refactor-closeout" },
+    { "path": "public/js/render/sprite-pipeline.js", "maxLines": 649, "owner": "refactor-closeout" },
+    { "path": "public/js/relic-codex-ui.js", "maxLines": 632, "owner": "refactor-closeout" },
+    { "path": "tests/balance-sim.mjs", "maxLines": 1289, "owner": "refactor-closeout" }
+  ]
+}

@@ -1,0 +1,1173 @@
+{
+  "kind": "refactor-visual-parity",
+  "version": 1,
+  "quality": "high",
+  "seed": "visual-scene-seed",
+  "testSeed": "visual-fixed-seed",
+  "scenes": [
+    "title",
+    "lobby",
+    "map",
+    "combat",
+    "result"
+  ],
+  "sceneViewports": [
+    [
+      "title",
+      "desktop"
+    ],
+    [
+      "title",
+      "mobile"
+    ],
+    [
+      "lobby",
+      "desktop"
+    ],
+    [
+      "lobby",
+      "mobile"
+    ],
+    [
+      "map",
+      "desktop"
+    ],
+    [
+      "map",
+      "mobile"
+    ],
+    [
+      "combat",
+      "desktop"
+    ],
+    [
+      "combat",
+      "mobile-landscape"
+    ],
+    [
+      "result",
+      "desktop"
+    ],
+    [
+      "result",
+      "mobile-landscape"
+    ]
+  ],
+  "scenarios": [
+    "weapons",
+    "crit",
+    "kill",
+    "boss",
+    "shield",
+    "leak",
+    "waveclear",
+    "bossdeath",
+    "floaters-all",
+    "floaters-key",
+    "floaters-off",
+    "reduced-motion-on",
+    "reduced-motion-off",
+    "quality-auto",
+    "quality-low",
+    "quality-high"
+  ],
+  "scenarioViewports": [
+    "desktop",
+    "mobile-landscape"
+  ],
+  "frameCount": 182,
+  "frames": [
+    {
+      "key": "boss@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "242f77304c281f30f886858b8ba2bac4d8330a9cfb2acaf1bfdc08b15edc9272"
+    },
+    {
+      "key": "boss@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "e534c7d6c2aedef41da010b9c970d8a5adb159c0063a03a6dfaf0dd64bd8a8a3"
+    },
+    {
+      "key": "boss@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "50d2a2212fe1422f9bf7d9ce59a29806b44ba4ec9c1c7481eeead3d2f0573a43"
+    },
+    {
+      "key": "boss@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "fa87c67ad0d95da2a8b47e451ea9428a4c345fefbac1a351db53209a4ca106d0"
+    },
+    {
+      "key": "boss@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "2951b28e97dc540d755d74faffd04fbba7a16cad568334da3a079666343d648a"
+    },
+    {
+      "key": "boss@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "edc22c67db6eedd34d463c0fad35618dd39a22b75b0de2f3e01551bd9a4c176c"
+    },
+    {
+      "key": "boss@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "94caf1fae95fd39ba96819d5d87fe21b5e3518e0da559645222780a4daff2eb6"
+    },
+    {
+      "key": "boss@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "a8283b21a5aeed136361932b7f32d64d74af6a2a097bbca863d84be34bf31459"
+    },
+    {
+      "key": "bossdeath@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "33da55285d40e4e1a1ab8a679b2cfe7409aefa1d62237f4a28a37a98a059ee6a"
+    },
+    {
+      "key": "bossdeath@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "3bfc7c48c52d008ab321727a83b4037c35588bd3b247d169e28a51ba32abb6b2"
+    },
+    {
+      "key": "bossdeath@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "decf19c670943e481fe15a351d6efb66e2e0b6b27cb3ed1c949b36e070a03255"
+    },
+    {
+      "key": "bossdeath@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "fcdfef80eb4288dcc9239ec9715cee28c2661db032e26266af11a0be053d2ed1"
+    },
+    {
+      "key": "bossdeath@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "34fc82f39ce2f4c1740b16928fbc4106abf37c414939f0042ee6727a3364d803"
+    },
+    {
+      "key": "bossdeath@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "cc3b67fbf36587c95c5c80e496607063782a3247a0865c2ae1402b0b1e0539fc"
+    },
+    {
+      "key": "bossdeath@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "cc3b67fbf36587c95c5c80e496607063782a3247a0865c2ae1402b0b1e0539fc"
+    },
+    {
+      "key": "bossdeath@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "cc3b67fbf36587c95c5c80e496607063782a3247a0865c2ae1402b0b1e0539fc"
+    },
+    {
+      "key": "combat@desktop/combat-contact",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "84d0e696631aa3a1f73eebaf446eb93b75fac60debf8dce4a333e1dc00bd83a2"
+    },
+    {
+      "key": "combat@desktop/combat-impact",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "05ea52ac062947ed04aeb9970a8bdcc85914189b7b546fbed1882fa4348ee034"
+    },
+    {
+      "key": "combat@desktop/combat-mixed",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "62651f534f7152b85f5bc896994c7894bd4a777071c7cce66c578c93e51a390f"
+    },
+    {
+      "key": "combat@mobile-landscape/combat-contact",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "ad1cb2eb0121ad6281d7413a4018b85b2a957ba248aa27916dbcca9bde3039b2"
+    },
+    {
+      "key": "combat@mobile-landscape/combat-impact",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "2539859ed468ce4ed23cff57e72be75449567435b594df3bfd544b91c27dce08"
+    },
+    {
+      "key": "combat@mobile-landscape/combat-mixed",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "3ba56b4ddc66457d8ff7ba5ed49cd8068500b67450366bd8f253132ffe7851cc"
+    },
+    {
+      "key": "crit@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "874a94f9d6f7fd48ef28a0d77ac32530594ae311ef48368df50abd1d26e753a3"
+    },
+    {
+      "key": "crit@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "8df61720b397c78437bf6a43c5fdb9b81670c335a6dc4c416088f771a077625a"
+    },
+    {
+      "key": "crit@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "91580e37171edf8f0340216d07adbf53e8106d142240b6204ec2a85f9efb0e3e"
+    },
+    {
+      "key": "crit@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "89333eb71694c682f1bfc87b2ff48ec67a192c9c7ab996b3787635b7838460cb"
+    },
+    {
+      "key": "crit@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "2f87e57964aa0a446ccff562fb764f35a0fd4fcce7c5d95d5bfbc024f5052949"
+    },
+    {
+      "key": "crit@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "01fe8c24d09bfb6f21cb03ea6cc33ab131add0576f29289f04b07fbb99d5c585"
+    },
+    {
+      "key": "crit@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6e6f3aabd45ca096034e450e6dd1d38f5ee88f175b00fe70b062e765ec8b280e"
+    },
+    {
+      "key": "crit@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "909324ad6b8ebc22f54ead4b3415ab53e1b31e68b102fe104453a8a40d5bea8a"
+    },
+    {
+      "key": "floaters-all@desktop/t1250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "781ecf7f0f0a8d6a6dfe08425dac01138ba803ed019313424fe5a46bb07b6cf6"
+    },
+    {
+      "key": "floaters-all@mobile-landscape/t1250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "34fc82f39ce2f4c1740b16928fbc4106abf37c414939f0042ee6727a3364d803"
+    },
+    {
+      "key": "floaters-key@desktop/t1250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "f061a8d40daebd026e8c01fa1da61395eb7d59c043ead6f3f2991a049073f667"
+    },
+    {
+      "key": "floaters-key@mobile-landscape/t1250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "34fc82f39ce2f4c1740b16928fbc4106abf37c414939f0042ee6727a3364d803"
+    },
+    {
+      "key": "floaters-off@desktop/t1250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "f59de2ca5fee3cfd0fb040ee0483fdce4d8fdd728017dd277eb15ac67eb6487c"
+    },
+    {
+      "key": "floaters-off@mobile-landscape/t1250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "34fc82f39ce2f4c1740b16928fbc4106abf37c414939f0042ee6727a3364d803"
+    },
+    {
+      "key": "kill@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "06603a6c9d22ae2ee7be5ddf83885ae893f643d19cee383762a4cbf9bfc0a382"
+    },
+    {
+      "key": "kill@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "c14a8237375424fa728c5e06859d96c06cc707f4c8dff3e7b128b66a3de74658"
+    },
+    {
+      "key": "kill@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "624f83e27bf72d3058665d062c4ca61d1d0c4fbdbc12da7411259d9db1b97781"
+    },
+    {
+      "key": "kill@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "b3486e23623bf48b78b34efa91cf3d637bf4b74203d281af496952676573e4cc"
+    },
+    {
+      "key": "kill@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "df12096f3a007bfb0b6c6a961ba5db280542f2e2836d85c9a75543d3ad49ed1b"
+    },
+    {
+      "key": "kill@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6688b549d1430a790cbe9f6b764f82323d9a5623f7b5c8f697ea55d276b48e5e"
+    },
+    {
+      "key": "kill@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6d6e82d6505dd0c8625e03b4c051f973834499b111fc7d15c97e8ec9666b0fb7"
+    },
+    {
+      "key": "kill@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "11d51385f4f1ee1112c66c8fa150ec5c55b057905c1bac3694eb368ce653e8a3"
+    },
+    {
+      "key": "leak@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "0398c96549eee6c49e02c17d4ac8de39b789f3b61bedb96b98182a3faae1084a"
+    },
+    {
+      "key": "leak@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "609fc47a21e525fa896331e1484e10b27b9d211a9e577accb2ed9d4366ff61de"
+    },
+    {
+      "key": "leak@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "0406a8dc73e6b211282d4d7010304ad7ac17248e02703d981fa4761cd9a46602"
+    },
+    {
+      "key": "leak@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "152df7272b7bd3d894b208a2020cf60ae35579c38fbb9b4e28a4e7c7955c1f36"
+    },
+    {
+      "key": "leak@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "cd30569fd012873ca7e937615125f7cd62945b1aa1f97751101bf37416070e92"
+    },
+    {
+      "key": "leak@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "ba918e4c08793cf758b88500c8b781061fbb3d48d03f1e77b8d5d784294ce1e4"
+    },
+    {
+      "key": "leak@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "bc5490912918790213ad27479b0ae460dd8b57a4564fa98d9b1c456200902b39"
+    },
+    {
+      "key": "leak@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "0469cbb0d014b0b3f21c1027ebc26cb9d9ca214e6ef30f9ad31f141f68e021cc"
+    },
+    {
+      "key": "lobby@desktop/lobby",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "e60556d6d644b9c6992302d4c7257a31479afa5abd8b8450e64d5ab7fab8cdfc"
+    },
+    {
+      "key": "lobby@mobile/lobby",
+      "width": 390,
+      "height": 844,
+      "pixelHash": "bd87bbc5d59a15089d8f32a7be0d153358155394624e7ade5f18e3fa12e64813"
+    },
+    {
+      "key": "map@desktop/map",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "af1ea7ce8d623418a4da38d18831856b9da1e32c37abd9966ffa7c84fdc34d49"
+    },
+    {
+      "key": "map@mobile/map",
+      "width": 390,
+      "height": 844,
+      "pixelHash": "549b00875879e9294c10aec1d36a1f9763daddd865e3e6294d416b3e81fb9668"
+    },
+    {
+      "key": "quality-auto@desktop/t1500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "a782262aa6f0ba478301d21c14582e70436dbae19b8850b9dfe77252420c16f1"
+    },
+    {
+      "key": "quality-auto@mobile-landscape/t1500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6159eea37b23e0f10f45bcbd47f1d5966f69c4b5ed11abcef54efa4ef30eded4"
+    },
+    {
+      "key": "quality-high@desktop/t1500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "b96dbcca599deabc772c7eebe7d963968a411a4cd6c77ee8ee9d62d72f42b7ca"
+    },
+    {
+      "key": "quality-high@mobile-landscape/t1500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6159eea37b23e0f10f45bcbd47f1d5966f69c4b5ed11abcef54efa4ef30eded4"
+    },
+    {
+      "key": "quality-low@desktop/t1500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "255318d4896b87faf0c3dbc995d9756b5c2db89286c06188a64b7ad8ad83d169"
+    },
+    {
+      "key": "quality-low@mobile-landscape/t1500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6159eea37b23e0f10f45bcbd47f1d5966f69c4b5ed11abcef54efa4ef30eded4"
+    },
+    {
+      "key": "reduced-motion-off@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "7544921fdc5e800f3192a56a92793f2598cf4e23424ee17465565f043f2a8c8e"
+    },
+    {
+      "key": "reduced-motion-off@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "c783f94a8e939a10526d8d2c66921fe44f63bf8d4b31e52c9ea42af59004b9f7"
+    },
+    {
+      "key": "reduced-motion-on@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "5ca40e0f2a22397d195d82135d7069a54197e6c6d3092a0bb58b1e36224a2c76"
+    },
+    {
+      "key": "reduced-motion-on@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "c783f94a8e939a10526d8d2c66921fe44f63bf8d4b31e52c9ea42af59004b9f7"
+    },
+    {
+      "key": "result@desktop/result",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "085ce3353e37db304241875418dd4be27a1f9f951ffce47f82ced608b200e54b"
+    },
+    {
+      "key": "result@mobile-landscape/result",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "0823a570c36c3c39d2c3df1c6b39b68116e619e7c5bb02a0c8f13b0d824ad02c"
+    },
+    {
+      "key": "shield@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "6369cfe35f575b527a0e38f69eb94ec83ff6d879d1badd85d5a5c5cbcc99db74"
+    },
+    {
+      "key": "shield@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "92f60bf426a4afbcd395b33e4282eaf208999c6343923306b71ded683de6423b"
+    },
+    {
+      "key": "shield@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "c1b7a9c4167fde379f02f09a20f058a9e80d59253f3ffe43dda63cd154ebf738"
+    },
+    {
+      "key": "shield@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "3ca6a99fde8179dd4c41becad76c07e1e376b66807f1e9ab500e11b95719eeee"
+    },
+    {
+      "key": "shield@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6a53f0e3ecdbba2dba695c7a2d9f370d9c0f01b40a1c04cb2e2a1e1d4eaeecbe"
+    },
+    {
+      "key": "shield@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "0b4a01572ecfd3f2a01efabdd4333490f5c5980ac9b8512c9fad1cc60865fd09"
+    },
+    {
+      "key": "shield@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "0a07fb9033f4148381bf8dc4750cefea774bcf49ccfd1ee15be214eb17561526"
+    },
+    {
+      "key": "shield@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "cbdbafe0f775a88b37e0baae8131d527705281c0d894989d2a4f189790238460"
+    },
+    {
+      "key": "title@desktop/title",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "7fee173fee1c1c26519c0d4727fe50ec56d7c73268dbf1b0e053a668532efc23"
+    },
+    {
+      "key": "title@mobile/title",
+      "width": 390,
+      "height": 844,
+      "pixelHash": "93b01199ec7e01b2619e127c1823be6f2ce683c35ffa703f43bfa64535575ee3"
+    },
+    {
+      "key": "waveclear@desktop/before",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "72e8e827ddc75544986ddefddf37689f4c96ce3b1ef127f635addd7830f77183"
+    },
+    {
+      "key": "waveclear@desktop/t0",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "bb0b37d70d69c0f947608ae78ffa8b53f9972a430d818bc6d652239d25a63d22"
+    },
+    {
+      "key": "waveclear@desktop/t250",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "bb0b37d70d69c0f947608ae78ffa8b53f9972a430d818bc6d652239d25a63d22"
+    },
+    {
+      "key": "waveclear@desktop/t500",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "e74b3353ad51626040e6d331f776548e9dc117697e0d89cde337088886b40660"
+    },
+    {
+      "key": "waveclear@mobile-landscape/before",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "8cecf306101b3aadfc0cc099d3d35d5ee577e2da8563f3f91b355dc4fca1180d"
+    },
+    {
+      "key": "waveclear@mobile-landscape/t0",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "890fb80677547e18031d55c1c02150e278ed903b8f3c3b6640f72f705018f3ea"
+    },
+    {
+      "key": "waveclear@mobile-landscape/t250",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "890fb80677547e18031d55c1c02150e278ed903b8f3c3b6640f72f705018f3ea"
+    },
+    {
+      "key": "waveclear@mobile-landscape/t500",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "890fb80677547e18031d55c1c02150e278ed903b8f3c3b6640f72f705018f3ea"
+    },
+    {
+      "key": "weapons@desktop/arc-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "1797bcd9c69364422ff08e99112ff49ce1c994f957242af48b80b7d1747572ef"
+    },
+    {
+      "key": "weapons@desktop/arc-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "37642908f09282ecb71892be030e5e737e9e0f58bd4408f77b520491981acf7d"
+    },
+    {
+      "key": "weapons@desktop/arc-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "c2c88cf54eb393803c9126840195b1c4855b90b10e0969c978753b9998a4d395"
+    },
+    {
+      "key": "weapons@desktop/arc-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "260ce141efccff45993d8622b4c50bf8e51b571db85af564176fdd5cf3f8e3a3"
+    },
+    {
+      "key": "weapons@desktop/arc-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "79e440a0f0e9cdf4754706146c93793062e23556c5abb078a196d589cf385629"
+    },
+    {
+      "key": "weapons@desktop/arc-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "a38de9f1cc2a10eb4fe30c5696f05279ef6e3a5bf9a20cd079c46a1795f89b0d"
+    },
+    {
+      "key": "weapons@desktop/arrow-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "34e20004f0af1580a8685489beb35c0cf1941db853f4658decc301e75af6d56b"
+    },
+    {
+      "key": "weapons@desktop/arrow-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "378e2ca29bc6a2ab6e6f18943bddbbc5203a7c12c1c276748b37bce0d084d02c"
+    },
+    {
+      "key": "weapons@desktop/arrow-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "f05eff82944f5e5ee212d8eac54af4678936f70c8bff5316f0e945d997f86028"
+    },
+    {
+      "key": "weapons@desktop/arrow-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "9f8e7a7d9a35231e822361bc1c60aeed5ebe00c9ba52fa2633749ab3e93e88f7"
+    },
+    {
+      "key": "weapons@desktop/arrow-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "00605b3393e7d194abd67dce3025db3289b5d017c66a62d578cb2714992b2854"
+    },
+    {
+      "key": "weapons@desktop/arrow-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "070c59cd8fca87bb0c2de2b3bf6ebfde1b5bea5294562014113febfb0c16cb7c"
+    },
+    {
+      "key": "weapons@desktop/banner-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "eb96012f78026c1f7dfdb47d1a282e106d948cd8ce6d9939807e2e137f781a89"
+    },
+    {
+      "key": "weapons@desktop/banner-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "033f979b8ef62ab5ed4a893c9a9de3005572de78e2ac379b0a43cdc8fd090993"
+    },
+    {
+      "key": "weapons@desktop/banner-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "f4d5b36da2c390c9a372444256420cca730ac8ce45bf13fd9045074c1eeeabf0"
+    },
+    {
+      "key": "weapons@desktop/banner-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "838c4f5b3b4bf527caa52e29ba89b3c7babe4949b0df6ee14d7c77535a3bb763"
+    },
+    {
+      "key": "weapons@desktop/banner-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "4a6a73f6975b72e2d81b131d1f41f515fbd464768908d6dca5f97a6360c24d90"
+    },
+    {
+      "key": "weapons@desktop/banner-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "53f80c2b5238ea0ddb9c03a7ea935b708331c7f24f1457a0e87709d9b9db9daa"
+    },
+    {
+      "key": "weapons@desktop/cannon-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "9e071585df6afbdf5cd0de26dfaee60e85225e1b83e391e140cc7050c9f903b3"
+    },
+    {
+      "key": "weapons@desktop/cannon-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "38bef46291314c9fab4d74cf3eba914eb757b120337114aa960fdd34e75a8464"
+    },
+    {
+      "key": "weapons@desktop/cannon-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "38bef46291314c9fab4d74cf3eba914eb757b120337114aa960fdd34e75a8464"
+    },
+    {
+      "key": "weapons@desktop/cannon-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "36dc0f917ad278a3a438b53a691d938e542dce608218ab4d789977dd973bdd55"
+    },
+    {
+      "key": "weapons@desktop/cannon-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "30e80a8ea4e32db3306cc9804ce477cbdc5c4df03e57488170903f6351397fd1"
+    },
+    {
+      "key": "weapons@desktop/cannon-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "30e80a8ea4e32db3306cc9804ce477cbdc5c4df03e57488170903f6351397fd1"
+    },
+    {
+      "key": "weapons@desktop/frost-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "0058b12af36d23d281bc3d262916945d306486692331292aeef2bae4e505c755"
+    },
+    {
+      "key": "weapons@desktop/frost-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "da601fe93e3ec17eb79326ce03e59bfc3aeb267b7af12e0457a65f3ef1e83d2e"
+    },
+    {
+      "key": "weapons@desktop/frost-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "e6da2bc140b0e4d4b980feacca8d6fa615c3c5a4a3ee936c036afb11b9701d7e"
+    },
+    {
+      "key": "weapons@desktop/frost-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "b0da3bba20a2a73a920ffce8e24d685dbc13c6fdf87082e03c18e547a98cc00e"
+    },
+    {
+      "key": "weapons@desktop/frost-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "d972607f8cade319cdce8385426bcea13fa39a1ba608a9dc2ef211f3df3ab1f9"
+    },
+    {
+      "key": "weapons@desktop/frost-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "c428598dbb66d0602623ddfe552fbc5ea8b24113b373b984374ee4b3f7b941e3"
+    },
+    {
+      "key": "weapons@desktop/poison-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "f27fe55737f777323fc6fee708af889eb9114a026b48477407102fa310aacd88"
+    },
+    {
+      "key": "weapons@desktop/poison-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "765b95beed1c706d65c6fe8b157a237c876d42d394eb41481f511e4e2ad51b0b"
+    },
+    {
+      "key": "weapons@desktop/poison-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "a7abdfc2da752bace6c9550b6736e5f9721027576a58a28166dc5458e1370912"
+    },
+    {
+      "key": "weapons@desktop/poison-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "2fec2d150e9bc09a1405557c811467525d847c2ae0e39a8f69b7ee41d9d29f48"
+    },
+    {
+      "key": "weapons@desktop/poison-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "0de789e6767b64c053aa3367a35bd39c3195ccb307b3db75169d7e408a7e9704"
+    },
+    {
+      "key": "weapons@desktop/poison-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "eebe82d71ec2dbea0bd5626d2cc7207105233309bcd12f17313d97ff3342dd9a"
+    },
+    {
+      "key": "weapons@desktop/shock-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "eed14f1d79aa2c0fe31697413fd1e88150a273a7ccb74980b1fc7aacf581bbbe"
+    },
+    {
+      "key": "weapons@desktop/shock-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "6a779fa844658cb049f9dfcef1fba4994a9efc1f6c820f8b152a5be29f5ec028"
+    },
+    {
+      "key": "weapons@desktop/shock-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "caa6f47997ef8d34607a6a375fe9326b9eebfa554fcffcd769e22cd4cca6ea2b"
+    },
+    {
+      "key": "weapons@desktop/shock-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "22af372dfb32f36312a39bc51089cc56f735d7d86b0a97971f2bffd36580ae2b"
+    },
+    {
+      "key": "weapons@desktop/shock-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "2a54e056b1201ef11a376873bdc17f1b36dc8825b9d0a5f13c5561d61af924d8"
+    },
+    {
+      "key": "weapons@desktop/shock-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "369b0126c54eef4bc8ebcf1ca3d1c38fbc546f4293f4b8e5f5fce9c6ba9f255f"
+    },
+    {
+      "key": "weapons@desktop/sniper-f1",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "2e3d799184430a62c8ca376d7e014682d52eb1108713a27bdf9c309e760de801"
+    },
+    {
+      "key": "weapons@desktop/sniper-f2",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "1d2f121c97c0212e7859295601fd9c2621844dbf99846bb153bf6372e96ef2f3"
+    },
+    {
+      "key": "weapons@desktop/sniper-f3",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "8cf8c785059cf6ae9453cf567dd4760da2b1434ee492f93706e0a76e68f3b2f4"
+    },
+    {
+      "key": "weapons@desktop/sniper-f4",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "8cf8c785059cf6ae9453cf567dd4760da2b1434ee492f93706e0a76e68f3b2f4"
+    },
+    {
+      "key": "weapons@desktop/sniper-f5",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "a8e294827d517e6611dcd5423e4441bfa0d59e0e2e1bca27179eaa12aabe3110"
+    },
+    {
+      "key": "weapons@desktop/sniper-f6",
+      "width": 1440,
+      "height": 900,
+      "pixelHash": "75eeda257523150c5542d40a85db2f21f8759e5dabb04d9a437d10c50e5a2472"
+    },
+    {
+      "key": "weapons@mobile-landscape/arc-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "09b33adc3e13c86699bc681459b73bbbbf33317159b27f64e5e9758b3a1d3277"
+    },
+    {
+      "key": "weapons@mobile-landscape/arc-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "913bf1bb71e0f39c2f3f32bd9d0f9cda14fdd695d616aeb26f47747d6d939d3a"
+    },
+    {
+      "key": "weapons@mobile-landscape/arc-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "8418eb56bb097fa2b3c6a42b93cf2d476d594027a6824b5fa1a829d0dcdeed75"
+    },
+    {
+      "key": "weapons@mobile-landscape/arc-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "4259d67ceedf1488e33053288ff336cdf2796370e3b64f86a6ffa0c9ddfc8940"
+    },
+    {
+      "key": "weapons@mobile-landscape/arc-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "4ad9a8f0759c312787e7f26d7c87340c10d82641c2d0e28a31fc9ddd7d96155d"
+    },
+    {
+      "key": "weapons@mobile-landscape/arc-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "fac509cd84e92d9a3b1378926733b2921b193d2d4dd83e65e7523a0056693788"
+    },
+    {
+      "key": "weapons@mobile-landscape/arrow-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "98aeff48355e55ef9d386891e93b06cef5aa8985096dc84c98d4b7437815b41c"
+    },
+    {
+      "key": "weapons@mobile-landscape/arrow-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "24765c23ce4c9621b0c44cc00ec9295a3b29c6cb3e95726a8057fe5ee6966493"
+    },
+    {
+      "key": "weapons@mobile-landscape/arrow-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "9b15cef3ac3ad8e0e79b52c7ec3e040661c465c462e043c895d7eae29017788b"
+    },
+    {
+      "key": "weapons@mobile-landscape/arrow-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "39a3992ae80070c7c7d47ad65ae3e018f2e0144016dc623cdb13b1de5993eedc"
+    },
+    {
+      "key": "weapons@mobile-landscape/arrow-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "9a6e0abb19d814c7a298ca635a34ec8d7cf65fafbca1dc406c6293ef8d84589d"
+    },
+    {
+      "key": "weapons@mobile-landscape/arrow-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "74e769ac50ce352289b6bcd4f79e19ea5c6cbce289a89b031f5243d679c99346"
+    },
+    {
+      "key": "weapons@mobile-landscape/banner-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6279e73971d5f4806232c6a90f574b4fe090cb4bd93b835ff1d310144577aff5"
+    },
+    {
+      "key": "weapons@mobile-landscape/banner-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "636a996ba0c5d21167eb3de884b861f5976c37d98550bbd38f1112d521625c54"
+    },
+    {
+      "key": "weapons@mobile-landscape/banner-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "b1c1b0efdd84ee98ed16b8279910ecd50d5b78d62cfb8c6c1de834ccab9c5549"
+    },
+    {
+      "key": "weapons@mobile-landscape/banner-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "9f5f96940d31273207941093399afb05bdc0c50e8e0f5b6485adcdce28b7ca84"
+    },
+    {
+      "key": "weapons@mobile-landscape/banner-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "fd2a92044cd0c43560f599dc3162f3cc10009fb86898aa4030d74b33bd08d97f"
+    },
+    {
+      "key": "weapons@mobile-landscape/banner-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "7373a951fd05d4a0ab64acfece520a7c5d9027d319f6142220144462e6ac19ca"
+    },
+    {
+      "key": "weapons@mobile-landscape/cannon-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "1a7a54b7f0a774d101eaf9bee5498de79c1c7c56390b7f7466a73604c3266fee"
+    },
+    {
+      "key": "weapons@mobile-landscape/cannon-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "d29545fbce952832be021c50c124319c103d6b85ff17738f912e50c3a62ee7ce"
+    },
+    {
+      "key": "weapons@mobile-landscape/cannon-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "d29545fbce952832be021c50c124319c103d6b85ff17738f912e50c3a62ee7ce"
+    },
+    {
+      "key": "weapons@mobile-landscape/cannon-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "c8613357a2d10c8a555cff6b7f4da1d1a087b2856008041eeb66736f19f3949d"
+    },
+    {
+      "key": "weapons@mobile-landscape/cannon-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6407f55d28155b60cb6bb9d94e292c18e97cdca43b973a4221f42d80b754ff98"
+    },
+    {
+      "key": "weapons@mobile-landscape/cannon-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "6407f55d28155b60cb6bb9d94e292c18e97cdca43b973a4221f42d80b754ff98"
+    },
+    {
+      "key": "weapons@mobile-landscape/frost-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "8bd39392eb99aef63e2fdd5ec9caa06599a08067666b4658d0fb39adc160bc5f"
+    },
+    {
+      "key": "weapons@mobile-landscape/frost-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "7051ba01e21acb39a32a4ae5fe97b280c3910c46765d2d41701b53980c38c916"
+    },
+    {
+      "key": "weapons@mobile-landscape/frost-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "3ffd406111f5a313b7393ba76d12e987f37928873f8421cac2f072d559fd134d"
+    },
+    {
+      "key": "weapons@mobile-landscape/frost-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "99fc4d815fbe621be26e368114fa3b84b1c252186a7e781c9ee55dbae6aad8f9"
+    },
+    {
+      "key": "weapons@mobile-landscape/frost-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "78d6b04f638781b788deb59049d0861299d0de24ce0a4bacb0360845e038ef4d"
+    },
+    {
+      "key": "weapons@mobile-landscape/frost-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "693f0f5ec240b05f1ea512335f9c93f442135caece4e290674665dbcf8ded3a2"
+    },
+    {
+      "key": "weapons@mobile-landscape/poison-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "2136946c8a7688b3a33c12d529efb814c241a8983224b5455286f206f26b7c73"
+    },
+    {
+      "key": "weapons@mobile-landscape/poison-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "516d827d360aecf96e62e8dd5ba3dddd612c67e314f2d3e3b93744515247ff73"
+    },
+    {
+      "key": "weapons@mobile-landscape/poison-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "5060acc20c7b4e00bfe8577b50f7829aa33bc3c5a5fd079912a95994552889ae"
+    },
+    {
+      "key": "weapons@mobile-landscape/poison-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "eba1828d3361d6510f7f7881eaab07d6f3f1290ada48c5ed2716c66f4db3c530"
+    },
+    {
+      "key": "weapons@mobile-landscape/poison-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "fe1b89e31164e0fb0f126293afc07b038f5d9aa4167aac00edb4dd0e5e341c93"
+    },
+    {
+      "key": "weapons@mobile-landscape/poison-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "b22eb27b3effc2b277048d8cb5eac27d10354d2e94392eef3dca8e6f04ba4f13"
+    },
+    {
+      "key": "weapons@mobile-landscape/shock-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "f29dfcb7926c221bddc02b9167b312e243e62e2e017918c057ec24a25131d282"
+    },
+    {
+      "key": "weapons@mobile-landscape/shock-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "a6138cb884633f43a03a4bff5efd79150d31dd9bddd22cec8ae971c371072b4f"
+    },
+    {
+      "key": "weapons@mobile-landscape/shock-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "bde84ddad3808bff32146747c7486b1fd65cb98b6fd57f73d5480aac69f66192"
+    },
+    {
+      "key": "weapons@mobile-landscape/shock-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "809476c383fbc38b43434170abc3c37753e154c10c32a3450be22e70443db9ac"
+    },
+    {
+      "key": "weapons@mobile-landscape/shock-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "d0329f15e5b55cf18dc0fba2f58588b7e2a92dc4b154d02bbf32e0f35b3182f0"
+    },
+    {
+      "key": "weapons@mobile-landscape/shock-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "7a97463e7d16f1c7491ef227fb8f7b03cb3b5e9933e9a1319a2efabea1df19d1"
+    },
+    {
+      "key": "weapons@mobile-landscape/sniper-f1",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "11714bf0228bc6de4a0882aec97a75518901758eaa189423f06c1205d6dce551"
+    },
+    {
+      "key": "weapons@mobile-landscape/sniper-f2",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "5f8d6844073844548947c3b596dceaeb57dc99a0e0d6a680cdef4594721b69eb"
+    },
+    {
+      "key": "weapons@mobile-landscape/sniper-f3",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "d2330b09d77fb7015a09b0eeaddb050678f8cd0d111877f8566e810abab95471"
+    },
+    {
+      "key": "weapons@mobile-landscape/sniper-f4",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "d2330b09d77fb7015a09b0eeaddb050678f8cd0d111877f8566e810abab95471"
+    },
+    {
+      "key": "weapons@mobile-landscape/sniper-f5",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "d73ec773022c030b18226e31bb043e70ce2b4497e40ac49602e55634266c3691"
+    },
+    {
+      "key": "weapons@mobile-landscape/sniper-f6",
+      "width": 844,
+      "height": 390,
+      "pixelHash": "aaaccd4caa7c7f180d019ab2a763ab07444da283b77ce09518d6e0b23c92f314"
+    }
+  ]
+}

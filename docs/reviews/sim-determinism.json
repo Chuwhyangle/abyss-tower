@@ -1,0 +1,27 @@
+{
+  "kind": "refactor-sim-determinism",
+  "version": 1,
+  "scene": "combat",
+  "seeds": [
+    "feel-sim-diff-seed-b",
+    "feel-sim-diff-seed-c",
+    "visual-fixed-seed"
+  ],
+  "records": {
+    "feel-sim-diff-seed-b": {
+      "events": "1bbc60b6132d7399eb9e17da23c8cac3910d60b6c16f0a7014865796ade5f6d4",
+      "rng": "9279f849f5fd2f12f41f90d7a49073fa574b9673fb81c624bbf102d8d0623bdb",
+      "state": "a15ec83a2f3688c018cda18c9b681d6c465b952db7d056379d5f7c04ff47f7e1"
+    },
+    "feel-sim-diff-seed-c": {
+      "events": "fd4e3b0b7f5eb683c13a6b800bb4db65bf77e0af9248aeceae75b72aff884096",
+      "rng": "60a0493398910d978dda513e7591a72acf7e375a0397d70db99ae45f9bdb7fc6",
+      "state": "60b84f22e39523612d71f7dc295e100ce261df0cde7a6b00f6da6d9c0ef9c3fe"
+    },
+    "visual-fixed-seed": {
+      "events": "6f359fcd698666498888d706e87994b5c6e100a87d382380c1eb0990121396f6",
+      "rng": "f1132faf84371dc6a38cbe941776e94d278401c0d4d31ce9dc3b5e3d46c96853",
+      "state": "b7925572cc366548fb00e9ac021d4e580ce043044a0c16f2e3b6abdec2b3e0f9"
+    }
+  }
+}

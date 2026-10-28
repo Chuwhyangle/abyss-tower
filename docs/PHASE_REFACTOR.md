@@ -62,21 +62,33 @@
 | --- | --- | --- |
 | 运行时单文件行数 | ≤ 600 | `public/js` 与 `server` 下 `.js/.mjs` |
 | 工具/测试单文件行数 | ≤ 800 | `scripts` 与 `tests` 下 `.js/.mjs`（采集与断言天然更长） |
-| 数据文件豁免 | 白名单 | `public/js/shared/i18n/*.js`、`server/db/migrations/*.mjs`、`* -data.js` 且满足纯度规则 |
-| 导入环 | 0 | 从各入口构建静态 import 图，Tarjan 判环 |
-| 数据模块纯度 | 0 违规 | 数据模块不得 import 运行时模块 |
+| 数据文件豁免 | 白名单 | `public/js/shared/i18n/*.js`、`server/db/migrations/*.mjs`、`*-data.js` 且满足纯度规则 |
+| 导入环 | 0 | 从四个源根构建静态 import 图，Tarjan 强连通分量判环 |
+| 数据模块纯度 | 0 违规 | `*-data.js` 只能依赖其他数据模块、`public/js/shared/data.js` 或 `node:` 内建，不得 import 运行时模块（`public/js/sim.js`、`public/js/sim/`、`public/js/render/`、`public/js/app/`、`public/js/ui.js`、`server/`） |
 | 债务登记 | `scripts/structure-budget.allow.d/<task-id>.json` | 每个任务一个文件、互不冲突；条目 = `{path, maxLines, owner}`，任务完成即删自己的文件，最终目录必须为空（数据豁免除外） |
+
+门禁的判定口径（`scripts/structure-budget.mjs`，改这里必须同时改 §5 与 `tests/structure-budget.test.mjs`）：
+
+- **文件名即 owner**：`<task-id>.json` 里的每条 `owner` 必须等于文件名去掉 `.json` 的部分——所以「一个任务一个文件」是机械可检的，同一条路径也不会被两个任务各登记一次。
+- **owner 必须是活任务**：`tasks/<owner>.md` 不存在即判红（任务改名/删除后悬空的债务条目不会静默存活）。
+- **四种债务违规**：超限未登记（`over-budget`）、超出登记上限（`debt-exceeded`）、文件已在预算内却仍登记（`debt-stale`，还清就该删）、条目路径不存在（`debt-unknown-path`）。
+- **豁免不设限**：数据豁免文件不参与行数判定，但仍受纯度规则约束（数据模块 import 运行时模块照样红）。
+- **`tests/balance-sim.mjs`（1289）** 在 R1–R5 没有对应的拆分任务，登记在 `refactor-closeout.json`（R6 收口时清空）。
+
+命令：`npm run check:structure`（= `node scripts/structure-budget.mjs --check`），已接入 `npm run verify:local` 与 CI。
 
 ## 6. 分期与文件所有权
 
 > 依赖关系：R0 → (R1 ∥ R2 ∥ R3 ∥ R4 ∥ R5) → R6。同一阶段的任务文件互不重叠。
 
 ### R0 · 基线、门禁与见证工具（`refactor-baseline-and-structure-gate`）
-- 交付：`scripts/structure-budget.mjs` + `scripts/structure-budget.allow.d/` + `tests/structure-budget.test.mjs`；
-  `scripts/visual-parity.mjs` + 基线 `docs/reviews/refactor-baseline.json`；
-  `scripts/check-sim-determinism.mjs` + 基线 `docs/reviews/sim-determinism.json`；
-  接入 `npm run verify:local` 与 CI。
-- Touches：新增上述文件、`docs/PHASE_REFACTOR.md`、`package.json`、`.github/workflows/ci.yml`。
+- 交付：`scripts/structure-budget.mjs` + `scripts/structure-budget.allow.d/`（每个拆分任务一份债务文件）+ `tests/structure-budget.test.mjs`；
+  `scripts/visual-parity.mjs` + 基线 `docs/reviews/refactor-baseline.json`（5 场景 × 2 视口 + 16 scenario × 2 视口，逐帧 pixelHash）；
+  `scripts/check-sim-determinism.mjs` + 基线 `docs/reviews/sim-determinism.json`（3 个 seed × events/rng/state）；
+  接入 `npm run verify:local`（`check:structure` 阻塞）与 CI（`.github/workflows/ci.yml` 的结构预算步骤）。
+- 命令：`npm run check:structure` / `npm run visual:parity` / `npm run sim:determinism`；parity 与 determinism 不进每次 CI，
+  只作为 GOAL AC 判据（AC-046 / AC-047），基线用同名 `:write` 脚本重采。
+- Touches：新增上述文件、`docs/PHASE_REFACTOR.md`、`package.json`、`.github/workflows/ci.yml`、`scripts/test-changed.mjs`（新脚本登记进映射，否则审计覆盖会红）。
 
 ### R1 · 渲染：技能与敌人（`refactor-render-skill-enemy`）
 - 拆 `skill-renderer.js`（1396）与 `enemy-renderer.js`（1081）：
@@ -96,7 +108,7 @@
 - `audio.js`（1221）拆：`audio-synth`（合成器/总线）、`audio-music`（曲目/层/Boss）、`audio-ambience`（环境音）、`audio`（门面）。
 
 ### R5 · 测试：视觉三件套（`refactor-tests-visual-harness`）
-- `visual-scenes.js`（1257）、`visual-scenarios.js`（942）、`visual-check.test.js`（900）拆出 `tests/lib/visual/`：
+- `visual-scenes.js`（1257）、`visual-scenarios.js`（942）、`visual-check.test.js`（900）拆出 `tests/lib/visual/*.mjs`：
   采集会话、场景计划、指标断言、contact sheet 四块；测试文件只留用例。
 
 ### R6 · 收口（`refactor-closeout`）

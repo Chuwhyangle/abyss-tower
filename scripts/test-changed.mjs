@@ -239,6 +239,9 @@ export const TEST_MAP = [
   { match: 'scripts/perf-budget.mjs', tests: ['tests/perf-budget.test.mjs'] },
   { match: 'scripts/release.mjs', tests: ['tests/release-script.test.mjs'] },
   { match: 'scripts/settle-seasons.mjs', tests: ['tests/settle-seasons.test.mjs'] },
+  // 结构预算门禁与两块「行为不变」见证：正/负对照与基线条目校验都在同一份测试里。
+  { match: 'scripts/structure-budget.mjs', tests: ['tests/structure-budget.test.mjs'] },
+  { match: 'scripts/check-sim-determinism.mjs', tests: ['tests/structure-budget.test.mjs'] },
   { match: 'scripts/style-check.mjs', tests: ['tests/style-check.test.mjs'] },
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
   { match: 'scripts/test-isolation-audit.mjs', tests: ['tests/test-isolation-audit.test.mjs'] },
@@ -247,6 +250,7 @@ export const TEST_MAP = [
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
   { match: 'scripts/ui-animation-audit.mjs', tests: ['tests/ui-animation-audit.test.mjs'] },
   { match: 'scripts/visual-check.mjs', tests: ['tests/visual-check.test.mjs'] },
+  { match: 'scripts/visual-parity.mjs', tests: ['tests/structure-budget.test.mjs'] },
 ];
 
 export function normalizePath(file) {
