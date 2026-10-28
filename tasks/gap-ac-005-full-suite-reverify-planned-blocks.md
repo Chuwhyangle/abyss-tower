@@ -1,7 +1,7 @@
 ---
 id: gap-ac-005-full-suite-reverify-planned-blocks
 title: AC-005 复验：planned 块修复落地后全量测试（--test-concurrency=2）exit 0（根因由 AC-044 任务拥有）
-status: todo
+status: ready
 labels:
   - gap
   - defect
