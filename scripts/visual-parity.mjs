@@ -106,7 +106,7 @@ export function toBaselineFrames(entries) {
 
 export function serializeBaseline(document) {
   const coverage = expectedCoverage();
-  const ordered = {
+  const header = {
     kind: KIND,
     version: VERSION,
     quality: document.quality,
@@ -117,9 +117,12 @@ export function serializeBaseline(document) {
     scenarios: coverage.scenarios,
     scenarioViewports: coverage.scenarioViewports,
     frameCount: document.frames.length,
-    frames: document.frames,
   };
-  return `${JSON.stringify(ordered, null, 2)}\n`;
+  // 帧逐条单行：每帧带 64 个亮度网格值，缩进展开会把基线撑成上万行、淹没真实改动。
+  const head = JSON.stringify(header, null, 2);
+  const frames = document.frames.map((frame) => `    ${JSON.stringify(frame)}`).join(',\n');
+  const body = head.slice(0, head.lastIndexOf('}')).replace(/\n$/, '');
+  return `${body},\n  "frames": [\n${frames}\n  ]\n}\n`;
 }
 
 // 基线自检：结构、覆盖声明、帧排序与唯一性。不含浏览器，可在单测里直接跑。
