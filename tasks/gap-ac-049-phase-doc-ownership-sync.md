@@ -67,22 +67,22 @@ GOAL-009 的 AC-049（`node scripts/check-doc-ownership.mjs && node scripts/docs
 
 ## AC
 
-- [ ] `node --test tests/phase-refactor-sync.test.mjs` exit 0（正例读真实的 `docs/PHASE_REFACTOR.md` + `tasks/` + `package.json`）
-- [ ] `node -e "const s=require('./package.json').scripts['check:doc-ownership'];process.exit(s==='node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs'?0:1)"` exit 0
-- [ ] `npm run check:doc-ownership` exit 0，其中 `node scripts/check-doc-ownership.mjs` 单独跑也是 exit 0
-- [ ] `npm test` exit 0，用例数只增不减
-- [ ] 四条负对照（删 AC-046 行 / 删 AC-048 行且存在 open 的 `goal_ac: AC-048` 任务 / 同一任务改 done 后不报 / 判据掉一段）各自使对应用例转红
-- [ ] `git diff` 只涉及 Touches 的四个文件；`scripts/docs-consistency.mjs` 与任何 `public/`、`server/` 文件 0 改动
+- [x] `node --test tests/phase-refactor-sync.test.mjs` exit 0（正例读真实的 `docs/PHASE_REFACTOR.md` + `tasks/` + `package.json`）
+- [x] `node -e "const s=require('./package.json').scripts['check:doc-ownership'];process.exit(s==='node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs'?0:1)"` exit 0
+- [x] `npm run check:doc-ownership` exit 0，其中 `node scripts/check-doc-ownership.mjs` 单独跑也是 exit 0
+- [x] `npm test` exit 0，用例数只增不减
+- [x] 四条负对照（删 AC-046 行 / 删 AC-048 行且存在 open 的 `goal_ac: AC-048` 任务 / 同一任务改 done 后不报 / 判据掉一段）各自使对应用例转红
+- [x] `git diff` 只涉及 Touches 的四个文件；`scripts/docs-consistency.mjs` 与任何 `public/`、`server/` 文件 0 改动
 
 ## DoD
 
-- [ ] AC-049 判据在仓库里只有一处字面定义（`package.json` 的 `check:doc-ownership`），`docs/PHASE_REFACTOR.md` §7 只引用它、不再手抄两条命令
-- [ ] §7 的「AC ↔ 判据 ↔ 命令」表由测试机械钉住：删任一 AC 行、或让某个 open 任务的 `goal_ac` 脱离 §7，测试立即转红（负对照实跑，不是预言）
-- [ ] 归属契约沿用 AC-007 的解耦口径：只判 goal_ac 命中 AC 行，不要求任务 id 逐字进表；此后立案/晋升任意 GOAL-009 任务都不会让全量套件转红
-- [ ] `npm run check:doc-ownership` 在同一棵树上连续两次 exit 0，`npm test` exit 0
-- [ ] 不改 `scripts/docs-consistency.mjs` 的判定语义（AC-044 的 lane）、不创建 R0 产物（AC-043 的 lane）、不改任何运行时/玩家可见行为
-- [ ] 零第三方依赖、Node ≥ 22.5 原生实现；只新增一个测试文件，不动 `scripts/test-changed.mjs` 的 TEST_MAP（`tests/` 不在审计源根内）
-- [ ] Notes 记下复用约定：未来 `docs/PHASE_<主题>.md` 的 AC 映射同样只按 goal_ac 建立契约，并给判据一个 `npm run` 入口
+- [x] AC-049 判据在仓库里只有一处字面定义（`package.json` 的 `check:doc-ownership`），`docs/PHASE_REFACTOR.md` §7 只引用它、不再手抄两条命令
+- [x] §7 的「AC ↔ 判据 ↔ 命令」表由测试机械钉住：删任一 AC 行、或让某个 open 任务的 `goal_ac` 脱离 §7，测试立即转红（负对照实跑，不是预言）
+- [x] 归属契约沿用 AC-007 的解耦口径：只判 goal_ac 命中 AC 行，不要求任务 id 逐字进表；此后立案/晋升任意 GOAL-009 任务都不会让全量套件转红
+- [x] `npm run check:doc-ownership` 在同一棵树上连续两次 exit 0，`npm test` exit 0
+- [x] 不改 `scripts/docs-consistency.mjs` 的判定语义（AC-044 的 lane）、不创建 R0 产物（AC-043 的 lane）、不改任何运行时/玩家可见行为
+- [x] 零第三方依赖、Node ≥ 22.5 原生实现；只新增一个测试文件，不动 `scripts/test-changed.mjs` 的 TEST_MAP（`tests/` 不在审计源根内）
+- [x] Notes 记下复用约定：未来 `docs/PHASE_<主题>.md` 的 AC 映射同样只按 goal_ac 建立契约，并给判据一个 `npm run` 入口
 
 ## Touches
 
@@ -101,3 +101,30 @@ GOAL-009 的 AC-049（`node scripts/check-doc-ownership.mjs && node scripts/docs
 执行提示（2026-10-28 实测的坑）：`docs/PHASE_REFACTOR.md` 在主检出里当前是**未跟踪文件**（`git status` 显示
 `?? docs/PHASE_REFACTOR.md`）。worker 的 worktree 里若不存在该文件，从主检出复制后再改 §7，不要重写正文口径；
 §7 很可能已被 AC-044 包进 `docs-consistency:planned-start/end` 块内，改行时要保持在块内，别把标记删掉。
+
+### 落地记录（2026-10-28）
+
+- 前置实测：本 worktree（fork 自 develop `6c61f95`）里 `node scripts/docs-consistency.mjs` 已 exit 0（21 个文件），
+  AC-044 的 planned 块已把 §6/§7 的计划态路径收进豁免，硬前置成立；`docs/PHASE_REFACTOR.md` 已随 `d7448a8` 入库，
+  不再需要从主检出复制。
+- 判据入口：`package.json` 新增 `check:doc-ownership`，与 AC-049 判据逐字一致（保留 `node` 前缀与 `&&` 顺序，
+  不改写成 `check:docs` 的 `--no-warnings` 形式——判据字面量是契约本身）。
+- §7 的 AC-049 行改为 `npm run check:doc-ownership`；钉住说明写在 `docs-consistency:planned-end` **块外**，
+  让 `tests/phase-refactor-sync.test.mjs` 这条路径仍受存在性校验（块内会被豁免，钉子的落点必须自己可验证）。
+- 测试形态：判据抽成纯函数 `checkPhaseRefactorSync`，正例读真实 `docs/PHASE_REFACTOR.md` + `tasks/` + `package.json`；
+  负对照直接对**真实文本**做一处删改再断言（`withoutAcRow` 先断言该行恰好存在一行，避免「删不到所以永远绿」）。
+  含反空转见证：真实任务库里至少有一个 open 的 `goal_ac ∈ AC-043…AC-049`，契约不是空跑。
+- 验证读数：`node --test tests/phase-refactor-sync.test.mjs` 10/10 pass；`npm run check:doc-ownership` 连续两次 exit 0
+  （`check-doc-ownership` 扫 95 个任务；`docs-consistency` 扫 21 个文件）；`npm test` 1737 pass / 0 fail
+  （本任务净增 10 例，未删改任何既有用例）；`style-check` 218 文件通过。
+
+### 复用约定（未来阶段文档照此办理）
+
+1. `docs/PHASE_<主题>.md` 的「AC ↔ 判据 ↔ 命令」表与任务归属的契约**只按 `goal_ac` 建立**：要求 open 任务的
+   `goal_ac` 命中表内某行，**不要求任务 id 逐字进表**。任务库经 `task_write` 持续增长，id 级清单会让全量套件
+   周期性转红（AC-007 已解耦的口径，`tests/docs-phase-sync.test.mjs` 是它的先例）。
+2. 每个 GOAL AC 的判据在仓库里只留**一处字面定义**，优先收成 `package.json` 的一个 `npm run <name>` 入口；
+   阶段文档的表只写该入口名，不手抄命令串（否则改名/删脚本不会有东西变红）。
+3. 新增一份阶段文档的映射契约时，复制 `tests/phase-refactor-sync.test.mjs` 的形态：纯函数 + 真实仓库正例 +
+   对真实文本做一处删改的负对照 + 反空转见证；并把钉住说明写在 `planned` 块**外**，让测试文件路径本身受
+   `docs-consistency` 存在性校验。
