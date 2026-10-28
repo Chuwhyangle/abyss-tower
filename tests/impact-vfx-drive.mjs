@@ -12,7 +12,7 @@ import {
   TEST_SEED_SCRIPT,
 } from './harness.mjs';
 import { IMPACT_BUDGETS, impactBudget } from '../public/js/render/impact-vfx.js';
-import { EFFECT_PROFILES } from '../public/js/render/effect-renderer.js';
+import { EFFECT_PROFILES } from '../public/js/render/effect-data.js';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 const ATTACK_WEAPONS = ['arrow', 'cannon', 'frost', 'arc', 'poison', 'shock', 'sniper'];

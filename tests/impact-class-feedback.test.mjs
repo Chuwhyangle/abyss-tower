@@ -16,7 +16,7 @@ import {
 } from '../public/js/shared/impact-class-feedback.js';
 import { FLOATER_LAYERS, planFloaterFrame } from '../public/js/shared/floaters.js';
 import { IMPACT_EVENT_LIMIT, makeImpactEvent, pushImpactEvent } from '../public/js/shared/impact-events.js';
-import { EFFECT_EVENTS, EFFECT_PROFILES, classifyEffect } from '../public/js/render/effect-renderer.js';
+import { EFFECT_EVENTS, EFFECT_PROFILES, classifyEffect } from '../public/js/render/effect-data.js';
 import { ImpactFeedbackConsumer } from '../public/js/game-app.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
@@ -260,7 +260,9 @@ test('接线：消费者引用类别表，层模型与特效表都含三个类�
   assert.equal(classifyEffect({ kind: 'shieldBreak' }), 'shieldBreak');
   assert.equal(classifyEffect({ kind: 'armor' }), 'armorAbsorb');
   assert.equal(classifyEffect({ kind: 'armorAbsorb' }), 'armorAbsorb');
-  const renderer = read('public/js/render/effect-renderer.js');
+  const renderer = ['effect-renderer', 'effect-draw']
+    .map((name) => read(`public/js/render/${name}.js`))
+    .join('\n');
   for (const event of ['bossHit', 'shieldBreak', 'armorAbsorb']) {
     assert.ok(renderer.includes(`event === '${event}'`), `渲染分支未按 ${event} 分流`);
   }

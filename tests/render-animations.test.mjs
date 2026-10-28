@@ -14,16 +14,16 @@ import {
   enemyWalkProfile,
 } from '../public/js/render/enemy-data.js';
 import { hitFlashAlpha } from '../public/js/render/enemy-feedback.js';
+import { TowerRenderer } from '../public/js/render/tower-renderer.js';
 import {
-  TowerRenderer,
   TOWER_ANIMATIONS,
   TOWER_ANIM_VARIANTS,
   TOWER_RECOIL_SCALE,
   towerAnimVariant,
   towerRecoilAmount,
   towerUpgradePulse,
-} from '../public/js/render/tower-renderer.js';
-import { EFFECT_EVENTS } from '../public/js/render/effect-renderer.js';
+} from '../public/js/render/tower-data.js';
+import { EFFECT_EVENTS } from '../public/js/render/effect-data.js';
 import { GlowRenderer } from '../public/js/render/glow-renderer.js';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
 import { ENEMIES, TOWERS } from '../public/js/shared/data.js';
@@ -36,10 +36,10 @@ const TIERS = ['off', 'light', 'full'];
 const ENEMY_SRC = ['enemy-renderer', 'enemy-data', 'enemy-feedback', 'enemy-boss', 'enemy-body']
   .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
   .join('\n');
-const TOWER_SRC = fs.readFileSync(
-  new URL('../public/js/render/tower-renderer.js', import.meta.url),
-  'utf8'
-);
+// 塔渲染按职责拆成多个模块：源码级契约（无素材、无写回、相对 import）覆盖整组。
+const TOWER_SRC = ['tower-renderer', 'tower-data', 'tower-draw', 'tower-body']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 
 test('动画配置表完整：每种动画都有三档预算与有限参数', () => {
   for (const name of ['walk', 'hitFlash', 'deathShatter']) {

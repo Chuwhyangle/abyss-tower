@@ -10,11 +10,11 @@ import {
   SKIN_OUTLINE_BUDGET as ENEMY_SKIN_BUDGET,
   skinOutlineBudget as enemySkinOutlineBudget,
 } from '../public/js/render/enemy-data.js';
+import { TowerRenderer } from '../public/js/render/tower-renderer.js';
 import {
-  TowerRenderer,
   SKIN_OUTLINE_BUDGET as TOWER_SKIN_BUDGET,
   skinOutlineBudget as towerSkinOutlineBudget,
-} from '../public/js/render/tower-renderer.js';
+} from '../public/js/render/tower-data.js';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
 import { ENEMIES, TOWERS } from '../public/js/shared/data.js';
 import {
@@ -32,10 +32,9 @@ import { generateWave } from '../public/js/shared/waves.js';
 const ENEMY_SRC = ['enemy-renderer', 'enemy-data', 'enemy-feedback', 'enemy-boss', 'enemy-body']
   .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
   .join('\n');
-const TOWER_SRC = fs.readFileSync(
-  new URL('../public/js/render/tower-renderer.js', import.meta.url),
-  'utf8'
-);
+const TOWER_SRC = ['tower-renderer', 'tower-data', 'tower-draw', 'tower-body']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 
 const SKINNED = Object.freeze({ tower: 'ember_tower', enemy: 'frost_enemy' });
 const DEFAULT = Object.freeze({ tower: 'default_tower', enemy: 'default_enemy' });

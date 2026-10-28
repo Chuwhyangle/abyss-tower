@@ -28,7 +28,10 @@ const readSource = (relative) => fs.readFileSync(new URL(relative, ROOT), 'utf8'
 const SKILL_SRC = ['skill-renderer', 'skill-data', 'skill-warnings', 'skill-draw', 'skill-particles']
   .map((name) => readSource(`public/js/render/${name}.js`))
   .join('\n');
-const EFFECT_SRC = readSource('public/js/render/effect-renderer.js');
+// 特效层按职责拆成多个运行时模块：语义色契约覆盖整组（effect-data.js 是色值表本身，不在此列）。
+const EFFECT_SRC = ['effect-renderer', 'effect-pool', 'effect-draw', 'effect-boss']
+  .map((name) => readSource(`public/js/render/${name}.js`))
+  .join('\n');
 const PALETTE_SRC = readSource('public/js/render/palette.js');
 const ART_TOKENS_SRC = readSource('public/js/render/art-tokens.js');
 

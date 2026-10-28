@@ -6,27 +6,28 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
 import {
-  PROJECTILE_ART,
   PROJECTILE_KINDS,
   PROJECTILE_PROFILES,
   PROJECTILE_TEMPS_PER_FRAME,
-  TOWER_PROJECTILE_FORMS,
   ProjectileRenderer,
-  projectileArt,
   projectileDrawCost,
+} from '../public/js/render/projectile-renderer.js';
+import {
+  PROJECTILE_ART,
+  TOWER_PROJECTILE_FORMS,
+  projectileArt,
   projectileForm,
   projectileTowerForm,
-} from '../public/js/render/projectile-renderer.js';
+} from '../public/js/render/projectile-draw.js';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
 import { TOWERS, TOWER_ORDER } from '../public/js/shared/data.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
-const SRC = fs.readFileSync(
-  new URL('../public/js/render/projectile-renderer.js', import.meta.url),
-  'utf8'
-);
+const SRC = ['projectile-renderer', 'projectile-draw']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 const LOW = QUALITY_PRESETS.low;
 const HIGH = QUALITY_PRESETS.high;
 // 高配但关闭光晕：单独验证拖尾成本。

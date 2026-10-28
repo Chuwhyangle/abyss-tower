@@ -19,7 +19,8 @@ import {
   impactPlan,
   impactVariant,
 } from '../public/js/render/impact-vfx.js';
-import { EFFECT_PROFILES, EffectRenderer } from '../public/js/render/effect-renderer.js';
+import { EffectRenderer } from '../public/js/render/effect-renderer.js';
+import { EFFECT_PROFILES } from '../public/js/render/effect-data.js';
 import { GlowRenderer } from '../public/js/render/glow-renderer.js';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
 import { TOWER_ORDER } from '../public/js/shared/data/towers.js';
@@ -34,7 +35,10 @@ const HIGH = EFFECT_PROFILES.high;
 
 const source = (relative) => fs.readFileSync(new URL(relative, import.meta.url), 'utf8');
 const IMPACT_SRC = source('../public/js/render/impact-vfx.js');
-const EFFECT_SRC = source('../public/js/render/effect-renderer.js');
+const EFFECT_SRC = ['effect-renderer', 'effect-data', 'effect-pool', 'effect-draw', 'effect-boss']
+  .map((name) => source(`../public/js/render/${name}.js`))
+  .join('\n');
+const EFFECT_DRAW_SRC = source('../public/js/render/effect-draw.js');
 const PROJ_SRC = source('../public/js/sim/projectile-system.js');
 
 test('8 个武器键与 TOWER_ORDER 完全一致，签名参数齐全且低档粒子 ≥ 1', () => {
@@ -275,10 +279,10 @@ test('战旗光环脉冲：只对 banner 塔绘制，相位驱动扩散且不消
 });
 
 test('源码接线：spark 分支调用 impactVariant、渲染循环重置命中预算、存在 banner 光环分支', () => {
-  const sparkStart = EFFECT_SRC.indexOf("effect.kind === 'spark'");
-  const boltStart = EFFECT_SRC.indexOf("effect.kind === 'bolt'");
+  const sparkStart = EFFECT_DRAW_SRC.indexOf('drawSpark(g, fx)');
+  const boltStart = EFFECT_DRAW_SRC.indexOf('drawBolt(g, fx)');
   assert.ok(sparkStart > 0 && boltStart > sparkStart, '特效层缺少 spark/bolt 分支');
-  const sparkBranch = EFFECT_SRC.slice(sparkStart, boltStart);
+  const sparkBranch = EFFECT_DRAW_SRC.slice(sparkStart, boltStart);
   assert.match(sparkBranch, /impactVariant\(/, 'spark 分支必须按 weapon 取命中签名');
   assert.match(sparkBranch, /impactPlan\(/, 'spark 分支必须从命中层并发池取粒子');
   assert.match(sparkBranch, /drawImpactShape\(/, 'spark 分支必须按 shape 分派绘制');

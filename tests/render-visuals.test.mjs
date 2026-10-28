@@ -18,10 +18,11 @@ import {
   portalProfile,
   portalSparkCount,
 } from '../public/js/render/portal-renderer.js';
-import { biomePalette } from '../public/js/render/palette.js';
+import { Palette, biomePalette } from '../public/js/render/palette.js';
 import { ENEMY_ANIM_VARIANTS, HIT_HIGHLIGHT } from '../public/js/render/enemy-data.js';
 import { drawHitHighlight, hitHighlightAlpha } from '../public/js/render/enemy-feedback.js';
-import { SHARP_HIT_STAR, drawSharpHitStar } from '../public/js/render/effect-renderer.js';
+import { EFFECT_EVENTS, SHARP_HIT_STAR } from '../public/js/render/effect-data.js';
+import { drawSharpHitStar } from '../public/js/render/effect-draw.js';
 import { resolveMotionBudget } from '../public/js/render/camera-feedback.js';
 import { RgbaImage, fillRect } from '../scripts/lib/png.mjs';
 import {
@@ -654,7 +655,7 @@ test('reduced-motion 下命中仍有非运动反馈（固定帧见证 + 源码�
     'utf8'
   );
   const effectSource = fs.readFileSync(
-    new URL('../public/js/render/effect-renderer.js', import.meta.url),
+    new URL('../public/js/render/effect-draw.js', import.meta.url),
     'utf8'
   );
   const highlightStart = enemySource.indexOf('export function drawHitHighlight');
@@ -670,6 +671,12 @@ test('reduced-motion 下命中仍有非运动反馈（固定帧见证 + 源码�
   }
 });
 
+test('事件表：击杀高光的增益金与语义色表同源', () => {
+  // 数据模块不得 import render/ 的调色板，色值以字面量落在事件表里；
+  // 这条断言把字面量与 Palette.semanticColor('buff') 锁在一起，语义色改表时这里先红。
+  assert.equal(EFFECT_EVENTS.kill.accent, Palette.semanticColor('buff'));
+});
+
 test('命中星芒：六向锐利线 + 白色核，不随画质削减（识别性保底层）', () => {
   assert.equal(SHARP_HIT_STAR.rays, 6);
   const { ctx, image } = createRasterFrame(FRAME, FRAME, PATH_BG);
@@ -681,7 +688,7 @@ test('命中星芒：六向锐利线 + 白色核，不随画质削减（识别�
   assert.ok(edgeDensity(image, box) > 0.04, '星芒必须留下锐利高频边缘');
   // 星芒是识别性保底层：绘制签名不带画质档位（档位只作用于武器形态与粒子预算）。
   const source = fs.readFileSync(
-    new URL('../public/js/render/effect-renderer.js', import.meta.url),
+    new URL('../public/js/render/effect-draw.js', import.meta.url),
     'utf8'
   );
   const signature = source.slice(

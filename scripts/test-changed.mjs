@@ -151,6 +151,20 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/render/floater-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
   { match: 'public/js/render/overlay-renderer.js', tests: ['tests/render-visuals.test.mjs'] },
+  { match: 'public/js/render/tower-body.js', tests: [
+    'tests/render-animations.test.mjs',
+    'tests/skin-budget.test.mjs',
+  ] },
+  { match: 'public/js/render/tower-data.js', tests: [
+    'tests/render-animations.test.mjs',
+    'tests/skin-budget.test.mjs',
+    'tests/tower-evo-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/tower-draw.js', tests: [
+    'tests/render-animations.test.mjs',
+    'tests/skin-budget.test.mjs',
+    'tests/tower-evo-visuals.test.mjs',
+  ] },
   { match: 'public/js/render/tower-renderer.js', tests: [
     'tests/render-animations.test.mjs',
     'tests/sprite-coverage.test.mjs',
@@ -164,6 +178,29 @@ export const TEST_MAP = [
     'tests/art-spec.test.mjs',
     'tests/biome-visuals.test.mjs',
     'tests/render-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/effect-boss.js', tests: [
+    'tests/render-effects.test.mjs',
+    'tests/effect-variants.test.mjs',
+    'tests/skill-style.test.mjs',
+  ] },
+  { match: 'public/js/render/effect-data.js', tests: [
+    'tests/effect-variants.test.mjs',
+    'tests/render-effects.test.mjs',
+    'tests/render-animations.test.mjs',
+    'tests/impact-class-feedback.test.mjs',
+    'tests/impact-vfx.test.mjs',
+  ] },
+  { match: 'public/js/render/effect-draw.js', tests: [
+    'tests/render-effects.test.mjs',
+    'tests/effect-variants.test.mjs',
+    'tests/impact-vfx.test.mjs',
+    'tests/render-visuals.test.mjs',
+    'tests/skill-style.test.mjs',
+  ] },
+  { match: 'public/js/render/effect-pool.js', tests: [
+    'tests/render-effects.test.mjs',
+    'tests/effect-variants.test.mjs',
   ] },
   { match: 'public/js/render/effect-renderer.js', tests: [
     'tests/effect-variants.test.mjs',
@@ -198,6 +235,10 @@ export const TEST_MAP = [
   { match: 'public/js/render/enemy-body.js', tests: [
     'tests/enemies-depth.test.mjs',
     'tests/skin-budget.test.mjs',
+  ] },
+  { match: 'public/js/render/projectile-draw.js', tests: [
+    'tests/render-budget.test.mjs',
+    'tests/projectile-visuals.test.mjs',
   ] },
   { match: 'public/js/render/projectile-renderer.js', tests: ['tests/render-budget.test.mjs'] },
   { match: 'public/js/render/skill-renderer.js', tests: [

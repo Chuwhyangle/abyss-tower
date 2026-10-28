@@ -3,30 +3,29 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { EffectRenderer } from '../public/js/render/effect-renderer.js';
+import { ParticlePool } from '../public/js/render/effect-pool.js';
+import { effectProgress } from '../public/js/render/effect-draw.js';
 import {
   BOSS_KILL_RADIUS,
   EFFECT_EVENTS,
   EFFECT_KIND_EVENTS,
   EFFECT_PROFILES,
-  EffectRenderer,
-  ParticlePool,
   clampCount,
   classifyEffect,
   effectProfile,
-  effectProgress,
   particleCount,
   scaledCount,
-} from '../public/js/render/effect-renderer.js';
+} from '../public/js/render/effect-data.js';
 import { GLOW_QUALITY, GlowRenderer, glowQuality } from '../public/js/render/glow-renderer.js';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
-const EFFECT_SRC = fs.readFileSync(
-  new URL('../public/js/render/effect-renderer.js', import.meta.url),
-  'utf8'
-);
+const EFFECT_SRC = ['effect-renderer', 'effect-data', 'effect-pool', 'effect-draw', 'effect-boss']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 const GLOW_SRC = fs.readFileSync(
   new URL('../public/js/render/glow-renderer.js', import.meta.url),
   'utf8'

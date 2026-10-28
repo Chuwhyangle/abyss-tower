@@ -5,15 +5,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
+import { EffectRenderer } from '../public/js/render/effect-renderer.js';
 import {
   EFFECT_EVENTS,
   EFFECT_PROFILES,
   EFFECT_VARIANTS,
-  EffectRenderer,
   SHARP_HIT_STAR,
   classifyEffect,
   eventVariant,
-} from '../public/js/render/effect-renderer.js';
+} from '../public/js/render/effect-data.js';
 import { GlowRenderer } from '../public/js/render/glow-renderer.js';
 import { QUALITY_PRESETS } from '../public/js/settings.js';
 import { Simulation } from '../public/js/sim.js';
@@ -26,10 +26,10 @@ const REQUIRED_FIELDS = [
 ];
 const LOW = EFFECT_PROFILES.low;
 const HIGH = EFFECT_PROFILES.high;
-const EFFECT_SRC = fs.readFileSync(
-  new URL('../public/js/render/effect-renderer.js', import.meta.url),
-  'utf8'
-);
+// 特效层按职责拆成多个模块：源码级契约（查表、无第三方依赖、整屏覆盖）覆盖整组。
+const EFFECT_SRC = ['effect-renderer', 'effect-data', 'effect-pool', 'effect-draw', 'effect-boss']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 
 test('每个事件都有独立的颜色/时长/粒子/光晕配置', () => {
   for (const name of EVENT_NAMES) {

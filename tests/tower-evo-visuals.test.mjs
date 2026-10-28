@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
+import { TowerRenderer } from '../public/js/render/tower-renderer.js';
 import {
   DEFAULT_EVOLUTION_VISUAL,
   EVOLUTION_RUNE_KINDS,
@@ -13,20 +14,18 @@ import {
   EVOLUTION_VISUAL_BUDGET,
   EVOLUTION_VISUAL_RADIUS,
   EVOLUTION_VISUALS,
-  TowerRenderer,
   evolutionVisual,
   evolutionVisualBudget,
   evolutionVisualCost,
-} from '../public/js/render/tower-renderer.js';
+} from '../public/js/render/tower-data.js';
 import { TOWERS } from '../public/js/shared/data.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
-const SRC = fs.readFileSync(
-  new URL('../public/js/render/tower-renderer.js', import.meta.url),
-  'utf8'
-);
+const SRC = ['tower-renderer', 'tower-data', 'tower-draw', 'tower-body']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 
 const TIERS = ['off', 'light', 'full'];
 

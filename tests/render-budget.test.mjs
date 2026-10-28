@@ -8,21 +8,19 @@ import { skillStats } from '../public/js/shared/data.js';
 import { GlowRenderer } from '../public/js/render/glow-renderer.js';
 import { SkillRenderer } from '../public/js/render/skill-renderer.js';
 import {
-  PROJECTILE_ART,
   PROJECTILE_KINDS,
   PROJECTILE_PROFILES,
   PROJECTILE_TEMPS_PER_FRAME,
   ProjectileRenderer,
   frameDrawCalls,
-  projectileArt,
   projectileDrawCost,
   projectileProfile,
 } from '../public/js/render/projectile-renderer.js';
+import { PROJECTILE_ART, projectileArt } from '../public/js/render/projectile-draw.js';
 
-const SRC = fs.readFileSync(
-  new URL('../public/js/render/projectile-renderer.js', import.meta.url),
-  'utf8'
-);
+const SRC = ['projectile-renderer', 'projectile-draw']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 const SKILL_SRC = ['skill-renderer', 'skill-data', 'skill-warnings', 'skill-draw', 'skill-particles']
   .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
   .join('\n');
