@@ -1,7 +1,7 @@
 ---
 id: gap-ac-002-full-suite-3x-reverify-planned-blocks
 title: AC-002 复验：planned 块修复落地后全量测试连续 3 次 0 失败（计划态文档产物红由 AC-044 拥有）
-status: ready
+status: done
 labels:
   - gap
   - defect
@@ -36,20 +36,20 @@ AC-002（GOAL-002「测试稳定性与并发隔离」）的 criterion 逐字为 
 
 ## AC
 
-- [ ] 逐字执行 AC-002 criterion（含 `for i in 1 2 3` 循环）exit 0，stderr 无 `CAUSE=`
-- [ ] 在被评估 HEAD 上独立连续 3 轮 `node --test tests/*.test.mjs` 均 exit 0，每轮 `# tests / # pass / # fail` 已写入 Notes
-- [ ] `git merge-base --is-ancestor <AC-044 修复提交> HEAD` exit 0，Notes 写明该提交 hash
-- [ ] Notes 记录本轮失败面证据：`not ok 322` 用例名与 14 条「代码路径不存在」原文，并说明确定性（同一命令复跑两次同为 `not ok 6`）
-- [ ] 若出现非 planned 块机制的残留失败，对应源文件已出现在本任务 `## Touches`，且 Notes 记录失败文本与根因
+- [x] 逐字执行 AC-002 criterion（含 `for i in 1 2 3` 循环）exit 0，stderr 无 `CAUSE=`
+- [x] 在被评估 HEAD 上独立连续 3 轮 `node --test tests/*.test.mjs` 均 exit 0，每轮 `# tests / # pass / # fail` 已写入 Notes
+- [x] `git merge-base --is-ancestor <AC-044 修复提交> HEAD` exit 0，Notes 写明该提交 hash
+- [x] Notes 记录本轮失败面证据：`not ok 322` 用例名与 14 条「代码路径不存在」原文，并说明确定性（同一命令复跑两次同为 `not ok 6`）
+- [x] 若出现非 planned 块机制的残留失败，对应源文件已出现在本任务 `## Touches`，且 Notes 记录失败文本与根因（未触发：3 轮 + `npm test` 均 0 fail，无残留失败，Touches 无需扩容）
 
 ## DoD
 
-- [ ] 三轮读数可被 driver 独立复算：Notes 同时给出命令原文、每轮 stdout 尾部（`# tests / # pass / # fail / # duration_ms`）与退出码
-- [ ] 被评估 HEAD 已提交，`git status --short` 无本任务相关未提交改动
-- [ ] 同一 HEAD 上 `npm test` 全量绿（≥1679 项，0 fail）
-- [ ] 门禁语义未被放宽：`scripts/check-stability.mjs` / `scripts/test-stability.mjs` 不在本任务 diff 中，未调 `--rounds` / `--concurrency`
-- [ ] 零运行时/玩家可见改动、零第三方依赖；本任务 diff 不含 AC-044 / AC-007 / AC-045 / AC-049 任一 lane 的文件
-- [ ] Notes 写清取舍：为什么 AC-002 的见证不折叠进 AC-044 / AC-007 任务（criterion 命令与并发参数不同；`goal_ac` 单值标量）
+- [x] 三轮读数可被 driver 独立复算：Notes 同时给出命令原文、每轮 stdout 尾部（`# tests / # pass / # fail / # duration_ms`）与退出码
+- [x] 被评估 HEAD 已提交，`git status --short` 无本任务相关未提交改动
+- [x] 同一 HEAD 上 `npm test` 全量绿（≥1679 项，0 fail）
+- [x] 门禁语义未被放宽：`scripts/check-stability.mjs` / `scripts/test-stability.mjs` 不在本任务 diff 中，未调 `--rounds` / `--concurrency`
+- [x] 零运行时/玩家可见改动、零第三方依赖；本任务 diff 不含 AC-044 / AC-007 / AC-045 / AC-049 任一 lane 的文件
+- [x] Notes 写清取舍：为什么 AC-002 的见证不折叠进 AC-044 / AC-007 任务（criterion 命令与并发参数不同；`goal_ac` 单值标量）
 
 ## Touches
 
@@ -58,3 +58,53 @@ AC-002（GOAL-002「测试稳定性与并发隔离」）的 criterion 逐字为 
 ## Notes
 
 复用约定：AC-002 的见证任务是**只读复验**形态（与 `gap-ac-002-full-suite-3x-green`、`gap-ac-002-full-suite-3x-reverify` 一致）——Touches 只含自身任务文件，机制修复由在飞任务拥有，本任务只负责在依赖落地后的 HEAD 上逐字跑 criterion 三轮并把读数写进 Notes。此后每次 AC-002 复验先确认在飞根因任务已落地，再只读见证，不要重复其编辑；若残留失败换成了新机制，则按 Plan 第 3 条先登记证据再扩 Touches。
+
+### 本轮复验（2026-10-28，被评估 HEAD `15fca2a`）
+
+**依赖落地确认**：`git merge-base --is-ancestor 6103528 HEAD` exit 0。AC-044 修复提交 `6103528 feat(docs): docs-consistency 支持计划态产物的块级豁免（AC-044）` 已在被评估 HEAD `15fca2a29b114a18acdb6d18eec54cd94d8f38d8` 的祖先链中（同一 hash 也在 `main` / `develop` 上）。不是「在我 worktree 里绿」就算数，是先验过祖先关系再跑。
+
+**判据逐字执行**（criterion 原文，cwd = 本任务 worktree）：
+```
+for i in 1 2 3; do node --test tests/*.test.mjs >/dev/null || { echo "CAUSE=full suite failed on run $i" >&2; exit 1; }; done
+```
+exit 0，stderr 无 `CAUSE=`；三轮合计 `real 0m9.223s`。
+
+**独立三轮读数**（同一 HEAD，命令原文 `node --test tests/*.test.mjs`，默认并发 = `availableParallelism()-1`，**未**传 `--rounds` / `--concurrency`）：
+
+| 轮 | 退出码 | # tests | # pass | # fail | # duration_ms | `not ok` 条数 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | 0 | 1684 | 1684 | 0 | 2774.117736 | 0 |
+| 2 | 0 | 1684 | 1684 | 0 | 2708.89656 | 0 |
+| 3 | 0 | 1684 | 1684 | 0 | 2689.970883 | 0 |
+
+每轮 stdout 尾部原文（三轮同形，仅 `# duration_ms` 如上表）：`1..1684` / `# tests 1684` / `# suites 0` / `# pass 1684` / `# fail 0` / `# cancelled 0` / `# skipped 0` / `# todo 0` / `# duration_ms <上表>`。
+
+**`npm test`（= `node --test --test-concurrency=2 tests/*.test.mjs`）**：exit 0，`# tests 1684 / # pass 1684 / # fail 0`，`# duration_ms 24611.821526` —— 满足 DoD「≥1679 项、0 fail」。
+
+**合入 develop 后同一 HEAD 复核**（worktree `git merge --no-edit develop` 为 fast-forward，`15fca2a..4c2aa23`，delta 仅 `tasks/gap-ac-002-full-suite-3x-reverify-planned-blocks.md` 与 `tasks/gap-ac-044-full-suite-reverify-landed-fix.md` 两个任务文件）：HEAD `4c2aa23` 上再跑三轮 `node --test tests/*.test.mjs`，退出码 0/0/0，三轮均 `# tests 1684 / # pass 1684 / # fail 0`、`not ok` 0 条，`# duration_ms` 依次 `2846.514772` / `2714.915861` / `16050.914237`；同 HEAD `npm test` exit 0，`# tests 1684 / # pass 1684 / # fail 0`，`# duration_ms 24410.32873`。即 fan-in 实际评估的合并后 HEAD 也连续三轮 0 失败。
+
+**本轮失败面证据（复验前基线）**：
+- 全量套件唯一失败点：`not ok 322 - 真实仓库文档一致：check:docs 的判定为通过`（`tests/docs-consistency.test.mjs:133`），读数 `# tests 1679 / # pass 1678 / # fail 1`（HEAD `4c91312`，criterion 首轮即非零）。
+- 确定性——本 worker 在 `4c91312` 的 detached worktree 上独立复现（`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node --test tests/docs-consistency.test.mjs` 连跑两次）：两次均 exit 1、均 `not ok 6 - 真实仓库文档一致：check:docs 的判定为通过`、读数同为 `# tests 6 / # pass 5 / # fail 1`。文件单跑是 `not ok 6`、全量跑是 `not ok 322`，只是同一用例在各自运行里的序号不同；用例名与失败文本一致，故不是并发/时序偶发。
+- 14 条「代码路径不存在」原文（全部指向 `docs/PHASE_REFACTOR.md`；该文件 §6 按设计按任务 id 指派**尚未创建**的产物，这正是与 `docs-consistency.mjs`「反引号路径必须现在存在」口径冲突之处）：
+```
+docs/PHASE_REFACTOR.md:5: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:40: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:68: 代码路径不存在 -> scripts/structure-budget.allow.d/
+docs/PHASE_REFACTOR.md:75: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:75: 代码路径不存在 -> scripts/structure-budget.allow.d/
+docs/PHASE_REFACTOR.md:75: 代码路径不存在 -> tests/structure-budget.test.mjs
+docs/PHASE_REFACTOR.md:76: 代码路径不存在 -> scripts/visual-parity.mjs
+docs/PHASE_REFACTOR.md:76: 代码路径不存在 -> docs/reviews/refactor-baseline.json
+docs/PHASE_REFACTOR.md:77: 代码路径不存在 -> scripts/check-sim-determinism.mjs
+docs/PHASE_REFACTOR.md:77: 代码路径不存在 -> docs/reviews/sim-determinism.json
+docs/PHASE_REFACTOR.md:99: 代码路径不存在 -> tests/lib/visual/
+docs/PHASE_REFACTOR.md:110: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:113: 代码路径不存在 -> scripts/check-sim-determinism.mjs
+docs/PHASE_REFACTOR.md:114: 代码路径不存在 -> scripts/visual-parity.mjs
+```
+- 修复后同一断言在本 HEAD 转绿：`node --test tests/docs-consistency.test.mjs` → `# tests 11 / # pass 11 / # fail 0`，原失败用例现为 `ok 11 - 真实仓库文档一致：check:docs 的判定为通过`（用例总数由 6 增至 11，是 AC-044 提交给该测试文件新增了 planned 块口径的用例，不是本任务改的）。
+
+**残留失败**：无。3 轮独立读数 + `npm test` 全部 0 fail，未出现「非 planned 块机制」的新失败，故 Touches 不扩容（对应 AC 以「未触发」满足）。
+
+**取舍：为什么 AC-002 的见证不折叠进 AC-044 / AC-007**：三者判据命令与并发参数都不同——AC-002 是裸 `node --test tests/*.test.mjs`（默认并发）连跑 3 次；AC-007 是 `node scripts/check-stability.mjs`（3 轮、`--test-concurrency=2`，产出跨轮失败集的确定性/偶发分类）；AC-044 的判据是 planned 块口径本身（`scripts/docs-consistency.mjs` 的块标记语义）。读数不可互相替代，且 `goal_ac` 是单值标量，折叠会让 AC-002 失去独立、可被 driver 逐字复算的归属。本任务除自身任务文件外零代码 diff，不与任一 lane 重叠。
