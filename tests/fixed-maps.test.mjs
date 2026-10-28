@@ -23,12 +23,8 @@ import {
 } from '../public/js/shared/maps/rasterize.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { Simulation } from '../public/js/sim.js';
-import {
-  biomeScene,
-  decorExclusion,
-  modifierIdOf,
-  weatherFor,
-} from '../public/js/render/background-renderer.js';
+import { biomeScene, decorExclusion } from '../public/js/render/background-data.js';
+import { modifierIdOf, weatherFor } from '../public/js/render/background-renderer.js';
 
 const EXPECTED_IDS = ['canyon', 'twin', 'ring'];
 const CONTRACT_FIELDS = [

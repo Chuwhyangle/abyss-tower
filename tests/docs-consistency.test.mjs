@@ -294,12 +294,13 @@ function codePathProblems(lines, root = ROOT) {
 
 test('计划正本 PHASE_REFACTOR：块外无缺失路径，块内确实豁免了未落地产物', (t) => {
   const phaseDoc = fs.readFileSync(path.join(ROOT, 'docs/PHASE_REFACTOR.md'), 'utf8');
-  assert.ok(phaseDoc.includes(PLANNED_START), '计划正本必须使用 planned 块');
-  assert.ok(phaseDoc.includes(PLANNED_END));
+  // R6 收口：计划块（含起止标记行）已全部日落，整篇按「块外」口径做 100% 存在性校验。
+  assert.equal(phaseDoc.includes(PLANNED_START), false, '收口后计划正本不应再有 planned 块');
+  assert.equal(phaseDoc.includes(PLANNED_END), false, '收口后计划正本不应再有 planned 块');
 
-  // 块外：任何反引号里的仓库路径都必须真实存在——证明门禁没有被整篇削弱。
+  // 全文：任何反引号里的仓库路径都必须真实存在——证明门禁没有被整篇削弱。
   const outside = outsidePlannedLines(phaseDoc);
-  assert.ok(outside.length > 20, `块外行数过少，planned 块可能吞掉了整篇文档（${outside.length}）`);
+  assert.ok(outside.length > 20, `可达文档正文过少（${outside.length}）`);
   assert.deepEqual(codePathProblems(outside), []);
 
   // 块内：确实存在落地前不存在的产物，块是被这个冲突逼出来的，而不是无差别豁免。

@@ -10,7 +10,7 @@ import {
 } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { Simulation } from '../public/js/sim.js';
-import { sampleLanePoints } from './balance-sim.mjs';
+import { sampleLanePoints } from './lib/balance-bot.mjs';
 
 // 随机词缀/原型的矩形地图仍由 legacy buildCandidate 生成（旧存档与词缀生效测试用）。
 function mapWithArchetype(archetypeId, modifierId = null) {

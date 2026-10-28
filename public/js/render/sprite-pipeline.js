@@ -5,13 +5,22 @@
 // 边界：导入期不触碰 document / Image / fetch（Node 下可直接 import）；
 // 浏览器默认加载器在真正发起加载时才创建 Image。实体渲染器通过依赖注入拿到本管线，
 // 自己不加载图片（tests/render-animations.test.mjs 的源码断言因此继续成立）。
+// 图集/DPR 解析在 sprite-atlas.js，缺资源回退策略在 sprite-fallback.js。
 import {
-  atlasFrame,
-  dprVariants,
   normalizeDeviceDpr,
   normalizeManifest,
   resolveDprVariant,
 } from './sprite-manifest.js';
+import { frameGeometry, spriteStyleFromFrame } from './sprite-atlas.js';
+import {
+  budgetVictim,
+  createImageLoader,
+  downgradeCandidates,
+  fetchJson,
+  normalizeLoad,
+  toPositiveNumber,
+  warnOnce as emitWarnOnce,
+} from './sprite-fallback.js';
 
 export const DEFAULT_MANIFEST_URL = '/assets/sprites/manifest.json';
 export const DEFAULT_CONCURRENCY = 6;
@@ -19,54 +28,6 @@ export const DEFAULT_TIMEOUT_MS = 8000;
 // 预算按解码后的 RGBA 估算（w × h × 4），默认 64 MiB：足够放下四个场景的 @2x 图集。
 export const DEFAULT_MAX_BYTES = 64 * 1024 * 1024;
 export const ENTRY_STATES = Object.freeze(['missing', 'pending', 'ready', 'failed', 'skipped']);
-
-// 浏览器默认加载器：只在被调用时引用 Image，模块求值期保持无 DOM。
-function createImageLoader() {
-  return (url) =>
-    new Promise((resolve, reject) => {
-      if (typeof Image === 'undefined') {
-        reject(new Error(`当前环境没有 Image，无法加载精灵：${url}`));
-        return;
-      }
-      const image = new Image();
-      image.onload = () =>
-        resolve({
-          image,
-          width: image.naturalWidth || image.width,
-          height: image.naturalHeight || image.height,
-        });
-      image.onerror = () => reject(new Error(`精灵文件加载失败：${url}`));
-      image.src = url;
-    });
-}
-
-// 默认 JSON 加载（清单与图集 JSON 共用）：只在被调用时引用 fetch。
-async function fetchJson(url) {
-  const response = await fetch(url, { cache: 'no-cache' });
-  if (!response.ok) throw new Error(`JSON 获取失败：${url}（HTTP ${response.status}）`);
-  return response.json();
-}
-
-function toPositiveNumber(value) {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
-}
-
-// 统一加载结果：默认加载器给 { image, width, height }，内置对象也行。
-function normalizeLoad(raw, url) {
-  const image = raw && typeof raw === 'object' && raw.image ? raw.image : raw;
-  const width = toPositiveNumber(raw?.width ?? raw?.naturalWidth ?? image?.naturalWidth ?? image?.width);
-  const height = toPositiveNumber(raw?.height ?? raw?.naturalHeight ?? image?.naturalHeight ?? image?.height);
-  if (!image || !width || !height) throw new Error(`加载结果缺少可用尺寸：${url}`);
-  const bytes = typeof raw?.bytes === 'number' && raw.bytes >= 0 ? raw.bytes : width * height * 4;
-  return { image, width, height, bytes };
-}
-
-function firstFrameName(atlas) {
-  const frames = atlas?.frames;
-  if (!frames || typeof frames !== 'object') return null;
-  const keys = Object.keys(frames);
-  return keys.length ? keys[0] : null;
-}
 
 export class SpritePipeline {
   constructor({
@@ -286,13 +247,7 @@ export class SpritePipeline {
   }
 
   warnOnce(key, message) {
-    if (this.warned.has(key)) return;
-    this.warned.add(key);
-    try {
-      this.warnFn(message);
-    } catch {
-      /* 告警渠道异常不得影响加载流程 */
-    }
+    emitWarnOnce(this.warned, this.warnFn, key, message);
   }
 
   drainQueue() {
@@ -331,9 +286,7 @@ export class SpritePipeline {
     if (this.bytes() <= this.maxBytes) return;
 
     const downgraded = [];
-    for (const record of this.records.values()) {
-      if (record.state !== 'ready' || record.variant <= 1) continue;
-      if (!dprVariants(record.spec).includes(1)) continue;
+    for (const record of downgradeCandidates(this.records.values())) {
       this.drop(record);
       record.generation += 1;
       record.variant = 1;
@@ -352,11 +305,9 @@ export class SpritePipeline {
     }
 
     while (this.bytes() > this.maxBytes) {
-      const victim = [...this.records.values()]
-        .filter((record) => record.state === 'ready')
-        .sort((a, b) => b.bytes - a.bytes)[0];
+      const victim = budgetVictim(this.records.values());
       // 字节数为 0 的条目无法再释放内存，继续循环只会空转。
-      if (!victim || !(victim.bytes > 0)) break;
+      if (!victim) break;
       this.drop(victim);
       victim.state = 'skipped';
       this.warnOnce(victim.spec.id, `[sprites] 内存预算不足，跳过：${victim.spec.id}；回退程序化绘制`);
@@ -486,20 +437,7 @@ export class SpritePipeline {
     if (!frame) return null;
     const url = this.url(id);
     if (!url) return null;
-    const scale = frame.variantDpr;
-    const image = frame.image;
-    const imageWidth = image?.naturalWidth || image?.width || frame.sw;
-    const imageHeight = image?.naturalHeight || image?.height || frame.sh;
-    return {
-      id,
-      url,
-      // 逻辑像素尺寸：帧几何按设备像素给出，除以变体档位回到 CSS 像素。
-      width: frame.dw / scale,
-      height: frame.dh / scale,
-      backgroundImage: `url("${url}")`,
-      backgroundPosition: `${-frame.sx / scale}px ${-frame.sy / scale}px`,
-      backgroundSize: `${imageWidth / scale}px ${imageHeight / scale}px`,
-    };
+    return spriteStyleFromFrame(id, url, frame);
   }
 
   // 按 id 的绘制次数（诊断用；画布场景的验收读数）。
@@ -508,46 +446,14 @@ export class SpritePipeline {
   }
 
   geometry(record) {
-    const scale = record.variant;
-    const spec = record.spec;
-    if (spec.atlas) {
-      const atlas = this.atlases.get(spec.atlas);
-      if (!atlas?.data) return null;
-      const frame = atlasFrame(atlas.data, spec.frame || firstFrameName(atlas.data));
-      if (!frame) return null;
-      return {
-        image: record.image,
-        sx: frame.sx * scale,
-        sy: frame.sy * scale,
-        sw: frame.sw * scale,
-        sh: frame.sh * scale,
-        dw: frame.sourceW * scale,
-        dh: frame.sourceH * scale,
-        ax: frame.ax * scale,
-        ay: frame.ay * scale,
-        variantDpr: scale,
-        trimmed: frame.trimmed,
-        mode: 'atlas',
-      };
-    }
-    const width = record.width;
-    const height = record.height;
-    if (!(width > 0) || !(height > 0)) return null;
-    const pivot = spec.pivot;
-    return {
+    return frameGeometry({
       image: record.image,
-      sx: 0,
-      sy: 0,
-      sw: width,
-      sh: height,
-      dw: width,
-      dh: height,
-      ax: pivot.x * width,
-      ay: pivot.y * height,
-      variantDpr: scale,
-      trimmed: false,
-      mode: 'image',
-    };
+      scale: record.variant,
+      spec: record.spec,
+      atlasData: record.spec.atlas ? this.atlases.get(record.spec.atlas)?.data : null,
+      width: record.width,
+      height: record.height,
+    });
   }
 
   // (x, y) 是 pivot 落点：本函数只做一次 drawImage，返回是否真的画了。

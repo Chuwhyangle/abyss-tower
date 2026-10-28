@@ -26,7 +26,7 @@ import {
   renderCodex,
   renderRelicCard,
   setProgress,
-} from '../public/js/relic-codex-ui.js';
+} from '../public/js/relic-codex-draw.js';
 import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
 

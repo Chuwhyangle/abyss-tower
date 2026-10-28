@@ -9,7 +9,7 @@ import {
   ambientParticleBudget,
   biomeScene,
   decorExclusion,
-} from '../public/js/render/background-renderer.js';
+} from '../public/js/render/background-data.js';
 import {
   PORTAL_PROFILES,
   PORTAL_SPARK_CAP,

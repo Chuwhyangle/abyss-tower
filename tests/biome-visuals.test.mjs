@@ -13,12 +13,16 @@ import {
   biomeVisualPalette,
   regionTransitionBands,
   sceneTransition,
-} from '../public/js/render/background-renderer.js';
+} from '../public/js/render/background-data.js';
 import { biomePalette } from '../public/js/render/palette.js';
 import { ARCHETYPES } from '../public/js/shared/mapgen.js';
 
 const SRC = fs.readFileSync(
   new URL('../public/js/render/background-renderer.js', import.meta.url),
+  'utf8'
+);
+const DRAW_SRC = fs.readFileSync(
+  new URL('../public/js/render/background-draw.js', import.meta.url),
   'utf8'
 );
 
@@ -129,15 +133,19 @@ test('过渡带边界：小地图、缺字段与主动关闭都不绘制', () =>
 });
 
 test('源码级：过渡在路径之前绘制，且不引入素材文件', () => {
-  const depth = SRC.indexOf('this.drawDepthLayers(g, width, height, P, scene, rng)');
-  const transition = SRC.indexOf('this.drawRegionTransitions(g, width, height, P, scene, decor)');
+  const depth = SRC.indexOf('drawDepthLayers(g, width, height, P, scene, rng)');
+  const transition = SRC.indexOf('drawRegionTransitions(g, map, width, height, P, scene, decor)');
   const path = SRC.indexOf('// 路径：逐条绘制');
   assert.ok(depth >= 0, '远景层保持');
   assert.ok(transition > depth, '过渡带绘制在远景之后');
   assert.ok(path > transition, '路径必须后画，覆盖过渡带以保证高对比');
 
   assert.match(SRC, /biomeVisualPalette\(map, palette\)/, '第六套调色板必须参与烘焙');
-  assert.match(SRC, /regionTransitionBands\(this\.game\.map, scene, decorations\)/);
-  assert.match(SRC, /excluded\?\.has\(c \* map\.rows \+ r\)/, '地贴仍遵循路径/塔位排除区');
-  assert.doesNotMatch(SRC, /\.(?:png|jpe?g|webp|svg|gif)\b|new\s+Image\s*\(|fetch\s*\(/, '不引入素材文件');
+  assert.match(DRAW_SRC, /regionTransitionBands\(map, scene, decorations\)/);
+  assert.match(DRAW_SRC, /excluded\?\.has\(c \* map\.rows \+ r\)/, '地贴仍遵循路径/塔位排除区');
+  assert.doesNotMatch(
+    SRC + DRAW_SRC,
+    /\.(?:png|jpe?g|webp|svg|gif)\b|new\s+Image\s*\(|fetch\s*\(/,
+    '不引入素材文件'
+  );
 });

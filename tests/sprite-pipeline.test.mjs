@@ -476,7 +476,9 @@ test('stats 字段完整', async () => {
 test('源码断言：管线不依赖模拟层/随机数，实体渲染器仍不加载图片', () => {
   const pipelineSrc = read('public/js/render/sprite-pipeline.js');
   const manifestSrc = read('public/js/render/sprite-manifest.js');
-  for (const source of [pipelineSrc, manifestSrc]) {
+  const atlasSrc = read('public/js/render/sprite-atlas.js');
+  const fallbackSrc = read('public/js/render/sprite-fallback.js');
+  for (const source of [pipelineSrc, manifestSrc, atlasSrc, fallbackSrc]) {
     assert.doesNotMatch(source, /from ['"][^'"]*\/?sim(?:\.js|\/)/, '不得 import 模拟层');
     assert.doesNotMatch(source, /shared\/rng/, '不得 import 随机数层');
     assert.doesNotMatch(source, /Math\.random/, '不得使用 Math.random');

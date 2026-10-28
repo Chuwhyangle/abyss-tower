@@ -7,14 +7,16 @@ import { setLocale, t } from '../public/js/i18n.js';
 import { RELICS } from '../public/js/shared/data.js';
 import {
   collectDiscovered,
-  effectSummary,
   effectValueText,
+  relicIdsOf,
+} from '../public/js/relic-codex-data.js';
+import {
+  effectSummary,
   filterRelics,
   groupByRarity,
-  relicIdsOf,
   renderCodex,
   renderRelicCard,
-} from '../public/js/relic-codex-ui.js';
+} from '../public/js/relic-codex-draw.js';
 import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
 

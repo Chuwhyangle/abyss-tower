@@ -14,7 +14,7 @@ import {
   MUSIC_VOLUME,
   ambienceFor,
 } from '../public/js/audio.js';
-import { BIOME_SCENES, WEATHER_IDS } from '../public/js/render/background-renderer.js';
+import { BIOME_SCENES, WEATHER_IDS } from '../public/js/render/background-data.js';
 import { DEFAULT_MUSIC_VOLUME } from '../public/js/settings.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');

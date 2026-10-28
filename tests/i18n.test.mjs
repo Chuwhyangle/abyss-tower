@@ -22,7 +22,8 @@ import { SKILL_ORDER } from '../public/js/shared/data/skills.js';
 import { ACHIEVEMENTS } from '../public/js/shared/achievements.js';
 import { RELICS } from '../public/js/shared/data.js';
 import { MAP_MODIFIERS } from '../public/js/shared/mapgen.js';
-import { SET_ORDER, renderCodex } from '../public/js/relic-codex-ui.js';
+import { SET_ORDER } from '../public/js/relic-codex-data.js';
+import { renderCodex } from '../public/js/relic-codex-draw.js';
 import { renderSeasonPanel } from '../public/js/season-ui.js';
 
 const CJK_RE = /[一-鿿]/;
@@ -319,6 +320,7 @@ test('本周挑战/图鉴/赛季/诊断关键键中英齐全', () => {
 test('新模块引用的 t()/tOr() 键在中英字典中都存在', () => {
   const files = [
     'public/js/relic-codex-ui.js',
+    'public/js/relic-codex-draw.js',
     'public/js/season-ui.js',
     'public/js/app/boot-errors.js',
   ];
@@ -415,6 +417,7 @@ test('本周挑战/图鉴/赛季文案随语言切换', () => {
 test('新增模块源码无硬编码中文文案', () => {
   const files = [
     'public/js/relic-codex-ui.js',
+    'public/js/relic-codex-draw.js',
     'public/js/season-ui.js',
     'public/js/app/boot-errors.js',
   ];

@@ -1,47 +1,44 @@
 # 结构性重构 · 阶段决策（PHASE_REFACTOR）
 
-- 状态：**GOAL-009 计划正本**（2026-10-28）
+- 状态：**GOAL-009 计划正本 · R6 已收口**（2026-10-28 立，2026-10-29 收口实测）
 - 定位：本阶段拆分边界、结构预算与门禁口径的**唯一定义处**。实现任务按本文分片，不各自发明拆分方式。
-<!-- docs-consistency:planned-start — 计划态产物：落地前不存在，块内豁免「代码路径存在性」；链接与 npm 脚本照旧校验。R6 收口时删除全部计划块。 -->
 - 变更纪律：修改本文任一预算值或门禁口径，必须同时改 `scripts/structure-budget.mjs` 与对应测试；只改一处视为漂移。
-<!-- docs-consistency:planned-end -->
 - 相关正本：`CLAUDE.md`（开发约定：封装优先、每 5 个版本重构一次、子代理按文件所有权分工）。
 
 ---
 
-## 1. 背景（2026-10-28 实测）
+## 1. 背景与实测（2026-10-29 收口后）
 
-| 指标 | 数值 |
-| --- | --- |
-| JS/MJS 文件 | 421 |
-| 总行数 | 116,780 |
-| `tests/` | 59,733 行（51%，214 文件） |
-| `public/js/` | 38,398 行（119 文件） |
-| `scripts/` | 10,134 行（30 文件） |
-| `server/` | 9,406 行（58 文件） |
-| 近 7 天 | 584 提交，+135,409 / −17,999 行 |
+| 指标 | 重构前（2026-10-28） | 收口后（2026-10-29） |
+| --- | --- | --- |
+| JS/MJS 文件 | 421 | 472 |
+| 总行数 | 116,780 | 121,272 |
+| `tests/` | 59,733 行（214 文件） | 61,497 行（223 文件） |
+| `public/js/` | 38,398 行（119 文件） | 38,992 行（154 文件） |
+| `scripts/` | 10,134 行（30 文件） | 11,304 行（33 文件） |
+| `server/` | 9,406 行（58 文件） | 9,479 行（62 文件） |
+| 超过 600 行的非数据源文件 | 24 | 11 |
 
-超过 600 行的非数据源文件共 **24 个**，集中在四处：
+文件数上升而总行数只增 4,492 行，是「大文件拆成多个小文件」的直接结果：拆出来的数据表（`*-data.js`）不计入行数预算，
+拆分本身不新增功能。
 
-- **渲染**：`skill-renderer` 1396、`enemy-renderer` 1081、`tower-renderer` 1054、`effect-renderer` 1049、
-  `projectile-renderer` 772、`background-renderer` 727、`sprite-pipeline` 649。
-- **服务端**：`services/run-service` 1017、`db/leaderboard` 893。
-- **共享层**：`shared/achievements` 1027、`audio.js` 1221、`relic-codex-ui` 632。
-- **测试与脚本**：`visual-scenes` 1257、`visual-scenarios` 942、`visual-check.test` 900、`dynamic-perf` 790、
-  `i18n-coverage.test` 764、`render-visuals.test` 699、`balance-sim` 1289、`build-entity-sprites` 686、
-  `style-check` 685、`build-sprite-atlas` 618、`browser-map` 606、`sim-skills.test` 669。
+收口后超过 600 行的非数据源文件共 **11 个**，全部落在工具/测试的 800 行预算内：
 
-这些文件的共同形态是：**静态数据表 + 单一 God class/函数集合**混在一个模块里。数据表改一行要理解整套绘制逻辑，
+- **测试**：`visual-check.test.mjs` 798、`dynamic-perf.mjs` 790、`i18n-coverage.test.mjs` 764、`render-visuals.test.mjs` 701、
+  `sim-skills.test.mjs` 669、`tests/lib/visual/session.mjs` 662、`tests/lib/balance-report.mjs` 614、`browser-map.mjs` 606。
+- **脚本**：`build-entity-sprites.mjs` 686、`style-check.mjs` 685、`build-sprite-atlas.mjs` 618。
+
+`public/js/` 与 `server/` 下已无超过 600 行的非数据源文件；债务登记为空（`node scripts/structure-budget.mjs --check` exit 0）。
+
+重构前的共同形态是：**静态数据表 + 单一 God class/函数集合**混在一个模块里。数据表改一行要理解整套绘制逻辑，
 并行任务在同一文件上互斥（7 天改动量的前四名正是 `sim.js` / `render.js` / `ui.js` / `main.js` 这些汇总点，
-说明改动频繁落在同一批文件上）。
+说明改动频繁落在同一批文件上）。拆分后数据表、绘制原语与编排分层，并行任务各自落到独立文件。
 
 ## 2. 目标
 
 1. 运行时文件 ≤ 600 行、工具/测试文件 ≤ 800 行；数据表外提到独立 `*-data.js`（只含常量与纯查表函数，不 import 运行时模块）。
 2. 大模块按**职责**拆分：渲染器拆成「数据 / 几何与绘制原语 / 单实体绘制 / 编排」四类；服务拆成「规则 / 持久化 / 序列化」。
-<!-- docs-consistency:planned-start -->
 3. 新增**结构门禁** `scripts/structure-budget.mjs`，并在测试中生效：行数预算、导入无环、数据模块纯度。
-<!-- docs-consistency:planned-end -->
 4. 新增**行为不变**的可执行见证：模拟确定性哈希、视觉像素哈希、全量测试、性能预算。
 
 ## 3. 非目标
@@ -62,16 +59,14 @@
 
 ## 5. 结构预算（门禁口径）
 
-<!-- docs-consistency:planned-start — 预算表与债务登记目录由 R0 创建，落地前不存在。R6 收口时删除本块。 -->
 | 项 | 阈值 | 说明 |
 | --- | --- | --- |
 | 运行时单文件行数 | ≤ 600 | `public/js` 与 `server` 下 `.js/.mjs` |
 | 工具/测试单文件行数 | ≤ 800 | `scripts` 与 `tests` 下 `.js/.mjs`（采集与断言天然更长） |
 | 数据文件豁免 | 白名单 | `public/js/shared/i18n/*.js`、`server/db/migrations/*.mjs`、`*-data.js` 且满足纯度规则 |
 | 导入环 | 0 | 从四个源根构建静态 import 图，Tarjan 强连通分量判环 |
-| 数据模块纯度 | 0 违规 | `*-data.js` 只能依赖其他数据模块、`public/js/shared/data.js` 或 `node:` 内建，不得 import 运行时模块（`public/js/sim.js`、`public/js/sim/`、`public/js/render/`、`public/js/app/`、`public/js/ui.js`、`server/`） |
-| 债务登记 | `scripts/structure-budget.allow.d/<task-id>.json` | 每个任务一个文件、互不冲突；条目 = `{path, maxLines, owner}`，任务完成即删自己的文件，最终目录必须为空（数据豁免除外） |
-<!-- docs-consistency:planned-end -->
+| 数据模块纯度 | 0 违规 | `*-data.js` 只能依赖其他数据模块、共享层的纯数据模块或 `node:` 内建，不得 import 运行时模块（`public/js/sim.js`、`public/js/sim/`、`public/js/render/`、`public/js/app/`、`public/js/ui.js`、`server/`） |
+| 债务登记 | `scripts/structure-budget.allow.d/<task-id>.json` | 每个任务一个文件、互不冲突；条目 = `{path, maxLines, owner}`，任务完成即删自己的条目，最终目录必须为空（数据豁免除外） |
 
 门禁的判定口径（`scripts/structure-budget.mjs`，改这里必须同时改 §5 与 `tests/structure-budget.test.mjs`）：
 
@@ -79,14 +74,14 @@
 - **owner 必须是活任务**：`tasks/<owner>.md` 不存在即判红（任务改名/删除后悬空的债务条目不会静默存活）。
 - **四种债务违规**：超限未登记（`over-budget`）、超出登记上限（`debt-exceeded`）、文件已在预算内却仍登记（`debt-stale`，还清就该删）、条目路径不存在（`debt-unknown-path`）。
 - **豁免不设限**：数据豁免文件不参与行数判定，但仍受纯度规则约束（数据模块 import 运行时模块照样红）。
-- **`tests/balance-sim.mjs`（1289）** 在 R1–R5 没有对应的拆分任务，登记在 `refactor-closeout.json`（R6 收口时清空）。
+- **收口终态**：R6 收口后 `refactor-closeout.json` 的 `entries` 为空数组（`tests/balance-sim.mjs` 1289 → 547 已拆分为
+  `tests/lib/balance-bot.mjs` / `tests/lib/balance-report.mjs`），`--check` exit 0。
 
 命令：`npm run check:structure`（= `node scripts/structure-budget.mjs --check`），已接入 `npm run verify:local` 与 CI。
 
 ## 6. 分期与文件所有权
 
-<!-- docs-consistency:planned-start — 本节按任务 id 指派尚未创建的产物，落地前这些路径不存在。R6 收口时删除本块。 -->
-> 依赖关系：R0 → (R1 ∥ R2 ∥ R3 ∥ R4 ∥ R5) → R6。同一阶段的任务文件互不重叠。
+> 依赖关系：R0 → (R1 ∥ R2 ∥ R3 ∥ R4 ∥ R5) → R6。同一阶段的任务文件互不重叠。R0–R6 均已落地。
 
 ### R0 · 基线、门禁与见证工具（`refactor-baseline-and-structure-gate`）
 - 交付：`scripts/structure-budget.mjs` + `scripts/structure-budget.allow.d/`（每个拆分任务一份债务文件）+ `tests/structure-budget.test.mjs`；
@@ -120,16 +115,12 @@
   `tests/lib/visual/metrics.mjs`（指标断言封装）、`tests/lib/visual/contact-sheet.mjs`（拼图与 HTML）；测试文件只留用例。
 
 ### R6 · 收口（`refactor-closeout`）
-- 清空 `structure-budget.allow.d/`（除数据豁免）；拆 `background-renderer`(727)、`sprite-pipeline`(649)、`relic-codex-ui`(632)；更新本文实测数字；
-  跑满门禁（测试、静态、确定性、视觉、性能）。
-- **计划块日落**：收口时删除本文全部计划块（含起止标记行），回归 100% 存在性校验
-  （`npm run check:docs` 在无块状态下 exit 0）——此时 §5/§6/§7 的产物都已落地，计划态豁免失去存在理由。
-
-<!-- docs-consistency:planned-end -->
+- 清空债务登记（`refactor-closeout.json` 的 `entries` 为空数组）；拆 `background-renderer`(727→327)、`sprite-pipeline`(649→555)、
+  `relic-codex-ui`(632→361)、`tests/balance-sim.mjs`(1289→547)；更新本文实测数字；跑满门禁（测试、静态、确定性、视觉、性能）。
+- **计划块日落**：计划块（含起止标记行）已全部删除，§5/§6/§7 回归 100% 存在性校验（`npm run check:docs` 在无块状态下 exit 0）。
 
 ## 7. 门禁与 GOAL AC 映射
 
-<!-- docs-consistency:planned-start — 判据命令指向 R0 产物，落地前不存在。R6 收口时删除本块。 -->
 | AC | 判据 | 命令 |
 | --- | --- | --- |
 | AC-043 | 结构预算通过、债务登记为空（数据豁免除外） | `node scripts/structure-budget.mjs --check` |
@@ -139,7 +130,6 @@
 | AC-047 | 视觉像素与重构前逐帧一致 + 视觉套件通过 | `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` |
 | AC-048 | 性能预算 | `npm run perf:budget` |
 | AC-049 | 文档所有权与本文同步 | `npm run check:doc-ownership` |
-<!-- docs-consistency:planned-end -->
 
 本表由 `tests/phase-refactor-sync.test.mjs` 机械钉住：AC-043…AC-049 每行各一次且命令非空，open 任务的 `goal_ac`
 必须落在表内 AC（只判 AC 行、不要求任务 id 逐字进表），AC-049 的命令单元格只引用 `npm run check:doc-ownership`

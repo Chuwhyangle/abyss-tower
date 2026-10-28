@@ -20,10 +20,12 @@ import {
 } from '../public/js/shared/ambience.js';
 import {
   BIOME_SCENES,
-  DAY_PHASES,
-  DAY_PHASE_IDS,
   WEATHER_IDS,
   WEATHER_TYPES,
+} from '../public/js/render/background-data.js';
+import {
+  DAY_PHASES,
+  DAY_PHASE_IDS,
 } from '../public/js/render/background-renderer.js';
 import {
   AMBIENCE_KINDS,

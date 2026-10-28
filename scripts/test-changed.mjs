@@ -78,6 +78,12 @@ export const TEST_MAP = [
     'tests/i18n.test.mjs',
     'tests/relic-codex.test.mjs',
   ] },
+  { match: 'public/js/relic-codex-data.js', tests: ['tests/relic-codex.test.mjs'] },
+  { match: 'public/js/relic-codex-draw.js', tests: [
+    'tests/i18n.test.mjs',
+    'tests/relic-codex.test.mjs',
+    'tests/relic-codex-detail.test.mjs',
+  ] },
   { match: 'public/js/replay-ui.js', tests: ['tests/replays.test.mjs'] },
   { match: 'public/js/season-ui.js', tests: [
     'tests/i18n.test.mjs',
@@ -173,6 +179,19 @@ export const TEST_MAP = [
     'tests/biome-visuals.test.mjs',
     'tests/render-visuals.test.mjs',
   ] },
+  { match: 'public/js/render/background-data.js', tests: [
+    'tests/ambience-presets.test.mjs',
+    'tests/ambience.test.mjs',
+    'tests/biome-visuals.test.mjs',
+    'tests/fixed-maps.test.mjs',
+    'tests/render-visuals.test.mjs',
+    'tests/weather-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/background-draw.js', tests: [
+    'tests/biome-visuals.test.mjs',
+    'tests/render-visuals.test.mjs',
+    'tests/weather-visuals.test.mjs',
+  ] },
   { match: 'public/js/render/menu-background.js', tests: ['tests/menu-background.test.mjs'] },
   { match: 'public/js/render/palette.js', tests: [
     'tests/art-spec.test.mjs',
@@ -264,6 +283,8 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/render/sprite-manifest.js', tests: ['tests/sprite-pipeline.test.mjs'] },
   { match: 'public/js/render/sprite-pipeline.js', tests: ['tests/sprite-pipeline.test.mjs'] },
+  { match: 'public/js/render/sprite-atlas.js', tests: ['tests/sprite-pipeline.test.mjs'] },
+  { match: 'public/js/render/sprite-fallback.js', tests: ['tests/sprite-pipeline.test.mjs'] },
   { match: 'public/js/render/portal-renderer.js', tests: [
     'tests/render-visuals.test.mjs',
     'tests/sprite-coverage.test.mjs',

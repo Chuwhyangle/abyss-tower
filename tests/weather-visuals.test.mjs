@@ -6,14 +6,16 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
 import {
-  DAY_PHASE_IDS,
-  DAY_PHASES,
   WEATHER_IDS,
   WEATHER_TYPES,
+  weatherParticleBudget,
+} from '../public/js/render/background-data.js';
+import {
+  DAY_PHASE_IDS,
+  DAY_PHASES,
   timeOfDayFor,
   weatherFor,
   weatherLayer,
-  weatherParticleBudget,
 } from '../public/js/render/background-renderer.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
@@ -21,6 +23,10 @@ import { generateWave } from '../public/js/shared/waves.js';
 
 const SRC = fs.readFileSync(
   new URL('../public/js/render/background-renderer.js', import.meta.url),
+  'utf8'
+);
+const DRAW_SRC = fs.readFileSync(
+  new URL('../public/js/render/background-draw.js', import.meta.url),
   'utf8'
 );
 
@@ -111,7 +117,7 @@ test('源码级：只读地图元数据，不读战斗状态，且不引入素�
   assert.match(SRC, /weatherLayer\(meta, weatherSeed, decor\)/, '天气必须由地图元数据/种子派生');
   assert.match(SRC, /game\.mapMeta \|\| map\.meta/, '天气读取地图元数据而非模拟实体');
   assert.match(SRC, /new RNG\(`\$\{weatherSeed\}:\$\{weather\.weather\}`\)/, '天气使用独立 RNG');
-  assert.match(SRC, /excluded\?\.has\(/, '天气粒子必须遵循路径排除区');
+  assert.match(DRAW_SRC, /excluded\?\.has\(/, '天气粒子必须遵循路径排除区');
   assert.doesNotMatch(
     SRC,
     /game\.(?:enemies|towers|projectiles|effects|floaters|baseHp|gold|kills|wave)\b/,
@@ -120,7 +126,7 @@ test('源码级：只读地图元数据，不读战斗状态，且不引入素�
   assert.doesNotMatch(SRC, /\.(?:png|jpe?g|webp|svg|gif)\b|new\s+Image\s*\(|fetch\s*\(/, '不引入素材文件');
 
   const path = SRC.indexOf('// 路径：逐条绘制');
-  const weather = SRC.indexOf('this.drawWeather(');
+  const weather = SRC.indexOf('drawWeather(');
   assert.ok(path >= 0 && weather > path, '天气层绘制在路径之后，但粒子排除路径格');
 });
 

@@ -6,7 +6,8 @@
 //
 // 默认扫描 anchor 难度（远征）的 hpMul，取值以当前倍率为中心上下浮动。
 // 只修改 DIFFICULTIES 的 hpMul/countMul/speedMul，跑完恢复基准值。
-import { runOne, summarize } from './balance-sim.mjs';
+import { runOne } from './balance-sim.mjs';
+import { summarize } from './lib/balance-report.mjs';
 import { BALANCE_TARGETS } from '../public/js/shared/config.js';
 import { DIFFICULTIES, DIFFICULTY_ORDER, MAX_WAVE } from '../public/js/shared/data.js';
 

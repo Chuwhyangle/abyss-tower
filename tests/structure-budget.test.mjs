@@ -91,8 +91,12 @@ test('真实仓库的行数预算与 PHASE_REFACTOR §5 一致', (t) => {
 test('债务登记按任务一份文件，条目 owner 与文件名一致', (t) => {
   const { entries, problems, files } = loadDebt(ROOT);
   assert.deepEqual(problems, []);
-  assert.ok(files.length > 0, '应至少有一个债务文件');
-  assert.ok(entries.size > 0, '应至少登记一条债务');
+  // R6 收口后登记整体为空是合法终态（数据豁免不进登记），所以不再要求「至少一条」；
+  // 但有登记时不允许出现「文件在、条目全丢」的空壳文件。
+  const contributing = new Set([...entries.values()].map((entry) => entry.file));
+  if (entries.size > 0) {
+    for (const file of files) assert.ok(contributing.has(file), `空壳债务文件：${file}`);
+  }
   for (const entry of entries.values()) {
     assert.equal(path.join(ROOT, DEBT_DIR, `${entry.owner}.json`), path.join(ROOT, DEBT_DIR, entry.file));
     assert.ok(fs.existsSync(path.join(ROOT, 'tasks', `${entry.owner}.md`)), `owner ${entry.owner} 任务不存在`);
