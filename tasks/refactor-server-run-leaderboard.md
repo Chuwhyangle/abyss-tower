@@ -1,7 +1,7 @@
 ---
 id: refactor-server-run-leaderboard
 title: 重构 R3：拆分 run-service 与 leaderboard
-status: todo
+status: ready
 labels:
   - gap
   - refactor
