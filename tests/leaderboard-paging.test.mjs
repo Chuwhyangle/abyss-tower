@@ -22,13 +22,12 @@ const { db } = await import('../server/db/index.mjs');
 const {
   LEADERBOARD_CACHE_TTL_MS,
   MAX_CURSOR_PAGE_SIZE,
-  boardKeyFor,
-  decodeCursor,
-  encodeCursor,
   listEntries,
   recordLeaderboardEntry,
-  seasonOf,
 } = await import('../server/db/leaderboard.mjs');
+const { boardKeyFor, decodeCursor, encodeCursor, seasonOf } = await import(
+  '../server/db/leaderboard-sql.mjs'
+);
 const { dayKey } = await import('../public/js/shared/scoring.js');
 
 const DAY = dayKey();

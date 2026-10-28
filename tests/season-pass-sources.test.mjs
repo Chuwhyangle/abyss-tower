@@ -98,7 +98,7 @@ before(async () => {
   ({ db } = await import('../server/db/index.mjs'));
   ({ createProfile } = await import('../server/db.mjs'));
   ({ seasonPassSummary } = await import('../server/db/season_pass.mjs'));
-  ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard.mjs'));
+  ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard-sql.mjs'));
 
   currentSeason = seasonOf();
   const bounds = seasonBounds(currentSeason);

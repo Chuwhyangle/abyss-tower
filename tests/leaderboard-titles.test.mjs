@@ -18,7 +18,7 @@ const DB = path.join(os.tmpdir(), `rtd-lb-titles-${process.pid}-${Date.now()}.db
 // 必须在导入 db 模块前指向测试库，导入会建立连接并执行迁移。
 process.env.DB_PATH = DB;
 process.env.DB_BACKUP = '0';
-const { seasonBounds, seasonOf } = await import('../server/db/leaderboard.mjs');
+const { seasonBounds, seasonOf } = await import('../server/db/leaderboard-sql.mjs');
 
 const TOKENS = {
   titled: 'titles-alpha-0001',

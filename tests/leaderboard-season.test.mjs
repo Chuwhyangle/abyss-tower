@@ -19,7 +19,7 @@ const DB = path.join(os.tmpdir(), `rtd-lb-season-${process.pid}-${Date.now()}.db
 process.env.DB_PATH = DB;
 process.env.DB_BACKUP = '0';
 const { isSeasonKey, seasonBounds, seasonOf } = await import(
-  '../server/db/leaderboard.mjs'
+  '../server/db/leaderboard-sql.mjs'
 );
 
 const TOKENS = {

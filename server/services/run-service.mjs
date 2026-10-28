@@ -1,17 +1,14 @@
-// 远征领域服务：状态迁移规则、结算编排与响应序列化；SQL 全部委托给仓储层。
+// 远征领域服务：状态迁移编排、对外响应序列化与领域错误；规则与开局计算在 run-rules.mjs，
+// 结算编排在 run-settlement.mjs，SQL 全部委托给仓储层。
 import crypto from 'node:crypto';
 
-import { hydrateRun, normalizeStats, transaction, updateProfile } from '../db.mjs';
-import { REPLAY_LIMIT, archiveOld, insertReplay } from '../db/replays.mjs';
+import { hydrateRun } from '../db.mjs';
 import {
   abandonActiveRuns,
-  countFinishedDailyRuns,
-  countFinishedWeeklyRuns,
   findActiveRun,
   findRun,
   insertRun,
   markAbandoned,
-  participationDays,
   setClearedWaves,
   setMapChoice,
   setOffers,
@@ -19,101 +16,37 @@ import {
   setRelics,
   setRuleset,
   setWavesServed,
-  settleRun,
 } from '../db/runs.mjs';
-import {
-  boardKeyFor,
-  personalBest,
-  rankFor,
-  recordLeaderboardEntry,
-  seasonOf,
-  validateLeaderboardEntry,
-} from '../db/leaderboard.mjs';
-import { recordPlayerEvent } from '../db/events.mjs';
-import { unlockAchievements } from '../db/achievements.mjs';
-import {
-  grantVictorySkillUnlock,
-  readSelectedSkill,
-  readSkillLevel,
-  skillUnlocked,
-} from '../db/skills.mjs';
-import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
-import {
-  buildCandidate,
-  candidatePlan,
-  generateMapCandidates,
-  legacyGenerateMap,
-} from '../../public/js/shared/mapgen.js';
 import { ENDLESS, generateWave } from '../../public/js/shared/waves.js';
-import {
-  findEventOption,
-  normalizeEventHistory,
-  resolveEventForWave,
-} from '../../public/js/shared/events.js';
+import { findEventOption, resolveEventForWave } from '../../public/js/shared/events.js';
 import {
   rollRelicOffers,
   normalizeRelicStates,
   RELIC_BY_ID,
   RELIC_MAX_LEVEL,
-  DIFFICULTIES,
-  SKILLS,
   TOWER_ORDER,
   unlockedTowerIds,
   MAX_WAVE,
 } from '../../public/js/shared/data.js';
+import { composeWaveModifier } from '../../public/js/shared/mutations.js';
+import { HEX_POOL_VERSION, validateHexChoice } from '../../public/js/shared/hexes.js';
 import {
-  applyMutations,
-  composeWaveModifier,
-  mutationKey,
-  mutationScoreMul,
-  mutationSummary,
-  validateMutationSelection,
-} from '../../public/js/shared/mutations.js';
-import {
-  clampFinishPayload,
-  computeOutcome,
-  dailyChallenge,
-  dailyStreak,
-  dayKey,
-  hexScoreMul,
-  WEEKLY_SKILL_LEVEL,
-  weekKey,
-  weeklyChallenge,
-} from '../../public/js/shared/scoring.js';
-import {
-  HEX_BY_ID,
-  HEX_ORDER,
-  HEX_POOL_VERSION,
-  offerHexes,
-  offerHexesFromPool,
-  validateHexChoice,
-} from '../../public/js/shared/hexes.js';
-import { HexRuntime } from '../../public/js/shared/hexes/runtime.js';
-
-const START_GOLD = 260;
-const START_HP = 20;
-const META_GOLD = 40;
-const META_HP = 3;
-// 固定地图池标识：新 run 写入 ruleset.mapPool，旧 run 缺少该字段时只读回退 legacy carve。
-export const FIXED_MAP_POOL = 'fixed-v1';
-// 固定地图池恒为三张：canyon → twin → ring，mapChoice 仍为 0..2。
-const FIXED_MAP_COUNT = 3;
-// 主海克斯三选一与遗物服务端默认值（遗物类数值由各海克斯钩子覆盖）。
-export const HEX_OFFER_COUNT = 3;
-const RELIC_OFFER_COUNT = 3;
-const RELIC_REROLL_COST = 25;
-
-// 每日挑战固定规则集：不随账号解锁与难度加成变化。
-export const DAILY_RULESET = 'daily-v2';
-export const DAILY_SKILL_LEVEL = 5;
-const DAILY_START_GOLD = 260;
-const DAILY_START_HP = 20;
-
-export const DAILY_ATTEMPTS = 3;
-
-// 本周挑战：固定规则集、每周独立榜单与每周次数上限。
-export const WEEKLY_RULESET = 'weekly-v1';
-export const WEEKLY_ATTEMPTS = 3;
+  RELIC_OFFER_COUNT,
+  RELIC_REROLL_COST,
+  chosenMapFor,
+  dailyStreakFor,
+  difficultyPayload,
+  eventHistory,
+  eventKey,
+  hexFor,
+  hexOffersOf,
+  hexRuntimeFor,
+  isFixedRulesMode,
+  mapCandidatesFor,
+  maxRerollsFor,
+  planRunStart,
+} from './run-rules.mjs';
+import { settleRunOutcome } from './run-settlement.mjs';
 
 // 预期内的领域/请求错误：路由层据此选择状态码，其余异常继续上抛。
 export class RunError extends Error {
@@ -123,132 +56,6 @@ export class RunError extends Error {
     this.status = status;
     this.code = code;
   }
-}
-
-export function finishedDailyToday(token) {
-  return countFinishedDailyRuns(token, dayKey());
-}
-
-export function dailyAttemptsLeft(token) {
-  return Math.max(0, DAILY_ATTEMPTS - finishedDailyToday(token));
-}
-
-export function dailyStreakFor(token, day = dayKey()) {
-  return dailyStreak(participationDays(token), day);
-}
-
-export function finishedWeeklyThisWeek(token, week = weekKey()) {
-  return countFinishedWeeklyRuns(token, week);
-}
-
-export function weeklyAttemptsLeft(token, week = weekKey()) {
-  return Math.max(0, WEEKLY_ATTEMPTS - finishedWeeklyThisWeek(token, week));
-}
-
-// 每日与本周挑战共用固定规则：全塔、全技能可选、固定技能等级与固定资源。
-function isFixedRulesMode(mode) {
-  return mode === 'daily' || mode === 'weekly';
-}
-
-// 把已落库的选择还原成事件历史；连锁排期由 shared/events.js 从历史推导，服务端不信任客户端。
-function eventHistory(run) {
-  const entries = Object.entries(run.offers || {})
-    .filter(([key, slot]) => key.startsWith('event:') && slot?.picked)
-    .map(([key, slot]) => ({
-      wave: Number(key.slice('event:'.length)),
-      eventId: slot.eventId,
-      optionId: slot.optionId,
-    }));
-  return normalizeEventHistory(entries, run.mode);
-}
-
-// 事件选择与遗物选择共用 offers JSON；事件槽位加前缀避免与遗物波次键冲突。
-function eventKey(wave) {
-  return `event:${wave}`;
-}
-
-function maxRerollsFor(profile) {
-  return 1 + (profile.unlocks.includes('extra_reroll') ? 2 : 0);
-}
-
-function difficultyPayload(difficulty) {
-  const diff = DIFFICULTIES[difficulty] || DIFFICULTIES.standard;
-  return { ...diff };
-}
-
-// 旧 run 回退（只读）：按改造前 generateMapCandidates(seed, 3) 的调用顺序重建当时的三张候选，
-// 供没有 ruleset.mapPool 的旧存档/回放读取。RNG 顺序由 candidatePlan/buildCandidate 内部固定。
-function legacyMapCandidates(seed, count = FIXED_MAP_COUNT) {
-  const { ids, modifierPool } = candidatePlan(seed, count);
-  return Array.from({ length: count }, (_, index) =>
-    buildCandidate(
-      `${seed}:candidate:${index}`,
-      ids[index % ids.length],
-      modifierPool[index % modifierPool.length],
-      index
-    )
-  );
-}
-
-// 地图候选的唯一入口：新 run 读固定池，旧 ruleset 只读回退 legacy carve。
-// 同一 run 的 serialize/chooseMap/serveWave/replaySummary/settle 都从这里取图，避免字段再次分叉。
-export function mapCandidatesFor(run) {
-  if (run?.ruleset?.mapPool === FIXED_MAP_POOL) {
-    return generateMapCandidates(run.seed, FIXED_MAP_COUNT);
-  }
-  return legacyMapCandidates(run.seed, FIXED_MAP_COUNT);
-}
-
-// 已选地图；mapChoice < 0 表示尚未选图。旧数据取不到候选时退回单张 legacy 地图，绝不抛错。
-function chosenMapFor(run) {
-  if (!run || run.mapChoice < 0) return null;
-  const chosen = mapCandidatesFor(run)[run.mapChoice];
-  if (chosen) return chosen;
-  return run.ruleset?.mapPool === FIXED_MAP_POOL ? null : legacyGenerateMap(run.seed);
-}
-
-// ---------- 主海克斯：开局三选一与已选快照 ----------
-
-// 三选一的派生 seed：每日/本周按 day/week 维度（同组所有人一致），其余模式按本局种子。
-export function hexOfferSeed(run) {
-  if (run?.mode === 'daily') return `daily:${run.day}`;
-  if (run?.mode === 'weekly') return `weekly:${run.day}`;
-  return `run:${run?.seed ?? ''}`;
-}
-
-// 候选池优先取已实现定义；十个实现任务（HEX-004..013）落地前注册表全是桩，
-// 退化为完整注册表，保证 HEX-003 的开局三选一始终有牌可发。
-function hexOfferPool(seed, mode) {
-  const implemented = offerHexes(seed, HEX_OFFER_COUNT, mode);
-  if (implemented.length >= HEX_OFFER_COUNT) return implemented;
-  return offerHexesFromPool(HEX_ORDER, seed, HEX_OFFER_COUNT, mode);
-}
-
-// 同一 run 的 offers 只由 seed/mode 派生：刷新、重进与同一天的每日/本周挑战都得到同一组。
-function hexOffersFor(run) {
-  return hexOfferPool(hexOfferSeed(run), run?.mode || 'normal');
-}
-
-// 已选海克斯（写入 ruleset.hex）；旧 run 没有该字段时返回 null，结算按 1.0 处理。
-export function hexFor(run) {
-  const hex = run?.ruleset?.hex;
-  if (!hex || typeof hex.id !== 'string' || !HEX_BY_ID[hex.id]) return null;
-  return {
-    id: hex.id,
-    offers: Array.isArray(hex.offers) ? [...hex.offers] : [],
-    poolVersion: hex.poolVersion || HEX_POOL_VERSION,
-  };
-}
-
-// serialize/选择校验共用的 offers 入口：已选后锁定为写入时的一组，绝不重新洗牌。
-function hexOffersOf(run) {
-  const chosen = hexFor(run);
-  return chosen ? chosen.offers : hexOffersFor(run);
-}
-
-// 遗物类数值从共享 hex 定义读取：无海克斯时退化为服务端默认值。
-function hexRuntimeFor(run) {
-  return new HexRuntime(hexFor(run)?.id || null);
 }
 
 export class RunService {
@@ -303,191 +110,26 @@ export class RunService {
     return run;
   }
 
+  // 开局：规则计算在 run-rules.mjs，这里只做领域错误转换与落库编排。
   create({ token, profile, body, testSeed }) {
-    const mode =
-      body.mode === 'daily'
-        ? 'daily'
-        : body.mode === 'weekly'
-          ? 'weekly'
-          : body.mode === 'endless'
-            ? 'endless'
-            : body.mode === 'mutated'
-              ? 'mutated'
-              : 'normal';
-    const difficulty = DIFFICULTIES[body.difficulty] ? body.difficulty : 'standard';
-    const diff = DIFFICULTIES[difficulty];
-    const daily = mode === 'daily' ? dailyChallenge(dayKey()) : null;
-    const weekly = mode === 'weekly' ? weeklyChallenge() : null;
-    // 变异组合必须先通过校验，非法组合直接拒绝建局。
-    let mutationIds = null;
-    if (mode === 'mutated') {
-      const selection = validateMutationSelection(body.mutations);
-      if (!selection.ok) throw new RunError(400, selection.error, 'INVALID_MUTATION_COMBO');
-      mutationIds = selection.ids;
+    const plan = planRunStart({ token, profile, body, testSeed });
+    if (plan.error) {
+      throw new RunError(plan.error.status, plan.error.message, plan.error.code);
     }
-    // 每日以日期为维度，本周挑战以 ISO 周为维度，变异挑战以规范化组合为维度。
-    const day =
-      mutationIds != null
-        ? mutationKey(mutationIds)
-        : daily
-          ? daily.day
-          : weekly
-            ? weekly.week
-            : dayKey();
-    const fixedRules = isFixedRulesMode(mode);
-
-    // 技能选择：每日/本周挑战允许任意技能且固定等级；普通局必须已解锁，等级只从 DB 读。
-    let skillId = null;
-    if (body.skillId != null && body.skillId !== '') {
-      skillId = String(body.skillId);
-      if (!SKILLS[skillId]) throw new RunError(400, '未知技能', 'INVALID_SKILL');
-      if (!fixedRules && !skillUnlocked(token, skillId)) {
-        throw new RunError(403, '技能尚未解锁', 'SKILL_LOCKED');
-      }
-    }
-    if (!skillId) {
-      const selected = readSelectedSkill(token);
-      skillId = selected && (fixedRules || skillUnlocked(token, selected)) ? selected : 'aurora';
-    }
-    const skillLevel =
-      mode === 'weekly'
-        ? WEEKLY_SKILL_LEVEL
-        : mode === 'daily'
-          ? DAILY_SKILL_LEVEL
-          : readSkillLevel(token, skillId);
-    if (mode === 'daily' && finishedDailyToday(token) >= DAILY_ATTEMPTS) {
-      throw new RunError(429, '今日挑战次数已用完');
-    }
-    if (mode === 'weekly' && finishedWeeklyThisWeek(token, weekly.week) >= WEEKLY_ATTEMPTS) {
-      throw new RunError(429, '本周挑战次数已用完');
-    }
-
-    const seed = testSeed
-      ? `test-${testSeed}`
-      : daily
-        ? daily.seed
-        : weekly
-          ? weekly.seed
-          : crypto.randomBytes(8).toString('hex');
-    const unlocks = profile.unlocks;
-    // 每日/本周挑战使用固定开局资源，忽略难度加成与账号 meta 加成，保证榜单公平。
-    let startingGold = fixedRules
-      ? DAILY_START_GOLD
-      : Math.max(100, START_GOLD + (unlocks.includes('start_gold') ? META_GOLD : 0) + diff.goldBonus);
-    let baseHp = fixedRules
-      ? DAILY_START_HP
-      : Math.max(8, START_HP + (unlocks.includes('start_hp') ? META_HP : 0) + diff.hpBonus);
-    let maxRerolls = fixedRules ? 1 : maxRerollsFor(profile);
-    let towersUnlocked = fixedRules ? [...TOWER_ORDER] : unlockedTowerIds(unlocks);
-    // 变异只改既有开局参数与波次倍率，不改机制本身。
-    let mutationInfo = null;
-    if (mutationIds) {
-      const applied = applyMutations({ startingGold, baseHp, maxRerolls, towersUnlocked }, mutationIds);
-      startingGold = applied.startingGold;
-      baseHp = applied.baseHp;
-      maxRerolls = applied.maxRerolls;
-      towersUnlocked = applied.towersUnlocked;
-      mutationInfo = {
-        ids: mutationIds,
-        key: mutationKey(mutationIds),
-        scoreMul: applied.scoreMul,
-        hpMul: applied.hpMul,
-        speedMul: applied.speedMul,
-      };
-    }
-    const ruleset = {
-      v: 1,
-      contentVersion: CONTENT_VERSION,
-      // 固定地图池：新 run 一律标注，旧 run 缺省即走 legacy 只读回退。
-      mapPool: FIXED_MAP_POOL,
-      skill: { id: skillId, level: skillLevel },
-      meta: { startGold: startingGold, baseHp, maxRerolls },
-    };
-    if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
-    if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
-    if (mutationInfo) ruleset.mutations = mutationInfo;
-    const startRelics = unlocks.includes('start_relic')
-      ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1, mode)
-          .filter((offer) => offer.kind === 'relic')
-          .map((offer) => ({ id: offer.id, level: offer.toLevel }))
-      : [];
-    // 固定地图池：所有模式（普通/每日/本周/无尽/变异）都是同一组三张图与固定 trait。
-    const candidates = generateMapCandidates(seed, FIXED_MAP_COUNT);
-    // 词缀即固定地图的 trait（无 trait 的 canyon 不参与）；不再做随机词缀一致性校验。
-    const mapModifiers = candidates
-      .map((candidate) => candidate.modifier)
-      .filter(Boolean)
-      .map(({ id: modifierId, name, desc, color }) => ({
-        id: modifierId,
-        name,
-        desc,
-        color,
-      }));
-
     const id = crypto.randomBytes(9).toString('base64url');
-    const boardKey = boardKeyFor(mode, day);
     abandonActiveRuns(token, Date.now());
     insertRun({
       id,
       accountId: token,
-      mode,
-      boardKey,
-      difficulty,
-      seed,
-      day,
-      contentVersion: CONTENT_VERSION,
-      relics: JSON.stringify(startRelics),
-      ruleset: JSON.stringify(ruleset),
+      ...plan.run,
+      relics: JSON.stringify(plan.run.relics),
+      ruleset: JSON.stringify(plan.run.ruleset),
       createdAt: Date.now(),
     });
-
-    const dailyInfo = daily
-      ? {
-          day,
-          seed,
-          modifiers: mapModifiers,
-          streak: dailyStreakFor(token, day),
-        }
-      : null;
-    const weeklyInfo = weekly
-      ? {
-          week: weekly.week,
-          seed,
-          modifiers: mapModifiers.slice(0, weekly.modifiers.length),
-          rules: weekly.rules,
-        }
-      : null;
-
-    return {
-      runId: id,
-      seed,
-      mode,
-      difficulty,
-      difficultyConfig: difficultyPayload(difficulty),
-      day,
-      candidates,
-      // 主海克斯三选一：每日/本周由 day/week seed 派生，同组所有人一致；其余模式按本局种子。
-      hex: null,
-      hexOffers: hexOffersFor({ seed, mode, day }),
-      hexPoolVersion: HEX_POOL_VERSION,
-      startingGold,
-      baseHp,
-      relics: startRelics,
-      // 每日/本周挑战开放全部塔，保证同一规则集下的榜单公平；变异会收窄可用塔。
-      towersUnlocked,
-      skill: ruleset.skill,
-      ruleset,
-      maxRerolls,
-      mutations: mutationInfo ? mutationSummary(mutationIds) : null,
-      mutationScoreMul: mutationInfo?.scoreMul ?? null,
-      boardKey,
-      clearedWaves: 0,
-      wavesServed: 0,
-      dailyAttemptsLeft: mode === 'daily' ? dailyAttemptsLeft(token) : null,
-      weeklyAttemptsLeft: mode === 'weekly' ? weeklyAttemptsLeft(token, weekly.week) : null,
-      daily: dailyInfo,
-      weekly: weeklyInfo,
-    };
+    const response = plan.response;
+    // 连续参与天数由 runs 记录派生：本局落库后才计入当日参与，必须在插入之后读。
+    if (response.daily) response.daily.streak = dailyStreakFor(token, response.day);
+    return { runId: id, ...response };
   }
 
   // 开局主海克斯：必须在放行波次前选定；重复选择同一 id 幂等，换 id 一律 409。
@@ -805,209 +447,12 @@ export class RunService {
   }
 
   settle(run, profile, body) {
-    const token = run.token;
-    const payload = clampFinishPayload(body, run.clearedWaves);
-    const mapMeta = chosenMapFor(run)?.meta || null;
-    const mutationMul = mutationScoreMul(run.ruleset?.mutations?.ids || []);
-    const hex = hexFor(run);
-    // 旧 run 的 ruleset 没有 hex：hexScoreMul 返回 1.0，分数与改动前一致。
-    const hexMul = hexScoreMul(hex?.id);
-    const outcome = computeOutcome({
-      ...payload,
-      wavesServed: run.clearedWaves,
-      difficulty: run.difficulty,
-      scoreMul: (mapMeta?.scoreMul || 1) * mutationMul * hexMul,
-      mode: run.mode,
+    return settleRunOutcome({
+      run,
+      profile,
+      body,
+      replaySummary: (target, payload) => this.replaySummary(target, payload),
     });
-    const now = Date.now();
-    const durationMs = Math.max(0, now - run.createdAt);
-    // 无尽榜按结算时间归入赛季，与榜单 created_at 的赛季边界保持一致。
-    const season = seasonOf(now);
-
-    const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day, { season });
-    const replayId = crypto.randomBytes(9).toString('base64url');
-    const replayResult = {
-      victory: outcome.victory,
-      score: outcome.score,
-      rawScore: outcome.rawScore,
-      coresEarned: outcome.cores,
-      waveReached: payload.waveReached,
-      kills: payload.kills,
-      goldLeft: payload.goldLeft,
-      baseHp: payload.baseHp,
-      durationMs,
-      contentVersion: run.contentVersion,
-      hexId: hex?.id || null,
-    };
-
-    // 结算与回放摘要在同一事务里落地：任一步失败都不会留下半局记录。
-    transaction(() => {
-      settleRun(run.id, {
-        victory: outcome.victory,
-        score: outcome.score,
-        waveReached: payload.waveReached,
-        kills: payload.kills,
-        durationMs,
-        result: JSON.stringify({
-          rawScore: outcome.rawScore,
-          coresEarned: outcome.cores,
-          goldLeft: payload.goldLeft,
-          baseHp: payload.baseHp,
-          contentVersion: run.contentVersion,
-        }),
-        finishedAt: now,
-      });
-      insertReplay({
-        id: replayId,
-        accountId: token,
-        runId: run.id,
-        mode: run.mode,
-        difficulty: run.difficulty,
-        seed: run.seed,
-        mapChoice: run.mapChoice,
-        summary: JSON.stringify(this.replaySummary(run, payload)),
-        result: JSON.stringify(replayResult),
-        createdAt: run.createdAt,
-        finishedAt: now,
-      });
-    });
-
-    // 归档发生在结算事务之外：失败只影响历史聚合，绝不影响本局结算。
-    // 明细删除与聚合写入同事务，下次结算会整体重试。
-    try {
-      archiveOld(token, REPLAY_LIMIT);
-    } catch {
-      /* 归档失败不影响结算 */
-    }
-
-    // 首通授予必须在更新战绩之前：skillUnlocked 会从历史首通派生，
-    // 先写 wins 会让本次授予误判为「已解锁」而返回 null。
-    const unlockedSkillId = outcome.victory
-      ? grantVictorySkillUnlock(token, run.difficulty)
-      : null;
-    const unlockedSkills = unlockedSkillId
-      ? [{ id: unlockedSkillId, name: SKILLS[unlockedSkillId].name }]
-      : [];
-
-    // 入榜前过基线反作弊：异常成绩直接拒绝入榜但照常结算，可疑成绩钳制后标记。
-    // 变异/海克斯倍率同步放宽反作弊上下限，否则合法的高倍率成绩会被误判。
-    const guard = validateLeaderboardEntry(
-      {
-        score: outcome.score,
-        durationMs,
-        wave: payload.waveReached,
-        kills: payload.kills,
-      },
-      { scoreMul: mutationMul * hexMul }
-    );
-    const guardEvent = {
-      runId: run.id,
-      reason: guard.reason,
-      flags: guard.flags,
-      mode: run.mode,
-      difficulty: run.difficulty,
-      wave: payload.waveReached,
-      kills: guard.kills,
-      durationMs,
-      score: outcome.score,
-    };
-    let leaderboardNotice = null;
-
-    if (guard.accepted) {
-      recordLeaderboardEntry({
-        accountId: token,
-        displayName: profile.name,
-        runId: run.id,
-        mode: run.mode,
-        day: run.day,
-        difficulty: run.difficulty,
-        score: outcome.score,
-        durationMs,
-        wave: payload.waveReached,
-        kills: guard.kills,
-        victory: outcome.victory,
-        suspect: guard.suspect,
-        contentVersion: run.contentVersion || CONTENT_VERSION,
-        createdAt: now,
-      });
-      if (guard.suspect) {
-        recordPlayerEvent(token, 'leaderboard_suspect', guardEvent);
-        leaderboardNotice = '本局成绩已记录，正在复核。';
-      }
-    } else {
-      recordPlayerEvent(token, 'leaderboard_rejected', guardEvent);
-      leaderboardNotice = '本局成绩未能进入排行榜，已提交复核。';
-    }
-
-    const stats = normalizeStats(profile.stats);
-    stats.runs += 1;
-    stats.kills += payload.kills;
-    if (outcome.victory) stats.wins += 1;
-    const byDiff = stats.byDifficulty[run.difficulty];
-    byDiff.runs += 1;
-    byDiff.bestWave = Math.max(byDiff.bestWave, payload.waveReached);
-    byDiff.bestScore = Math.max(byDiff.bestScore, outcome.score);
-    if (outcome.victory) byDiff.wins += 1;
-
-    const updated = updateProfile(token, {
-      cores: profile.cores + outcome.cores,
-      stats,
-    });
-
-    recordPlayerEvent(token, 'run_finished', {
-      runId: run.id,
-      mode: run.mode,
-      difficulty: run.difficulty,
-      score: outcome.score,
-      victory: outcome.victory,
-      waveReached: payload.waveReached,
-    });
-
-    const unlockedAchievements = unlockAchievements(token, {
-      run: {
-        mode: run.mode,
-        difficulty: run.difficulty,
-        victory: outcome.victory,
-        waveReached: payload.waveReached,
-        kills: payload.kills,
-        score: outcome.score,
-        durationMs,
-        relics: run.relics,
-      },
-      stats: updated.stats,
-    });
-
-    const rank = rankFor(run.mode, run.day, outcome.score, {
-      includeUnclaimed: !AUTH_ENABLED,
-      season,
-      wave: payload.waveReached,
-      durationMs,
-    });
-
-    return {
-      victory: outcome.victory,
-      difficulty: run.difficulty,
-      replayId,
-      waveReached: payload.waveReached,
-      rawScore: outcome.rawScore,
-      score: outcome.score,
-      coresEarned: outcome.cores,
-      totalCores: updated.cores,
-      personalBest: guard.accepted && isPersonalBest,
-      rank,
-      durationMs,
-      skill: run.ruleset?.skill || null,
-      mutations: run.ruleset?.mutations || null,
-      hexId: hex?.id || null,
-      unlockedSkill: unlockedSkillId || null,
-      unlockedSkills,
-      dailyAttemptsLeft: run.mode === 'daily' ? dailyAttemptsLeft(token) : null,
-      weeklyAttemptsLeft:
-        run.mode === 'weekly' ? weeklyAttemptsLeft(token, run.day) : null,
-      unlockedAchievements,
-      // 仅在成绩被拒绝或标记可疑时附加面向玩家的非技术化提示；正常对局不增加字段。
-      ...(leaderboardNotice ? { leaderboardNotice } : {}),
-    };
   }
 
   abandon(run) {

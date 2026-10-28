@@ -32,7 +32,7 @@ before(async () => {
   const accounts = await import('../server/db/accounts.mjs');
   const achievements = await import('../server/db/achievements.mjs');
   const notifications = await import('../server/db/notifications.mjs');
-  const { seasonOf, seasonBounds } = await import('../server/db/leaderboard.mjs');
+  const { seasonOf, seasonBounds } = await import('../server/db/leaderboard-sql.mjs');
 
   const season = seasonOf();
   const bounds = seasonBounds(season);

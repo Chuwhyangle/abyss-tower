@@ -153,8 +153,8 @@ test('三种首领变体都有专属曲目，映射集中且完整', () => {
   assert.equal(pickBossMusicTrack(null), null);
 });
 
-test('曲目集中定义在 audio.js，不引入音频素材', () => {
-  const src = readSource('public/js/audio.js');
+test('曲目集中定义在 audio-music.js，不引入音频素材', () => {
+  const src = readSource('public/js/audio-music.js');
   assert.match(src, /export const BOSS_MUSIC_TRACKS/);
   for (const variant of BOSS_VARIANT_ROTATION) {
     assert.match(src, new RegExp(`\\b${variant}\\s*:\\s*\\{`), `缺少 ${variant} 曲目骨架`);

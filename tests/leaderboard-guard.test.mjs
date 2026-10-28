@@ -18,8 +18,9 @@ const DB = path.join(os.tmpdir(), `rtd-lb-guard-${process.pid}-${Date.now()}.db`
 process.env.DB_PATH = DB;
 process.env.DB_BACKUP = '0';
 const { db } = await import('../server/db/index.mjs');
-const { LEADERBOARD_GUARD, recordLeaderboardEntry, validateLeaderboardEntry } = await import(
-  '../server/db/leaderboard.mjs'
+const { recordLeaderboardEntry } = await import('../server/db/leaderboard.mjs');
+const { LEADERBOARD_GUARD, validateLeaderboardEntry } = await import(
+  '../server/db/leaderboard-validate.mjs'
 );
 const { computeOutcome } = await import('../public/js/shared/scoring.js');
 const { DIFFICULTIES } = await import('../public/js/shared/data.js');

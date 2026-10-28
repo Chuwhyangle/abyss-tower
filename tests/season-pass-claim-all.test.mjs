@@ -126,7 +126,7 @@ before(async () => {
     getSeasonShards,
     seasonPassSummary,
   } = await import('../server/db/season_pass.mjs'));
-  ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard.mjs'));
+  ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard-sql.mjs'));
 
   const bounds = seasonBounds(seasonOf());
   inSeasonAt = Math.max(bounds.start + 1, Math.min(Date.now(), bounds.end - 60_000));
