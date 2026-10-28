@@ -1,7 +1,7 @@
 ---
 id: gap-ac-044-full-suite-green
 title: 重构行为不变：全量测试绿——计划态产物引用的块级豁免（AC-044）
-status: ready
+status: done
 labels:
   - gap
   - refactor
