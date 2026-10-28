@@ -73,8 +73,8 @@ goal_ac: AC-043
 - `tests/structure-budget.test.mjs`
 - `tests/docs-consistency.test.mjs`
 - `tests/balance-sim.mjs`
-- `tests/balance-bot.mjs` (new)
-- `tests/balance-report.mjs` (new)
+- `tests/lib/balance-bot.mjs` (new)
+- `tests/lib/balance-report.mjs` (new)
 - `tests/balance-sweep.mjs`
 - `tests/maps.test.mjs`
 - `tasks/refactor-closeout.md`
