@@ -1,7 +1,7 @@
 ---
 id: refactor-render-skill-enemy
 title: 重构 R1：拆分 skill-renderer 与 enemy-renderer
-status: todo
+status: ready
 labels:
   - gap
   - refactor
