@@ -79,3 +79,13 @@ AC-002（GOAL-002「测试稳定性与并发隔离」）的 criterion 逐字为 
 **门禁语义未放宽（DoD-4）**：本任务 worktree 相对 develop 的 diff 只含 `tasks/gap-ac-002-full-suite-3x-reverify.md`；`scripts/check-stability.mjs` / `scripts/test-stability.mjs` 零改动，未传 `--rounds` / `--concurrency`（三轮用的是 criterion 原文的裸 `node --test`，不带任何参数）。
 
 **取舍（DoD-5）**：AC-002 的见证不折叠进依赖任务 `gap-phase-ac-mapping-decouple-live-task-store`。理由有二：(a) 验收命令不同——AC-007 的 criterion 是 `node scripts/check-stability.mjs`（默认 3 轮、内部 `--test-concurrency=2`），AC-002 的 criterion 是不带并发参数的裸 `node --test tests/*.test.mjs` 连续 3 次 exit 0，两者测的是不同门禁形态（门禁脚本 vs. 直接套件），读数不可互相替代；(b) `goal_ac` 是单值标量，一个任务只能声明一个 AC，折叠会让 AC-002 失去独立、可被 driver 逐字复算的见证记录。
+
+### 预合并 develop 后的复跑（分支 HEAD `b078f7f`）
+
+`git merge --no-edit develop` 后分支快进到 develop 顶端 `b078f7f233529a6ca3c45a6a4f940389756e86f0`（该合并带入 `416766d` 及其上的其他任务提交，套件条目数由 1658 增至 1664）。在该 HEAD 上重跑同一 criterion 三轮，全部 exit **0**、stderr 无 `CAUSE=`：
+
+- run 1：exit **0**；`# tests 1664 / # pass 1664 / # fail 0 / # duration_ms 2744.722913`
+- run 2：exit **0**；`# tests 1664 / # pass 1664 / # fail 0 / # duration_ms 2758.619736`
+- run 3：exit **0**；`# tests 1664 / # pass 1664 / # fail 0 / # duration_ms 2809.878683`
+
+同 HEAD 上 `npm test` exit **0**，`# tests 1664 / # pass 1664 / # fail 0 / # duration_ms 25134.411113`。合并只带入其他任务的提交与 `tasks/*.md`，本任务自身仍零源文件改动。
