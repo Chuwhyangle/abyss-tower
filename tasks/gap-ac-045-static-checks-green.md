@@ -59,22 +59,22 @@ GOAL-009 的 AC-045（`npm run check:syntax && npm run check:imports && npm run 
 
 ## AC
 
-- [ ] `npm run check:static` exit 0，且在同一棵树上连续两次执行结果一致（无偶发红）
-- [ ] `node --test tests/static-gate.test.mjs` 全绿，且 4 条负对照（删 check:static 任一段 / 删 verify:local 的 check:imports / 删 CI 步骤）各自使对应用例转红
-- [ ] `.github/workflows/ci.yml` 中存在 `npm run check:static` 步骤，且全文不再出现 `--input-type=module --check`
-- [ ] `check:static` 的四段与顺序逐字等于 AC-045 判据（`npm run check:syntax` → `check:imports` → `check:style` → `check:docs`），由测试机械断言
-- [ ] `npm run verify:local` 仍覆盖四命令的全部四条（测试子集断言），CI 与 `verify:local` 之间不因本任务产生缺口
-- [ ] `npm test` exit 0，用例数只增不减
-- [ ] `git diff` 只涉及 Touches 的四个文件，无运行时/玩家可见代码改动，无第三方依赖
+- [x] `npm run check:static` exit 0，且在同一棵树上连续两次执行结果一致（无偶发红）
+- [x] `node --test tests/static-gate.test.mjs` 全绿，且 4 条负对照（删 check:static 任一段 / 删 verify:local 的 check:imports / 删 CI 步骤）各自使对应用例转红
+- [x] `.github/workflows/ci.yml` 中存在 `npm run check:static` 步骤，且全文不再出现 `--input-type=module --check`
+- [x] `check:static` 的四段与顺序逐字等于 AC-045 判据（`npm run check:syntax` → `check:imports` → `check:style` → `check:docs`），由测试机械断言
+- [x] `npm run verify:local` 仍覆盖四命令的全部四条（测试子集断言），CI 与 `verify:local` 之间不因本任务产生缺口
+- [x] `npm test` exit 0，用例数只增不减
+- [x] `git diff` 只涉及 Touches 的四个文件，无运行时/玩家可见代码改动，无第三方依赖
 
 ## DoD
 
-- [ ] 四命令在仓库里只有一处字面定义（`package.json` 的 `check:static`）；CI 改为调用它后，语法检查不再有第二套 `--input-type=module --check` 实现
-- [ ] 漂移钉子真实可执行：在临时 fixture 上删掉任一段，测试由绿转红（不是「断言文本里出现过某字符串」的弱检查）
-- [ ] 三个入口（AC-045 判据 / `check:static` / CI 步骤）由测试机械对齐；未来任一处改动漏改另一处会立即红
-- [ ] `npm run check:static` 连续两次 exit 0，`npm test` exit 0 —— 在依赖（docs 判定口径、R0 门禁产物）已落地的树上实测，不是预判
-- [ ] 零第三方依赖、Node ≥ 22.5 原生实现；不改 `scripts/docs-consistency.mjs` 的判定语义，不改任何玩家可见行为
-- [ ] Notes 记下口径：`check:static` 是 AC-045 的唯一执行入口，后续阶段的 `docs/PHASE_<主题>.md` 引用静态门禁时写它，不再手抄四命令
+- [x] 四命令在仓库里只有一处字面定义（`package.json` 的 `check:static`）；CI 改为调用它后，语法检查不再有第二套 `--input-type=module --check` 实现
+- [x] 漂移钉子真实可执行：在临时 fixture 上删掉任一段，测试由绿转红（不是「断言文本里出现过某字符串」的弱检查）
+- [x] 三个入口（AC-045 判据 / `check:static` / CI 步骤）由测试机械对齐；未来任一处改动漏改另一处会立即红
+- [x] `npm run check:static` 连续两次 exit 0，`npm test` exit 0 —— 在依赖（docs 判定口径、R0 门禁产物）已落地的树上实测，不是预判
+- [x] 零第三方依赖、Node ≥ 22.5 原生实现；不改 `scripts/docs-consistency.mjs` 的判定语义，不改任何玩家可见行为
+- [x] Notes 记下口径：`check:static` 是 AC-045 的唯一执行入口，后续阶段的 `docs/PHASE_<主题>.md` 引用静态门禁时写它，不再手抄四命令
 
 ## Touches
 
@@ -82,3 +82,23 @@ GOAL-009 的 AC-045（`npm run check:syntax && npm run check:imports && npm run 
 - `.github/workflows/ci.yml`
 - `tests/static-gate.test.mjs` (new)
 - `tasks/gap-ac-045-static-checks-green.md`
+
+## Notes
+
+- **口径（DoD #6）：`check:static` 是 AC-045 的唯一执行入口。** 后续阶段的 `docs/PHASE_<主题>.md` 引用静态门禁时写
+  `npm run check:static`，不再手抄四命令串。本任务按 Plan 保留 `docs/PHASE_REFACTOR.md` §7 的 AC-045 行作为 AC #4 的
+  「判据列表」对照基线（AC #4 要求 `check:static` 的段与顺序逐字等于它），`verify:local` 是更宽的人审门、Plan 明确保持原样
+  —— 因此 DoD #1「只有一处字面定义」按「**可执行链只有一处定义**」读：第二套*实现*（CI 里自写的 `--input-type=module --check`
+  循环）已删除，`check:imports` / `check:style` 首次进 CI；§7 表是契约、`verify:local` 是超集覆盖，两者由测试钉住而不作为链的定义。
+- 判定形状：纯函数 `analyzeStaticGate({pkg, ci, phaseDoc})` → `[{code, message}]`，错误码 `criterion-missing` /
+  `criterion-drift` / `static-missing` / `static-drift` / `static-unknown` / `verify-gap` / `ci-missing-step` / `ci-legacy-syntax`。
+  正例读真实三份文件；负对照把三份真实文本复制进临时目录、施加一处删改后再走**同一条**「读文件 → 解析 → 判定」路径
+  （不是对字符串做弱匹配），共 5 条：删 `check:static` 一段 / 调换段顺序 / 删 `verify:local` 的 `check:imports` /
+  删 CI 步骤 / CI 退回自写语法检查。
+- 兼容收口：§7 的命令单元格若将来按 AC-049 先例收成只引用 `npm run check:static`，测试仍绿——此时四段组成由
+  `AC_045_CHECKS` 常量钉住；两种写法都必须与 `check:static` 一致才通过（不会因为改了表就静默放过）。
+- 实测读数（worktree，Node v22.23.2）：`npm run check:static` 连续两次 exit 0 且输出逐字相同（syntax 全量 / imports
+  185 文件 505 依赖无越层无环 / style 218 文件 / docs 21 文件）；`node --test tests/static-gate.test.mjs` 8/8 pass；
+  `npm test` 1745 pass / 0 fail（本任务净增 8 例，未删改任何既有用例）；`node scripts/check-doc-ownership.mjs` exit 0。
+- 无运行时/玩家可见改动：diff 仅 `package.json`（新增一条 script）、`.github/workflows/ci.yml`（一步换一步）、
+  `tests/static-gate.test.mjs`（新增）；未引入依赖，未改 `scripts/docs-consistency.mjs` 判定语义。
