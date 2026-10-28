@@ -19,6 +19,23 @@ import {
   portalSparkCount,
 } from '../public/js/render/portal-renderer.js';
 import { biomePalette } from '../public/js/render/palette.js';
+import {
+  ENEMY_ANIM_VARIANTS,
+  HIT_HIGHLIGHT,
+  drawHitHighlight,
+  hitHighlightAlpha,
+} from '../public/js/render/enemy-renderer.js';
+import { SHARP_HIT_STAR, drawSharpHitStar } from '../public/js/render/effect-renderer.js';
+import { resolveMotionBudget } from '../public/js/render/camera-feedback.js';
+import { RgbaImage, fillRect } from '../scripts/lib/png.mjs';
+import {
+  deltaE,
+  differenceStats,
+  luma,
+  parseCssColor,
+  pixelHash,
+  silhouetteCoverage,
+} from '../scripts/lib/visual-metrics.mjs';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
@@ -295,3 +312,388 @@ test('同种子同布局：低配/高配战斗状态哈希一致', () => {
   assert.equal(off, full);
   assert.equal(light, full);
 });
+
+// ── 命中帧像素指标（Node 侧软件光栅）────────────────────────────────────────
+// 浏览器采集（scripts/visual-check.mjs）量的是整帧指标：单只敌人只占 1440×900 的千分之一，
+// 判定「锐利层是否还在、剪影有没有被洗掉」必须放大到单敌尺度。这里用最小光栅器把
+// 真实的命中绘制函数（drawHitHighlight / drawSharpHitStar）画进 RgbaImage，
+// 再复用 scripts/lib/visual-metrics.mjs 的剪影覆盖率与 ΔE 工具。
+//
+// 端到端记录（2026-10-28，combat 桌面指标帧；采集脚本 /tmp/hit-metrics/measure.mjs 与
+// flash-isolate.mjs，跑法 `LANG=zh_CN.UTF-8 node <script> <checkout>`）：
+//   3b8e1fd（评审 before，整身闪白 + 旧六芒星）：
+//     合成帧剪影覆盖率 0.5989 · 受击层剪影覆盖率 0.5827 · 命中区边缘密度 0.2257 · 全画布 0.0346
+//   6cb6e17（修复前 HEAD：整身闪白，武器命中没有星芒）：
+//     合成帧剪影覆盖率 0.5987 · 命中区边缘密度 0.2218 · 全画布 0.0347
+//   本任务（轮廓高光 + 恢复星芒）：
+//     合成帧剪影覆盖率 0.5953 · 受击层剪影覆盖率 0.5832 · 命中区边缘密度 0.2443 · 全画布 0.0355
+// 合成帧那 -0.0036 不是剪影被洗：受击层单独量是 0.5832 ≥ 0.5827；差异来自恢复的白星芒落在
+// silhouetteCoverage 的 4px 背景采样环里，把局部背景估亮（该指标按包围盒外环估计背景）。
+// 命中区边缘密度与全画布边缘密度都高于基线，说明锐利层确实回来了。
+
+const FRAME = 96;
+const FRAME_CENTER = FRAME / 2;
+const HIT_VR = 24; // 命中帧里敌人的视觉半径（px）
+const PATH_BG = [58, 46, 34];
+const BODY_COLOR = [226, 96, 158];
+const BODY_INNER = [148, 52, 104];
+
+function frameRect() {
+  return { x: 0, y: 0, width: FRAME, height: FRAME };
+}
+
+function hitBox() {
+  const half = HIT_VR * 1.3;
+  return { x: FRAME_CENTER - half, y: FRAME_CENTER - half, width: half * 2, height: half * 2 };
+}
+
+function setPixel(image, x, y, [r, g, b]) {
+  if (x < 0 || y < 0 || x >= image.width || y >= image.height) return;
+  const i = (y * image.width + x) * 4;
+  image.data[i] = Math.round(r);
+  image.data[i + 1] = Math.round(g);
+  image.data[i + 2] = Math.round(b);
+  image.data[i + 3] = 255;
+}
+
+function blendPixel(image, x, y, color, alpha) {
+  const a = Math.max(0, Math.min(1, alpha * (color[3] ?? 1)));
+  if (!(a > 0)) return;
+  const [r, g, b] = image.pixel(x, y);
+  setPixel(image, x, y, [r + (color[0] - r) * a, g + (color[1] - g) * a, b + (color[2] - b) * a]);
+}
+
+function distanceToSegment(px, py, ax, ay, bx, by) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSq = dx * dx + dy * dy;
+  const t = lengthSq > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq)) : 0;
+  return Math.hypot(px - (ax + dx * t), py - (ay + dy * t));
+}
+
+function eachPixelInBounds(image, shape, fn) {
+  const pad = (shape.width || 0) / 2 + 1;
+  const radius = shape.type === 'circle' ? shape.r + pad : 0;
+  const left = shape.type === 'circle' ? shape.x - radius : shape.bounds.minX - pad;
+  const right = shape.type === 'circle' ? shape.x + radius : shape.bounds.maxX + pad;
+  const top = shape.type === 'circle' ? shape.y - radius : shape.bounds.minY - pad;
+  const bottom = shape.type === 'circle' ? shape.y + radius : shape.bounds.maxY + pad;
+  for (let y = Math.max(0, Math.floor(top)); y <= Math.min(image.height - 1, Math.ceil(bottom)); y++) {
+    for (let x = Math.max(0, Math.floor(left)); x <= Math.min(image.width - 1, Math.ceil(right)); x++) {
+      fn(x, y);
+    }
+  }
+}
+
+function polyBounds(points) {
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+
+function pointInPolygon(x, y, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const [xi, yi] = points[i];
+    const [xj, yj] = points[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+}
+
+// Canvas 2D 的最小子集：整圆填充/描边、折线填充/描边（圆头）、平移、globalAlpha 混合。
+// 被测绘制路径只用到这些操作；arc 只支持整圆（部分弧按折线近似）。
+function createRasterFrame(width, height, background) {
+  const image = new RgbaImage(width, height);
+  fillRect(image, 0, 0, width, height, [...background, 255]);
+  const stack = [];
+  let state = { alpha: 1, lineWidth: 1, strokeStyle: '#ffffff', fillStyle: '#ffffff', tx: 0, ty: 0 };
+  let shapes = [];
+  let poly = null;
+
+  const toShapePoly = (pts, closed) => {
+    const shape = { type: 'poly', points: pts, closed, bounds: polyBounds(pts), width: state.lineWidth };
+    return shape;
+  };
+
+  const ctx = {
+    get globalAlpha() { return state.alpha; },
+    set globalAlpha(value) { state.alpha = value; },
+    get lineWidth() { return state.lineWidth; },
+    set lineWidth(value) { state.lineWidth = value; },
+    get strokeStyle() { return state.strokeStyle; },
+    set strokeStyle(value) { state.strokeStyle = value; },
+    get fillStyle() { return state.fillStyle; },
+    set fillStyle(value) { state.fillStyle = value; },
+    get lineCap() { return 'round'; },
+    set lineCap(_value) {},
+    save() { stack.push({ ...state }); },
+    restore() { if (stack.length) state = stack.pop(); },
+    translate(x, y) { state.tx += x; state.ty += y; },
+    beginPath() { shapes = []; poly = null; },
+    closePath() { if (poly) { poly.closed = true; poly.bounds = polyBounds(poly.points); } },
+    moveTo(x, y) {
+      poly = { type: 'poly', points: [[state.tx + x, state.ty + y]], closed: false };
+      poly.bounds = polyBounds(poly.points);
+      shapes.push(poly);
+    },
+    lineTo(x, y) {
+      if (!poly) return this.moveTo(x, y);
+      poly.points.push([state.tx + x, state.ty + y]);
+      poly.bounds = polyBounds(poly.points);
+    },
+    arc(x, y, r, start = 0, end = Math.PI * 2) {
+      const span = Math.abs(end - start);
+      if (span >= Math.PI * 2 - 1e-6) {
+        shapes.push({ type: 'circle', x: state.tx + x, y: state.ty + y, r });
+        return;
+      }
+      const steps = 16;
+      const points = [];
+      for (let i = 0; i <= steps; i++) {
+        const a = start + ((end - start) * i) / steps;
+        points.push([state.tx + x + Math.cos(a) * r, state.ty + y + Math.sin(a) * r]);
+      }
+      const shape = toShapePoly(points, false);
+      shapes.push(shape);
+      poly = shape;
+    },
+    stroke() {
+      const color = parseCssColor(state.strokeStyle);
+      for (const shape of shapes) {
+        if (shape.type === 'circle') {
+          const half = state.lineWidth / 2;
+          eachPixelInBounds(image, { ...shape, width: state.lineWidth }, (px, py) => {
+            if (Math.abs(Math.hypot(px + 0.5 - shape.x, py + 0.5 - shape.y) - shape.r) <= half) {
+              blendPixel(image, px, py, color, state.alpha);
+            }
+          });
+        } else {
+          const points = shape.closed ? [...shape.points, shape.points[0]] : shape.points;
+          const half = state.lineWidth / 2;
+          eachPixelInBounds(image, { ...shape, width: state.lineWidth }, (px, py) => {
+            for (let i = 1; i < points.length; i++) {
+              const [ax, ay] = points[i - 1];
+              const [bx, by] = points[i];
+              if (distanceToSegment(px + 0.5, py + 0.5, ax, ay, bx, by) <= half) {
+                blendPixel(image, px, py, color, state.alpha);
+                return;
+              }
+            }
+          });
+        }
+      }
+      shapes = [];
+      poly = null;
+    },
+    fill() {
+      const color = parseCssColor(state.fillStyle);
+      for (const shape of shapes) {
+        if (shape.type === 'circle') {
+          eachPixelInBounds(image, shape, (px, py) => {
+            if (Math.hypot(px + 0.5 - shape.x, py + 0.5 - shape.y) <= shape.r) {
+              blendPixel(image, px, py, color, state.alpha);
+            }
+          });
+        } else {
+          eachPixelInBounds(image, shape, (px, py) => {
+            if (pointInPolygon(px + 0.5, py + 0.5, shape.points)) blendPixel(image, px, py, color, state.alpha);
+          });
+        }
+      }
+      shapes = [];
+      poly = null;
+    },
+  };
+
+  return { ctx, image };
+}
+
+function css([r, g, b]) {
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+// 3b8e1fd 的受击闪白：整身白圆（radius × 1.08、alpha 0.42）。回归基线逐字复刻，勿改。
+function drawLegacyHitFlash(ctx, radius, alpha = 0.42) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.08, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+}
+
+// 命中帧：同一只敌人（主色 + 体内暗部，用来标定「内部层次是否被洗掉」）+ 命中层。
+function renderHitFrame({ flash = 'current', fade = 0.8, p = 0.5 } = {}) {
+  const { ctx, image } = createRasterFrame(FRAME, FRAME, PATH_BG);
+  ctx.translate(FRAME_CENTER, FRAME_CENTER);
+  ctx.fillStyle = css(BODY_COLOR);
+  ctx.beginPath();
+  ctx.arc(0, 0, HIT_VR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = css(BODY_INNER);
+  ctx.beginPath();
+  ctx.arc(-HIT_VR * 0.12, -HIT_VR * 0.1, HIT_VR * 0.6, 0, Math.PI * 2);
+  ctx.fill();
+  if (flash === 'legacy') drawLegacyHitFlash(ctx, HIT_VR);
+  if (flash === 'current') {
+    drawHitHighlight(ctx, {
+      radius: HIT_VR,
+      alpha: fade,
+      scale: ENEMY_ANIM_VARIANTS.full.hitFlash.radius,
+    });
+  }
+  if (flash !== 'none') drawSharpHitStar(ctx, 0, 0, p, fade);
+  return image;
+}
+
+// 锐利高频边缘：4 邻域最大亮度梯度超过阈值的像素占比（命中区的「切分感」标尺）。
+function edgeDensity(image, rect, threshold = 18) {
+  const area = image.clippedRect(rect.x, rect.y, rect.width, rect.height);
+  let edges = 0;
+  let total = 0;
+  for (let y = area.y; y < area.y + area.height - 1; y++) {
+    for (let x = area.x; x < area.x + area.width - 1; x++) {
+      const [r, g, b] = image.pixel(x, y);
+      const c = luma([r, g, b]);
+      const [r2, g2, b2] = image.pixel(x + 1, y);
+      const [r3, g3, b3] = image.pixel(x, y + 1);
+      const gradient = Math.max(Math.abs(luma([r2, g2, b2]) - c), Math.abs(luma([r3, g3, b3]) - c));
+      total++;
+      if (gradient > threshold) edges++;
+    }
+  }
+  return total ? edges / total : 0;
+}
+
+// 剪影内部保真：命中帧与未命中帧在内部圆内的平均 ΔE。越大 = 剪影被洗得越狠。
+function interiorDeltaE(image, clean, radius = HIT_VR * 0.55) {
+  let sum = 0;
+  let count = 0;
+  for (let y = 0; y < FRAME; y++) {
+    for (let x = 0; x < FRAME; x++) {
+      if (Math.hypot(x + 0.5 - FRAME_CENTER, y + 0.5 - FRAME_CENTER) > radius) continue;
+      const a = image.pixel(x, y).slice(0, 3);
+      const b = clean.pixel(x, y).slice(0, 3);
+      sum += deltaE(a, b);
+      count++;
+    }
+  }
+  return count ? sum / count : 0;
+}
+
+test('命中帧：轮廓高光保留剪影，锐利边缘层不低于整身闪白基线', (t) => {
+  const clean = renderHitFrame({ flash: 'none' });
+  const baseline = renderHitFrame({ flash: 'legacy' }); // 3b8e1fd
+  const current = renderHitFrame({ flash: 'current' });
+  const box = hitBox();
+
+  const silhouette = {
+    baseline: silhouetteCoverage(baseline, [box]).meanCoverage,
+    current: silhouetteCoverage(current, [box]).meanCoverage,
+  };
+  const edges = {
+    baseline: edgeDensity(baseline, box),
+    current: edgeDensity(current, box),
+  };
+  const wash = {
+    baseline: interiorDeltaE(baseline, clean),
+    current: interiorDeltaE(current, clean),
+  };
+  t.diagnostic(
+    `剪影覆盖率 基线=${silhouette.baseline.toFixed(4)} 当前=${silhouette.current.toFixed(4)}；` +
+      `锐利边缘密度 基线=${edges.baseline.toFixed(4)} 当前=${edges.current.toFixed(4)}；` +
+      `内部 ΔE 基线=${wash.baseline.toFixed(2)} 当前=${wash.current.toFixed(2)}`
+  );
+
+  assert.ok(
+    silhouette.current >= silhouette.baseline,
+    `命中帧剪影覆盖率不得低于基线：${silhouette.current.toFixed(4)} < ${silhouette.baseline.toFixed(4)}`
+  );
+  assert.ok(
+    edges.current >= edges.baseline,
+    `命中帧锐利边缘层不得低于基线：${edges.current.toFixed(4)} < ${edges.baseline.toFixed(4)}`
+  );
+  assert.ok(
+    wash.current <= wash.baseline * 0.5,
+    `受击不该把剪影内部洗掉：内部 ΔE ${wash.current.toFixed(2)} 应显著低于基线 ${wash.baseline.toFixed(2)}`
+  );
+});
+
+test('命中高光：强度沿用 0.08s 闪白窗口，窗口外不绘制', () => {
+  const full = ENEMY_ANIM_VARIANTS.full;
+  // 几何契约：高光能量在边缘（外沿细环在主环之外、主环比内侧环粗），内部只留细环与核。
+  assert.ok(HIT_HIGHLIGHT.haloScale > 1, '外沿细环必须落在剪影之外');
+  assert.ok(HIT_HIGHLIGHT.innerScale < 1, '内侧细环必须在剪影之内');
+  assert.ok(HIT_HIGHLIGHT.rimWidth > HIT_HIGHLIGHT.innerWidth * 2, '高光重心必须在轮廓而不是内部');
+
+  assert.ok(hitHighlightAlpha(1, full) > hitHighlightAlpha(0.5, full), '剩余量越大高光越强');
+  assert.ok(hitHighlightAlpha(1, full) > 0);
+  // 窗口 = duration × decay = 0.32：衰减到 0.68 以下即不再高光（与旧闪白同一窗口）。
+  const cutoff = 1 - Math.min(1, full.hitFlash.duration * full.hitFlash.decay);
+  assert.equal(hitHighlightAlpha(cutoff, full), 0, '窗口外的尾段不再高光');
+  assert.equal(hitHighlightAlpha(1, ENEMY_ANIM_VARIANTS.off), 0, '关闭档不绘制高光');
+
+  const { ctx } = createRasterFrame(32, 32, PATH_BG);
+  assert.equal(drawHitHighlight(ctx, { radius: HIT_VR, alpha: 0 }), false);
+  assert.equal(drawHitHighlight(ctx, { radius: 0, alpha: 1 }), false);
+  assert.equal(drawHitHighlight(ctx, { radius: HIT_VR, alpha: 0.5 }), true);
+});
+
+test('reduced-motion 下命中仍有非运动反馈（固定帧见证 + 源码无运动分支）', (t) => {
+  const budget = resolveMotionBudget({ shake: true, decorations: 'full' }, { reducedMotion: true });
+  assert.equal(budget.flashScale, 1, '运动降级不得关闭命中高光');
+
+  // 命中层不接运动预算：两种设置下是同一帧（同一份绘制代码、同一几何），
+  // 且与未命中帧的差异证明它确实在画面上。
+  const hit = renderHitFrame({ flash: 'current' });
+  const clean = renderHitFrame({ flash: 'none' });
+  const visible = differenceStats(hit, clean, 8, frameRect()).changed;
+  t.diagnostic(`reduced-motion 固定帧：命中层改写像素 ${visible} 个（未命中帧 ${FRAME * FRAME} 像素）`);
+  assert.ok(visible > 200, `命中层在 reduced-motion 下必须可见，实际改写 ${visible} 像素`);
+  assert.notEqual(pixelHash(hit), pixelHash(clean));
+
+  const enemySource = fs.readFileSync(
+    new URL('../public/js/render/enemy-renderer.js', import.meta.url),
+    'utf8'
+  );
+  const effectSource = fs.readFileSync(
+    new URL('../public/js/render/effect-renderer.js', import.meta.url),
+    'utf8'
+  );
+  const highlightBody = enemySource.slice(
+    enemySource.indexOf('export function drawHitHighlight'),
+    enemySource.indexOf('export class EnemyRenderer')
+  );
+  const starBody = effectSource.slice(
+    effectSource.indexOf('export function drawSharpHitStar'),
+    effectSource.indexOf('// 返回 { p, fade }')
+  );
+  for (const [name, body] of [['受击高光', highlightBody], ['命中星芒', starBody]]) {
+    assert.ok(body.length > 0, `${name}实现缺失`);
+    assert.doesNotMatch(body, /reducedMotion|motion|shake/i, `${name}不得因运动降级而关闭`);
+  }
+});
+
+test('命中星芒：六向锐利线 + 白色核，不随画质削减（识别性保底层）', () => {
+  assert.equal(SHARP_HIT_STAR.rays, 6);
+  const { ctx, image } = createRasterFrame(FRAME, FRAME, PATH_BG);
+  const blank = createRasterFrame(FRAME, FRAME, PATH_BG).image;
+  assert.equal(drawSharpHitStar(ctx, FRAME_CENTER, FRAME_CENTER, 0.5, 1), 6, '每颗星 6 条射线');
+  const box = { x: FRAME_CENTER - 20, y: FRAME_CENTER - 20, width: 40, height: 40 };
+  const painted = differenceStats(image, blank, 8, frameRect()).changed;
+  assert.ok(painted > 100, `星芒必须实际落笔（改写 ${painted} 像素）`);
+  assert.ok(edgeDensity(image, box) > 0.04, '星芒必须留下锐利高频边缘');
+  // 星芒是识别性保底层：绘制签名不带画质档位（档位只作用于武器形态与粒子预算）。
+  const source = fs.readFileSync(
+    new URL('../public/js/render/effect-renderer.js', import.meta.url),
+    'utf8'
+  );
+  const signature = source.slice(
+    source.indexOf('export function drawSharpHitStar'),
+    source.indexOf('// 事件对象上的 weapon 决定命中签名')
+  );
+  assert.doesNotMatch(signature, /profile|tier|particleScale/, '星芒不得随画质档位削减');
+  assert.match(source, /drawSharpHitStar\(g, x, y, p, fade, \{ color: variant\.accent \}\)/);
+});
+

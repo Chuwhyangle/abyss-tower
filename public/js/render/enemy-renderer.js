@@ -56,7 +56,8 @@ function buildEnemyAnim(tier) {
       enabled: keyFeedback,
       duration: ENEMY_ANIMATIONS.hitFlash.duration,
       decay: ENEMY_ANIMATIONS.hitFlash.decay,
-      alpha: extras ? 0.42 : 0.32,
+      alpha: extras ? 0.95 : 0.8,
+      // 高光外沿相对本体的半径倍数：高光落在剪影边缘之外一点，切分才锐利。
       radius: 1.08,
     }),
     // 死亡碎裂沿用 EffectRenderer 的现有粒子池（模拟层 death 事件 → kill 特效），
@@ -102,6 +103,70 @@ export function hitFlashAlpha(flash, variant = ENEMY_ANIM_VARIANTS.full) {
   const cutoff = 1 - window;
   const progress = (flash - cutoff) / window;
   return progress > 0 ? Math.min(1, progress) : 0;
+}
+
+// 受击高光几何（FEEL-001 观感回归修复）：整身白圆会把剪影与形体层次一起洗掉，
+// 改成轮廓优先的短时高光——亮环落在剪影外沿（锐利切分的主要来源），
+// 外沿再加一圈细环，内侧一条细环保留形体层次，中心只留一枚接触核；
+// 内部不刷色，剪影可读性不受影响。闪白覆盖仍达标（combat 指标帧 0.0014 ≥ 阈值 0.0004），
+// 但高光能量集中在边缘而不是整身。
+export const HIT_HIGHLIGHT = Object.freeze({
+  rimWidth: 3.6,
+  rimAlpha: 0.95,
+  rimColor: '#ffffff',
+  // 外沿细环：剪影之外的一圈锐利切分（不覆盖本体），让命中在混战里也读得出「边界」。
+  haloScale: 1.22,
+  haloWidth: 1.4,
+  haloAlpha: 0.55,
+  innerScale: 0.66,
+  innerWidth: 1,
+  innerAlpha: 0.3,
+  innerColor: '#ffe9f4',
+  coreScale: 0.14,
+  coreAlpha: 0.9,
+});
+
+// 受击高光强度：与 hitFlashAlpha 共用同一 0.08s 窗口，窗口外为 0（时序不变）。
+export function hitHighlightAlpha(flash, variant = ENEMY_ANIM_VARIANTS.full) {
+  const alpha = hitFlashAlpha(flash, variant);
+  return alpha > 0 ? alpha * variant.hitFlash.alpha : 0;
+}
+
+// 纯绘制（只算几何、只画在传入的上下文里），便于命中帧的像素级测试复现。
+// 返回是否实际绘制，调用方可据此做预算/断言。
+export function drawHitHighlight(g, { radius, alpha, scale = 1, style = HIT_HIGHLIGHT } = {}) {
+  if (!(alpha > 0) || !(radius > 0)) return false;
+  const rimRadius = radius * (scale > 0 ? scale : 1);
+  g.save();
+  // 外沿细环：落在剪影之外，锐利但不盖住形体。
+  g.globalAlpha = alpha * style.haloAlpha;
+  g.strokeStyle = style.rimColor;
+  g.lineWidth = style.haloWidth;
+  g.beginPath();
+  g.arc(0, 0, rimRadius * style.haloScale, 0, Math.PI * 2);
+  g.stroke();
+  // 主亮环：贴着剪影边缘，命中瞬间的锐利切分。
+  g.globalAlpha = alpha * style.rimAlpha;
+  g.strokeStyle = style.rimColor;
+  g.lineWidth = style.rimWidth;
+  g.beginPath();
+  g.arc(0, 0, rimRadius, 0, Math.PI * 2);
+  g.stroke();
+  // 内侧细环：让高光读作「轮廓被点亮」，同时不抹掉本体的明暗层次。
+  g.globalAlpha = alpha * style.innerAlpha;
+  g.strokeStyle = style.innerColor;
+  g.lineWidth = style.innerWidth;
+  g.beginPath();
+  g.arc(0, 0, radius * style.innerScale, 0, Math.PI * 2);
+  g.stroke();
+  // 接触核：极小面积的实心高光，保留「打中了一点」的锐利感。
+  g.globalAlpha = alpha * style.coreAlpha;
+  g.fillStyle = style.rimColor;
+  g.beginPath();
+  g.arc(0, 0, Math.max(1.2, radius * style.coreScale), 0, Math.PI * 2);
+  g.fill();
+  g.restore();
+  return true;
 }
 
 export class EnemyRenderer {
@@ -205,14 +270,10 @@ export class EnemyRenderer {
         g.stroke();
       }
 
-      const flash = hitFlashAlpha(enemy.hitFlash, anim);
+      // 受击高光：轮廓优先（不再整身刷白，剪影与内部明暗层次保持可读）。
+      const flash = hitHighlightAlpha(enemy.hitFlash, anim);
       if (flash > 0) {
-        g.globalAlpha = flash * anim.hitFlash.alpha;
-        g.fillStyle = '#ffffff';
-        g.beginPath();
-        g.arc(0, 0, vr * anim.hitFlash.radius, 0, Math.PI * 2);
-        g.fill();
-        g.globalAlpha = 1;
+        drawHitHighlight(g, { radius: vr, alpha: flash, scale: anim.hitFlash.radius });
       }
 
       // 护盾：剩余护盾越多，前向护盾弧越亮。
