@@ -1,4 +1,6 @@
 // 纯 WebAudio 合成音效与程序化背景音乐，不依赖任何音频文件。
+// 门面：AudioFX 持有开关/音量/调度状态与全部对外方法；合成原语在 audio-synth.js，
+// 曲目与阶段强度在 audio-music.js，环境音层在 audio-ambience.js，音效编排留在本文件。
 import {
   DEFAULT_MUSIC_VOLUME,
   DEFAULT_SFX_VOLUME,
@@ -6,327 +8,56 @@ import {
   normalizeVolume,
   saveSettings,
 } from './settings.js';
-import { t } from './i18n.js';
-import {
-  AMBIENCE_BIOME_IDS,
-  AMBIENCE_KIND_BY_BIOME,
-  AMBIENCE_KIND_BY_WEATHER,
-  AMBIENCE_WEATHER_IDS,
-  resolveAmbience,
-} from './shared/ambience.js';
 import { ImpactMixer, supportAuraPulse } from './audio-impacts.js';
+import { AmbientBed, AmbienceLayer } from './audio-ambience.js';
+import {
+  CROSSFADE_SECONDS,
+  MUSIC_VARIANTS,
+  MUSIC_VOLUME,
+  bossLayer,
+  bossMusicPhase,
+  musicWaveIntensity,
+  pickBossMusicTrack,
+  pickMusicVariant,
+  sessionSeed,
+} from './audio-music.js';
+import {
+  MASTER_VOLUME,
+  playMusicDrum,
+  playMusicTone,
+  playNoise,
+  playSfx,
+  playTone,
+  writeCompressorParams,
+} from './audio-synth.js';
 
-// 混音总线：master ← sfx / music。各总线增益由 0–100 的音量设置换算。
-const MASTER_VOLUME = 0.45;
-// 音乐走独立增益节点，100% 时仍明显低于音效主增益（0.45）。
-export const MUSIC_VOLUME = 0.1;
-// 环境音是低频氛围底噪，电平低于常规音效。
-const AMBIENT_VOLUME = 0.035;
-
-// 命中音效压缩/限幅参数：WebAudio 没有专用限幅器，用高压缩比 + 快速启动近似限幅。
-export const IMPACT_COMPRESSOR = Object.freeze({
-  threshold: -16,
-  knee: 10,
-  ratio: 12,
-  attack: 0.003,
-  release: 0.25,
-});
-
-// 环境音跟着场景切换：大厅更空旷，战斗更低沉，Boss 最低。
-const AMBIENT_TRACKS = {
-  menu: { type: 'sine', freqs: [55, 82.5] },
-  battle: { type: 'triangle', freqs: [49, 73.42] },
-  boss: { type: 'sine', freqs: [41.2, 61.74] },
-};
-
-// ---------- 环境音层（群系 / 天气联动） ----------
-// 独立于音乐、音效的总线，默认电平低于音乐（0.1 × 50% = 0.05）。
-export const AMBIENCE_VOLUME = 0.03;
-export const AMBIENCE_ENABLED_KEY = 'abyss-tower.ambience';
-
-// 三类程序化音色，全部由振荡器/噪声合成，不引入音频素材。
-// name 用 getter 惰性取词典：模块加载时不能锁定语言。
-export const AMBIENCE_KINDS = Object.freeze({
-  wind: Object.freeze({
-    id: 'wind',
-    get name() { return t('audio.ambience.wind'); },
-    noise: true,
-    filter: 520,
-    bed: 0.3,
-  }),
-  drone: Object.freeze({
-    id: 'drone',
-    get name() { return t('audio.ambience.drone'); },
-    noise: false,
-    filter: 420,
-    bed: 0,
-  }),
-  water: Object.freeze({
-    id: 'water',
-    get name() { return t('audio.ambience.water'); },
-    noise: true,
-    filter: 900,
-    bed: 0.12,
-    drip: true,
-  }),
-});
-
-// 六个群系全部有映射；音色来自 shared/ambience.js 的氛围预设（单一事实来源），
-// 这里只保留程序化合成的基频与电平。
-const AMBIENCE_FREQS = Object.freeze({
-  canyon: Object.freeze([55, 82.5]),
-  twin: Object.freeze([196, 293.66]),
-  triple: Object.freeze([41.2, 61.74]),
-  ring: Object.freeze([49, 73.42]),
-  cross: Object.freeze([46.25, 69.3]),
-  switchback: Object.freeze([51.91, 77.78]),
-});
-const AMBIENCE_LEVELS = Object.freeze({
-  canyon: 1,
-  twin: 0.9,
-  triple: 1,
-  ring: 0.95,
-  cross: 0.9,
-  switchback: 1.05,
-});
-
-export const AMBIENCE_PROFILES = Object.freeze(
-  Object.fromEntries(
-    AMBIENCE_BIOME_IDS.map((biome) => [
-      biome,
-      Object.freeze({
-        kind: AMBIENCE_KIND_BY_BIOME[biome],
-        freqs: AMBIENCE_FREQS[biome],
-        level: AMBIENCE_LEVELS[biome],
-      }),
-    ])
-  )
-);
-
-// 天气覆盖音色：kind 来自共享预设，levelMul 是音频层的混音系数。
-const AMBIENCE_WEATHER_LEVELS = Object.freeze({ rain: 1.1, fog: 0.85, meteor: 1.15 });
-export const AMBIENCE_WEATHER = Object.freeze(
-  Object.fromEntries(
-    AMBIENCE_WEATHER_IDS.map((weather) => [
-      weather,
-      Object.freeze({
-        kind: AMBIENCE_KIND_BY_WEATHER[weather],
-        levelMul: AMBIENCE_WEATHER_LEVELS[weather],
-      }),
-    ])
-  )
-);
-
-// 纯函数：群系决定基础音色，天气覆盖音色与电平。未知输入由共享预设回退。
-export function ambienceFor(mapMeta, weather = null) {
-  const preset = resolveAmbience(mapMeta?.archetype, weather, 'full');
-  const base = AMBIENCE_PROFILES[preset.biome];
-  const overlay = preset.weather ? AMBIENCE_WEATHER[preset.weather] : null;
-  return Object.freeze({
-    biome: preset.biome,
-    weather: overlay ? preset.weather : null,
-    kind: preset.ambienceKind,
-    freqs: base.freqs,
-    level: AMBIENCE_VOLUME * base.level * (overlay?.levelMul ?? 1),
-    key: preset.ambienceId,
-  });
-}
-
-function readAmbienceEnabled() {
-  try {
-    return globalThis.localStorage?.getItem?.(AMBIENCE_ENABLED_KEY) !== 'off';
-  } catch {
-    return true;
-  }
-}
-
-// 三套程序化氛围：menu / battle / boss。每套提供两首变体，全部由振荡器循环合成。
-// 会话开始时抽一个种子，同一会话内每个场景固定选同一首，换一局再重新抽。
-export const MUSIC_VARIANTS = {
-  menu: {
-    variants: [
-      {
-        id: 'menu-a',
-        type: 'triangle',
-        chordDur: 2.4,
-        chords: [
-          [261.63, 329.63, 392.0],
-          [220.0, 261.63, 329.63],
-          [174.61, 220.0, 261.63],
-          [196.0, 246.94, 293.66],
-        ],
-      },
-      {
-        id: 'menu-b',
-        type: 'sine',
-        chordDur: 2.8,
-        chords: [
-          [246.94, 293.66, 349.23],
-          [220.0, 277.18, 329.63],
-          [196.0, 246.94, 293.66],
-          [174.61, 220.0, 261.63],
-        ],
-      },
-    ],
-  },
-  battle: {
-    variants: [
-      {
-        id: 'battle-a',
-        type: 'square',
-        chordDur: 1.2,
-        chords: [
-          [220.0, 261.63, 329.63],
-          [174.61, 220.0, 261.63],
-          [196.0, 246.94, 293.66],
-          [164.81, 196.0, 246.94],
-        ],
-      },
-      {
-        id: 'battle-b',
-        type: 'triangle',
-        chordDur: 1.0,
-        chords: [
-          [246.94, 311.13, 369.99],
-          [220.0, 277.18, 329.63],
-          [196.0, 246.94, 293.66],
-          [185.0, 233.08, 277.18],
-        ],
-      },
-    ],
-  },
-  boss: {
-    variants: [
-      {
-        id: 'boss-a',
-        type: 'sawtooth',
-        chordDur: 0.9,
-        chords: [
-          [110.0, 130.81, 164.81],
-          [103.83, 123.47, 155.56],
-          [98.0, 116.54, 146.83],
-          [92.5, 110.0, 138.59],
-        ],
-      },
-      {
-        id: 'boss-b',
-        type: 'square',
-        chordDur: 0.8,
-        chords: [
-          [116.54, 138.59, 174.61],
-          [110.0, 138.59, 164.81],
-          [103.83, 123.47, 155.56],
-          [98.0, 123.47, 146.83],
-        ],
-      },
-    ],
-  },
-};
-
-// 首领变体专属曲目：键与 shared/data/enemies.js 的 BOSS_VARIANT_ROTATION 一一对应。
-// 三种变体各一首，全部由振荡器循环合成，不引入任何音频素材。
-export const BOSS_MUSIC_TRACKS = {
-  armored: {
-    id: 'boss-armored',
-    type: 'sawtooth',
-    chordDur: 1.1,
-    chords: [
-      [73.42, 87.31, 110.0],
-      [69.3, 82.41, 103.83],
-      [65.41, 77.78, 98.0],
-      [61.74, 73.42, 92.5],
-    ],
-  },
-  summoner: {
-    id: 'boss-summoner',
-    type: 'triangle',
-    chordDur: 0.9,
-    chords: [
-      [82.41, 98.0, 123.47],
-      [77.78, 92.5, 116.54],
-      [73.42, 87.31, 110.0],
-      [69.3, 82.41, 103.83],
-    ],
-  },
-  berserk: {
-    id: 'boss-berserk',
-    type: 'square',
-    chordDur: 0.72,
-    chords: [
-      [87.31, 110.0, 130.81],
-      [82.41, 103.83, 123.47],
-      [77.78, 98.0, 116.54],
-      [73.42, 92.5, 110.0],
-    ],
-  },
-};
-
-// 没有变体信息时回退到 boss 通用曲目（旧存档/旧模式）。
-export function pickBossMusicTrack(variant) {
-  return BOSS_MUSIC_TRACKS[variant] || null;
-}
-
-// 首领血量比例 → 音乐阶段；阈值与 sim.js 的 66% / 33% 阶段线保持一致。
-export const BOSS_PHASE_THRESHOLDS = Object.freeze([0.66, 0.33]);
-
-export function bossMusicPhase(hpRatio) {
-  const ratio = Number.isFinite(hpRatio) ? Math.min(1, Math.max(0, hpRatio)) : 1;
-  if (ratio <= BOSS_PHASE_THRESHOLDS[1]) return 3;
-  if (ratio <= BOSS_PHASE_THRESHOLDS[0]) return 2;
-  return 1;
-}
-
-// 阶段强度层：每升一阶段多一层鼓点，低音略抬；三层的合成电平始终低于音乐总线基准。
-export const BOSS_INTENSITY_LAYERS = Object.freeze({
-  1: { drums: 0, chord: 0.04, bass: 0.032, drum: 0 },
-  2: { drums: 1, chord: 0.04, bass: 0.036, drum: 0.018 },
-  3: { drums: 2, chord: 0.04, bass: 0.038, drum: 0.01 },
-});
-
-export function bossLayer(phase) {
-  return BOSS_INTENSITY_LAYERS[phase] || BOSS_INTENSITY_LAYERS[1];
-}
-
-// 该阶段所有声部叠加后的名义电平，供「不超总线」约束与测试使用。
-export function bossLayerGain(phase) {
-  const layer = bossLayer(phase);
-  return layer.chord + layer.bass + layer.drums * layer.drum;
-}
-
-// 曲目切换的交叉淡入淡出时长（秒）：新旧两路音乐总线交叠，避免切换爆音。
-export const CROSSFADE_SECONDS = 1.2;
-
-// 波次强度对音乐总线的轻微加成：开局为 1，高波次最多 +18%，音效总线不受影响。
-export const WAVE_INTENSITY_MAX = 0.18;
-export const WAVE_INTENSITY_WAVES = 20;
-
-export function musicWaveIntensity(wave) {
-  const step = Number.isFinite(wave) ? Math.max(0, wave) : 0;
-  return 1 + Math.min(1, step / WAVE_INTENSITY_WAVES) * WAVE_INTENSITY_MAX;
-}
-
-// FNV-1a：把场景名和会话种子混成稳定的 32 位整数。
-function hashVariant(scene, seed) {
-  let hash = 0x811c9dc5;
-  const text = `${scene}:${seed}`;
-  for (let i = 0; i < text.length; i += 1) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193) >>> 0;
-  }
-  return hash >>> 0;
-}
-
-// 确定性纯函数：同一场景 + 同一种子永远挑到同一首变体。
-export function pickMusicVariant(scene, seed) {
-  const entry = MUSIC_VARIANTS[scene];
-  if (!entry || entry.variants.length === 0) return null;
-  return entry.variants[hashVariant(scene, seed) % entry.variants.length];
-}
-
-// 会话种子：默认由随机数生成，测试可注入固定随机源。
-export function sessionSeed(random = Math.random) {
-  return (Math.floor(random() * 0x100000000) >>> 0);
-}
+// 对外导出保持不变：拆分前定义在本文件的常量/纯函数，仍从本门面导出。
+export {
+  AMBIENCE_ENABLED_KEY,
+  AMBIENCE_KINDS,
+  AMBIENCE_PROFILES,
+  AMBIENCE_VOLUME,
+  AMBIENCE_WEATHER,
+  ambienceFor,
+} from './audio-ambience.js';
+export {
+  BOSS_INTENSITY_LAYERS,
+  BOSS_MUSIC_TRACKS,
+  BOSS_PHASE_THRESHOLDS,
+  CROSSFADE_SECONDS,
+  MUSIC_VARIANTS,
+  MUSIC_VOLUME,
+  WAVE_INTENSITY_MAX,
+  WAVE_INTENSITY_WAVES,
+  bossLayer,
+  bossLayerGain,
+  bossMusicPhase,
+  musicWaveIntensity,
+  pickBossMusicTrack,
+  pickMusicVariant,
+  sessionSeed,
+} from './audio-music.js';
+export { IMPACT_COMPRESSOR } from './audio-synth.js';
 
 class AudioFX {
   constructor() {
@@ -347,17 +78,6 @@ class AudioFX {
     this.ambientGain = null;
     this.mood = null;
     this.musicWanted = false;
-    this.ambientMood = null;
-    this.ambientWanted = false;
-    this._ambientNodes = null;
-    // 环境音层与 sfx/music 完全独立：自己的开关、总线、节点与计时器。
-    this.ambienceEnabled = readAmbienceEnabled();
-    this.ambienceWanted = false;
-    this._ambienceSpec = null;
-    this._ambienceKey = null;
-    this._ambienceNodes = null;
-    this._ambienceNoise = null;
-    this._ambienceTimer = null;
     this._musicTimer = null;
     this._musicStep = 0;
     this.seed = sessionSeed();
@@ -366,8 +86,28 @@ class AudioFX {
     this.bossPhase = 1;
     this._spareMusicGain = null;
     this._crossfadeUntil = 0;
+    // 环境音（场景铺底）与环境音层（群系/天气）各自一套状态机，与 sfx/music 完全独立。
+    this.ambient = new AmbientBed(this);
+    this.ambience = new AmbienceLayer(this);
     this._onVisibility = () => this.handleVisibility();
     globalThis.document?.addEventListener?.('visibilitychange', this._onVisibility);
+  }
+
+  // 环境音层内部状态对外只读：调试面板与测试沿用拆分前的属性名。
+  get ambienceEnabled() {
+    return this.ambience.ambienceEnabled;
+  }
+
+  get _ambientNodes() {
+    return this.ambient.nodes;
+  }
+
+  get _ambienceNodes() {
+    return this.ambience.nodes;
+  }
+
+  get _ambienceTimer() {
+    return this.ambience.timer;
   }
 
   ensure() {
@@ -377,8 +117,8 @@ class AudioFX {
         !this.enabled &&
         !this.musicEnabled &&
         !this.musicWanted &&
-        !this.ambientWanted &&
-        !this.ambienceWanted
+        !this.ambient.wanted &&
+        !this.ambience.wanted
       ) {
         return null;
       }
@@ -401,7 +141,7 @@ class AudioFX {
         typeof this.ctx.createDynamicsCompressor === 'function' ? this.ctx.createDynamicsCompressor() : null;
       if (compressor && typeof compressor.connect === 'function') {
         this.impactCompressor = compressor;
-        this.applyCompressorParams(compressor);
+        writeCompressorParams(compressor);
         this.impactGain.connect(compressor).connect(this.sfxGain);
       } else {
         this.impactGain.connect(this.sfxGain);
@@ -441,15 +181,9 @@ class AudioFX {
     return this.ctx;
   }
 
-  // 压缩/限幅参数写入：真实 AudioParam 走 setValueAtTime，测试假参数退化为直接赋值。
+  // 压缩/限幅参数写入（实现见 audio-synth.js）：真实 AudioParam 走 setValueAtTime，测试假参数直接赋值。
   applyCompressorParams(compressor) {
-    if (!compressor) return;
-    for (const key of ['threshold', 'knee', 'ratio', 'attack', 'release']) {
-      const param = compressor[key];
-      if (!param || typeof param !== 'object') continue;
-      if (typeof param.setValueAtTime === 'function') param.setValueAtTime(IMPACT_COMPRESSOR[key], 0);
-      else param.value = IMPACT_COMPRESSOR[key];
-    }
+    writeCompressorParams(compressor);
   }
 
   setEnabled(value) {
@@ -667,282 +401,79 @@ class AudioFX {
   }
 
   musicTone(freq, duration, type, level, when) {
-    const ctx = this.ctx;
-    if (!ctx || !this.musicGain) return;
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, when);
-    env.gain.setValueAtTime(0.0001, when);
-    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, level), when + 0.12);
-    env.gain.exponentialRampToValueAtTime(0.0001, when + duration * 0.92);
-    osc.connect(env).connect(this.musicGain);
-    osc.start(when);
-    osc.stop(when + duration);
+    playMusicTone(this.ctx, this.musicGain, freq, duration, type, level, when);
   }
 
-  // 阶段鼓点：低频快速下坠 + 短包络，和旋律一样走音乐总线，切换时不会越过总线电平。
   musicDrum(level, when) {
-    const ctx = this.ctx;
-    if (!ctx || !this.musicGain) return;
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(140, when);
-    osc.frequency.exponentialRampToValueAtTime(45, when + 0.12);
-    env.gain.setValueAtTime(0.0001, when);
-    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, level), when + 0.01);
-    env.gain.exponentialRampToValueAtTime(0.0001, when + 0.18);
-    osc.connect(env).connect(this.musicGain);
-    osc.start(when);
-    osc.stop(when + 0.2);
+    playMusicDrum(this.ctx, this.musicGain, level, when);
   }
 
-  // ---------- 环境音 ----------
+  // ---------- 环境音（场景铺底：状态机在 audio-ambience.js 的 AmbientBed） ----------
 
   startAmbient(mood = 'menu') {
-    const next = AMBIENT_TRACKS[mood] ? mood : 'menu';
-    this.ambientWanted = true;
-    if (this.ambientMood === next) {
-      if (this.ctx && !this._ambientNodes) this.maybeBeginAmbient();
-      return;
-    }
-    this.pauseAmbient();
-    this.ambientMood = next;
-    const ctx = this.ensure();
-    if (ctx) this.maybeBeginAmbient();
+    this.ambient.startAmbient(mood);
   }
 
   stopAmbient() {
-    this.ambientWanted = false;
-    this.ambientMood = null;
-    this.pauseAmbient();
+    this.ambient.stopAmbient();
   }
 
   maybeBeginAmbient() {
-    if (!this.enabled || !this.ambientWanted || !this.ctx || !this.ambientGain) return;
-    if (this.ctx.state !== 'running') return;
-    if (!this._ambientNodes) this.buildAmbientNodes();
-    const now = this.ctx.currentTime;
-    this.ambientGain.gain.cancelScheduledValues(now);
-    this.ambientGain.gain.setTargetAtTime(AMBIENT_VOLUME, now, 0.6);
+    this.ambient.maybeBeginAmbient();
   }
 
-  // 两个低频振荡器 + 极慢的颤音，形成没有旋律的氛围底噪。
   buildAmbientNodes() {
-    const track = AMBIENT_TRACKS[this.ambientMood] || AMBIENT_TRACKS.menu;
-    const nodes = [];
-    track.freqs.forEach((freq, index) => {
-      const osc = this.ctx.createOscillator();
-      osc.type = track.type;
-      osc.frequency.value = freq;
-      const trem = this.ctx.createGain();
-      trem.gain.value = 0.5 / track.freqs.length;
-      const lfo = this.ctx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.value = 0.08 + index * 0.03;
-      const lfoDepth = this.ctx.createGain();
-      lfoDepth.gain.value = 0.25 / track.freqs.length;
-      lfo.connect(lfoDepth).connect(trem.gain);
-      osc.connect(trem).connect(this.ambientGain);
-      osc.start();
-      lfo.start();
-      nodes.push(osc, lfo);
-    });
-    this._ambientNodes = nodes;
+    this.ambient.buildAmbientNodes();
   }
 
   pauseAmbient() {
-    this.stopAmbientNodes();
-    if (this.ambientGain && this.ctx) {
-      const now = this.ctx.currentTime;
-      this.ambientGain.gain.cancelScheduledValues(now);
-      this.ambientGain.gain.setTargetAtTime(0.0001, now, 0.2);
-    }
+    this.ambient.pauseAmbient();
   }
 
   stopAmbientNodes() {
-    if (!this._ambientNodes) return;
-    for (const node of this._ambientNodes) {
-      try {
-        node.stop();
-        node.disconnect();
-      } catch {
-        /* 节点可能已停止 */
-      }
-    }
-    this._ambientNodes = null;
+    this.ambient.stopAmbientNodes();
   }
 
-  // ---------- 环境音层（群系 / 天气） ----------
+  // ---------- 环境音层（群系 / 天气：状态机在 audio-ambience.js 的 AmbienceLayer） ----------
 
-  // 低配可关闭：独立开关持久化在自己的键上，不触碰 sfx/music 的任何状态。
   setAmbienceEnabled(value) {
-    this.ambienceEnabled = !!value;
-    try {
-      globalThis.localStorage?.setItem?.(
-        AMBIENCE_ENABLED_KEY,
-        this.ambienceEnabled ? 'on' : 'off'
-      );
-    } catch {
-      /* 存储不可用：只在本次会话生效 */
-    }
-    if (!this.ambienceEnabled) {
-      this.pauseAmbience();
-      return false;
-    }
-    if (this.ambienceWanted) {
-      const ctx = this.ensure();
-      if (ctx) this.maybeBeginAmbience();
-    }
-    return true;
+    return this.ambience.setAmbienceEnabled(value);
   }
 
-  // 入口：群系由 mapMeta.archetype 决定，天气由调用方用 weatherFor() 求得。
   startAmbience(mapMeta = null, weather = null) {
-    const spec = ambienceFor(mapMeta, weather);
-    this._ambienceSpec = spec;
-    this.ambienceWanted = true;
-    if (this._ambienceKey === spec.key && this._ambienceNodes) {
-      this.maybeBeginAmbience();
-      return spec;
-    }
-    this.stopAmbienceNodes();
-    this.clearAmbienceTimer();
-    this._ambienceKey = spec.key;
-    const ctx = this.ensure();
-    if (ctx) this.maybeBeginAmbience();
-    return spec;
+    return this.ambience.startAmbience(mapMeta, weather);
   }
 
   stopAmbience() {
-    this.ambienceWanted = false;
-    this._ambienceKey = null;
-    this._ambienceSpec = null;
-    this.pauseAmbience();
+    this.ambience.stopAmbience();
   }
 
   maybeBeginAmbience() {
-    if (!this.ambienceEnabled || !this.ambienceWanted || !this.ctx || !this.ambienceGain) return;
-    if (this.ctx.state !== 'running') return;
-    if (!this._ambienceNodes) this.buildAmbienceNodes();
-    const now = this.ctx.currentTime;
-    const level = Math.max(0.0002, this._ambienceSpec?.level ?? AMBIENCE_VOLUME);
-    this.ambienceGain.gain.cancelScheduledValues(now);
-    this.ambienceGain.gain.setTargetAtTime(level, now, 0.8);
+    this.ambience.maybeBeginAmbient();
   }
 
-  // 三类音色共享低频铺底；风声/水滴额外叠一层低通噪声，水滴再排布随机滴答。
   buildAmbienceNodes() {
-    const ctx = this.ctx;
-    const spec = this._ambienceSpec || ambienceFor(null);
-    if (!ctx || !this.ambienceGain) return;
-    const kind = AMBIENCE_KINDS[spec.kind] || AMBIENCE_KINDS.wind;
-    const nodes = [];
-
-    spec.freqs.forEach((freq, index) => {
-      const osc = ctx.createOscillator();
-      osc.type = kind.id === 'water' ? 'sine' : 'triangle';
-      osc.frequency.value = freq;
-      const trem = ctx.createGain();
-      trem.gain.value = 0.35 / spec.freqs.length;
-      const lfo = ctx.createOscillator();
-      lfo.type = 'sine';
-      lfo.frequency.value = 0.07 + index * 0.02;
-      const depth = ctx.createGain();
-      depth.gain.value = 0.2 / spec.freqs.length;
-      lfo.connect(depth).connect(trem.gain);
-      osc.connect(trem).connect(this.ambienceGain);
-      osc.start();
-      lfo.start();
-      nodes.push(osc, lfo);
-    });
-
-    if (kind.noise) {
-      const source = ctx.createBufferSource();
-      source.buffer = this.ambienceNoiseBuffer();
-      source.loop = true;
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.value = kind.filter;
-      const bed = ctx.createGain();
-      bed.gain.value = kind.bed;
-      source.connect(filter).connect(bed).connect(this.ambienceGain);
-      source.start();
-      nodes.push(source);
-    }
-
-    this._ambienceNodes = nodes;
-    if (kind.drip) this.scheduleDrip();
+    this.ambience.buildAmbienceNodes();
   }
 
-  // 2 秒白噪声循环，只用一个缓冲区，不引入素材文件。
   ambienceNoiseBuffer() {
-    if (this._ambienceNoise) return this._ambienceNoise;
-    const ctx = this.ctx;
-    const frames = Math.max(1, Math.floor(ctx.sampleRate * 2));
-    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < frames; i += 1) data[i] = Math.random() * 2 - 1;
-    this._ambienceNoise = buffer;
-    return buffer;
+    return this.ambience.ambienceNoiseBuffer();
   }
 
-  // 水滴：随机间隔的短促下滑音，自带包络与停止时间，不占用循环节点表。
   scheduleDrip() {
-    if (!this.ambienceEnabled || !this.ambienceWanted || !this.ctx || this.ctx.state !== 'running') {
-      this._ambienceTimer = null;
-      return;
-    }
-    const ctx = this.ctx;
-    const spec = this._ambienceSpec || ambienceFor(null);
-    const base = spec.freqs[Math.floor(Math.random() * spec.freqs.length)] || 220;
-    const freq = base * (2 + Math.random() * 2);
-    const when = ctx.currentTime + 0.04;
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, when);
-    osc.frequency.exponentialRampToValueAtTime(Math.max(40, freq * 0.55), when + 0.22);
-    env.gain.setValueAtTime(0.0001, when);
-    env.gain.exponentialRampToValueAtTime(0.12, when + 0.01);
-    env.gain.exponentialRampToValueAtTime(0.0001, when + 0.26);
-    osc.connect(env).connect(this.ambienceGain);
-    osc.start(when);
-    osc.stop(when + 0.3);
-    const timer = setTimeout(() => this.scheduleDrip(), (1.2 + Math.random() * 2.4) * 1000);
-    timer?.unref?.();
-    this._ambienceTimer = timer;
+    this.ambience.scheduleDrip();
   }
 
   clearAmbienceTimer() {
-    if (this._ambienceTimer) {
-      clearTimeout(this._ambienceTimer);
-      this._ambienceTimer = null;
-    }
+    this.ambience.clearAmbienceTimer();
   }
 
   pauseAmbience() {
-    this.clearAmbienceTimer();
-    this.stopAmbienceNodes();
-    if (this.ambienceGain && this.ctx) {
-      const now = this.ctx.currentTime;
-      this.ambienceGain.gain.cancelScheduledValues(now);
-      this.ambienceGain.gain.setTargetAtTime(0.0001, now, 0.35);
-    }
+    this.ambience.pauseAmbience();
   }
 
   stopAmbienceNodes() {
-    if (!this._ambienceNodes) return;
-    for (const node of this._ambienceNodes) {
-      try {
-        node.stop();
-        node.disconnect();
-      } catch {
-        /* 节点可能已停止 */
-      }
-    }
-    this._ambienceNodes = null;
+    this.ambience.stopAmbienceNodes();
   }
 
   // 页面切到后台时暂停音乐与环境音并挂起上下文，回到前台再续播。
@@ -968,207 +499,25 @@ class AudioFX {
     if (!this.enabled) return;
     const ctx = this.ensure();
     if (!ctx) return;
-    const t = ctx.currentTime;
-
-    switch (name) {
-      case 'shoot_arrow':
-        this.tone(940, 0.055, 'square', 0.028, -420, t);
-        break;
-      case 'shoot_cannon':
-        this.tone(110, 0.16, 'sine', 0.06, -55, t);
-        this.noise(0.13, 0.035, 700, t);
-        break;
-      case 'shoot_frost':
-        this.tone(1500, 0.07, 'triangle', 0.022, 500, t);
-        break;
-      case 'shoot_arc':
-        this.tone(520, 0.09, 'sawtooth', 0.022, -300, t);
-        this.noise(0.08, 0.025, 2400, t);
-        break;
-      case 'shoot_poison':
-        this.tone(330, 0.1, 'sine', 0.03, -120, t);
-        break;
-      case 'shoot_banner':
-        this.tone(660, 0.12, 'triangle', 0.025, 180, t);
-        break;
-      case 'shoot_shock':
-        this.tone(240, 0.11, 'square', 0.03, -80, t);
-        this.noise(0.09, 0.02, 1200, t);
-        break;
-      case 'shoot_sniper':
-        this.tone(180, 0.16, 'sawtooth', 0.03, -140, t);
-        this.noise(0.12, 0.03, 2600, t);
-        break;
-      case 'kill':
-        this.tone(300, 0.035, 'triangle', 0.012, 120, t);
-        break;
-      case 'place':
-        this.tone(320, 0.09, 'triangle', 0.05, 90, t);
-        this.tone(520, 0.11, 'triangle', 0.04, 120, t + 0.07);
-        break;
-      case 'upgrade':
-        this.tone(520, 0.1, 'triangle', 0.04, 160, t);
-        this.tone(760, 0.12, 'triangle', 0.04, 200, t + 0.08);
-        break;
-      case 'sell':
-        this.tone(560, 0.1, 'sine', 0.04, -220, t);
-        break;
-      case 'destructible':
-        // 拆除：低频碎裂 + 砂石噪声，收尾一声清亮奖励音；全部由振荡器/噪声合成。
-        this.tone(170, 0.2, 'square', 0.05, -95, t);
-        this.tone(88, 0.26, 'sine', 0.05, -30, t + 0.03);
-        this.noise(0.22, 0.05, 880, t);
-        this.tone(660, 0.12, 'triangle', 0.028, 220, t + 0.1);
-        break;
-      case 'hurt':
-        this.tone(120, 0.22, 'sawtooth', 0.06, -50, t);
-        this.noise(0.16, 0.03, 420, t);
-        break;
-      case 'wave':
-        this.tone(340, 0.14, 'triangle', 0.04, 60, t);
-        this.tone(460, 0.18, 'triangle', 0.035, 80, t + 0.12);
-        break;
-      case 'boss':
-        this.tone(70, 0.6, 'sawtooth', 0.07, 20, t);
-        this.tone(110, 0.5, 'square', 0.03, -30, t + 0.08);
-        break;
-      case 'bossKill':
-        this.noise(0.5, 0.09, 500, t);
-        this.tone(90, 0.5, 'sine', 0.06, -40, t);
-        break;
-      case 'victory':
-        this.tone(523.25, 0.14, 'triangle', 0.05, 0, t);
-        this.tone(659.25, 0.14, 'triangle', 0.05, 0, t + 0.12);
-        this.tone(783.99, 0.16, 'triangle', 0.05, 0, t + 0.24);
-        this.tone(1046.5, 0.4, 'triangle', 0.048, 0, t + 0.36);
-        break;
-      case 'bossCast':
-        // 蓄力：低频上扬 + 逐渐收紧的噪声，提示即将出招。
-        this.tone(56, 0.75, 'sawtooth', 0.05, 46, t);
-        this.tone(84, 0.7, 'triangle', 0.03, 62, t + 0.05);
-        this.noise(0.62, 0.028, 320, t + 0.08);
-        break;
-      case 'bossRoar':
-        // 咆哮：双低音下滑叠加中频噪声，冲击感强。
-        this.tone(72, 0.55, 'sawtooth', 0.085, -34, t);
-        this.tone(43, 0.62, 'sine', 0.06, -12, t);
-        this.tone(104, 0.42, 'square', 0.04, -44, t + 0.03);
-        this.noise(0.45, 0.075, 900, t);
-        break;
-      case 'bossSummon':
-        // 召唤：三连低音爬升 + 高频嘶声，像裂隙打开。
-        this.tone(196, 0.45, 'triangle', 0.035, 70, t);
-        this.tone(262, 0.42, 'triangle', 0.03, 96, t + 0.09);
-        this.tone(349, 0.4, 'sine', 0.024, 120, t + 0.18);
-        this.noise(0.36, 0.022, 1800, t + 0.04);
-        break;
-      case 'bossSlam':
-        // 震击：极低频下坠 + 两段噪声冲击。
-        this.tone(54, 0.5, 'sine', 0.1, -24, t);
-        this.tone(96, 0.28, 'square', 0.045, -48, t);
-        this.noise(0.28, 0.1, 380, t);
-        this.noise(0.5, 0.05, 140, t + 0.05);
-        break;
-      case 'gameover':
-        this.tone(300, 0.35, 'sine', 0.05, -120, t);
-        this.tone(220, 0.4, 'sine', 0.05, -100, t + 0.25);
-        this.tone(150, 0.6, 'sine', 0.05, -60, t + 0.5);
-        break;
-      case 'resultVictory':
-        // 结算页胜利：上行大调号角 + 高频泛音，让情绪落在结算展示的瞬间。
-        this.tone(523.25, 0.16, 'triangle', 0.05, 0, t);
-        this.tone(659.25, 0.16, 'triangle', 0.05, 0, t + 0.1);
-        this.tone(783.99, 0.2, 'triangle', 0.048, 0, t + 0.2);
-        this.tone(1046.5, 0.5, 'sine', 0.04, 0, t + 0.3);
-        this.tone(1567.98, 0.36, 'triangle', 0.016, 0, t + 0.34);
-        this.noise(0.28, 0.016, 4200, t + 0.3);
-        break;
-      case 'resultDefeat':
-        // 结算页失败：下行小调短句 + 低音尾坠，收束克制、不刺耳。
-        this.tone(392, 0.22, 'triangle', 0.045, 0, t);
-        this.tone(311.13, 0.24, 'triangle', 0.045, 0, t + 0.16);
-        this.tone(233.08, 0.5, 'sine', 0.05, -40, t + 0.34);
-        this.tone(116.54, 0.6, 'sine', 0.04, -20, t + 0.4);
-        this.noise(0.24, 0.018, 700, t + 0.2);
-        break;
-      case 'draft':
-        this.tone(660, 0.12, 'triangle', 0.035, 120, t);
-        this.tone(990, 0.16, 'triangle', 0.03, 140, t + 0.1);
-        break;
-      case 'skill_aurora':
-        // 极光：高音冰晶上行 + 细碎高频噪声，清冷通透。
-        this.tone(1320, 0.18, 'triangle', 0.03, 480, t);
-        this.tone(1760, 0.26, 'sine', 0.024, 320, t + 0.06);
-        this.noise(0.3, 0.02, 3200, t);
-        break;
-      case 'skill_meteor':
-        // 陨石：低频下坠 + 两段冲击噪声，沉重。
-        this.tone(190, 0.3, 'sawtooth', 0.06, -140, t);
-        this.tone(92, 0.42, 'sine', 0.05, -40, t + 0.04);
-        this.noise(0.34, 0.06, 800, t);
-        this.noise(0.22, 0.04, 240, t + 0.12);
-        break;
-      case 'skill_chrono':
-        // 时停：三连上行琶音后拉长泛音，制造时间凝滞感。
-        this.tone(330, 0.12, 'triangle', 0.03, 0, t);
-        this.tone(440, 0.12, 'triangle', 0.028, 0, t + 0.09);
-        this.tone(660, 0.5, 'sine', 0.03, 60, t + 0.18);
-        break;
-      case 'click':
-        this.tone(720, 0.04, 'square', 0.02, 0, t);
-        break;
-      default:
-        break;
-    }
+    playSfx(this, name);
   }
 
   // options.bus 指定输出目标（默认 sfxGain），options.detune 是音分级变调（命中音效专用）。
   tone(freq, duration, type, gain, slide = 0, when = 0, options = {}) {
-    const ctx = this.ctx;
-    if (!ctx) return;
-    const osc = ctx.createOscillator();
-    const env = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(Math.max(20, freq), when);
-    if (slide) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), when + duration);
-    }
-    if (options.detune && osc.detune?.setValueAtTime) osc.detune.setValueAtTime(options.detune, when);
-    env.gain.setValueAtTime(0.0001, when);
-    env.gain.exponentialRampToValueAtTime(Math.max(0.0002, gain), when + 0.008);
-    env.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    if (options.bus && options.bus !== this.sfxGain) {
-      osc.connect(env).connect(options.bus);
-    } else {
-      osc.connect(env).connect(this.sfxGain);
-    }
-    osc.start(when);
-    osc.stop(when + duration + 0.02);
+    const bus = options.bus && options.bus !== this.sfxGain ? options.bus : this.sfxGain;
+    playTone(this.ctx, bus, { freq, duration, type, gain, slide, when, detune: options.detune });
   }
 
   // options.bus 指定输出目标（默认 sfxGain），options.filterType 选择滤波类型（默认 lowpass）。
   noise(duration, gain, cutoff = 1200, when = 0, options = {}) {
-    const ctx = this.ctx;
-    if (!ctx) return;
-    const frames = Math.max(1, Math.floor(ctx.sampleRate * duration));
-    const buffer = ctx.createBuffer(1, frames, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < frames; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / frames);
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    const filter = ctx.createBiquadFilter();
-    filter.type = options.filterType || 'lowpass';
-    filter.frequency.value = cutoff;
-    const env = ctx.createGain();
-    env.gain.setValueAtTime(gain, when);
-    env.gain.exponentialRampToValueAtTime(0.0001, when + duration);
-    if (options.bus && options.bus !== this.sfxGain) {
-      source.connect(filter).connect(env).connect(options.bus);
-    } else {
-      source.connect(filter).connect(env).connect(this.sfxGain);
-    }
-    source.start(when);
-    source.stop(when + duration + 0.02);
+    const bus = options.bus && options.bus !== this.sfxGain ? options.bus : this.sfxGain;
+    playNoise(this.ctx, bus, {
+      duration,
+      gain,
+      cutoff,
+      when,
+      filterType: options.filterType || 'lowpass',
+    });
   }
 
   // 一次命中声：签名主音 + 可选噪声；暴击叠高频亮度层，致死叠 60Hz 低频层（都计入同一声预算）。

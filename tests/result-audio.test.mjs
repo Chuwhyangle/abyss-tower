@@ -146,12 +146,12 @@ async function freshAudio(storage, cacheKey) {
 
 // ---------- 源码级：两个结算音效存在且为合成音效 ----------
 
-test('audio.js 提供 resultVictory / resultDefeat 合成音效', () => {
-  const src = readSource('public/js/audio.js');
+test('audio-synth.js 提供 resultVictory / resultDefeat 合成音效', () => {
+  const src = readSource('public/js/audio-synth.js');
   for (const name of ['resultVictory', 'resultDefeat']) {
     const body = src.match(new RegExp(`case '${name}':([\\s\\S]*?)break;`))?.[1] || '';
-    assert.ok(body, `audio.js 缺少 ${name} case`);
-    assert.match(body, /this\.tone\(/, `${name} 应由振荡器合成`);
+    assert.ok(body, `audio-synth.js 缺少 ${name} case`);
+    assert.match(body, /fx\.tone\(/, `${name} 应由振荡器合成`);
   }
   // 无外部音频素材：音效层不允许加载音频文件。
   assert.doesNotMatch(src, /new Audio\(|fetch\([^)]*\.(mp3|wav|ogg|m4a)/i, '结算音效应为纯合成，不引入素材');

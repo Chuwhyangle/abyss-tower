@@ -347,7 +347,7 @@ test('渲染层与 UI 层已接入：注册渲染器、确认面板调用 destro
   assert.match(MODAL_SRC, /sim\.destroyDestructible\?\.\(item\.id\)/);
   assert.match(MODAL_SRC, /audio\.play\('destructible'\)/);
   assert.match(MODAL_SRC, /t\('destructible\.toast\.done', \{ name \}\)/);
-  assert.match(read('public/js/audio.js'), /case 'destructible':/);
+  assert.match(read('public/js/audio-synth.js'), /case 'destructible':/);
 });
 
 // ---------- 刷新恢复 ----------

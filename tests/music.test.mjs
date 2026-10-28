@@ -26,17 +26,18 @@ function memoryStorage(initial = {}) {
   };
 }
 
-test('audio.js 提供音乐接口与 menu/battle/boss 三套氛围', () => {
+test('audio.js 提供音乐接口，audio-music.js 提供 menu/battle/boss 三套氛围', () => {
   const src = readSource('public/js/audio.js');
   assert.match(src, /startMusic\s*\(/, '缺少 startMusic');
   assert.match(src, /stopMusic\s*\(/, '缺少 stopMusic');
   assert.match(src, /setMusicEnabled\s*\(/, '缺少 setMusicEnabled');
+  const tracks = readSource('public/js/audio-music.js');
   for (const mood of ['menu', 'battle', 'boss']) {
-    assert.match(src, new RegExp(`\\b${mood}\\s*:\\s*\\{`), `缺少 ${mood} 氛围分支`);
+    assert.match(tracks, new RegExp(`\\b${mood}\\s*:\\s*\\{`), `缺少 ${mood} 氛围分支`);
   }
   // 音乐使用独立 GainNode，默认音量低于音效主增益 0.45。
   assert.match(src, /musicGain/, '音乐应走独立增益节点');
-  const volumeMatch = src.match(/MUSIC_VOLUME\s*=\s*([\d.]+)/);
+  const volumeMatch = tracks.match(/MUSIC_VOLUME\s*=\s*([\d.]+)/);
   assert.ok(volumeMatch, '缺少音乐音量常量');
   assert.ok(Number(volumeMatch[1]) < 0.45, '音乐默认音量应低于音效');
 });

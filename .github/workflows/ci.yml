@@ -16,11 +16,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: 语法检查
-        run: |
-          for f in $(git ls-files '*.mjs' '*.js'); do
-            node --input-type=module --check < "$f" || { echo "语法错误：$f"; exit 1; }
-          done
+      - name: 静态检查（语法 + 导入图 + 风格 + 文档）
+        run: npm run check:static
       - name: 结构预算门禁
         run: node --no-warnings scripts/structure-budget.mjs --check
       - name: 单元与接口测试
