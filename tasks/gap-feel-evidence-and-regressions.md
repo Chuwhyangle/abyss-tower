@@ -1,7 +1,7 @@
 ---
 id: gap-feel-evidence-and-regressions
 title: 打击感评审整改：补齐事件触发证据 + 修复飘字对比度与命中剪影
-status: ready
+status: superseded
 labels:
   - gap
 parent: null
@@ -70,3 +70,6 @@ AC-020 的首次语义评审（2026-10-28，全新上下文 subagent `ac6c9e7b5c
 ## Notes
 
 立案依据是不通过记录 FEEL-001（4/10），原始评审输出见 `docs/FEEL_REVIEW.md` 的「评审记录」与「执行者核对」。⛔ 不得为了让 AC-020 通过而修改评审记录里的结论。整改完成后必须由**新的**全新上下文评审者复评，不能复用本次评审者。
+
+
+2026-10-28：按人要求拆分为 5 个叶子任务并行推进——gap-feel-capture-scenarios（采集器时间断言 + 事件触发帧）、gap-feel-floater-contrast（飘字对比度）、gap-feel-hit-silhouette（命中剪影）、gap-feel-sim-diff-evidence（事件/RNG diff），四者 done 后由 gap-feel-review-rereview 复评收口（AC-020 由它承担）。本任务退役，不再派发。
