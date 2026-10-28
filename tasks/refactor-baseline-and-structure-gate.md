@@ -1,7 +1,7 @@
 ---
 id: refactor-baseline-and-structure-gate
 title: 重构地基：结构预算门禁 + 视觉/确定性基线与见证工具
-status: todo
+status: ready
 labels:
   - gap
   - refactor
