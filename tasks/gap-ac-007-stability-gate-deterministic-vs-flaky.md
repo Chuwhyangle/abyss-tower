@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-stability-gate-deterministic-vs-flaky
 title: AC-007 复验：稳定性门禁区分确定性红与偶发红，并在 AC-044 修复面上 3 轮 exit 0
-status: ready
+status: done
 labels:
   - gap
   - defect
