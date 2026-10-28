@@ -1,7 +1,7 @@
 // 赛季通行证持久化：积分由赛季内的对局、赛季悬赏与成就三类来源派生，里程碑领取与奖励发放同事务。
 // 赛季边界直接复用排行榜的 seasonOf / seasonBounds，保证与榜单口径一致。
 import { db, grantCores, getCores, transaction } from '../db.mjs';
-import { isSeasonKey, seasonBounds, seasonOf } from './leaderboard.mjs';
+import { isSeasonKey, seasonBounds, seasonOf } from './leaderboard-sql.mjs';
 import { ACHIEVEMENT_BY_ID } from '../../public/js/shared/achievements.js';
 import {
   SEASON_PASS_MAX_POINTS,

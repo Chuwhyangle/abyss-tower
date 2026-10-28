@@ -1,8 +1,8 @@
 // 游戏接口共用的领域辅助：日期、昵称清洗、每日状态。
 import { dailyChallenge, dayKey } from '../../public/js/shared/scoring.js';
-import { dailyStreakFor } from '../services/run-service.mjs';
+import { dailyStreakFor } from '../services/run-rules.mjs';
 
-export { dailyAttemptsLeft } from '../services/run-service.mjs';
+export { dailyAttemptsLeft } from '../services/run-rules.mjs';
 
 // 每日边界按服务器本地时区，与玩家的「今天」一致。
 export function today() {

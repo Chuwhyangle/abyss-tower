@@ -1,52 +1,29 @@
+// 排行榜仓储的对外面：成绩写入、名次/个人汇总、分页与赛季结算都在这里编排；
+// 查询构造（榜单键、排序、筛选、游标参数）在 leaderboard-sql.mjs，入榜校验在 leaderboard-validate.mjs。
 import { db, transaction } from './index.mjs';
-import {
-  CAPS,
-  ENDLESS_SCORE_MUL,
-  computeRawScore,
-  dayKey,
-} from '../../public/js/shared/scoring.js';
-import { DIFFICULTIES } from '../../public/js/shared/data.js';
 import { COSMETIC_TITLES } from '../../public/js/shared/achievements.js';
 import { AUDIT_ACTIONS, recordAudit } from './audit.mjs';
 import { notify } from './notifications.mjs';
-
-// v2：每日挑战使用固定规则集，与 v1（受账号解锁影响）的旧榜分开；旧数据保留不迁移。
-// 无尽与本周挑战各自使用独立榜单，不与普通/每日榜合并；day 为周键时按周隔离。
-export function boardKeyFor(mode, day, { season = null } = {}) {
-  if (mode === 'daily') return `daily:${day}:v2`;
-  // 无尽榜按赛季分榜：赛季默认当前自然月；旧数据（board_key='endless'）保持原键不迁移。
-  if (mode === 'endless') {
-    const key = season || seasonOf();
-    return key ? `endless:${key}` : 'endless';
-  }
-  if (mode === 'weekly') return `weekly:${day}`;
-  // 变异榜按规范化后的变异组合隔离：不同组合各自独立，互不混榜。
-  if (mode === 'mutated') return `mutated:${day}`;
-  return 'normal';
-}
-
-export const SEASON_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
-
-export function isSeasonKey(value) {
-  return typeof value === 'string' && SEASON_KEY_RE.test(value);
-}
-
-// 赛季按服务器本地时区的自然月划分；旧数据按 created_at 自动归入所在赛季。
-export function seasonOf(ts = Date.now()) {
-  const date = new Date(Number(ts));
-  if (Number.isNaN(date.getTime())) return null;
-  return dayKey(date).slice(0, 7);
-}
-
-// 返回赛季的毫秒区间 [start, end)，边界同样按服务器本地时区。
-export function seasonBounds(season) {
-  if (!isSeasonKey(season)) return null;
-  const [year, month] = season.split('-').map(Number);
-  return {
-    start: new Date(year, month - 1, 1).getTime(),
-    end: new Date(year, month, 1).getTime(),
-  };
-}
+import {
+  accountEntrySelectSql,
+  boardKeyCondition,
+  boardKeyFor,
+  boardOrderBy,
+  boardRowSelectSql,
+  boardScope,
+  betterCondition,
+  betterParams,
+  cursorInScope,
+  cursorPredicate,
+  cursorPredicateParams,
+  decodeCursor,
+  encodeCursor,
+  isSeasonKey,
+  scoreRankSql,
+  seasonBounds,
+  seasonOf,
+  waveSql,
+} from './leaderboard-sql.mjs';
 
 export function listSeasons() {
   const rows = db
@@ -57,152 +34,6 @@ export function listSeasons() {
     )
     .all();
   return rows.map((row) => row.season).filter(isSeasonKey);
-}
-
-// ---------- 榜单排序（集中定义） ----------
-
-// 无尽榜以「最高波次 → 分数」排序，其余榜单以「分数」排序；并列都先比用时、再比记录先后。
-// 这里同时是排序、个人最佳与名次比较的唯一来源，避免各处手写顺序不一致。
-const SORT_FIELDS = {
-  wave: { sql: (alias) => (alias ? waveSql(alias) : 'wave'), dir: 'DESC' },
-  score: { sql: (alias) => (alias ? `${alias}.score` : 'score'), dir: 'DESC' },
-  duration: { sql: (alias) => (alias ? `${alias}.duration_ms` : 'duration_ms'), dir: 'ASC' },
-};
-
-export const BOARD_SORT = Object.freeze({
-  endless: Object.freeze(['wave', 'score', 'duration']),
-  normal: Object.freeze(['score', 'duration']),
-});
-
-export function boardSort(mode) {
-  return mode === 'endless' ? BOARD_SORT.endless : BOARD_SORT.normal;
-}
-
-// 无尽榜的波次存放在 metrics_json 中；读取时按整数处理，坏数据回落到 0。
-function waveSql(alias) {
-  return `CAST(COALESCE(json_extract(${alias}.metrics_json, '$.wave'), 0) AS INTEGER)`;
-}
-
-// alias 为空时用于外层查询（列已在子查询里展开成 wave/score/duration_ms 别名）。
-function boardOrderBy(mode, alias) {
-  return boardSort(mode)
-    .map((field) => `${SORT_FIELDS[field].sql(alias)} ${SORT_FIELDS[field].dir}`)
-    .join(', ');
-}
-
-// 与排序规则同序的“严格优于”条件；用于对已选出 wave/score/duration_ms 的子查询再过滤。
-function betterCondition(mode) {
-  if (mode === 'endless') {
-    return 'wave > ? OR (wave = ? AND (score > ? OR (score = ? AND duration_ms < ?)))';
-  }
-  return 'score > ? OR (score = ? AND duration_ms < ?)';
-}
-
-function betterParams(mode, { wave = 0, score = 0, durationMs = 0 } = {}) {
-  const entry = { wave: Number(wave) || 0, score: Number(score) || 0, durationMs: Number(durationMs) || 0 };
-  if (mode === 'endless') {
-    return [entry.wave, entry.wave, entry.score, entry.score, entry.durationMs];
-  }
-  return [entry.score, entry.score, entry.durationMs];
-}
-
-// 无尽榜按赛季分榜；旧版 board_key='endless' 的存量数据按 created_at 归入所在赛季继续可见。
-function boardKeyCondition(mode, day, season) {
-  if (mode === 'endless') {
-    return {
-      sql: "(e.board_key = ? OR e.board_key = 'endless')",
-      params: [boardKeyFor(mode, day, { season })],
-    };
-  }
-  return { sql: 'e.board_key = ?', params: [boardKeyFor(mode, day)] };
-}
-
-// ---------- 排行榜基线反作弊 ----------
-
-// 规则集中定义，按运营数据调整即可；不追求强反作弊，只拦明显异常。
-const MIN_DIFFICULTY_SCORE_MUL = Math.min(
-  ...Object.values(DIFFICULTIES).map((item) => item.scoreMul)
-);
-const MAX_DIFFICULTY_SCORE_MUL = Math.max(
-  ...Object.values(DIFFICULTIES).map((item) => item.scoreMul)
-);
-// 地图倍率由 mapgen 钳制在 [0.9, 1.25]；无尽模式额外乘 ENDLESS_SCORE_MUL。
-const MIN_MAP_SCORE_MUL = 0.9;
-const MAX_MAP_SCORE_MUL = 1.25;
-
-export const LEADERBOARD_GUARD = {
-  // 3 分钟内打到 20 波以上：正常对局不可能，直接拒绝入榜。
-  highWave: 20,
-  minDurationMsForHighWave: 3 * 60 * 1000,
-  // 单波击杀理论上限，与结算钳制共用同一组常量。
-  killsPerWave: CAPS.killsPerWave,
-  killsFlat: CAPS.killsFlat,
-  // 理论分数上下界：由计分公式乘以可能的难度/地图/模式倍率推导。
-  minScoreMul: MIN_DIFFICULTY_SCORE_MUL * MIN_MAP_SCORE_MUL,
-  maxScoreMul: MAX_DIFFICULTY_SCORE_MUL * MAX_MAP_SCORE_MUL * ENDLESS_SCORE_MUL,
-};
-
-function toCount(value) {
-  const n = Math.floor(Number(value));
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-// 入榜前校验：先拦截明显不可能的成绩，再钳制越界击杀并标记可疑分。
-// scoreMul 为模式额外倍率（变异挑战），同时放宽理论上限与下限，避免合法成绩被误判。
-export function validateLeaderboardEntry(entry = {}, { scoreMul = 1 } = {}) {
-  const wave = toCount(entry.wave);
-  const kills = toCount(entry.kills);
-  const durationMs = Math.max(0, Number(entry.durationMs) || 0);
-  const score = Math.max(0, Number(entry.score) || 0);
-  const rules = LEADERBOARD_GUARD;
-
-  if (wave >= rules.highWave && durationMs < rules.minDurationMsForHighWave) {
-    return {
-      accepted: false,
-      suspect: false,
-      flags: ['duration_too_short'],
-      reason: 'duration_too_short',
-      wave,
-      kills,
-      score,
-    };
-  }
-
-  const flags = [];
-  const maxKills = wave * rules.killsPerWave + rules.killsFlat;
-  const clampedKills = Math.min(kills, maxKills);
-  if (kills > maxKills) flags.push('kills_clamped');
-
-  const maxGold = wave * CAPS.goldPerWave + CAPS.goldFlat;
-  const rawCeiling = computeRawScore({
-    waveReached: wave,
-    kills: clampedKills,
-    goldLeft: maxGold,
-    baseHp: CAPS.baseHp,
-    victory: true,
-  });
-  const rawFloor = computeRawScore({
-    waveReached: wave,
-    kills: clampedKills,
-    goldLeft: 0,
-    baseHp: 0,
-    victory: false,
-  });
-  const extraMul = Number.isFinite(scoreMul) && scoreMul > 0 ? scoreMul : 1;
-  const scoreCeiling = Math.ceil(rawCeiling * rules.maxScoreMul * extraMul);
-  const scoreFloor = Math.floor(rawFloor * rules.minScoreMul * extraMul);
-  if (score > scoreCeiling) flags.push('score_too_high');
-  else if (score < scoreFloor) flags.push('score_too_low');
-
-  return {
-    accepted: true,
-    suspect: flags.length > 0,
-    flags,
-    reason: flags[0] || null,
-    wave,
-    kills: clampedKills,
-    score,
-  };
 }
 
 export function recordLeaderboardEntry({
@@ -302,36 +133,12 @@ export function rankFor(
 
   // 其余榜保持旧行为：只按每个账号的最高分比较，不引入时长或赛季维度。
   const row = db
-    .prepare(
-      `SELECT COUNT(*) AS c FROM (
-         SELECT e.account_id, MAX(e.score) AS s
-           FROM leaderboard_entries e
-           JOIN accounts a ON a.id = e.account_id
-          WHERE ${clauses.join(' AND ')}
-          GROUP BY e.account_id
-       ) WHERE s > ?`
-    )
+    .prepare(scoreRankSql(clauses.join(' AND ')))
     .get(...params, Number(score) || 0);
   return (row?.c || 0) + 1;
 }
 
 export const MAX_BOARD_PAGE_SIZE = 50;
-
-function boardScope(mode, day, { includeUnclaimed = false, difficulty = null, season = null } = {}) {
-  const key = boardKeyCondition(mode, day, season);
-  const clauses = [key.sql, "(? = 1 OR a.kind = 'registered')"];
-  const params = [...key.params, includeUnclaimed ? 1 : 0];
-  if (difficulty) {
-    clauses.push('e.difficulty = ?');
-    params.push(difficulty);
-  }
-  const bounds = season ? seasonBounds(season) : null;
-  if (bounds) {
-    clauses.push('e.created_at >= ?', 'e.created_at < ?');
-    params.push(bounds.start, bounds.end);
-  }
-  return { where: clauses.join(' AND '), params };
-}
 
 // 称号只读展示：与资料页共用“已选择 + 已知称号”语义，未知 id 或坏 JSON 一律按无称号处理。
 function displayTitle(valueJson) {
@@ -399,23 +206,7 @@ export function listBoard(
   const scope = boardScope(mode, day, { includeUnclaimed, difficulty, season });
   const rows = db
     .prepare(
-      `SELECT * FROM (
-         SELECT e.id, e.account_id, e.display_name, e.difficulty, e.score,
-                e.duration_ms, e.metrics_json, e.content_version, e.created_at,
-                ${waveSql('e')} AS wave,
-                s.value_json AS selected_cosmetics,
-                ROW_NUMBER() OVER (
-                  PARTITION BY e.account_id
-                  ORDER BY ${boardOrderBy(mode, 'e')}, e.id ASC
-                ) AS rn
-           FROM leaderboard_entries e
-           JOIN accounts a ON a.id = e.account_id
-           LEFT JOIN player_kv s
-             ON s.account_id = e.account_id
-            AND s.namespace = 'cosmetics'
-            AND s.key = 'selected'
-          WHERE ${scope.where}
-       ) WHERE rn = 1
+      `${boardRowSelectSql(mode, scope.where)}
        ORDER BY ${boardOrderBy(mode, null)}, created_at ASC
        LIMIT ? OFFSET ?`
     )
@@ -432,7 +223,6 @@ export function listBoard(
 
 export const LEADERBOARD_CACHE_TTL_MS = 5_000;
 export const MAX_CURSOR_PAGE_SIZE = 100;
-const CURSOR_VERSION = 1;
 const CACHE_MAX_PAGES = 500;
 
 const pageCache = new Map();
@@ -440,98 +230,6 @@ const pageCache = new Map();
 // 缓存只服务读路径；任何写榜都会整体失效，避免不同榜单之间串页。
 function clearLeaderboardCache() {
   pageCache.clear();
-}
-
-// 游标只携带定位用的排序键，不携带权限信息：查询范围始终由请求参数重新推导并校验，
-// 因此伪造游标最多只能在本就有权看到的榜单内跳页，无法借此读到越权数据。
-export function encodeCursor({
-  offset = 0,
-  mode,
-  day,
-  difficulty = null,
-  season = null,
-  includeUnclaimed = false,
-  wave = 0,
-  score = 0,
-  durationMs = 0,
-  createdAt = 0,
-  id = 0,
-} = {}) {
-  const payload = {
-    v: CURSOR_VERSION,
-    o: Math.max(0, Math.floor(Number(offset) || 0)),
-    m: mode,
-    d: day,
-    f: difficulty || '',
-    s: season || '',
-    u: includeUnclaimed ? 1 : 0,
-    w: Math.max(0, Math.floor(Number(wave) || 0)),
-    c: Math.max(0, Math.floor(Number(score) || 0)),
-    t: Math.max(0, Math.floor(Number(durationMs) || 0)),
-    a: Math.max(0, Math.floor(Number(createdAt) || 0)),
-    i: Math.max(0, Math.floor(Number(id) || 0)),
-  };
-  return Buffer.from(JSON.stringify(payload), 'utf8').toString('base64url');
-}
-
-export function decodeCursor(raw) {
-  if (typeof raw !== 'string' || raw.length === 0 || raw.length > 512) return null;
-  let data;
-  try {
-    data = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
-  } catch {
-    return null;
-  }
-  if (!data || typeof data !== 'object' || data.v !== CURSOR_VERSION) return null;
-  if (typeof data.m !== 'string' || data.m.length > 16) return null;
-  if (typeof data.d !== 'string' || data.d.length > 32) return null;
-  if (typeof data.f !== 'string' || data.f.length > 32) return null;
-  if (typeof data.s !== 'string' || data.s.length > 16) return null;
-  if (data.u !== 0 && data.u !== 1) return null;
-  const numbers = {
-    offset: data.o,
-    wave: data.w,
-    score: data.c,
-    durationMs: data.t,
-    createdAt: data.a,
-    id: data.i,
-  };
-  for (const value of Object.values(numbers)) {
-    if (!Number.isSafeInteger(value) || value < 0) return null;
-  }
-  return {
-    ...numbers,
-    mode: data.m,
-    day: data.d,
-    difficulty: data.f || null,
-    season: data.s || null,
-    includeUnclaimed: data.u === 1,
-  };
-}
-
-// 游标必须与本次请求的榜单维度完全一致，否则视为非法，绝不复用到别的榜。
-function cursorInScope(cursor, { mode, day, difficulty, season, includeUnclaimed }) {
-  return (
-    cursor.mode === mode &&
-    cursor.day === day &&
-    (cursor.difficulty || '') === (difficulty || '') &&
-    (cursor.season || '') === (season || '') &&
-    cursor.includeUnclaimed === !!includeUnclaimed
-  );
-}
-
-// 与 ORDER BY 严格同序的 keyset 条件：分数/波次 DESC、用时 ASC、记录时间 ASC、id ASC。
-// 用行值比较表达，避免手写多层 OR 括号出错。
-function cursorPredicate(mode) {
-  return mode === 'endless'
-    ? { sql: '(wave, score, -duration_ms, created_at, id) < (?, ?, ?, ?, ?)' }
-    : { sql: '(score, -duration_ms, created_at, id) < (?, ?, ?, ?)' };
-}
-
-function cursorPredicateParams(mode, cursor) {
-  return mode === 'endless'
-    ? [cursor.wave, cursor.score, -cursor.durationMs, cursor.createdAt, cursor.id]
-    : [cursor.score, -cursor.durationMs, cursor.createdAt, cursor.id];
 }
 
 // 单页查询：取 size + 1 行判断是否还有下一页，绝不依赖总数推断。
@@ -546,23 +244,7 @@ function queryCursorPage({ mode, day, season, difficulty, includeUnclaimed, curs
   const offset = cursor ? cursor.offset : 0;
   const rows = db
     .prepare(
-      `SELECT * FROM (
-         SELECT e.id, e.account_id, e.display_name, e.difficulty, e.score,
-                e.duration_ms, e.metrics_json, e.content_version, e.created_at,
-                ${waveSql('e')} AS wave,
-                s.value_json AS selected_cosmetics,
-                ROW_NUMBER() OVER (
-                  PARTITION BY e.account_id
-                  ORDER BY ${boardOrderBy(mode, 'e')}, e.id ASC
-                ) AS rn
-           FROM leaderboard_entries e
-           JOIN accounts a ON a.id = e.account_id
-           LEFT JOIN player_kv s
-             ON s.account_id = e.account_id
-            AND s.namespace = 'cosmetics'
-            AND s.key = 'selected'
-          WHERE ${scope.where}
-       ) WHERE rn = 1 AND ${clauses.slice(1).join(' AND ') || '1 = 1'}
+      `${boardRowSelectSql(mode, scope.where)} AND ${clauses.slice(1).join(' AND ') || '1 = 1'}
        ORDER BY ${boardOrderBy(mode, null)}, created_at ASC, id ASC
        LIMIT ?`
     )
@@ -688,10 +370,7 @@ export function accountBoardSummary(
 
   const bestRow = db
     .prepare(
-      `SELECT e.difficulty, e.score, e.duration_ms, e.metrics_json, e.content_version, e.created_at
-         FROM leaderboard_entries e
-         JOIN accounts a ON a.id = e.account_id
-        WHERE ${mine}
+      `${accountEntrySelectSql(mine)}
         ORDER BY ${boardOrderBy(mode, 'e')}, e.id ASC
         LIMIT 1`
     )
@@ -700,10 +379,7 @@ export function accountBoardSummary(
 
   const latestRow = db
     .prepare(
-      `SELECT e.difficulty, e.score, e.duration_ms, e.metrics_json, e.content_version, e.created_at
-         FROM leaderboard_entries e
-         JOIN accounts a ON a.id = e.account_id
-        WHERE ${mine}
+      `${accountEntrySelectSql(mine)}
         ORDER BY e.created_at DESC, e.id DESC
         LIMIT 1`
     )

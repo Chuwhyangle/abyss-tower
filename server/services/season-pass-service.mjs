@@ -8,7 +8,7 @@ import {
   seasonPassArchivedSummary,
   seasonPassSummary,
 } from '../db/season_pass.mjs';
-import { seasonOf } from '../db/leaderboard.mjs';
+import { seasonOf } from '../db/leaderboard-sql.mjs';
 import {
   isSeasonClosed,
   isSeasonKey,

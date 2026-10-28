@@ -16,6 +16,7 @@ let db = null;
 let accounts = null;
 let audit = null;
 let leaderboard = null;
+let leaderboardSql = null;
 let RouteTable = null;
 let ProfileRoutes = null;
 
@@ -36,7 +37,7 @@ function shiftSeason(season, delta) {
 }
 
 function addEntry(accountId, season, score) {
-  const bounds = leaderboard.seasonBounds(season);
+  const bounds = leaderboardSql.seasonBounds(season);
   db.prepare(
     `INSERT INTO leaderboard_entries
        (board_key, account_id, display_name, run_id, difficulty, score, duration_ms,
@@ -81,6 +82,7 @@ before(async () => {
   accounts = await import('../server/db/accounts.mjs');
   audit = await import('../server/db/audit.mjs');
   leaderboard = await import('../server/db/leaderboard.mjs');
+  leaderboardSql = await import('../server/db/leaderboard-sql.mjs');
   ({ RouteTable } = await import('../server/routes/router.mjs'));
   ({ ProfileRoutes } = await import('../server/routes/profile.mjs'));
 });
@@ -183,7 +185,7 @@ test('meta 中的密码哈希与 token 在落库和读取时都被脱敏', () =>
 
 test('审计写入失败可见但不阻塞赛季结算主流程', () => {
   const player = makeAccount('settle');
-  const season = shiftSeason(leaderboard.seasonOf(Date.now()), -8);
+  const season = shiftSeason(leaderboardSql.seasonOf(Date.now()), -8);
   addEntry(player, season, 4321);
 
   const originalPrepare = db.prepare;

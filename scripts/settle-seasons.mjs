@@ -63,7 +63,9 @@ function requireDbFile(file) {
 async function loadLeaderboard(file) {
   // 必须在 import 前把连接指向目标库：导入会建立连接并执行迁移。
   process.env.DB_PATH = file;
-  return import('../server/db/leaderboard.mjs');
+  const sql = await import('../server/db/leaderboard-sql.mjs');
+  const repository = await import('../server/db/leaderboard.mjs');
+  return { ...sql, ...repository };
 }
 
 function resultStatus(result, dryRun) {

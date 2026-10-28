@@ -1,11 +1,7 @@
 // 远征接口：只做身份读取、参数解析、调用领域服务与响应序列化。
 import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-limit.mjs';
-import {
-  RunError,
-  RunService,
-  dailyAttemptsLeft,
-  weeklyAttemptsLeft,
-} from '../services/run-service.mjs';
+import { RunError, RunService } from '../services/run-service.mjs';
+import { dailyAttemptsLeft, weeklyAttemptsLeft } from '../services/run-rules.mjs';
 
 const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|relics|relic|events|event|finish|abandon))?$/;
 

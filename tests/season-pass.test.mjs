@@ -107,7 +107,7 @@ before(async () => {
   ({ seasonPassSummary, claimSeasonPassMilestone, getSeasonShards } = await import(
     '../server/db/season_pass.mjs'
   ));
-  ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard.mjs'));
+  ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard-sql.mjs'));
   ({ unlockedCosmetics } = await import('../server/db/achievements.mjs'));
 
   currentSeason = seasonOf();

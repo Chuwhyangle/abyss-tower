@@ -14,15 +14,13 @@ import {
   MAX_CURSOR_PAGE_SIZE,
   accountBoardSummary,
   countBoard,
-  isSeasonKey,
   listBoard,
   listEntries,
   listSeasons,
-  seasonBounds,
-  seasonOf,
   seasonResultFor,
-  validateLeaderboardEntry,
 } from '../db/leaderboard.mjs';
+import { isSeasonKey, seasonBounds, seasonOf } from '../db/leaderboard-sql.mjs';
+import { validateLeaderboardEntry } from '../db/leaderboard-validate.mjs';
 
 const DEFAULT_SIZE = 20;
 // 已知榜单模式；未识别的取值一律落到普通榜，与旧接口的兜底口径一致。

@@ -311,7 +311,8 @@ async function commandSettleSeason(season, opts) {
   const file = requireDbFile(dbPathFor(opts));
   // 复用服务端结算逻辑：必须在 import 前把连接指向目标库（导入会执行迁移）。
   process.env.DB_PATH = file;
-  const { isSeasonKey, settleSeason } = await import('../server/db/leaderboard.mjs');
+  const { isSeasonKey } = await import('../server/db/leaderboard-sql.mjs');
+  const { settleSeason } = await import('../server/db/leaderboard.mjs');
   if (!isSeasonKey(season)) throw new OpsError(`非法赛季：${season}（应为 YYYY-MM）`);
   return settleSeason(season, { dryRun: !opts.yes });
 }

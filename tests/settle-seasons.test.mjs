@@ -17,6 +17,7 @@ process.env.DB_BACKUP = '0';
 let db = null;
 let accounts = null;
 let leaderboard = null;
+let leaderboardSql = null;
 
 const now = Date.now();
 const suffix = now.toString(36);
@@ -32,7 +33,7 @@ function shiftSeason(season, delta) {
 }
 
 function seasonMidpoint(season) {
-  const bounds = leaderboard.seasonBounds(season);
+  const bounds = leaderboardSql.seasonBounds(season);
   return bounds.start + 12 * 60 * 60 * 1000;
 }
 
@@ -84,8 +85,9 @@ before(async () => {
   db = index.db;
   accounts = await import('../server/db/accounts.mjs');
   leaderboard = await import('../server/db/leaderboard.mjs');
+  leaderboardSql = await import('../server/db/leaderboard-sql.mjs');
 
-  currentSeason = leaderboard.seasonOf(now);
+  currentSeason = leaderboardSql.seasonOf(now);
   dryRunSeason = shiftSeason(currentSeason, -2);
   failingSeason = shiftSeason(currentSeason, -3);
 });
