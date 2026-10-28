@@ -319,8 +319,8 @@ test('同种子同布局：低配/高配战斗状态哈希一致', () => {
 // 真实的命中绘制函数（drawHitHighlight / drawSharpHitStar）画进 RgbaImage，
 // 再复用 scripts/lib/visual-metrics.mjs 的剪影覆盖率与 ΔE 工具。
 //
-// 端到端记录（2026-10-28，combat 桌面指标帧；采集脚本 /tmp/hit-metrics/measure.mjs 与
-// flash-isolate.mjs，跑法 `LANG=zh_CN.UTF-8 node <script> <checkout>`）：
+// 端到端记录（2026-10-28，combat 桌面指标帧；一次性采集脚本 = tests/visual-scenes.mjs 的
+// capture() + toScreenBoxes() + 下面的 edgeDensity 同款公式，跑法 LANG=zh_CN.UTF-8）：
 //   3b8e1fd（评审 before，整身闪白 + 旧六芒星）：
 //     合成帧剪影覆盖率 0.5989 · 受击层剪影覆盖率 0.5827 · 命中区边缘密度 0.2257 · 全画布 0.0346
 //   6cb6e17（修复前 HEAD：整身闪白，武器命中没有星芒）：
