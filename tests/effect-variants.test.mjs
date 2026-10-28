@@ -10,6 +10,7 @@ import {
   EFFECT_PROFILES,
   EFFECT_VARIANTS,
   EffectRenderer,
+  SHARP_HIT_STAR,
   classifyEffect,
   eventVariant,
 } from '../public/js/render/effect-renderer.js';
@@ -132,7 +133,7 @@ test('特效层不引入第三方依赖，也不会整屏覆盖', () => {
 });
 
 function makeCtx() {
-  const calls = { save: 0, arc: 0, moveTo: 0, drawImage: 0, fillRect: 0, setLineDash: 0 };
+  const calls = { save: 0, arc: 0, moveTo: 0, lineTo: 0, drawImage: 0, fillRect: 0, setLineDash: 0 };
   const ctx = {
     calls,
     save() { calls.save++; },
@@ -142,7 +143,7 @@ function makeCtx() {
     arc() { calls.arc++; },
     ellipse() {},
     moveTo() { calls.moveTo++; },
-    lineTo() {},
+    lineTo() { calls.lineTo++; },
     stroke() {},
     fill() {},
     translate() {},
@@ -181,6 +182,26 @@ test('渲染循环：低配跳过进化，高配绘制', () => {
   const high = renderScene(effects, QUALITY_PRESETS.high);
   assert.equal(low.arc, 0, '低配不绘制进化环');
   assert.ok(high.arc > 0, '高配应绘制进化粒子/环');
+});
+
+test('命中火花：武器命中任何档位都画满锐利星芒（低配不消失）', () => {
+  // 带武器签名的火花：武器形态提供颜色语言，星芒提供锐利切分，两者叠加。
+  const armed = { kind: 'spark', x: 4, y: 4, ttl: 0.15, maxTtl: 0.15, color: '#ffe4b0', weapon: 'arrow' };
+  const low = renderScene([armed], QUALITY_PRESETS.low);
+  const high = renderScene([armed], QUALITY_PRESETS.high);
+  assert.ok(low.lineTo >= SHARP_HIT_STAR.rays, `低配星芒缺失：lineTo ${low.lineTo}`);
+  assert.ok(high.lineTo >= SHARP_HIT_STAR.rays, `高配星芒缺失：lineTo ${high.lineTo}`);
+
+  // 无 weapon 的旧火花同样保留同一套星芒（线数沿用历史的档位缩放）。
+  const plain = { kind: 'spark', x: 4, y: 4, ttl: 0.15, maxTtl: 0.15, color: '#ffe4b0' };
+  const legacyLow = renderScene([plain], QUALITY_PRESETS.low);
+  const legacyHigh = renderScene([plain], QUALITY_PRESETS.high);
+  assert.ok(legacyLow.lineTo >= 1, '旧火花低配也保留星芒');
+  assert.ok(legacyHigh.lineTo >= SHARP_HIT_STAR.rays, `旧火花高配星芒缺失：lineTo ${legacyHigh.lineTo}`);
+
+  // 源码级：两条分支都走同一个星芒实现，不各自复制几何。
+  assert.match(EFFECT_SRC, /drawSharpHitStar\(g, x, y, p, fade, \{ color: variant\.accent \}\)/);
+  assert.match(EFFECT_SRC, /drawSharpHitStar\(g, x, y, p, fade, \{ color, rays: scaledCount\(SHARP_HIT_STAR\.rays, profile\) \}\)/);
 });
 
 function runSim(effectsLevel) {
