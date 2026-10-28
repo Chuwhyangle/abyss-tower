@@ -1,7 +1,7 @@
 ---
 id: gap-feel-capture-scenarios
 title: 打击感证据采集：时间断言 + 事件触发帧与全档位场景
-status: ready
+status: done
 labels:
   - gap
 parent: null
