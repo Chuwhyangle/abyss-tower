@@ -312,3 +312,9 @@ GOAL-005 / GOAL-006 的任务池已经由 goal driver 铺满（命中事件、hi
 | AC-029 美术语义评审记录 | gap-art-review-record | todo | `node scripts/art-review.mjs --check` | `docs/ART_REVIEW.md` |
 | AC-030 命中类别层 | gap-impact-class-feedback | todo | node --test tests/impact-class-feedback.test.mjs | PRD §4.12、TECH §4.6、本文 §3.2 |
 | AC-031 场景精灵接入 | gap-scene-sprite-adoption | todo | node --test tests/scene-sprites.test.mjs | TECH §5.5.3、本文 §4.4 |
+
+AC-020（打击感评审记录）在主任务之外还有一组立案中的支撑任务，同属该 AC 的证据面：
+gap-feel-capture-scenarios、gap-feel-floater-contrast、gap-feel-hit-silhouette、
+gap-feel-review-rereview、gap-feel-sim-diff-evidence。支撑任务只产出各自证据，
+评审结论仍由主任务 gap-feel-review-record 统一出具。
+
