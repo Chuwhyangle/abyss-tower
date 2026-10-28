@@ -67,20 +67,20 @@ GOAL-009 的 AC-044（重构不改变行为：`npm test` exit 0）目前没有�
 
 ## AC
 
-- [ ] `npm test` exit 0（改动前 1678/1679，改动后全绿）
-- [ ] `npm run check:docs` exit 0，且输出里不再出现 `docs/PHASE_REFACTOR.md` 的「代码路径不存在」
-- [ ] `node --test tests/docs-consistency.test.mjs` 全绿，新增用例覆盖：块内未落地产物不报、块外同一路径必报、未闭合/嵌套/孤 `planned-end` 各 exit 1
-- [ ] 负对照证明门禁没被整体削弱：块内相对链接目标缺失、块内 `npm run <不存在脚本>` 仍然返回 problem
-- [ ] `docs/PHASE_REFACTOR.md` 的 14 处计划产物引用全部位于 planned 块内，块外无缺失路径；块标记外的真实引用仍受校验
-- [ ] `git diff` 只涉及 Touches 的四个文件，无运行时/玩家可见代码改动
+- [x] `npm test` exit 0（改动前 1678/1679，改动后全绿）
+- [x] `npm run check:docs` exit 0，且输出里不再出现 `docs/PHASE_REFACTOR.md` 的「代码路径不存在」
+- [x] `node --test tests/docs-consistency.test.mjs` 全绿，新增用例覆盖：块内未落地产物不报、块外同一路径必报、未闭合/嵌套/孤 `planned-end` 各 exit 1
+- [x] 负对照证明门禁没被整体削弱：块内相对链接目标缺失、块内 `npm run <不存在脚本>` 仍然返回 problem
+- [x] `docs/PHASE_REFACTOR.md` 的 14 处计划产物引用全部位于 planned 块内，块外无缺失路径；块标记外的真实引用仍受校验
+- [x] `git diff` 只涉及 Touches 的四个文件，无运行时/玩家可见代码改动
 
 ## DoD
 
-- [ ] 标记语义只在 `scripts/docs-consistency.mjs` 定义一处（常量 + 文件头注释），`tests/docs-phase-sync.test.mjs` 复用的 `analyzeDoc(root, doc, scripts)` 签名不变
-- [ ] 三种结构错误 fail-closed（不是 warning、不是静默通过），每条都有 fixture 用例落盘
-- [ ] `npm test` 在同一棵树上连续两次 exit 0，用例数只增不减
-- [ ] 计划块带日落：`docs/PHASE_REFACTOR.md` §6 的 R6 条目写明收口时删除全部 planned 块并回归全量校验；本任务 Notes 记下同一约定，供未来 `docs/PHASE_<主题>.md` 复用
-- [ ] 零第三方依赖、Node ≥ 22.5 原生实现；只动文档与文档检查脚本，不改任何运行时行为
+- [x] 标记语义只在 `scripts/docs-consistency.mjs` 定义一处（常量 + 文件头注释），`tests/docs-phase-sync.test.mjs` 复用的 `analyzeDoc(root, doc, scripts)` 签名不变
+- [x] 三种结构错误 fail-closed（不是 warning、不是静默通过），每条都有 fixture 用例落盘
+- [x] `npm test` 在同一棵树上连续两次 exit 0，用例数只增不减
+- [x] 计划块带日落：`docs/PHASE_REFACTOR.md` §6 的 R6 条目写明收口时删除全部 planned 块并回归全量校验；本任务 Notes 记下同一约定，供未来 `docs/PHASE_<主题>.md` 复用
+- [x] 零第三方依赖、Node ≥ 22.5 原生实现；只动文档与文档检查脚本，不改任何运行时行为
 
 ## Touches
 
@@ -88,3 +88,46 @@ GOAL-009 的 AC-044（重构不改变行为：`npm test` exit 0）目前没有�
 - `tests/docs-consistency.test.mjs`
 - `docs/PHASE_REFACTOR.md`
 - `tasks/gap-ac-044-full-suite-green.md`
+
+## Notes
+
+### 实现要点
+
+- `scripts/docs-consistency.mjs`：`PLANNED_START` / `PLANNED_END` 两个常量 + 文件头注释是标记语义的唯一
+  定义处；`scanLine` 增加 `planned` 入参，块内只跳过 `checkCodePath`，`checkLink` / `checkNpmScript` 照旧；
+  `analyzeDoc` 在围栏状态之外按行结算 planned 状态，`analyzeDoc(root, docRel, scripts)` 签名未变
+  （`tests/docs-phase-sync.test.mjs` 的调用方零改动）。围栏状态**先**结算，围栏内的标记是字面文本。
+  三种结构错误各记一条 problem 并让 `check:docs` exit 1。
+- `docs/PHASE_REFACTOR.md`：§1 变更纪律、§2 目标 3、§5 整张预算表、§6 全部分期、§7 整张门禁表共 5 个
+  planned 块；R6 新增「计划块日落」条目。
+
+### 复用约定（未来 `docs/PHASE_<主题>.md` 照此办）
+
+1. 语法：`<!-- docs-consistency:planned-start -->` … `<!-- docs-consistency:planned-end -->`。语义只由
+   `scripts/docs-consistency.mjs` 定义，别在文档里另行发明第三种豁免。
+2. 语义边界：块内**只**豁免「反引号代码路径存在性」。相对链接、`npm run <脚本>`（脚本必须已在
+   `package.json`）照旧校验——所以计划块里能写 `npm run check:xxx`（已存在），不能写待创建的脚本名。
+3. fail-closed：嵌套 start / 孤 end / 文档结束未闭合，各记一条 problem 并 exit 1。
+4. **块内正文不要逐字写出两个标记常量**：字面出现会被状态机当成真的嵌套/提前闭合（实测踩过一次）。
+   要提到标记就写「计划块 / planned 块」，或把提及放进围栏代码块。
+5. **表格不能只包住某一行**：HTML 注释行会打断 Markdown 表格渲染。要包就包整张表——start/end 放在表格
+   上下的独立行（本任务的 §5/§7 就是整表包裹）。
+6. 日落：R6 收口时删除全部计划块（含标记行），回归 100% 存在性校验。阶段文档的豁免是临时的，不是常态。
+
+### 验证证据（2026-10-28，worktree `task/gap-ac-044-full-suite-green`，已 merge develop）
+
+- `npm test`：改动前 1678/1679（1 例失败），改动后 **1684/1684 连续两次 exit 0**。
+- `npm run check:docs` exit 0（21 个文件），输出中不再出现 `docs/PHASE_REFACTOR.md` 的「代码路径不存在」；
+  改动前同命令 exit 1、14 处失效。
+- `node --test tests/docs-consistency.test.mjs` 11/11 通过（原 6 例 + 新增 5 例）。
+- CLI 级负对照（`--root` 临时 fixture）：未闭合 / 嵌套 / 孤 end 各 exit 1；块内缺失路径不报、块外同一
+  路径 exit 1；块内缺失相对链接与不存在的 `npm run` 仍各记一条 problem。
+- 变异验证（证明用例有牙）：去掉 `!planned` 守卫（退回旧口径）→ 5 例转红；把 planned 行整行跳过（连链接
+  与 npm 一起豁免）→ 1 例转红；删掉三种结构错误的 push → 1 例转红。
+- 14 处计划态引用全部位于 5 个 planned 块内，且这 8 个产物在树上确实不存在（`structure-budget.mjs`、
+  `structure-budget.allow.d/`、`tests/structure-budget.test.mjs`、`visual-parity.mjs`、
+  `docs/reviews/refactor-baseline.json`、`check-sim-determinism.mjs`、`docs/reviews/sim-determinism.json`、
+  `tests/lib/visual/`），所以转绿确由块造成；块外仍有 4 个仓库路径 token（`tests/`、`public/js/`、
+  `scripts/`、`server/`）实际受校验，证明门禁未被整篇削弱。
+- 顺带：`npm run check:syntax`、`npm run check:style`（215 文件）、`node scripts/check-doc-ownership.mjs`
+  均 exit 0；anti-drift Touches 检查 OK（3 个实际改动文件全在 Touches 内）。
