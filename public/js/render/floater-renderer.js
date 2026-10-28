@@ -3,8 +3,10 @@
 import { TILE } from '../shared/data.js';
 import {
   BIG_SIZE_BONUS,
+  FLOATER_CASING,
   FLOATER_LAYERS,
   STACK_STEP,
+  floaterAlpha,
   floaterBudget,
   planFloaterFrame,
 } from '../shared/floaters.js';
@@ -35,15 +37,16 @@ export class FloaterRenderer {
     g.textBaseline = 'middle';
     for (const floater of draw) {
       const layer = FLOATER_LAYERS[floater.layer] || FLOATER_LAYERS.damage;
-      const alpha = Math.max(0, Math.min(1, floater.ttl / floater.maxTtl));
+      // 淡出到下限就不再变暗：尾段仍能读出数字，而不是变灰后突然消失。
+      const alpha = floaterAlpha(floater);
       const x = floater.x * T;
       // 同层近邻按 stack 逐级上移，避免数字叠成一坨。
       const y = floater.y * T - (floater.stack || 0) * STACK_STEP * T;
       const size = layer.size + (floater.big ? BIG_SIZE_BONUS : 0);
       g.globalAlpha = alpha;
       g.font = `${layer.weight} ${size}px "DejaVu Sans Mono", ui-monospace, monospace`;
-      g.lineWidth = 3;
-      g.strokeStyle = 'rgba(0, 0, 0, 0.75)';
+      g.lineWidth = FLOATER_CASING.width;
+      g.strokeStyle = FLOATER_CASING.color;
       g.strokeText(floater.text, x, y);
       g.fillStyle = floater.color || layer.color;
       g.fillText(floater.text, x, y);
