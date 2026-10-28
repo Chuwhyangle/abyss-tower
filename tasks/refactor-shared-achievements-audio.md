@@ -1,7 +1,7 @@
 ---
 id: refactor-shared-achievements-audio
 title: 重构 R4：拆分 achievements 与 audio
-status: todo
+status: ready
 labels:
   - gap
   - refactor
