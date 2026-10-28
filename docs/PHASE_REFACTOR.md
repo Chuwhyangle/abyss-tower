@@ -138,8 +138,12 @@
 | AC-046 | 模拟确定性哈希与重构前逐字节一致 | `node scripts/check-sim-determinism.mjs --check` |
 | AC-047 | 视觉像素与重构前逐帧一致 + 视觉套件通过 | `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` |
 | AC-048 | 性能预算 | `npm run perf:budget` |
-| AC-049 | 文档所有权与本文同步 | `node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs` |
+| AC-049 | 文档所有权与本文同步 | `npm run check:doc-ownership` |
 <!-- docs-consistency:planned-end -->
+
+本表由 `tests/phase-refactor-sync.test.mjs` 机械钉住：AC-043…AC-049 每行各一次且命令非空，open 任务的 `goal_ac`
+必须落在表内 AC（只判 AC 行、不要求任务 id 逐字进表），AC-049 的命令单元格只引用 `npm run check:doc-ownership`
+——判据字面量只在 `package.json` 定义一次，表里不再手抄两条命令。
 
 ## 8. 风险与回滚
 
