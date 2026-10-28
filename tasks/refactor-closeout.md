@@ -1,7 +1,7 @@
 ---
 id: refactor-closeout
 title: 重构 R6：收口剩余长文件并清空债务登记
-status: todo
+status: ready
 labels:
   - gap
   - refactor
