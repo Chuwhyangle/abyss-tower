@@ -166,8 +166,40 @@ export const TEST_MAP = [
     'tests/enemies-depth.test.mjs',
     'tests/sprite-coverage.test.mjs',
   ] },
+  { match: 'public/js/render/enemy-data.js', tests: [
+    'tests/hitstop.test.mjs',
+    'tests/render-animations.test.mjs',
+    'tests/render-visuals.test.mjs',
+    'tests/skin-budget.test.mjs',
+  ] },
+  { match: 'public/js/render/enemy-feedback.js', tests: [
+    'tests/render-animations.test.mjs',
+    'tests/render-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/enemy-boss.js', tests: ['tests/enemies-depth.test.mjs'] },
+  { match: 'public/js/render/enemy-body.js', tests: [
+    'tests/enemies-depth.test.mjs',
+    'tests/skin-budget.test.mjs',
+  ] },
   { match: 'public/js/render/projectile-renderer.js', tests: ['tests/render-budget.test.mjs'] },
   { match: 'public/js/render/skill-renderer.js', tests: [
+    'tests/render-budget.test.mjs',
+    'tests/skill-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/skill-data.js', tests: [
+    'tests/render-budget.test.mjs',
+    'tests/skill-style.test.mjs',
+    'tests/skill-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/skill-warnings.js', tests: [
+    'tests/skill-style.test.mjs',
+    'tests/skill-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/skill-draw.js', tests: [
+    'tests/render-budget.test.mjs',
+    'tests/skill-visuals.test.mjs',
+  ] },
+  { match: 'public/js/render/skill-particles.js', tests: [
     'tests/render-budget.test.mjs',
     'tests/skill-visuals.test.mjs',
   ] },

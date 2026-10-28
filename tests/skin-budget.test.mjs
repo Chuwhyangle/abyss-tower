@@ -5,11 +5,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
+import { EnemyRenderer } from '../public/js/render/enemy-renderer.js';
 import {
-  EnemyRenderer,
   SKIN_OUTLINE_BUDGET as ENEMY_SKIN_BUDGET,
   skinOutlineBudget as enemySkinOutlineBudget,
-} from '../public/js/render/enemy-renderer.js';
+} from '../public/js/render/enemy-data.js';
 import {
   TowerRenderer,
   SKIN_OUTLINE_BUDGET as TOWER_SKIN_BUDGET,
@@ -29,10 +29,9 @@ import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
-const ENEMY_SRC = fs.readFileSync(
-  new URL('../public/js/render/enemy-renderer.js', import.meta.url),
-  'utf8'
-);
+const ENEMY_SRC = ['enemy-renderer', 'enemy-data', 'enemy-feedback', 'enemy-boss', 'enemy-body']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 const TOWER_SRC = fs.readFileSync(
   new URL('../public/js/render/tower-renderer.js', import.meta.url),
   'utf8'

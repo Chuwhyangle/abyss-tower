@@ -23,10 +23,9 @@ const SRC = fs.readFileSync(
   new URL('../public/js/render/projectile-renderer.js', import.meta.url),
   'utf8'
 );
-const SKILL_SRC = fs.readFileSync(
-  new URL('../public/js/render/skill-renderer.js', import.meta.url),
-  'utf8'
-);
+const SKILL_SRC = ['skill-renderer', 'skill-data', 'skill-warnings', 'skill-draw', 'skill-particles']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 
 // 技能渲染在 Node 下不碰 document（纹理预烘焙在无 DOM 时跳过），可直接实例化。
 function makeSkillGame(overrides = {}) {

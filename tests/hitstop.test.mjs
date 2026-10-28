@@ -21,7 +21,7 @@ import {
   resolveMotionBudget,
   shakeImpulseFor,
 } from '../public/js/render/camera-feedback.js';
-import { ENEMY_ANIM_VARIANTS } from '../public/js/render/enemy-renderer.js';
+import { ENEMY_ANIM_VARIANTS } from '../public/js/render/enemy-data.js';
 
 const SOURCE = {
   camera: fs.readFileSync(

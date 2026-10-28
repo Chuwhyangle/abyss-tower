@@ -1,6 +1,0 @@
-{
-  "entries": [
-    { "path": "public/js/render/skill-renderer.js", "maxLines": 1396, "owner": "refactor-render-skill-enemy" },
-    { "path": "public/js/render/enemy-renderer.js", "maxLines": 1081, "owner": "refactor-render-skill-enemy" }
-  ]
-}

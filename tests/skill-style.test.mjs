@@ -12,13 +12,12 @@ import {
   SKILL_SEMANTICS,
   SKILL_WARNING_STYLE,
 } from '../public/js/render/palette.js';
+import { SKILL_QUALITY_PROFILES, qualityProfile } from '../public/js/render/skill-data.js';
 import {
-  SKILL_QUALITY_PROFILES,
   SKILL_WARNING_PROFILES,
   SKILL_WARNING_REGISTRY,
-  qualityProfile,
   warningProfile,
-} from '../public/js/render/skill-renderer.js';
+} from '../public/js/render/skill-warnings.js';
 import { BOSS_SKILLS, SKILL_ORDER } from '../public/js/shared/data.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
@@ -26,7 +25,9 @@ import { generateWave } from '../public/js/shared/waves.js';
 
 const ROOT = new URL('../', import.meta.url);
 const readSource = (relative) => fs.readFileSync(new URL(relative, ROOT), 'utf8');
-const SKILL_SRC = readSource('public/js/render/skill-renderer.js');
+const SKILL_SRC = ['skill-renderer', 'skill-data', 'skill-warnings', 'skill-draw', 'skill-particles']
+  .map((name) => readSource(`public/js/render/${name}.js`))
+  .join('\n');
 const EFFECT_SRC = readSource('public/js/render/effect-renderer.js');
 const PALETTE_SRC = readSource('public/js/render/palette.js');
 const ART_TOKENS_SRC = readSource('public/js/render/art-tokens.js');

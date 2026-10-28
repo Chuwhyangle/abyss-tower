@@ -19,12 +19,8 @@ import {
   portalSparkCount,
 } from '../public/js/render/portal-renderer.js';
 import { biomePalette } from '../public/js/render/palette.js';
-import {
-  ENEMY_ANIM_VARIANTS,
-  HIT_HIGHLIGHT,
-  drawHitHighlight,
-  hitHighlightAlpha,
-} from '../public/js/render/enemy-renderer.js';
+import { ENEMY_ANIM_VARIANTS, HIT_HIGHLIGHT } from '../public/js/render/enemy-data.js';
+import { drawHitHighlight, hitHighlightAlpha } from '../public/js/render/enemy-feedback.js';
 import { SHARP_HIT_STAR, drawSharpHitStar } from '../public/js/render/effect-renderer.js';
 import { resolveMotionBudget } from '../public/js/render/camera-feedback.js';
 import { RgbaImage, fillRect } from '../scripts/lib/png.mjs';
@@ -654,17 +650,16 @@ test('reduced-motion 下命中仍有非运动反馈（固定帧见证 + 源码�
   assert.notEqual(pixelHash(hit), pixelHash(clean));
 
   const enemySource = fs.readFileSync(
-    new URL('../public/js/render/enemy-renderer.js', import.meta.url),
+    new URL('../public/js/render/enemy-feedback.js', import.meta.url),
     'utf8'
   );
   const effectSource = fs.readFileSync(
     new URL('../public/js/render/effect-renderer.js', import.meta.url),
     'utf8'
   );
-  const highlightBody = enemySource.slice(
-    enemySource.indexOf('export function drawHitHighlight'),
-    enemySource.indexOf('export class EnemyRenderer')
-  );
+  const highlightStart = enemySource.indexOf('export function drawHitHighlight');
+  assert.ok(highlightStart > 0, '受击高光实现缺失');
+  const highlightBody = enemySource.slice(highlightStart);
   const starBody = effectSource.slice(
     effectSource.indexOf('export function drawSharpHitStar'),
     effectSource.indexOf('// 返回 { p, fade }')

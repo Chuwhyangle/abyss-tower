@@ -5,15 +5,15 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 
+import { EnemyRenderer } from '../public/js/render/enemy-renderer.js';
 import {
-  EnemyRenderer,
   ENEMY_ANIMATIONS,
   ENEMY_ANIM_VARIANTS,
   ENEMY_WALK_PROFILES,
   enemyAnimVariant,
   enemyWalkProfile,
-  hitFlashAlpha,
-} from '../public/js/render/enemy-renderer.js';
+} from '../public/js/render/enemy-data.js';
+import { hitFlashAlpha } from '../public/js/render/enemy-feedback.js';
 import {
   TowerRenderer,
   TOWER_ANIMATIONS,
@@ -32,10 +32,10 @@ import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
 const TIERS = ['off', 'light', 'full'];
-const ENEMY_SRC = fs.readFileSync(
-  new URL('../public/js/render/enemy-renderer.js', import.meta.url),
-  'utf8'
-);
+// 敌人渲染按职责拆成多个模块：源码级契约（无素材、无写回、相对 import）覆盖整组。
+const ENEMY_SRC = ['enemy-renderer', 'enemy-data', 'enemy-feedback', 'enemy-boss', 'enemy-body']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 const TOWER_SRC = fs.readFileSync(
   new URL('../public/js/render/tower-renderer.js', import.meta.url),
   'utf8'

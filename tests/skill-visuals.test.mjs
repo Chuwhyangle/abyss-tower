@@ -3,23 +3,22 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { SKILL_QUALITY_PROFILES, qualityProfile } from '../public/js/render/skill-data.js';
 import {
-  SKILL_QUALITY_PROFILES,
   SKILL_WARNING_PROFILES,
-  SkillRenderer,
-  qualityProfile,
   warningCountdown,
   warningProfile,
-} from '../public/js/render/skill-renderer.js';
+} from '../public/js/render/skill-warnings.js';
+import { SkillRenderer } from '../public/js/render/skill-renderer.js';
 import { SKILL_ORDER, TILE, skillStats } from '../public/js/shared/data.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 
-const SRC = fs.readFileSync(
-  new URL('../public/js/render/skill-renderer.js', import.meta.url),
-  'utf8'
-);
+// 技能渲染按职责拆成多个模块：源码级契约（无 sim 依赖、无滤镜、逐帧零分配）覆盖整组。
+const SRC = ['skill-renderer', 'skill-data', 'skill-warnings', 'skill-draw', 'skill-particles']
+  .map((name) => fs.readFileSync(new URL(`../public/js/render/${name}.js`, import.meta.url), 'utf8'))
+  .join('\n');
 const RENDER_SRC = fs.readFileSync(new URL('../public/js/render.js', import.meta.url), 'utf8');
 
 const SHAPES = ['ring', 'hex', 'star'];
