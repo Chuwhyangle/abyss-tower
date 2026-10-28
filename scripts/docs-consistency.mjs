@@ -7,7 +7,15 @@
 //   1. 相对链接 [文字](相对地址)——外部协议、协议相对地址与页内锚点跳过。
 //   2. 反引号中的代码路径——行内代码与围栏代码块，只校验以仓库顶层目录开头的路径。
 //   3. npm 命令——`npm run <脚本>` 与 `npm test` / `npm start` 等别名必须能在 package.json 找到。
-// 豁免：所在行包含 `docs-consistency:ignore` 时不检查该行（用于示例、模板与占位路径）。
+// 豁免（三种，粒度由细到粗）：
+//   - `docs-consistency:ignore`：所在行不检查（示例、模板与占位路径）。
+//   - `docs-consistency:ignore-file`：整篇文档不检查（归档的历史方案）。
+//   - `docs-consistency:planned-start` … `docs-consistency:planned-end`：**块级**豁免，且只豁免第 2 类
+//     （反引号代码路径的存在性）。块内的相对链接与 npm 脚本照旧校验，块外的路径照旧校验。
+//     用途：`docs/PHASE_<主题>.md` 是阶段的计划正本，必须能写出「将要在 X 创建 Y」，而这些产物在对应任务
+//     落地前并不存在。粒度是块而不是行，因为计划章节会被多个任务反复重写，逐行标记必然漏写。
+//     结构错误一律 fail-closed（各记一条 problem，不静默通过）：起始标记嵌套、结束标记没有起始、
+//     文档结束时块仍未闭合。标记行本身不当作正文扫描；围栏代码块内的标记按字面文本处理，不改变块状态。
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,6 +24,9 @@ export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 export const DOC_FILES = ['README.md', 'CONTRIBUTING.md'];
 export const IGNORE_MARKER = 'docs-consistency:ignore';
 export const IGNORE_FILE_MARKER = 'docs-consistency:ignore-file';
+// 计划块：块内只豁免「代码路径存在性」，链接与 npm 脚本仍然校验。语义见文件头注释。
+export const PLANNED_START = 'docs-consistency:planned-start';
+export const PLANNED_END = 'docs-consistency:planned-end';
 
 // gitignore 的运行时数据目录：文档会引用，但任何干净检出里都不存在，不属于仓库内容。
 export const RUNTIME_ROOTS = ['server/data', 'backups'];
@@ -128,7 +139,8 @@ function codeSegments(line, inFence) {
   return [...line.matchAll(INLINE_CODE_RE)].map((match) => match[1]);
 }
 
-function scanLine({ root, docRel, line, lineNo, inFence, scripts, problems }) {
+// planned 块内只跳过代码路径存在性这一项，链接与 npm 脚本照旧校验。
+function scanLine({ root, docRel, line, lineNo, inFence, planned, scripts, problems }) {
   if (line.includes(IGNORE_MARKER)) return;
 
   for (const match of line.matchAll(LINK_RE)) {
@@ -136,10 +148,12 @@ function scanLine({ root, docRel, line, lineNo, inFence, scripts, problems }) {
     if (problem) problems.push(`${docRel}:${lineNo}: ${problem}`);
   }
 
-  for (const segment of codeSegments(line, inFence)) {
-    for (const match of segment.matchAll(REPO_PATH_RE)) {
-      const problem = checkCodePath(root, match[1]);
-      if (problem) problems.push(`${docRel}:${lineNo}: ${problem}`);
+  if (!planned) {
+    for (const segment of codeSegments(line, inFence)) {
+      for (const match of segment.matchAll(REPO_PATH_RE)) {
+        const problem = checkCodePath(root, match[1]);
+        if (problem) problems.push(`${docRel}:${lineNo}: ${problem}`);
+      }
     }
   }
 
@@ -158,15 +172,33 @@ export function analyzeDoc(root, docRel, scripts) {
   const markdown = fs.readFileSync(path.join(root, docRel), 'utf8');
   if (markdown.includes(IGNORE_FILE_MARKER)) return [];
   const problems = [];
+  const lines = markdown.split('\n');
   let inFence = false;
-  markdown.split('\n').forEach((line, index) => {
+  let planned = false;
+  lines.forEach((line, index) => {
     const lineNo = index + 1;
+    // 围栏状态先结算：围栏代码块里的标记只是字面文本，不改变 planned 状态。
     if (FENCE_RE.test(line)) {
       inFence = !inFence;
       return;
     }
-    scanLine({ root, docRel, line, lineNo, inFence, scripts, problems });
+    const hasStart = !inFence && line.includes(PLANNED_START);
+    const hasEnd = !inFence && line.includes(PLANNED_END);
+    if (hasStart || hasEnd) {
+      if (hasStart) {
+        if (planned) problems.push(`${docRel}:${lineNo}: 计划块嵌套 -> ${PLANNED_START}`);
+        planned = true;
+      }
+      if (hasEnd) {
+        if (!planned) problems.push(`${docRel}:${lineNo}: 计划块缺少起始标记 -> ${PLANNED_END}`);
+        planned = false;
+      }
+      // 标记行本身不当正文扫描（它不指向任何产物）。
+      return;
+    }
+    scanLine({ root, docRel, line, lineNo, inFence, planned, scripts, problems });
   });
+  if (planned) problems.push(`${docRel}:${lines.length}: 计划块未闭合 -> ${PLANNED_START}`);
   return problems;
 }
 

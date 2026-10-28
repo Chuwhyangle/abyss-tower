@@ -2,7 +2,9 @@
 
 - 状态：**GOAL-009 计划正本**（2026-10-28）
 - 定位：本阶段拆分边界、结构预算与门禁口径的**唯一定义处**。实现任务按本文分片，不各自发明拆分方式。
+<!-- docs-consistency:planned-start — 计划态产物：落地前不存在，块内豁免「代码路径存在性」；链接与 npm 脚本照旧校验。R6 收口时删除全部计划块。 -->
 - 变更纪律：修改本文任一预算值或门禁口径，必须同时改 `scripts/structure-budget.mjs` 与对应测试；只改一处视为漂移。
+<!-- docs-consistency:planned-end -->
 - 相关正本：`CLAUDE.md`（开发约定：封装优先、每 5 个版本重构一次、子代理按文件所有权分工）。
 
 ---
@@ -37,7 +39,9 @@
 
 1. 运行时文件 ≤ 600 行、工具/测试文件 ≤ 800 行；数据表外提到独立 `*-data.js`（只含常量与纯查表函数，不 import 运行时模块）。
 2. 大模块按**职责**拆分：渲染器拆成「数据 / 几何与绘制原语 / 单实体绘制 / 编排」四类；服务拆成「规则 / 持久化 / 序列化」。
+<!-- docs-consistency:planned-start -->
 3. 新增**结构门禁** `scripts/structure-budget.mjs`，并在测试中生效：行数预算、导入无环、数据模块纯度。
+<!-- docs-consistency:planned-end -->
 4. 新增**行为不变**的可执行见证：模拟确定性哈希、视觉像素哈希、全量测试、性能预算。
 
 ## 3. 非目标
@@ -58,6 +62,7 @@
 
 ## 5. 结构预算（门禁口径）
 
+<!-- docs-consistency:planned-start — 预算表与债务登记目录由 R0 创建，落地前不存在。R6 收口时删除本块。 -->
 | 项 | 阈值 | 说明 |
 | --- | --- | --- |
 | 运行时单文件行数 | ≤ 600 | `public/js` 与 `server` 下 `.js/.mjs` |
@@ -66,9 +71,11 @@
 | 导入环 | 0 | 从各入口构建静态 import 图，Tarjan 判环 |
 | 数据模块纯度 | 0 违规 | 数据模块不得 import 运行时模块 |
 | 债务登记 | `scripts/structure-budget.allow.d/<task-id>.json` | 每个任务一个文件、互不冲突；条目 = `{path, maxLines, owner}`，任务完成即删自己的文件，最终目录必须为空（数据豁免除外） |
+<!-- docs-consistency:planned-end -->
 
 ## 6. 分期与文件所有权
 
+<!-- docs-consistency:planned-start — 本节按任务 id 指派尚未创建的产物，落地前这些路径不存在。R6 收口时删除本块。 -->
 > 依赖关系：R0 → (R1 ∥ R2 ∥ R3 ∥ R4 ∥ R5) → R6。同一阶段的任务文件互不重叠。
 
 ### R0 · 基线、门禁与见证工具（`refactor-baseline-and-structure-gate`）
@@ -102,9 +109,14 @@
 ### R6 · 收口（`refactor-closeout`）
 - 清空 `structure-budget.allow.d/`（除数据豁免）；拆 `background-renderer`(727)、`sprite-pipeline`(649)、`relic-codex-ui`(632)；更新本文实测数字；
   跑满门禁（测试、静态、确定性、视觉、性能）。
+- **计划块日落**：收口时删除本文全部计划块（含起止标记行），回归 100% 存在性校验
+  （`npm run check:docs` 在无块状态下 exit 0）——此时 §5/§6/§7 的产物都已落地，计划态豁免失去存在理由。
+
+<!-- docs-consistency:planned-end -->
 
 ## 7. 门禁与 GOAL AC 映射
 
+<!-- docs-consistency:planned-start — 判据命令指向 R0 产物，落地前不存在。R6 收口时删除本块。 -->
 | AC | 判据 | 命令 |
 | --- | --- | --- |
 | AC-043 | 结构预算通过、债务登记为空（数据豁免除外） | `node scripts/structure-budget.mjs --check` |
@@ -114,6 +126,7 @@
 | AC-047 | 视觉像素与重构前逐帧一致 + 视觉套件通过 | `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` |
 | AC-048 | 性能预算 | `npm run perf:budget` |
 | AC-049 | 文档所有权与本文同步 | `node scripts/check-doc-ownership.mjs && node scripts/docs-consistency.mjs` |
+<!-- docs-consistency:planned-end -->
 
 ## 8. 风险与回滚
 

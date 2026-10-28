@@ -1,4 +1,4 @@
-// 文档一致性检查的判定：链接 / 代码路径 / npm 脚本三类失效、行号输出与豁免标记。
+// 文档一致性检查的判定：链接 / 代码路径 / npm 脚本三类失效、行号输出与豁免标记（行 / 整篇 / planned 块）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,9 +13,15 @@ import {
   normalizeCodePath,
   IGNORE_FILE_MARKER,
   IGNORE_MARKER,
+  PLANNED_END,
+  PLANNED_START,
+  REPO_DIRS,
 } from '../scripts/docs-consistency.mjs';
 
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
+const PLANNED_OPEN = `<!-- ${PLANNED_START} -->`;
+const PLANNED_CLOSE = `<!-- ${PLANNED_END} -->`;
+const FENCE = '```';
 
 function makeFixture(t, files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-docs-consistency-'));
@@ -128,6 +134,176 @@ test('判定函数直接行为：链接、路径与脚本', (t) => {
   assert.match(checkNpmScript(scripts, 'missing'), /npm 脚本不存在/);
   assert.equal(normalizeCodePath('server/index.mjs,'), 'server/index.mjs');
   assert.equal(normalizeCodePath('server/**.mjs'), null);
+});
+
+test('planned 块内不判代码路径存在性，块外同一路径照旧报', (t) => {
+  const root = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': [
+      '# 示例',
+      PLANNED_OPEN,
+      '计划新增 `public/js/planned.js`。',
+      PLANNED_CLOSE,
+      '正文 `public/js/planned.js`。',
+      '',
+    ].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+  });
+
+  const result = analyzeDocs(root);
+  assert.deepEqual(result.problems, ['README.md:5: 代码路径不存在 -> public/js/planned.js']);
+});
+
+test('planned 块内相对链接目标缺失与不存在的 npm 脚本仍然报（只豁免路径存在性）', (t) => {
+  const root = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': [
+      PLANNED_OPEN,
+      '[提案](docs/PROPOSED.md) 计划新增 `public/js/planned.js`，运行 npm run proposed。',
+      PLANNED_CLOSE,
+      '',
+    ].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+  });
+
+  const result = analyzeDocs(root);
+  assert.deepEqual(result.problems, [
+    'README.md:2: 链接目标不存在 -> docs/PROPOSED.md',
+    'README.md:2: npm 脚本不存在 -> proposed',
+  ]);
+});
+
+test('三处 planned 结构错误 fail-closed：未闭合 / 嵌套 / 孤 end', (t) => {
+  const cases = [
+    {
+      name: '未闭合',
+      lines: [PLANNED_OPEN, '计划新增 `public/js/planned.js`。'],
+      pattern: /计划块未闭合/,
+    },
+    {
+      name: '嵌套',
+      lines: [PLANNED_OPEN, '第一层', PLANNED_OPEN, '第二层', PLANNED_CLOSE],
+      pattern: /计划块嵌套/,
+    },
+    {
+      name: '孤 planned-end',
+      lines: ['正文', PLANNED_CLOSE],
+      pattern: /计划块缺少起始标记/,
+    },
+  ];
+
+  for (const { name, lines, pattern } of cases) {
+    const root = makeFixture(t, {
+      'package.json': PACKAGE,
+      'README.md': [...lines, ''].join('\n'),
+      'docs/GUIDE.md': '# 手册\n',
+    });
+    const result = analyzeDocs(root);
+    assert.equal(result.ok, false, `${name} 必须让 check:docs 转红`);
+    assert.equal(result.problems.length, 1, `${name}: ${result.problems.join('\n')}`);
+    assert.match(result.problems[0], pattern);
+  }
+});
+
+test('围栏代码块内的 planned 标记按字面文本处理，不改变块状态', (t) => {
+  const root = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': [
+      PLANNED_OPEN,
+      FENCE,
+      PLANNED_CLOSE,
+      FENCE,
+      '块内仍在计划态：`public/js/planned.js`。',
+      PLANNED_CLOSE,
+      '块外：`public/js/planned.js`。',
+      '',
+    ].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+  });
+
+  const result = analyzeDocs(root);
+  assert.deepEqual(result.problems, ['README.md:7: 代码路径不存在 -> public/js/planned.js']);
+});
+
+// 计划正本（docs/PHASE_<主题>.md）的块外必须保持真实校验：把不在 planned 块内的行取出来。
+function outsidePlannedLines(text) {
+  const outside = [];
+  let inFence = false;
+  let planned = false;
+  text.split('\n').forEach((line, index) => {
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) {
+      if (!planned) outside.push({ line, lineNo: index + 1, inFence });
+      return;
+    }
+    if (line.includes(PLANNED_START)) {
+      planned = true;
+      return;
+    }
+    if (line.includes(PLANNED_END)) {
+      planned = false;
+      return;
+    }
+    if (!planned) outside.push({ line, lineNo: index + 1, inFence });
+  });
+  return outside;
+}
+
+function plannedBodyLines(text) {
+  const all = new Set();
+  let inFence = false;
+  let planned = false;
+  text.split('\n').forEach((line) => {
+    if (/^\s*```/.test(line)) {
+      inFence = !inFence;
+      return;
+    }
+    if (inFence) return;
+    if (line.includes(PLANNED_START)) {
+      planned = true;
+      return;
+    }
+    if (line.includes(PLANNED_END)) {
+      planned = false;
+      return;
+    }
+    if (planned) all.add(line);
+  });
+  return [...all];
+}
+
+function codePathProblems(lines) {
+  const problems = [];
+  for (const { line, lineNo, inFence } of lines) {
+    const segments = inFence ? [line] : [...line.matchAll(/`([^`\n]+)`/g)].map((match) => match[1]);
+    for (const segment of segments) {
+      for (const match of segment.matchAll(/[A-Za-z0-9._/*-]+/g)) {
+        const candidate = normalizeCodePath(match[0]);
+        if (!candidate) continue;
+        if (!REPO_DIRS.some((dir) => candidate === `${dir}/` || candidate.startsWith(`${dir}/`))) continue;
+        const problem = checkCodePath(ROOT, candidate);
+        if (problem) problems.push(`${lineNo}: ${problem}`);
+      }
+    }
+  }
+  return problems;
+}
+
+test('计划正本 PHASE_REFACTOR：块外无缺失路径，块内确实豁免了未落地产物', () => {
+  const phaseDoc = fs.readFileSync(path.join(ROOT, 'docs/PHASE_REFACTOR.md'), 'utf8');
+  assert.ok(phaseDoc.includes(PLANNED_START), '计划正本必须使用 planned 块');
+  assert.ok(phaseDoc.includes(PLANNED_END));
+
+  // 块外：任何反引号里的仓库路径都必须真实存在——证明门禁没有被整篇削弱。
+  const outside = outsidePlannedLines(phaseDoc);
+  assert.ok(outside.length > 20, `块外行数过少，planned 块可能吞掉了整篇文档（${outside.length}）`);
+  assert.deepEqual(codePathProblems(outside), []);
+
+  // 块内：确实存在落地前不存在的产物，块是被这个冲突逼出来的，而不是无差别豁免。
+  assert.ok(codePathProblems(plannedBodyLines(phaseDoc).map((line) => ({ line, lineNo: 0, inFence: false }))).length > 0);
 });
 
 test('真实仓库文档一致：check:docs 的判定为通过', () => {
