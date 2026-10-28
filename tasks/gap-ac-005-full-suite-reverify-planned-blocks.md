@@ -47,20 +47,110 @@ AC-005（GOAL-001「上游基线合并与开发基线确认」）的 criterion �
 
 ## AC
 
-- [ ] 逐字执行 AC-005 criterion `node --test --test-concurrency=2 tests/*.test.mjs` exit 0
-- [ ] 在被评估 HEAD 上独立复跑两次该命令均 exit 0，两次 `# tests / # pass / # fail` 已写入 Notes
-- [ ] `git merge-base --is-ancestor <AC-044 修复提交> HEAD` exit 0，Notes 写明该提交 hash
-- [ ] Notes 记录本轮失败面证据：`not ok 322` 用例名、14 条「代码路径不存在」原文，以及确定性（单独复跑两次同为 `not ok 6` / `5 pass / 1 fail`）
-- [ ] 若出现非 planned 块机制的残留失败，对应源文件已出现在本任务 `## Touches`，且 Notes 记录失败文本与根因
+- [x] 逐字执行 AC-005 criterion `node --test --test-concurrency=2 tests/*.test.mjs` exit 0
+- [x] 在被评估 HEAD 上独立复跑两次该命令均 exit 0，两次 `# tests / # pass / # fail` 已写入 Notes
+- [x] `git merge-base --is-ancestor <AC-044 修复提交> HEAD` exit 0，Notes 写明该提交 hash
+- [x] Notes 记录本轮失败面证据：`not ok 322` 用例名、14 条「代码路径不存在」原文，以及确定性（单独复跑两次同为 `not ok 6` / `5 pass / 1 fail`）
+- [x] 若出现非 planned 块机制的残留失败，对应源文件已出现在本任务 `## Touches`，且 Notes 记录失败文本与根因
 
 ## DoD
 
-- [ ] 两次读数可被 driver 独立复算：Notes 同时给出命令原文、每次 stdout 尾部（`# tests / # pass / # fail / # duration_ms`）与退出码
-- [ ] 被评估 HEAD 已提交，`git status --short` 无本任务相关未提交改动
-- [ ] 同一 HEAD 上全量用例数未减少（≥1679 项），0 fail
-- [ ] 门禁语义未被放宽：本任务 diff 不含 `scripts/docs-consistency.mjs` / `tests/docs-consistency.test.mjs` / `docs/PHASE_REFACTOR.md`，也没有新增任何 ignore / planned 标记
-- [ ] 零运行时 / 玩家可见改动、零第三方依赖；本任务 diff 不含 AC-044 / AC-002 / AC-007 / AC-045 / AC-049 任一 lane 的文件
-- [ ] Notes 写清取舍：为什么 AC-005 的见证不折叠进 AC-044 / AC-002 任务（criterion 命令与并发参数不同；`goal_ac` 单值标量）
+- [x] 两次读数可被 driver 独立复算：Notes 同时给出命令原文、每次 stdout 尾部（`# tests / # pass / # fail / # duration_ms`）与退出码
+- [x] 被评估 HEAD 已提交，`git status --short` 无本任务相关未提交改动
+- [x] 同一 HEAD 上全量用例数未减少（≥1679 项），0 fail
+- [x] 门禁语义未被放宽：本任务 diff 不含 `scripts/docs-consistency.mjs` / `tests/docs-consistency.test.mjs` / `docs/PHASE_REFACTOR.md`，也没有新增任何 ignore / planned 标记
+- [x] 零运行时 / 玩家可见改动、零第三方依赖；本任务 diff 不含 AC-044 / AC-002 / AC-007 / AC-045 / AC-049 任一 lane 的文件
+- [x] Notes 写清取舍：为什么 AC-005 的见证不折叠进 AC-044 / AC-002 任务（criterion 命令与并发参数不同；`goal_ac` 单值标量）
+
+## Notes
+
+### 环境与被评估 HEAD
+
+- 隔离 worktree：`.worktrees/gap-ac-005-full-suite-reverify-planned-blocks`（branch `task/gap-ac-005-full-suite-reverify-planned-blocks`，从 develop `15fca2a` 起）。
+- 被评估 HEAD（第一次/第二次复跑时）：`15fca2a29b114a18acdb6d18eec54cd94d8f38d8`（2026-10-28 21:15:17 +0800）。
+- 预合并 `git merge --no-edit develop` 后 HEAD = `4c2aa236f8880b8e25878c3fd8604e405f180fef`；`git diff --stat 15fca2a..4c2aa23` 只含两份 tasks/*.md（`gap-ac-002-full-suite-3x-reverify-planned-blocks.md`、`gap-ac-044-full-suite-reverify-landed-fix.md`），零代码差异；在该合并后 HEAD 上又跑了一次 criterion（Run 3）仍 exit 0。
+
+### AC-044 修复提交的祖先关系
+
+- `git merge-base --is-ancestor 6103528 HEAD` → **exit 0**。
+- 修复提交：`610352846120d2ab66d2218e2fd1f08d2087bdee`，2026-10-28 20:50:49 +0800，`feat(docs): docs-consistency 支持计划态产物的块级豁免（AC-044）`。该提交在 `scripts/docs-consistency.mjs` 引入 `PLANNED_START` / `PLANNED_END`（`docs-consistency:planned-start` / `docs-consistency:planned-end`）块级豁免。
+- 落地后旁证：`npm run check:docs` → `docs-consistency: 文档一致性检查通过（21 个文件）`，exit 0；`node --test tests/docs-consistency.test.mjs` → `# tests 11 / # pass 11 / # fail 0`（修复前该文件为 6 例，新增 5 例带块标记回归）。
+
+### AC-005 criterion 逐字复跑（命令原文）
+
+`node --test --test-concurrency=2 tests/*.test.mjs`
+
+**Run 1 — HEAD 15fca2a，exit 0，`not ok` 条数 0**
+
+```
+# tests 1684
+# suites 0
+# pass 1684
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 24354.321146
+```
+
+**Run 2 — 同一 HEAD 15fca2a，exit 0，`not ok` 条数 0**
+
+```
+# tests 1684
+# suites 0
+# pass 1684
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 24290.82702
+```
+
+**Run 3 — 合并 develop 后的 HEAD 4c2aa23（仅 tasks/*.md 差异），exit 0，`not ok` 条数 0**
+
+```
+# tests 1684
+# pass 1684
+# fail 0
+# duration_ms 24411.743713
+```
+
+### 本轮失败面证据（在计划态修复前的 HEAD 07e9131 上自行复现）
+
+复现方式：`git worktree add --detach /tmp/ac005-prefix 07e9131`，在该 detached 副本内执行 criterion 与单文件测试，复现完成后 `git worktree remove --force /tmp/ac005-prefix` 删除；本任务 worktree 未被这些复现命令改动。
+
+- 全量复跑：exit 1，`# tests 1679 / # pass 1678 / # fail 1 / # duration_ms 23944.551125`，唯一失败用例 `not ok 322 - 真实仓库文档一致：check:docs 的判定为通过`。
+- 14 条「代码路径不存在」原文（`docs-consistency` 输出，逐字）：
+
+```
+docs/PHASE_REFACTOR.md:5: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:40: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:68: 代码路径不存在 -> scripts/structure-budget.allow.d/
+docs/PHASE_REFACTOR.md:75: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:75: 代码路径不存在 -> scripts/structure-budget.allow.d/
+docs/PHASE_REFACTOR.md:75: 代码路径不存在 -> tests/structure-budget.test.mjs
+docs/PHASE_REFACTOR.md:76: 代码路径不存在 -> scripts/visual-parity.mjs
+docs/PHASE_REFACTOR.md:76: 代码路径不存在 -> docs/reviews/refactor-baseline.json
+docs/PHASE_REFACTOR.md:77: 代码路径不存在 -> scripts/check-sim-determinism.mjs
+docs/PHASE_REFACTOR.md:77: 代码路径不存在 -> docs/reviews/sim-determinism.json
+docs/PHASE_REFACTOR.md:99: 代码路径不存在 -> tests/lib/visual/
+docs/PHASE_REFACTOR.md:110: 代码路径不存在 -> scripts/structure-budget.mjs
+docs/PHASE_REFACTOR.md:113: 代码路径不存在 -> scripts/check-sim-determinism.mjs
+docs/PHASE_REFACTOR.md:114: 代码路径不存在 -> scripts/visual-parity.mjs
+```
+
+- 确定性：单独 `node --test tests/docs-consistency.test.mjs` 在同一 07e9131 上复跑两次，均 exit 1，两次读数同为 `# tests 6 / # pass 5 / # fail 1`，失败用例同为 `not ok 6 - 真实仓库文档一致：check:docs 的判定为通过`。
+
+### 残留失败归属
+
+- 计划态修复落地后的三次 criterion 复跑中 `not ok` 条数均为 0，**没有**「非 planned 块机制」的残留失败（无端口 / 时序 / 并发偶发 / TEST_MAP 类红），因此本任务 Touches 无需增补任何源文件，也无需回写 `gap-ac-044-full-suite-green` 的 Notes——未观察到其机制失效。
+- 与既有记忆中的判断一致：全量 suite 的红类来自他人在飞任务时，本任务只做见证，不越 lane 修复。
+
+### 取舍：为什么 AC-005 的见证不折叠进 AC-044 / AC-002
+
+- criterion 命令不同：AC-005 逐字是**带 `--test-concurrency=2`** 的 `node --test`；AC-044 是 `npm test`；AC-002 是**不带并发参数**的裸命令连跑 3 次。三者读数面互不替代，且并发参数会改变时序敏感用例的暴露面。
+- `goal_ac` 是单值标量：折叠进任一任务都会让 AC-005 失去独立、可被 driver 逐字复算的归属，重新变成无主的缺口。
+- 本任务 diff 只含本任务任务文件：零运行时 / 玩家可见改动、零第三方依赖，未触碰 `scripts/docs-consistency.mjs` / `tests/docs-consistency.test.mjs` / `docs/PHASE_REFACTOR.md`，也没有新增任何 ignore / planned 标记；不含 AC-044 / AC-002 / AC-007 / AC-045 / AC-049 任一 lane 的文件。
 
 ## Touches
 
