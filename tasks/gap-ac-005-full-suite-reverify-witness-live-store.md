@@ -131,12 +131,29 @@ $ echo $?
 
 `grep -c '^not ok'` = **0**。测试总数由立案时的 1747 变为 1748（`509cc4b` 新增 fixture 正对照用例），失败集为空，两次读数同源可比，故不是「偶然绿」。
 
+**第三次执行**（合并 develop 后的最终树 `8c170e2`，即 fan-in 将要评估的树；与 `07138c8` 的差异仅为本任务文件）：
+
+```
+$ node --test --test-concurrency=2 tests/*.test.mjs
+# tests 1748
+# pass 1748
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 25049.798456
+$ echo $?
+0
+```
+
+`grep -c '^not ok'` = **0**、`git status --short` 为空——确认勾选 AC/DoD 后活任务库的新状态不会反过来打红任何 live-store 断言（本任务仍是 open 的 `goal_ac: AC-005` 任务，不属于 AC-043…AC-049 集合）。
+
 **立案读数复算**（AC 第 4 条）：
 
 - `git show 93c7601:tests/phase-refactor-sync.test.mjs | sed -n '135,137p'` 仍含 `const openGoalTasks = repo.tasks.filter((task) => task.goalAc && PHASE_AC_SET.has(task.goalAc) && isOpen(task.status));` 与 `assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open 的 AC-043…AC-049 任务');` —— 证实立案时的红点正是该存量断言。
 - `git show 93c7601:docs/PHASE_REFACTOR.md` 的 §7（`:126-132`）逐行含 AC-043…AC-049 且命令非空，无漂移；`node scripts/check-doc-ownership.mjs` → exit **0**（`check-doc-ownership: OK — 0 个 open 任务声明总文档（已扫描 98 个任务）`）。结论：红点是**任务库存量**，不是文档漂移。
 
-**无残留失败**：两次全绿，未出现「活任务库耦合」以外的任何失败，故 `## Touches` 未扩张、未编辑任何源文件。
+**无残留失败**：三次全绿，未出现「活任务库耦合」以外的任何失败，故 `## Touches` 未扩张、未编辑任何源文件。
 
 **根因唯一归属**：`tests/phase-refactor-sync.test.mjs` 的根因编辑只属于 `gap-ac-002-full-suite-3x-witness-live-store`（其修复即 `509cc4b`）；本任务全程未触碰该文件、`scripts/check-stability.mjs`、`package.json`。
 
@@ -152,4 +169,4 @@ $ echo $?
 
 ### 交付面
 
-本任务 diff 只含 `tasks/gap-ac-005-full-suite-reverify-witness-live-store.md`；实现期间 `git status --short` 为空；未新增 skip / 忽略 / 豁免；判据未被放宽。
+本任务 diff 只含 `tasks/gap-ac-005-full-suite-reverify-witness-live-store.md`；实现期间 `git status --short` 为空；未新增 skip / 忽略 / 豁免；判据未被放宽。`git diff --name-only 07138c8..HEAD` 逐字输出仅该一行；anti-drift Touches 检查（`--merge-target develop`）为 `ANTI-DRIFT OK: 0 actual file(s), all within declared Touches`。
