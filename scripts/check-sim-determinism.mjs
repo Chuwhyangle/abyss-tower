@@ -114,9 +114,17 @@ export function compareRecords(baselineRecords, currentRecords) {
   return { ok: problems.length === 0, problems };
 }
 
-export async function writeBaseline({ baselinePath = path.join(ROOT, BASELINE_FILE), scene = SCENE, seeds = SEEDS, root = ROOT, log = () => {} } = {}) {
+// collect 可注入：单测用假采集器跑完整的「写基线 / 对照」流程，不必真跑模拟。
+export async function writeBaseline({
+  baselinePath = path.join(ROOT, BASELINE_FILE),
+  scene = SCENE,
+  seeds = SEEDS,
+  root = ROOT,
+  log = () => {},
+  collect = collectHashes,
+} = {}) {
   log(`[sim-determinism] 重算 ${seeds.length} 个 seed …`);
-  const records = await collectHashes({ scene, seeds, root });
+  const records = await collect({ scene, seeds, root });
   const document = { scene, records };
   const verdict = validateBaseline(JSON.parse(serializeBaseline(document)), { scene, seeds });
   if (!verdict.ok) throw new Error(`采集结果不满足基线口径：\n  - ${verdict.problems.join('\n  - ')}`);
@@ -125,7 +133,14 @@ export async function writeBaseline({ baselinePath = path.join(ROOT, BASELINE_FI
   return { baselinePath, seeds: Object.keys(records).length };
 }
 
-export async function checkBaseline({ baselinePath = path.join(ROOT, BASELINE_FILE), scene = SCENE, seeds = SEEDS, root = ROOT, log = () => {} } = {}) {
+export async function checkBaseline({
+  baselinePath = path.join(ROOT, BASELINE_FILE),
+  scene = SCENE,
+  seeds = SEEDS,
+  root = ROOT,
+  log = () => {},
+  collect = collectHashes,
+} = {}) {
   if (!fs.existsSync(baselinePath)) {
     return { ok: false, problems: [`基线不存在：${baselinePath}（先跑 --write）`] };
   }
@@ -137,7 +152,7 @@ export async function checkBaseline({ baselinePath = path.join(ROOT, BASELINE_FI
   }
   const verdict = validateBaseline(document, { scene, seeds });
   if (!verdict.ok) return { ok: false, problems: verdict.problems };
-  const records = await collectHashes({ scene: document.scene, seeds: document.seeds, root });
+  const records = await collect({ scene: document.scene, seeds: document.seeds, root });
   return compareRecords(document.records, records);
 }
 

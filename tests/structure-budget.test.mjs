@@ -20,12 +20,18 @@ import {
 } from '../scripts/structure-budget.mjs';
 import {
   BASELINE_FILE as PARITY_BASELINE,
-  compareFrameSets,
+  LUMA_GRID,
+  VARIANT_TOLERANCE,
+  checkBaseline,
+  compareFrames,
   expectedCoverage,
   frameKey,
+  gridDistance,
   serializeBaseline,
+  statsWithinTolerance,
   toBaselineFrames,
   validateBaseline,
+  writeBaseline,
 } from '../scripts/visual-parity.mjs';
 import {
   ARTIFACTS,
@@ -35,6 +41,10 @@ import {
   hashesFromArtifacts,
   serializeBaseline as serializeDeterminismBaseline,
   validateBaseline as validateDeterminismBaseline,
+} from '../scripts/check-sim-determinism.mjs';
+import {
+  checkBaseline as checkDeterminismBaseline,
+  writeBaseline as writeDeterminismBaseline,
 } from '../scripts/check-sim-determinism.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -298,21 +308,20 @@ test('frameKey 与 contact sheet 同口径（weapons 组带塔型前缀）', (t)
 });
 
 test('toBaselineFrames 排序稳定且拒绝重复键', (t) => {
-  const frames = toBaselineFrames([
-    { key: 'b@desktop/x', width: 1, height: 1, pixelHash: 'h2' },
-    { key: 'a@desktop/x', width: 1, height: 1, pixelHash: 'h1' },
-  ]);
-  assert.deepEqual(frames.map((frame) => frame.key), ['a@desktop/x', 'b@desktop/x']);
+  const grid = Array.from({ length: LUMA_GRID * LUMA_GRID }, () => 12.3456);
+  const frame = (key, hash) => ({ key, width: 1, height: 1, pixelHash: hash, meanLuma: 12.3456, stdLuma: 2.5, levels: 9, lumaGrid: grid });
+  const frames = toBaselineFrames([frame('b@desktop/x', 'h2'), frame('a@desktop/x', 'h1')]);
+  assert.deepEqual(frames.map((item) => item.key), ['a@desktop/x', 'b@desktop/x']);
+  // 统计值按 3 位小数落盘：同一张图两次采集写出同样的字节。
+  assert.equal(frames[0].meanLuma, 12.346);
+  assert.equal(frames[0].lumaGrid[0], 12.346);
   assert.throws(
-    () => toBaselineFrames([
-      { key: 'same', width: 1, height: 1, pixelHash: 'h1' },
-      { key: 'same', width: 1, height: 1, pixelHash: 'h2' },
-    ]),
+    () => toBaselineFrames([frame('same', 'h1'), frame('same', 'h2')]),
     /帧键重复/
   );
 });
 
-test('负对照：基线缺帧 / 帧乱序 / 哈希漂移都判红', (t) => {
+test('负对照：基线缺帧 / 帧乱序 / 条目缺亮度网格都判红', (t) => {
   const document = JSON.parse(fs.readFileSync(path.join(ROOT, PARITY_BASELINE), 'utf8'));
 
   const short = {
@@ -326,16 +335,155 @@ test('负对照：基线缺帧 / 帧乱序 / 哈希漂移都判红', (t) => {
   const unsorted = { ...document, frames: [...document.frames].reverse() };
   assert.match(validateBaseline(unsorted).problems.join('\n'), /未按 key 排序/);
 
-  const ledger = document.frames.slice(0, 2).map((frame, index) => ({ ...frame, key: `probe@desktop/${index}`, pixelHash: `new${index}` }));
-  const baseline = document.frames.slice(0, 2).map((frame, index) => ({ ...frame, key: `probe@desktop/${index}`, pixelHash: `old${index}` }));
-  const comparison = compareFrameSets(baseline, ledger);
-  assert.equal(comparison.ok, false);
-  assert.equal(comparison.mismatched.length, 2);
+  const noGrid = { ...document, frames: document.frames.map((frame) => ({ ...frame, lumaGrid: [] })) };
+  assert.match(validateBaseline(noGrid).problems.join('\n'), /帧条目不完整/);
+});
 
-  const missing = compareFrameSets(baseline, ledger.slice(1));
+test('逐帧对照：缺失 / 多出 / 漂移三类都判红', (t) => {
+  const grid = Array.from({ length: LUMA_GRID * LUMA_GRID }, () => 20);
+  const frame = (key, hash, extra = {}) => ({
+    key, width: 10, height: 10, pixelHash: hash, meanLuma: 40, stdLuma: 30, levels: 31, lumaGrid: grid, ...extra,
+  });
+  const baseline = [frame('probe@desktop/0', 'a'), frame('probe@desktop/1', 'b')];
+
+  const identical = compareFrames({ baselineFrames: baseline, currentFrames: baseline });
+  assert.equal(identical.ok, true);
+  assert.deepEqual(identical.exact, ['probe@desktop/0', 'probe@desktop/1']);
+
+  const missing = compareFrames({ baselineFrames: baseline, currentFrames: baseline.slice(1) });
+  assert.equal(missing.ok, false);
   assert.deepEqual(missing.missing, ['probe@desktop/0']);
-  const extra = compareFrameSets(baseline.slice(1), ledger);
+
+  const extra = compareFrames({ baselineFrames: baseline.slice(1), currentFrames: baseline });
+  assert.equal(extra.ok, false);
   assert.deepEqual(extra.extra, ['probe@desktop/0']);
+
+  const drifted = compareFrames({
+    baselineFrames: baseline,
+    currentFrames: [...baseline.slice(1), frame('probe@desktop/0', 'c', { lumaGrid: grid.map(() => 40) })],
+  });
+  assert.equal(drifted.ok, false);
+  assert.deepEqual(drifted.drifted.map((item) => item.key), ['probe@desktop/0']);
+  assert.equal(drifted.drifted[0].reason, 'luma-grid');
+});
+
+test('渲染变体容忍：网格与统计都在容差内才算变体，否则算漂移', (t) => {
+  const grid = Array.from({ length: LUMA_GRID * LUMA_GRID }, () => 20);
+  const base = { key: 'k', width: 10, height: 10, pixelHash: 'base', meanLuma: 40, stdLuma: 30, levels: 31, lumaGrid: grid };
+  // 实测跨进程变体的网格单元差 ≤0.01：远低于容差，判为「渲染变体」而不是漂移。
+  const variantGrid = grid.map((value, index) => (index === 0 ? value + 0.01 : value));
+  const variant = { ...base, pixelHash: 'other', lumaGrid: variantGrid };
+  const tolerated = compareFrames({ baselineFrames: [base], currentFrames: [variant] });
+  assert.equal(tolerated.ok, true);
+  assert.deepEqual(tolerated.variants.map((item) => item.key), ['k']);
+  assert.deepEqual(tolerated.drifted, []);
+
+  // 网格差超限（画面结构变了）→ 漂移。
+  const shifted = { ...base, pixelHash: 'other', lumaGrid: grid.map((value) => value + VARIANT_TOLERANCE.maxCellDelta * 3) };
+  const shiftedVerdict = compareFrames({ baselineFrames: [base], currentFrames: [shifted] });
+  assert.equal(shiftedVerdict.ok, false);
+  assert.equal(shiftedVerdict.drifted[0].reason, 'luma-grid');
+
+  // 网格几乎不动但画面统计变了（配色/亮度整体偏移）→ 漂移。
+  const recolored = { ...base, pixelHash: 'other', lumaGrid: variantGrid, meanLuma: base.meanLuma + 2 };
+  const recoloredVerdict = compareFrames({ baselineFrames: [base], currentFrames: [recolored] });
+  assert.equal(recoloredVerdict.ok, false);
+  assert.equal(recoloredVerdict.drifted[0].reason, 'stats');
+
+  // levels 少一档（配色被合并）同样算漂移。
+  assert.equal(statsWithinTolerance(base, { ...base, levels: base.levels - 1 }), false);
+  assert.equal(statsWithinTolerance(base, { ...base, stdLuma: base.stdLuma + 0.1 }), true);
+});
+
+test('gridDistance：单元最大差与平均差同口径', () => {
+  const left = [10, 10, 10, 10];
+  assert.deepEqual(gridDistance(left, left), { maxCellDelta: 0, meanCellDelta: 0 });
+  const right = [12, 10, 10, 10];
+  assert.deepEqual(gridDistance(left, right), { maxCellDelta: 2, meanCellDelta: 0.5 });
+});
+
+test('视觉基线的每一帧都带亮度网格与画面统计（变体判定的判据来源）', (t) => {
+  const document = JSON.parse(fs.readFileSync(path.join(ROOT, PARITY_BASELINE), 'utf8'));
+  for (const frame of document.frames) {
+    assert.equal(typeof frame.pixelHash, 'string');
+    assert.equal(typeof frame.meanLuma, 'number');
+    assert.equal(typeof frame.stdLuma, 'number');
+    assert.ok(frame.levels > 0, `${frame.key} 的 levels 必须为正`);
+    assert.equal(frame.lumaGrid.length, LUMA_GRID * LUMA_GRID);
+    assert.ok(frame.lumaGrid.every((value) => Number.isFinite(value)), `${frame.key} 的亮度网格必须是数字`);
+  }
+});
+
+// ── 端到端：注入假采集器跑完整的写基线 / 对照流程（不需要真浏览器与真模拟）─────────
+
+// 覆盖口径要求每个「场景/视口」与「scenario/视口」都至少一帧；假采集器按这份定义造帧。
+function fakeParityEntries({ gridShift = 0 } = {}) {
+  const coverage = expectedCoverage();
+  const grid = () => Array.from({ length: LUMA_GRID * LUMA_GRID }, (_, index) => 20 + (index === 0 ? gridShift : 0));
+  const entry = (key) => ({
+    key, width: 100, height: 80, pixelHash: `hash-${key}-${gridShift}`, meanLuma: 33, stdLuma: 21, levels: 30, lumaGrid: grid(),
+  });
+  return [
+    ...coverage.sceneViewports.map(([scene, viewport]) => entry(`${scene}@${viewport}/${scene}`)),
+    ...coverage.scenarios.flatMap((scenario) => coverage.scenarioViewports.map((viewport) => entry(`${scenario}@${viewport}/f1`))),
+  ];
+}
+
+const fakeCollect = (entries) => async () => entries;
+
+test('视觉见证端到端：写基线 → 同采集器对照通过 → 漂移/缺帧判红', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-visual-parity-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const baselinePath = path.join(dir, 'baseline.json');
+  const entries = fakeParityEntries();
+
+  const written = await writeBaseline({ baselinePath, collect: fakeCollect(entries) });
+  assert.equal(written.frames, SCENE_VIEWPORT_PAIRS + SCENARIO_COUNT * 2);
+  const document = JSON.parse(fs.readFileSync(baselinePath, 'utf8'));
+  assert.deepEqual(validateBaseline(document).problems, []);
+
+  const clean = await checkBaseline({ baselinePath, collect: fakeCollect(entries) });
+  assert.equal(clean.ok, true, JSON.stringify(clean.comparison?.drifted));
+  assert.equal(clean.comparison.exact.length, entries.length);
+
+  const moved = await checkBaseline({ baselinePath, collect: fakeCollect(fakeParityEntries({ gridShift: 5 })) });
+  assert.equal(moved.ok, false);
+  assert.equal(moved.comparison.drifted.length, entries.length);
+
+  const short = await checkBaseline({ baselinePath, collect: fakeCollect(entries.slice(1)) });
+  assert.equal(short.ok, false);
+  assert.equal(short.comparison.missing.length, 1);
+});
+
+test('视觉见证端到端：基线缺失 / 无法解析都给出可读原因', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-visual-parity-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const missing = await checkBaseline({ baselinePath: path.join(dir, 'nope.json'), collect: fakeCollect([]) });
+  assert.equal(missing.ok, false);
+  assert.match(missing.problems[0], /基线不存在/);
+
+  const brokenPath = path.join(dir, 'broken.json');
+  fs.writeFileSync(brokenPath, '{ not json');
+  const broken = await checkBaseline({ baselinePath: brokenPath, collect: fakeCollect([]) });
+  assert.equal(broken.ok, false);
+  assert.match(broken.problems[0], /无法解析/);
+});
+
+test('确定性见证端到端：写基线 → 对照通过 → 哈希变化判红', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-sim-determinism-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const baselinePath = path.join(dir, 'baseline.json');
+  const records = Object.fromEntries(SEEDS.map((seed) => [seed, { events: `e-${seed}`, rng: `r-${seed}`, state: `s-${seed}` }]));
+  const collect = (value) => async () => value;
+
+  const written = await writeDeterminismBaseline({ baselinePath, collect: collect(records) });
+  assert.equal(written.seeds, SEEDS.length);
+  assert.equal((await checkDeterminismBaseline({ baselinePath, collect: collect(records) })).ok, true);
+
+  const drifted = { ...records, [SEEDS[0]]: { ...records[SEEDS[0]], rng: 'changed' } };
+  const verdict = await checkDeterminismBaseline({ baselinePath, collect: collect(drifted) });
+  assert.equal(verdict.ok, false);
+  assert.match(verdict.problems[0], /rng 哈希不同/);
 });
 
 // ── 模拟确定性基线 ─────────────────────────────────────────────────────────

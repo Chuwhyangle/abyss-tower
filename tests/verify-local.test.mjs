@@ -13,6 +13,7 @@ const EXPECTED_STEPS = [
   'npm run check:syntax',
   'npm run check:style',
   'npm run check:imports',
+  'npm run check:structure',
   'npm run check:version',
   'npm run check:docs',
   'npm test',

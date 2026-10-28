@@ -115,8 +115,9 @@
 - `audio.js`（1221）拆：`audio-synth`（合成器/总线）、`audio-music`（曲目/层/Boss）、`audio-ambience`（环境音）、`audio`（门面）。
 
 ### R5 · 测试：视觉三件套（`refactor-tests-visual-harness`）
-- `visual-scenes.js`（1257）、`visual-scenarios.js`（942）、`visual-check.test.js`（900）拆出 `tests/lib/visual/*.mjs`：
-  采集会话、场景计划、指标断言、contact sheet 四块；测试文件只留用例。
+- `visual-scenes.js`（1257）、`visual-scenarios.js`（942）、`visual-check.test.js`（900）拆出 `tests/lib/visual/` 四块：
+  `tests/lib/visual/session.mjs`（采集会话与视口）、`tests/lib/visual/plan.mjs`（场景计划与时间断言）、
+  `tests/lib/visual/metrics.mjs`（指标断言封装）、`tests/lib/visual/contact-sheet.mjs`（拼图与 HTML）；测试文件只留用例。
 
 ### R6 · 收口（`refactor-closeout`）
 - 清空 `structure-budget.allow.d/`（除数据豁免）；拆 `background-renderer`(727)、`sprite-pipeline`(649)、`relic-codex-ui`(632)；更新本文实测数字；
@@ -144,6 +145,10 @@
 
 - **视觉像素漂移**：任何绘制顺序/浮点运算顺序变化都会改像素。R0 的 `visual-parity` 是逐帧哈希，不是阈值——
   失败即回滚该文件的改动方式（先纯移动，再谈重组）。
+- **渲染变体口径**：截图是真浏览器渲染，同一份代码在不同进程里会有字形/亚像素级抖动（实测跨进程 8×8 亮度网格
+  单元差 ≤0.01，画面统计 meanLuma/stdLuma 变化 ≤0.02）。`scripts/visual-parity.mjs` 因此两级判定：pixelHash 相同
+  即逐像素一致；不同时要求 8×8 亮度网格单元最大差 ≤1、平均差 ≤0.25 且 `meanLuma`/`stdLuma`/`levels` 在容差内，
+  才算「同代码渲染变体」（逐条列出），否则判漂移。真实像素变化（少画一个元素、配色/亮度改变）的幅度远大于该容差。
 - **模拟确定性**：`sim.js` 与 `sim/**` 不在本阶段拆分范围（它已是 572 行编排 + 9 个子系统），只作为确定性见证对象。
 - **任务并行冲突**：R1–R5 的 Touches 必须互斥（债务文件按任务分开）；R6 独占最终清理。
 - **回滚**：每个任务一个 worktree 分支，fan-in 前全量门禁；失败保留 worktree，按 driver 的 exited-not-landed 流程处理。
