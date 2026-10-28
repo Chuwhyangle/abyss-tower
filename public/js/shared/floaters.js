@@ -17,8 +17,9 @@ function classLayer(cls) {
 }
 
 // 每层的 z 序取自阶段冻结表；类别层位于 penalty 之上、crit 之下。
+// damage 的字重回 700：分层改造把 700 降到 600 后，13px 数字的笔画在混战帧里被抗锯齿摊薄。
 export const FLOATER_LAYERS = Object.freeze({
-  damage: Object.freeze({ z: 10, size: 13, weight: 600, color: '#eef3f8' }),
+  damage: Object.freeze({ z: 10, size: 13, weight: 700, color: '#eef3f8' }),
   heal: Object.freeze({ z: 20, size: 14, weight: 600, color: '#7ef0a5' }),
   reward: Object.freeze({ z: 30, size: 15, weight: 700, color: '#ffd36b' }),
   status: Object.freeze({ z: 40, size: 16, weight: 700, color: '#ffd36b' }),
@@ -40,6 +41,12 @@ export const STACK_STEP = 0.16;
 export const STACK_RADIUS = 0.3;
 // big 的字号加成：让旧数据的「大号数字」仍比同层普通数字大一档。
 export const BIG_SIZE_BONUS = 4;
+
+// 淡出下限与描边（casing）：飘字按剩余寿命淡出，但不再把数字洗成灰字。
+// 伤害数字寿命只有 0.65s，尾段若继续降到 0.2 不透明度，混战帧里就只剩一团灰（FEEL-001 回归）。
+// 下限只影响绘制不透明度，不改 ttl/可见集合/预算/合并参数。
+export const FLOATER_FADE_FLOOR = 0.6;
+export const FLOATER_CASING = Object.freeze({ color: 'rgba(0, 0, 0, 0.85)', width: 3 });
 
 // 预算裁剪的重要性：数字越小越先保留（阶段冻结序：crit 1 → damage 9）。
 const IMPORTANCE = Object.freeze({
@@ -96,6 +103,16 @@ export function floaterBudget(mode) {
   return Object.prototype.hasOwnProperty.call(FLOATER_BUDGET, mode)
     ? FLOATER_BUDGET[mode]
     : FLOATER_BUDGET.all;
+}
+
+// 绘制不透明度 = 淡出下限 + (1 - 下限) × 剩余寿命比。
+// 寿命比取 ttl/maxTtl（缺字段按 1），clamp 到 0..1；下限缺省取 FLOATER_FADE_FLOOR。
+export function floaterAlpha(floater, fadeFloor = FLOATER_FADE_FLOOR) {
+  const maxTtl = Number.isFinite(floater?.maxTtl) && floater.maxTtl > 0 ? floater.maxTtl : 1;
+  const ttl = Number.isFinite(floater?.ttl) ? floater.ttl : maxTtl;
+  const ratio = Math.max(0, Math.min(1, ttl / maxTtl));
+  const floor = Number.isFinite(fadeFloor) ? Math.max(0, Math.min(1, fadeFloor)) : 0;
+  return floor + (1 - floor) * ratio;
 }
 
 // 规范飘字对象：补全 layer/color，ttl 沿用既有的 big ? 0.9 : 0.65。

@@ -1,4 +1,5 @@
 // 飘字分层与三档可见性（AC-016）：层模型、三档语义、合并规则、帧预算与绘制顺序。
+// 混战可读性（AC-020 子项）：伤害数字区域对比度、淡出下限与描边在渲染层生效。
 // 纯函数由 public/js/shared/floaters.js 提供；接线由 Simulation / FloaterRenderer 实测。
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -9,11 +10,14 @@ import { fileURLToPath } from 'node:url';
 import {
   CLUSTER_RADIUS,
   FLOATER_BUDGET,
+  FLOATER_CASING,
+  FLOATER_FADE_FLOOR,
   FLOATER_LAYERS,
   MERGE_RADIUS,
   MERGE_WINDOW,
   STACK_STEP,
   createFloater,
+  floaterAlpha,
   floaterBudget,
   floaterLayer,
   floaterVisible,
@@ -21,6 +25,9 @@ import {
   planFloaterFrame,
   pushFloater,
 } from '../public/js/shared/floaters.js';
+import { FloaterRenderer } from '../public/js/render/floater-renderer.js';
+import { biomePalette } from '../public/js/render/palette.js';
+import { contrastRatio, parseCssColor } from '../scripts/lib/visual-metrics.mjs';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
@@ -272,6 +279,179 @@ test('planFloaterFrame 不修改输入数组与其中对象', () => {
   const snapshot = JSON.parse(JSON.stringify(floaters));
   planFloaterFrame(floaters, { mode: 'all', budget: 28 });
   assert.deepEqual(JSON.parse(JSON.stringify(floaters)), snapshot);
+});
+
+// ---------- 混战可读性：伤害数字区域对比度（AC-020） ----------
+//
+// 混战帧（combat-mixed）里伤害数字压在繁忙地表上，背景色取自战斗地表调色板
+// （palette.js 是地表色的唯一定义处）：草地 grass1 与路径 pathInner 两档。
+const CANYON_PALETTE = biomePalette('canyon');
+const MIXED_FRAME_BACKGROUNDS = Object.freeze([
+  Object.freeze({ name: '草地 grass1', rgb: parseCssColor(CANYON_PALETTE.grass1).slice(0, 3) }),
+  Object.freeze({ name: '路径 pathInner', rgb: parseCssColor(CANYON_PALETTE.pathInner).slice(0, 3) }),
+]);
+
+// 不透明度合成：飘字（数字核心与描边）都按同一 globalAlpha 画在背景上。
+function compositeOver(color, alpha, background) {
+  return color.map((channel, index) => background[index] * (1 - alpha) + channel * alpha);
+}
+
+// 伤害数字区域对比度 = 数字核心（层色）与紧邻描边（casing）的 WCAG 对比度。
+// 两者都向背景塌陷时数字就「变灰」——这正是 FEEL-001 观察到的回归。
+// 返回两档地表的读数、较差值（worst）与核心与背景的分离度（worstOnBackground）。
+function damageRegionContrast({ alpha, fill = FLOATER_LAYERS.damage.color, casing = FLOATER_CASING.color }) {
+  const [cr, cg, cb, casingAlpha = 1] = parseCssColor(casing);
+  const fillRgb = parseCssColor(fill).slice(0, 3);
+  const samples = MIXED_FRAME_BACKGROUNDS.map(({ name, rgb }) => {
+    const core = compositeOver(fillRgb, alpha, rgb);
+    const edge = compositeOver([cr, cg, cb], alpha * casingAlpha, rgb);
+    return { name, ratio: contrastRatio(core, edge), onBackground: contrastRatio(core, rgb) };
+  });
+  const worst = samples.reduce((min, sample) => Math.min(min, sample.ratio), Infinity);
+  const worstOnBackground = samples.reduce((min, sample) => Math.min(min, sample.onBackground), Infinity);
+  return { alpha, samples, worst, worstOnBackground };
+}
+
+// 基线（修复前）：#eef3f8 填充 + rgba(0,0,0,0.75) 描边 + 无淡出下限，
+// 数字寿命尾段（不透明度 0.25）在混战地表上的最差对比度。2026-10-28 在 develop 上实测 2.30。
+const PRE_FIX_STYLE = Object.freeze({ fill: '#eef3f8', casing: 'rgba(0, 0, 0, 0.75)' });
+const BASELINE_REGION_CONTRAST = damageRegionContrast({ alpha: 0.25, ...PRE_FIX_STYLE }).worst;
+const RECORDED_BASELINE = 2.3;
+
+function stubCanvas() {
+  const calls = [];
+  return {
+    calls,
+    ctx: {
+      textAlign: '',
+      textBaseline: '',
+      globalAlpha: 1,
+      font: '',
+      lineWidth: 0,
+      strokeStyle: '',
+      fillStyle: '',
+      strokeText(text, x, y) {
+        calls.push({ kind: 'stroke', text, alpha: this.globalAlpha, strokeStyle: this.strokeStyle, lineWidth: this.lineWidth, font: this.font, x, y });
+      },
+      fillText(text, x, y) {
+        calls.push({ kind: 'fill', text, alpha: this.globalAlpha, fillStyle: this.fillStyle, font: this.font, x, y });
+      },
+    },
+  };
+}
+
+function renderFloaters(floaters, mode = 'all') {
+  const renderer = new FloaterRenderer({ floatersMode: mode, floaters });
+  const { ctx, calls } = stubCanvas();
+  renderer.render(ctx);
+  return { renderer, calls };
+}
+
+test('混战帧伤害数字区域对比度 ≥ 基线（测试输出基线与当前数值）', (t) => {
+  // 基线与记录值同源：基线漂移（调色板或度量口径变了）必须显式暴露。
+  assert.ok(
+    Math.abs(BASELINE_REGION_CONTRAST - RECORDED_BASELINE) < 0.02,
+    `基线漂移：实测 ${BASELINE_REGION_CONTRAST.toFixed(3)}，记录值 ${RECORDED_BASELINE}`
+  );
+
+  // 混战帧里同时有刚生成、半程与接近过期的数字：按寿命比逐档采样。
+  const measured = [1, 0.75, 0.5, 0.25, 0].map((ratio) =>
+    damageRegionContrast({ alpha: floaterAlpha({ ttl: ratio, maxTtl: 1 }) })
+  );
+  const worst = measured.reduce((min, item) => Math.min(min, item.worst), Infinity);
+
+  t.diagnostic(`基线（修复前 #eef3f8 / rgba(0,0,0,0.75) / 无淡出下限 @ 不透明度 0.25）= ${BASELINE_REGION_CONTRAST.toFixed(2)}`);
+  for (const item of measured) {
+    const detail = item.samples.map((sample) => `${sample.name} ${sample.ratio.toFixed(2)}`).join(' · ');
+    t.diagnostic(`不透明度 ${item.alpha.toFixed(2)} → 数字/描边对比度 ${item.worst.toFixed(2)}（${detail}）· 数字/背景 ${item.worstOnBackground.toFixed(2)}`);
+  }
+  t.diagnostic(`当前最差对比度 = ${worst.toFixed(2)}（要求 ≥ 基线 ${BASELINE_REGION_CONTRAST.toFixed(2)} 且 ≥ 4.5）`);
+
+  assert.ok(
+    worst >= BASELINE_REGION_CONTRAST,
+    `混战帧伤害数字区域对比度 ${worst.toFixed(2)} 低于基线 ${BASELINE_REGION_CONTRAST.toFixed(2)}`
+  );
+  // 基线只说明「不比回归前差」；可读性另有 WCAG 常规文本 4.5:1 的硬下限。
+  assert.ok(worst >= 4.5, `尾段数字对比度 ${worst.toFixed(2)} 低于 WCAG 4.5:1，混战里读不出`);
+
+  // 修复不靠字号膨胀：伤害层字号与帧预算原样。
+  assert.equal(FLOATER_LAYERS.damage.size, 13, '伤害层字号不得膨胀');
+  assert.equal(FLOATER_BUDGET.all, 28, '帧预算不得扩大（不靠刷屏）');
+});
+
+test('淡出下限：floaterAlpha 按寿命比淡出且不低于下限，异常输入不抛错', () => {
+  assert.ok(FLOATER_FADE_FLOOR > 0.25 && FLOATER_FADE_FLOOR < 1, '下限必须落在「仍可读」区间');
+  assert.equal(floaterAlpha({ ttl: 0.65, maxTtl: 0.65 }), 1);
+  assert.equal(floaterAlpha({ ttl: 0, maxTtl: 0.65 }), FLOATER_FADE_FLOOR);
+  // 寿命比单调：ttl 越小越暗，但永不低于下限。
+  let previous = Infinity;
+  for (const ttl of [0.65, 0.5, 0.3, 0.1, 0]) {
+    const alpha = floaterAlpha({ ttl, maxTtl: 0.65 });
+    assert.ok(alpha <= previous + 1e-9, '寿命越短不透明度不得反升');
+    assert.ok(alpha >= FLOATER_FADE_FLOOR, '不得低于淡出下限');
+    previous = alpha;
+  }
+  // 缺字段 / 非法值按满寿 / 无下限处理，不抛错。
+  assert.equal(floaterAlpha({}), 1);
+  assert.equal(floaterAlpha({ ttl: 5, maxTtl: 0 }), FLOATER_FADE_FLOOR + (1 - FLOATER_FADE_FLOOR) * 1);
+  assert.equal(floaterAlpha(undefined), 1);
+  assert.equal(floaterAlpha({ ttl: 0.5, maxTtl: 1 }, 0), 0.5, '显式下限 0 = 旧行为');
+});
+
+test('渲染层实测：尾段数字仍按淡出下限绘制，描边取自 FLOATER_CASING', () => {
+  const floaters = [createFloater({ x: 2, y: 3, text: '20' })];
+  floaters[0].ttl = 0.01;
+  const { renderer, calls } = renderFloaters(floaters);
+  assert.equal(renderer.stats.drawn, 1);
+
+  const fill = calls.find((call) => call.kind === 'fill');
+  const stroke = calls.find((call) => call.kind === 'stroke');
+  assert.ok(fill && stroke, '每个飘字都要先描边后填充');
+  assert.equal(calls[0].kind, 'stroke', '描边先画，填充盖在上面');
+  assert.ok(fill.alpha >= FLOATER_FADE_FLOOR - 1e-9, `尾段不透明度 ${fill.alpha} 低于下限`);
+  assert.equal(stroke.strokeStyle, FLOATER_CASING.color);
+  assert.equal(stroke.lineWidth, FLOATER_CASING.width);
+  assert.match(stroke.font, /^700 13px /, '伤害层字重 700 / 字号 13px');
+
+  // 刚生成的数字满不透明。
+  const fresh = renderFloaters([createFloater({ x: 2, y: 3, text: '20' })]);
+  assert.equal(fresh.calls.find((call) => call.kind === 'fill').alpha, 1);
+});
+
+test('混战样本：三档可见集合与合并行为冻结不回归', () => {
+  const sample = [
+    damageFloater(2, 3, '20'),
+    damageFloater(2.05, 3.05, '15'), // 同层 + 0.3 格内 + 0.12s 窗口内 → 累加
+    damageFloater(6, 4, '33'),
+    createFloater({ x: 9, y: 2, text: '120!', color: '#ffd36b', big: true, key: true }),
+    createFloater({ x: 9.4, y: 2, text: '狂怒', color: '#ff6b6b', big: true, key: true }),
+    createFloater({ x: 4, y: 8, text: '-8', color: '#ff6b6b', big: true, key: true }),
+  ];
+  const layersOf = (result) => result.draw.map((item) => item.layer);
+  const textsOf = (result) => result.draw.map((item) => `${item.layer}:${item.text}`).sort();
+
+  const all = planFloaterFrame(sample, { mode: 'all', budget: floaterBudget('all') });
+  assert.deepEqual(textsOf(all), ['crit:120!', 'damage:33', 'damage:35', 'penalty:-8', 'status:狂怒']);
+  assert.equal(all.visible, 6, '全部档看到全部 6 条');
+  assert.equal(all.suppressed, 1, '同层近邻两条合并成一条：6 → 5');
+
+  const key = planFloaterFrame(sample, { mode: 'key', budget: floaterBudget('key') });
+  assert.deepEqual(textsOf(key), ['crit:120!', 'penalty:-8', 'status:狂怒'], '仅关键档不含普通伤害');
+  assert.deepEqual(layersOf(key).sort(), ['crit', 'penalty', 'status']);
+
+  const off = planFloaterFrame(sample, { mode: 'off', budget: floaterBudget('off') });
+  assert.deepEqual(off.draw, [], '关闭档不绘制');
+  assert.equal(off.visible, 0);
+
+  // 合并参数与入列合并语义是冻结契约：本次只改绘制表现，不改这些数值。
+  assert.equal(MERGE_RADIUS, 0.3);
+  assert.equal(MERGE_WINDOW, 0.12);
+  assert.equal(CLUSTER_RADIUS, 0.22);
+  const list = [];
+  pushFloater(list, damageFloater(2, 3, '20'), 0);
+  pushFloater(list, damageFloater(2.05, 3.05, '15'), 0.05);
+  assert.equal(list.length, 1, '同层近邻仍合并');
+  assert.equal(list[0].text, '35', '数字文案仍按求和合并');
 });
 
 // ---------- 接线与纯度 ----------
