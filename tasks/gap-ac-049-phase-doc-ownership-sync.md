@@ -1,7 +1,7 @@
 ---
 id: gap-ac-049-phase-doc-ownership-sync
 title: 阶段文档与文档所有权一致：AC-049 判据单一入口 + §7 映射漂移钉子（AC-049）
-status: todo
+status: ready
 labels:
   - gap
   - refactor
