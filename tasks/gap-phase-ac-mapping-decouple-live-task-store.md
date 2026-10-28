@@ -1,7 +1,7 @@
 ---
 id: gap-phase-ac-mapping-decouple-live-task-store
 title: AC-007 复验：解除全量套件对活任务库的耦合，稳定性门禁连续 3 轮 exit 0
-status: todo
+status: ready
 labels:
   - gap
   - defect
