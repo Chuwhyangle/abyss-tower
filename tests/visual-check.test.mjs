@@ -64,6 +64,7 @@ import {
   QUALITY_SCENARIOS,
   REDUCED_MOTION_SCENARIOS,
   SCENARIOS,
+  WEAPON_FRAME_TICKS,
   WEAPON_TYPES,
   TimeDriftError,
   buildScenarioManifestEntry,
@@ -703,8 +704,13 @@ test('weapons：8 组帧，towerType 覆盖 TOWERS 且互不相同，每组都�
   assert.deepEqual([...WEAPON_TYPES].sort(), Object.keys(TOWERS).sort());
   for (const group of plan.groups) {
     assert.ok(group.setup.some((step) => step.type === 'tower' && step.tower === group.towerType), `${group.key} 没有放置 ${group.towerType}`);
-    assert.equal(group.frames.length, 6);
-    assert.deepEqual(group.frames.map((frame) => frame.requestedTime), [0.5, 1, 1.5, 2, 2.5, 3]);
+    // 取样必须密于武器射击周期：0.5s 一帧会与 1.5s 的射击节奏混叠，系统性漏掉短命命中特效
+    // （gap-feel-review-rereview 复评实证：炮台/电弧/狙击在 6 帧里 0 次命中）。
+    assert.equal(group.frames.length, WEAPON_FRAME_TICKS.length);
+    const times = group.frames.map((frame) => frame.requestedTime);
+    assert.equal(times[0], 0.05);
+    assert.equal(times.at(-1), 1.5);
+    assert.ok(times.every((t, i) => i === 0 || Math.abs(t - times[i - 1] - 0.05) < 1e-9), '帧间隔应恒为 0.05s');
     assert.equal(group.support, group.towerType === 'banner');
   }
 });

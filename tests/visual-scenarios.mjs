@@ -67,8 +67,10 @@ export const SCENARIOS = Object.freeze([
 export const EVENT_SETUP_TICKS = 60;
 export const EVENT_AFTER_TICKS = 15;
 
-// 武器组每 0.5s 一帧，覆盖从首发射击到各自节奏的第二轮（含最慢的狙击塔 0.46/s）。
-export const WEAPON_FRAME_TICKS = Object.freeze([30, 30, 30, 30, 30, 30]);
+// 武器组每 0.05s 一帧（30 帧覆盖 0–1.5s）。⛔ 不得回到 0.5s 一帧：射击节奏 1.5s 与 0.5s
+// 取样会整周期混叠（f1≡f4 / f2≡f5 / f3≡f6），系统性漏掉 0.1–0.2s 的短命命中特效——复评实证
+// 炮台/电弧/狙击在 6 帧取样里命中特效 0 次，密采样后三者均可见（ring:cannon / bolt:arc / spark:sniper）。
+export const WEAPON_FRAME_TICKS = Object.freeze(Array.from({ length: 30 }, () => 3));
 
 export const ticksFor = (seconds) => Math.round(seconds / SIM_DT);
 
@@ -289,7 +291,7 @@ const SPECS = Object.freeze({
     kind: 'weapons',
     viewports: Object.freeze(['desktop']),
     quality: null,
-    description: '八种防御塔各自开火：每塔一组 6 帧（t=0.5…3.0s），同 seed 同步骤',
+    description: '八种防御塔各自开火：每塔一组 30 帧（t=0.05…1.5s，0.05s 间隔），同 seed 同步骤',
     groups: Object.freeze(WEAPON_TYPES.map((type) => weaponGroup(type))),
   }),
   ...Object.fromEntries(EVENT_SCENARIOS.map((scenario) => [
