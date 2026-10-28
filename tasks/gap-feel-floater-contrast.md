@@ -1,7 +1,7 @@
 ---
 id: gap-feel-floater-contrast
 title: 修复伤害飘字对比度回归（混战可读性）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
