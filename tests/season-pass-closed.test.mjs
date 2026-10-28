@@ -96,7 +96,7 @@ before(async () => {
     seasonPassArchivedSummary,
   } = await import('../server/db/season_pass.mjs'));
   ({ seasonOf: serverSeasonOf, seasonBounds: serverSeasonBounds } = await import(
-    '../server/db/leaderboard.mjs'
+    '../server/db/leaderboard-sql.mjs'
   ));
   ({ SeasonPassRoutes } = await import('../server/routes/season-pass.mjs'));
 

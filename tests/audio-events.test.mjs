@@ -37,15 +37,15 @@ function extractImplementedEvents(source) {
   return events;
 }
 
-test('sim.js 发出的音效事件都在 audio.js 有实现', () => {
+test('sim.js 发出的音效事件都在 audio-synth.js 有实现', () => {
   const emitted = extractEmittedEvents(read('public/js/sim.js'));
-  const implemented = extractImplementedEvents(read('public/js/audio.js'));
+  const implemented = extractImplementedEvents(read('public/js/audio-synth.js'));
 
   assert.ok(emitted.size > 0, '未能从 sim.js 解析出任何 playSound 事件，解析器失效');
-  assert.ok(implemented.size > 0, '未能从 audio.js 解析出任何 case，解析器失效');
+  assert.ok(implemented.size > 0, '未能从 audio-synth.js 解析出任何 case，解析器失效');
 
   const missing = [...emitted].filter((name) => !implemented.has(name)).sort();
-  assert.deepEqual(missing, [], `audio.js 缺少音效实现：${missing.join(', ')}`);
+  assert.deepEqual(missing, [], `audio-synth.js 缺少音效实现：${missing.join(', ')}`);
 });
 
 test('通关事件 victory 确实从 sim.js 发出', () => {

@@ -19,18 +19,20 @@ process.env.DB_PATH = DB;
 process.env.DB_BACKUP = '0';
 const { db } = await import('../server/db/index.mjs');
 const {
-  BOARD_SORT,
-  boardKeyFor,
-  boardSort,
   countBoard,
-  isSeasonKey,
   listBoard,
   personalBest,
   rankFor,
   recordLeaderboardEntry,
+} = await import('../server/db/leaderboard.mjs');
+const {
+  BOARD_SORT,
+  boardKeyFor,
+  boardSort,
+  isSeasonKey,
   seasonBounds,
   seasonOf,
-} = await import('../server/db/leaderboard.mjs');
+} = await import('../server/db/leaderboard-sql.mjs');
 
 const DAY = '2026-10-24';
 

@@ -1,7 +1,7 @@
 // 成就持久化：读取已解锁状态，按结算上下文幂等写入新解锁。
 import { db, transaction } from './index.mjs';
 import { careerStats } from './stats.mjs';
-import { seasonBounds, seasonOf } from './leaderboard.mjs';
+import { seasonBounds, seasonOf } from './leaderboard-sql.mjs';
 import { readSelectedSkill, readSkillLevels, skillUnlocked } from './skills.mjs';
 import {
   ACHIEVEMENTS,

@@ -21,9 +21,9 @@ const TOKEN = 'lb-suspect-0001';
 process.env.DB_PATH = DB;
 process.env.DB_BACKUP = '0';
 const { db } = await import('../server/db/index.mjs');
-const { boardKeyFor, recordLeaderboardEntry, validateLeaderboardEntry } = await import(
-  '../server/db/leaderboard.mjs'
-);
+const { boardKeyFor } = await import('../server/db/leaderboard-sql.mjs');
+const { recordLeaderboardEntry } = await import('../server/db/leaderboard.mjs');
+const { validateLeaderboardEntry } = await import('../server/db/leaderboard-validate.mjs');
 const { computeRawScore, dayKey } = await import('../public/js/shared/scoring.js');
 
 const DAY = dayKey();

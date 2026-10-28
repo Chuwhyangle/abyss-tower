@@ -153,21 +153,24 @@ const SKILLS = ['aurora', 'meteor', 'chrono'];
 
 // ---------- 源码级：技能音效 ----------
 
-test('audio.js 为三种技能提供合成音效', () => {
-  const src = read('public/js/audio.js');
+test('audio-synth.js 为三种技能提供合成音效', () => {
+  const src = read('public/js/audio-synth.js');
   for (const id of SKILLS) {
     const block = caseBlock(src, `skill_${id}`);
     assert.ok(block, `缺少 ${id} 技能音效`);
-    assert.match(block, /this\.(tone|noise)\(/, `${id} 音效未合成`);
+    assert.match(block, /fx\.(tone|noise)\(/, `${id} 音效未合成`);
     assert.doesNotMatch(block, /musicTone/, `${id} 音效不应走音乐层`);
   }
 });
 
 test('技能音效走 sfx 总线而非 music 总线', () => {
-  const src = read('public/js/audio.js');
-  // 音效合成器 tone / noise 的输出都接到 sfxGain。
-  assert.match(src, /osc\.connect\(env\)\.connect\(this\.sfxGain\)/, '音效未走 sfx 总线');
-  assert.match(src, /source\.connect\(filter\)\.connect\(env\)\.connect\(this\.sfxGain\)/, '噪声未走 sfx 总线');
+  const src = read('public/js/audio-synth.js');
+  // 音效合成器 tone / noise 的输出都接到调用方选定的总线，门面默认给 sfxGain。
+  assert.match(src, /osc\.connect\(env\)\.connect\(bus\)/, '音效未走选定总线');
+  assert.match(src, /source\.connect\(filter\)\.connect\(env\)\.connect\(bus\)/, '噪声未走选定总线');
+  const facade = read('public/js/audio.js');
+  assert.match(facade, /playTone\(this\.ctx, bus,/, '音效未由门面选总线');
+  assert.match(facade, /bus = options\.bus && options\.bus !== this\.sfxGain \? options\.bus : this\.sfxGain/, '音效默认总线不是 sfxGain');
 });
 
 // ---------- 源码级：音乐场景切换 ----------
@@ -175,10 +178,11 @@ test('技能音效走 sfx 总线而非 music 总线', () => {
 test('startMusic 支持 menu / battle / boss 三套音轨', () => {
   const src = read('public/js/audio.js');
   assert.match(src, /startMusic\(mood = 'menu'\)/, '缺少 startMusic(mood)');
+  const tracks = read('public/js/audio-music.js');
   for (const mood of ['menu', 'battle', 'boss']) {
-    assert.match(src, new RegExp(`\\b${mood}\\s*:\\s*\\{`), `音乐缺少 ${mood} 分支`);
+    assert.match(tracks, new RegExp(`\\b${mood}\\s*:\\s*\\{`), `音乐缺少 ${mood} 分支`);
   }
-  assert.match(src, /osc\.connect\(env\)\.connect\(this\.musicGain\)/, '音乐未走 music 总线');
+  assert.match(src, /playMusicTone\(this\.ctx, this\.musicGain,/, '音乐未走 music 总线');
 });
 
 test('音乐调用点覆盖大厅、战斗与首领波', () => {

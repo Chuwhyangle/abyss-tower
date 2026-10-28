@@ -185,7 +185,10 @@ test('十个海克斯的 scoreMul 都进入结算（与地图倍率相乘）', (
   assert.equal(hexScoreMul('not-a-hex'), 1);
 
   // 服务端 settle 必须真的调用 hexScoreMul 并乘进 scoreMul（光有公式不算接线）。
-  const source = fs.readFileSync(path.join(ROOT, 'server/services/run-service.mjs'), 'utf8');
+  const source = fs.readFileSync(
+    path.join(ROOT, 'server/services/run-settlement.mjs'),
+    'utf8'
+  );
   assert.match(source, /hexScoreMul\(hex\?\.id\)/, '服务端未读取海克斯倍率');
   assert.match(
     source,

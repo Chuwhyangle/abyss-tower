@@ -83,7 +83,7 @@ before(async () => {
   const { db } = await import('../server/db/index.mjs');
   const accounts = await import('../server/db/accounts.mjs');
   const achievements = await import('../server/db/achievements.mjs');
-  const { seasonOf } = await import('../server/db/leaderboard.mjs');
+  const { seasonOf } = await import('../server/db/leaderboard-sql.mjs');
 
   const now = Date.now();
   seasonKey = seasonOf(now);
