@@ -1,7 +1,7 @@
 ---
 id: gap-feel-review-rereview
 title: 打击感复评：重合成对照证据 + 全新上下文复评 + 落记录
-status: todo
+status: ready
 labels:
   - gap
 parent: null
