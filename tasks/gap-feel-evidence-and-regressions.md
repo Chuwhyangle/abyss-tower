@@ -1,7 +1,7 @@
 ---
 id: gap-feel-evidence-and-regressions
 title: 打击感评审整改：补齐事件触发证据 + 修复飘字对比度与命中剪影
-status: todo
+status: ready
 labels:
   - gap
 parent: null
