@@ -40,19 +40,28 @@ GOAL-009 的其余任务都需要同一块地基：可执行的结构预算门�
 
 ## AC
 
-- [ ] `node scripts/structure-budget.mjs --check` exit 0（当前所有超限文件均已登记债务）
-- [ ] 负对照：任取一个文件把预算调低 1 行，`--check` 必须 exit 1；数据模块 import 运行时模块必须 exit 1；人为构造 import 环必须 exit 1
-- [ ] `node --test tests/structure-budget.test.mjs` 全绿
-- [ ] `docs/reviews/refactor-baseline.json` 覆盖 5 场景 × 2 视口 + 16 scenario × 2 视口，且 `node scripts/visual-parity.mjs --check` 在未改动树上 exit 0，连续两次结果一致
-- [ ] `docs/reviews/sim-determinism.json` 覆盖 3 个 seed 的 events/rng/state 三份哈希，且 `node scripts/check-sim-determinism.mjs --check` exit 0
-- [ ] `npm test` 全绿
+- [x] `node scripts/structure-budget.mjs --check` exit 0（当前所有超限文件均已登记债务）
+- [x] 负对照：任取一个文件把预算调低 1 行，`--check` 必须 exit 1；数据模块 import 运行时模块必须 exit 1；人为构造 import 环必须 exit 1
+- [x] `node --test tests/structure-budget.test.mjs` 全绿
+- [x] `docs/reviews/refactor-baseline.json` 覆盖 5 场景 × 2 视口 + 16 scenario × 2 视口，且 `node scripts/visual-parity.mjs --check` 在未改动树上 exit 0，连续两次结果一致
+- [x] `docs/reviews/sim-determinism.json` 覆盖 3 个 seed 的 events/rng/state 三份哈希，且 `node scripts/check-sim-determinism.mjs --check` exit 0
+- [x] `npm test` 全绿
 
 ## DoD
 
-- [ ] 门禁与见证工具零第三方依赖，Node ≥ 22.5 原生实现
-- [ ] 债务文件按任务归属，五个拆分任务各自只删自己的文件
-- [ ] `docs/PHASE_REFACTOR.md` §5/§6 与实现一致（含 `allow.d` 目录口径）
-- [ ] 基线可在未改动的 worktree 上稳定复跑（两次哈希一致，无时间戳）
+- [x] 门禁与见证工具零第三方依赖，Node ≥ 22.5 原生实现
+- [x] 债务文件按任务归属，五个拆分任务各自只删自己的文件
+- [x] `docs/PHASE_REFACTOR.md` §5/§6 与实现一致（含 `allow.d` 目录口径）
+- [x] 基线可在未改动的 worktree 上稳定复跑（两次哈希一致，无时间戳）
+
+## Notes
+
+- **债务归属补记**：`tests/balance-sim.mjs`（1289）在 R1–R5 的任务清单里没有对应的拆分任务，登记在 `refactor-closeout.json`，并在 `docs/PHASE_REFACTOR.md` §5 写明。R6 收口时不拆它（或另立任务承接）就会被 `debt-stale` / `debt-exceeded` 拦住——这是显式留下的收口债，不是漏登记。
+- **门禁口径落定**（已写进 §5）：文件名即 owner（`<task-id>.json` 内每条 `owner` 必须等于文件名）；owner 必须是 `tasks/<owner>.md` 活任务；四类债务违规 over-budget / debt-exceeded / debt-stale / debt-unknown-path；数据豁免只免行数不免纯度；import 解析复用 `scripts/import-graph.mjs`（parseImports/resolveSpecifier/collectFiles），只有 SCC 用 Tarjan 自实现——避免两套解析器对同一份代码给出不同结论。
+- **视觉见证两级判定（设计增量，已写进 §8）**：实测真浏览器截图跨进程存在亚像素/字形级渲染变体（8×8 亮度网格单元差 ≤0.01、画面统计 ≤0.02），纯 pixelHash 等价会在未改动树上随机变红（实测两次 `--check` 各出现 4~6 帧假红）。因此：pixelHash 相同 = 逐像素一致；不同时要求 8×8 网格单元最大差 ≤1、平均差 ≤0.25 且 `meanLuma`/`stdLuma`/`levels` 在容差内，才判「同代码渲染变体」并逐条列出，否则判漂移。缺失帧/多出帧零容忍。
+- **登记与配套**：三个新脚本进了 `scripts/test-changed.mjs` 的 TEST_MAP（否则全量套件的「审计覆盖」红）；`tests/verify-local.test.mjs` 的 EXPECTED_STEPS 同步加入 `check:structure`（verify:local 链改动必须同步该断言）。
+- **实测证据**：structure-budget = 433 源文件 / 16 债务条目 / 1327 条依赖 / 无环；视觉基线 182 帧 = 5 场景 × 2 视口（14 帧）+ 16 scenario × 2 视口（168 帧），连续两次 `--check` 均 exit 0（逐像素一致 180 / 179，渲染变体 2 / 3，网格差 ≤0.008）；确定性基线 3 seed × events/rng/state；`npm test` 1718 例全绿；`coverage:changed` 四个脚本行覆盖 69.02% / 69.64% / 90.37% / 94.31%。
+- **已知耦合**：`tests/docs-consistency.test.mjs` 要求 planned 块内仍有「未落地产物」；本任务落地后 §5/§7 计划块的路径都已存在，故把 R5 的四块具体路径（`tests/lib/visual/session.mjs` 等，R5 才会创建）写进 §6 计划块，维持该不变式的真实前提。R5/R6 落地时须删除计划块（§6 R6 已写明）。
 
 ## Touches
 
@@ -72,4 +81,5 @@ GOAL-009 的其余任务都需要同一块地基：可执行的结构预算门�
 - `package.json`
 - `.github/workflows/ci.yml`
 - `scripts/test-changed.mjs`
+- `tests/verify-local.test.mjs`
 - `tasks/refactor-baseline-and-structure-gate.md`

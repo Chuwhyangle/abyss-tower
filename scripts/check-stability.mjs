@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // 稳定性门禁：连续 N 轮（默认 3）运行全量测试，任一轮失败就向 stderr 输出 CAUSE= 并以非 0 退出。
-// 与 test-stability.mjs 共用轮次执行与统计，本脚本只负责「门禁判定 + 失败原因」。
+// 与 test-stability.mjs 共用轮次执行与统计，本脚本只负责「门禁判定 + 失败原因 + 红类归属」。
+// 红类归属（all-pass / deterministic / flaky）只解释失败的性质，不改变门禁的通过标准：
+// 任一轮失败仍 exit 1，绝不因「判成确定性红」而放行。
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,6 +36,63 @@ export function causeLine(round) {
   const names = (round.failedTests ?? []).slice(0, MAX_CAUSE_TESTS).map((name) => String(name));
   const suffix = names.length > 0 ? `：${names.join('、')}` : '';
   return `CAUSE=full suite failed on run ${round.round}（${round.fail} 项失败${suffix}）${evidenceSuffix(round)}`;
+}
+
+function sortedNames(round) {
+  return (round.failedTests ?? []).map((name) => String(name)).sort();
+}
+
+function sameList(left, right) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function unionNames(rounds) {
+  const names = new Set();
+  for (const round of rounds) for (const name of round.failedTests ?? []) names.add(String(name));
+  return [...names].sort();
+}
+
+// 红类归属把「跨轮失败集恒定」（套件本身有确定性坏点）与「跨轮不同」（真正的稳定性/并发缺陷）
+// 分成两类可机读的事实，免去每轮复验都靠人翻 .tap 原文归因。
+// 判据偏保守：只要有任何线索指向「跨轮不同」，就归 flaky，不误报确定性。
+export function classifyRounds(rounds) {
+  const list = Array.isArray(rounds) ? rounds : [];
+  const failed = list.filter((round) => round.status !== 'ok');
+  if (failed.length === 0) return { kind: 'all-pass', tests: [] };
+  // 有轮通过、有轮失败 ⇒ 失败只在部分轮出现，天然是偶发。
+  if (failed.length !== list.length) return { kind: 'flaky', tests: unionNames(failed) };
+
+  const timedOut = failed.filter((round) => round.status === 'timeout' || round.status === 'error');
+  const asserted = failed.filter((round) => round.status === 'fail');
+  // 超时/异常与断言失败混类：更可能指向并发/时序，宁可归 flaky。
+  if (timedOut.length > 0 && asserted.length > 0) return { kind: 'flaky', tests: unionNames(failed) };
+
+  if (asserted.length > 0) {
+    const sets = asserted.map(sortedNames);
+    const first = sets[0];
+    return sets.every((set) => sameList(set, first))
+      ? { kind: 'deterministic', tests: first }
+      : { kind: 'flaky', tests: unionNames(failed) };
+  }
+
+  // 全部是 timeout / error：没有用例名可用，按 (status, detail) 判断跨轮是否同构。
+  const keys = timedOut.map((round) => JSON.stringify([round.status, round.detail ?? '']));
+  return keys.every((key) => key === keys[0])
+    ? { kind: 'deterministic', tests: sortedNames(timedOut[0]) }
+    : { kind: 'flaky', tests: unionNames(failed) };
+}
+
+// 通过轮次不输出红类行，保持既有 stdout 逐字不变。
+export function classificationLine(classification) {
+  if (!classification || classification.kind === 'all-pass') return null;
+  if (classification.kind === 'flaky') {
+    return '红类：偶发红（跨轮失败集不同 ⇒ 稳定性/并发隔离缺陷）';
+  }
+  const tests = (classification.tests ?? []).map(String);
+  const names = tests.slice(0, MAX_CAUSE_TESTS);
+  if (names.length === 0) return '红类：确定性红（跨轮失败集恒定，套件本身坏了，非稳定性缺陷）';
+  const truncated = tests.length > names.length ? `…（共 ${tests.length} 项）` : '';
+  return `红类：确定性红（跨轮失败集恒定，套件本身坏了，非稳定性缺陷）：${names.join('、')}${truncated}`;
 }
 
 function usage() {
@@ -75,6 +134,8 @@ export function runCheck(options) {
   }
 
   const report = summarizeRounds(rounds);
+  // 红类只挂在报告上供归因（--json 随之输出），不改 report.ok 与退出码。
+  report.classification = classifyRounds(rounds);
   if (options.json) {
     console.log(JSON.stringify({
       generatedAt: new Date().toISOString(),
@@ -83,7 +144,15 @@ export function runCheck(options) {
       ...report,
     }, null, 2));
   } else {
-    for (const line of formatReport(report, { concurrency, testFiles: files.length })) {
+    const lines = formatReport(report, { concurrency, testFiles: files.length });
+    const banner = classificationLine(report.classification);
+    if (banner) {
+      // 紧贴失败清单之上：先看红类，再看用例名。
+      const index = lines.indexOf('失败用例：');
+      if (index >= 0) lines.splice(index, 0, banner);
+      else lines.push(banner);
+    }
+    for (const line of lines) {
       console.log(line);
     }
   }
