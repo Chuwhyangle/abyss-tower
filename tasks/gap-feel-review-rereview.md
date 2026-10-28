@@ -50,10 +50,10 @@ goal_ac: AC-020
 ## Touches
 
 - `docs/FEEL_REVIEW.md`
-- `docs/reviews/feel-review-before-after.png`
-- `docs/reviews/feel-after/contact-sheet.png`
-- `docs/reviews/feel-after/manifest.json`
-- `tests/feel-review-record.test.mjs`
+- `docs/reviews/feel-review-before-after.png` (new)
+- `docs/reviews/feel-after/contact-sheet.png` (new)
+- `docs/reviews/feel-after/manifest.json` (new)
+- `tests/feel-review-record.test.mjs` (new)
 - `tasks/gap-feel-review-rereview.md`
 
 ## Notes
