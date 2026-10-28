@@ -71,4 +71,5 @@ GOAL-009 的其余任务都需要同一块地基：可执行的结构预算门�
 - `docs/PHASE_REFACTOR.md`
 - `package.json`
 - `.github/workflows/ci.yml`
+- `scripts/test-changed.mjs`
 - `tasks/refactor-baseline-and-structure-gate.md`
