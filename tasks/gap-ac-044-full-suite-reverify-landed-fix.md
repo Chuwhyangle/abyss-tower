@@ -61,11 +61,11 @@ AC-044（GOAL-009「结构性重构：拆分长文件与结构门禁」）的 cr
 
 ## Notes
 
-### 本轮读数（worktree `task/gap-ac-044-full-suite-reverify-landed-fix`，HEAD `15fca2a29b114a18acdb6d18eec54cd94d8f38d8`，node v22.23.2，develop 未前进、合并为 Already up to date）
+### 本轮读数（worktree `task/gap-ac-044-full-suite-reverify-landed-fix`，node v22.23.2）
 
-**1) `npm test`（= `node --test --test-concurrency=2 tests/*.test.mjs`）连跑 2 次，两次都绿：**
+**1) `npm test`（= `node --test --test-concurrency=2 tests/*.test.mjs`）实跑 3 次，全部绿：**
 
-第 1 轮 exit 0，尾段：
+第 1 轮 — HEAD `15fca2a29b114a18acdb6d18eec54cd94d8f38d8`（= develop tip），exit 0，尾段：
 
 ```
 1..1684
@@ -79,7 +79,7 @@ AC-044（GOAL-009「结构性重构：拆分长文件与结构门禁」）的 cr
 # duration_ms 24482.108605
 ```
 
-第 2 轮 exit 0，尾段：
+第 2 轮 — 同一 HEAD `15fca2a`，exit 0，尾段：
 
 ```
 1..1684
@@ -93,9 +93,23 @@ AC-044（GOAL-009「结构性重构：拆分长文件与结构门禁」）的 cr
 # duration_ms 24258.50657
 ```
 
-→ 判定：**确定性绿**（两轮均 `# fail 0`、`# skipped 0`、`# todo 0`，无端口 / 临时目录类失败，无并发干扰迹象）。
+第 3 轮 — **最终 HEAD `4c2aa236f8880b8e25878c3fd8604e405f180fef`**（已并入落在 develop 的 task 文件提交、与 develop 同树），exit 0，尾段：
 
-**2) `npm run check:docs` exit 0**，原文行：
+```
+1..1684
+# tests 1684
+# suites 0
+# pass 1684
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 24598.231812
+```
+
+→ 判定：**确定性绿**。三轮均 `# tests 1684 / # pass 1684 / # fail 0`，`# skipped 0`、`# todo 0`，无端口 / 临时目录类失败，无并发干扰迹象。
+
+**2) `npm run check:docs` exit 0（在 `15fca2a` 与最终 HEAD `4c2aa23` 上各跑一次，均通过）**，原文行：
 
 ```
 docs-consistency: 文档一致性检查通过（21 个文件）
@@ -103,7 +117,7 @@ docs-consistency: 文档一致性检查通过（21 个文件）
 
 上一轮唯一红面 `not ok 322 - 真实仓库文档一致：check:docs 的判定为通过` 在本 HEAD 上不再复现。
 
-**3) planned 块结构配对（只读 grep）：**
+**3) planned 块结构配对（只读 grep，`docs/PHASE_REFACTOR.md` 零改动）：**
 
 - `grep -c 'docs-consistency:planned-start' docs/PHASE_REFACTOR.md` → `5`
 - `grep -c 'docs-consistency:planned-end' docs/PHASE_REFACTOR.md` → `5`
@@ -124,7 +138,7 @@ docs-consistency: 文档一致性检查通过（21 个文件）
 
 **6) 改动面：**
 
-`git diff develop` 只含 `tasks/gap-ac-044-full-suite-reverify-landed-fix.md`（由 `task_write` 写入）。生产 / 运行时 / 玩家可见代码零改动；未新增 `scripts/` 或 `tests/` 源文件（不涉 `scripts/test-changed.mjs` 的 TEST_MAP 登记）；他人 lane（`scripts/docs-consistency.mjs`、`tests/docs-consistency.test.mjs`、`docs/PHASE_REFACTOR.md`、`scripts/check-stability.mjs`、`tests/check-stability.test.mjs`）零改动。
+本任务唯一写面是 `tasks/gap-ac-044-full-suite-reverify-landed-fix.md`（AC 勾选 + 本 Notes，经 `task_write`）。合并 develop 后 `git diff develop` 为空（worktree 与 develop 同树，中间并入的 `gap-ac-002-*` / `gap-ac-005-*` 任务文件提交均为他人在飞任务、非本任务改动）。生产 / 运行时 / 玩家可见代码零改动；未新增 `scripts/` 或 `tests/` 源文件（不涉 `scripts/test-changed.mjs` 的 TEST_MAP 登记）；他人 lane（`scripts/docs-consistency.mjs`、`tests/docs-consistency.test.mjs`、`docs/PHASE_REFACTOR.md`、`scripts/check-stability.mjs`、`tests/check-stability.test.mjs`）零改动。
 
 **7) 复用口径（供后续 AC-044 复验）：**
 
