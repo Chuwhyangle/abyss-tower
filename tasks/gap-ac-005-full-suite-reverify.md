@@ -1,7 +1,7 @@
 ---
 id: gap-ac-005-full-suite-reverify
 title: AC-005 复验：全量测试（--test-concurrency=2）exit 0（根因修复由在飞任务拥有）
-status: ready
+status: done
 labels:
   - gap
   - defect
