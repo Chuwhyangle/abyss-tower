@@ -1,7 +1,7 @@
 ---
 id: gap-ac-045-static-checks-green
 title: 静态检查链收口：四命令单点定义 + CI 阻塞 + 漂移钉子（AC-045）
-status: todo
+status: ready
 labels:
   - gap
   - refactor
