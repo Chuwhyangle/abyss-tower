@@ -6,6 +6,9 @@
 //   (b) 每个 open（todo / ready / needs-human）任务若 `goal_ac` 落在 AC-043…AC-049，该 AC 必须出现在 §7 ——
 //       沿用 AC-007 已解耦的口径：只要求 goal_ac 命中 AC 行，不要求任务 id 逐字进表，
 //       否则任务库经 task_write 持续增长会让全量套件周期性转红；
+//       不空转证明由 fixture 正/负对照承担，**不依赖活任务库的存量**：存量 open 任务是阶段进行中的
+//       瞬态事实，阶段一完成它必然归零，写成断言就是一条永远无法再满足的永久红点
+//       （`gap-ac-002-full-suite-3x-witness-live-store` 即 a88f702 写回、6c7cfb2 使其到期的那份副本）；
 //   (c) `package.json` 的 `check:doc-ownership` 逐字等于 AC-049 判据（判据在仓库里只有这一处字面定义），
 //       且 §7 的 AC-049 行只引用它、不再手抄两条命令。
 // 正例（真实仓库）与负对照（同一份真实文本改一处再断言）共用 checkPhaseRefactorSync，避免两处各抄一套判据。
@@ -132,12 +135,18 @@ test('§7 覆盖 AC-043…AC-049、open 任务 goal_ac 都落在表内、判据�
   const repo = realRepo();
   assert.deepEqual(checkPhaseRefactorSync(repo), []);
 
-  // 反空转见证：真实仓库里确实有 open 的 GOAL-009 任务被 (b) 判定覆盖，契约不是空跑。
-  const openGoalTasks = repo.tasks.filter((task) => task.goalAc && PHASE_AC_SET.has(task.goalAc) && isOpen(task.status));
-  assert.ok(openGoalTasks.length > 0, '真实任务库里应至少有一个 open 的 AC-043…AC-049 任务');
   for (const ac of PHASE_ACS) {
     assert.ok(repo.phaseMarkdown.includes(ac), `阶段文档必须提到 ${ac}`);
   }
+});
+
+// 反空转见证：用 fixture 构造一个被 (b) 命中的 open 任务，证明判定确实会跑。
+// 不读取真实任务库里「此刻还有几个 open 的 GOAL-009 任务」——那是阶段进行中的瞬态事实，
+// 阶段完成后必然归零，写成断言就是永久红点（本任务立案的直接原因）。
+test('(b) 正对照：完整真实 §7 + open fixture 任务 → 不打红', () => {
+  const repo = realRepo();
+  const openTask = { id: 'fixture-open', status: 'ready', goalAc: 'AC-048' };
+  assert.deepEqual(checkPhaseRefactorSync({ ...repo, tasks: [...repo.tasks, openTask] }), []);
 });
 
 test('(a) 负对照：删掉 §7 的 AC-046 行 → 缺少 AC-046', () => {
