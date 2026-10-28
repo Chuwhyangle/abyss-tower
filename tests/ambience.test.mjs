@@ -86,13 +86,14 @@ test('环境音层使用独立总线，不挂在 sfx / music 上', () => {
     /this\.ambienceGain\.connect\(this\.(?:sfx|music)Gain\)/,
     '环境音总线不得挂在 sfx/music 上'
   );
-  assert.match(src, new RegExp(AMBIENCE_ENABLED_KEY.replace(/\./g, '\\.')), '缺少独立开关的存储键');
-  assert.match(src, /setAmbienceEnabled\s*\(/, '缺少低配关闭入口');
-  assert.match(src, /ambienceFor\(/, '缺少群系/天气映射入口');
+  const layer = readSource('public/js/audio-ambience.js');
+  assert.match(layer, new RegExp(AMBIENCE_ENABLED_KEY.replace(/\./g, '\\.')), '缺少独立开关的存储键');
+  assert.match(layer, /setAmbienceEnabled\s*\(/, '缺少低配关闭入口');
+  assert.match(layer, /ambienceFor\(/, '缺少群系/天气映射入口');
 });
 
 test('环境音开关不改写 sfx / 音乐状态', () => {
-  const src = readSource('public/js/audio.js');
+  const src = readSource('public/js/audio-ambience.js');
   const body = src.match(/setAmbienceEnabled\(value\)\s*\{[\s\S]*?\n  \}/)?.[0] || '';
   assert.ok(body, '缺少 setAmbienceEnabled 实现');
   assert.doesNotMatch(body, /this\.enabled\s*=/, '环境音开关不得改写音效开关');

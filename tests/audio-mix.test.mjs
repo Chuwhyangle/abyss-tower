@@ -165,15 +165,17 @@ test('audio.js 建立 master / sfx / music 三条总线', () => {
   assert.match(src, /this\.masterGain\.connect\(this\.ctx\.destination\)/, 'master 未接到输出');
   assert.match(src, /this\.sfxGain\.connect\(this\.masterGain\)/, 'sfx 未接到 master');
   assert.match(src, /this\.musicGain\.connect\(this\.masterGain\)/, 'music 未接到 master');
-  // 音效与环境音走 sfx 总线，音乐走 music 总线。
-  assert.match(src, /osc\.connect\(env\)\.connect\(this\.sfxGain\)/, '音效未走 sfx 总线');
-  assert.match(src, /source\.connect\(filter\)\.connect\(env\)\.connect\(this\.sfxGain\)/, '噪声未走 sfx 总线');
-  assert.match(src, /osc\.connect\(env\)\.connect\(this\.musicGain\)/, '音乐未走 music 总线');
+  // 音效与环境音走 sfx 总线，音乐走 music 总线（合成原语在 audio-synth.js，门面只选总线）。
+  const synth = readSource('public/js/audio-synth.js');
+  assert.match(synth, /osc\.connect\(env\)\.connect\(bus\)/, '音效未走选定总线');
+  assert.match(synth, /source\.connect\(filter\)\.connect\(env\)\.connect\(bus\)/, '噪声未走选定总线');
+  assert.match(src, /playTone\(this\.ctx, bus,/, '音效合成未经门面总线');
+  assert.match(src, /playMusicTone\(this\.ctx, this\.musicGain,/, '音乐未走 music 总线');
   assert.match(src, /this\.ambientGain\.connect\(this\.sfxGain\)/, '环境音未挂在 sfx 总线');
 });
 
 test('环境音随场景切换且电平低于音效', () => {
-  const src = readSource('public/js/audio.js');
+  const src = readSource('public/js/audio-ambience.js');
   assert.match(src, /AMBIENT_TRACKS/, '缺少环境音音色表');
   for (const mood of ['menu', 'battle', 'boss']) {
     assert.match(src, new RegExp(`\\b${mood}\\s*:\\s*\\{`), `环境音缺少 ${mood} 分支`);
@@ -181,9 +183,10 @@ test('环境音随场景切换且电平低于音效', () => {
   const level = Number(src.match(/AMBIENT_VOLUME\s*=\s*([\d.]+)/)?.[1]);
   assert.ok(Number.isFinite(level) && level > 0, '缺少环境音音量常量');
   assert.ok(level < 0.05, '环境音电平应明显低于常规音效');
-  assert.match(src, /startMusic\([^)]*\)\s*\{[\s\S]*?this\.startAmbient\(next\)/, 'startMusic 未联动环境音');
-  assert.match(src, /startAmbient\s*\(/, '缺少 startAmbient');
-  assert.match(src, /stopAmbient\s*\(/, '缺少 stopAmbient');
+  const facade = readSource('public/js/audio.js');
+  assert.match(facade, /startMusic\([^)]*\)\s*\{[\s\S]*?this\.startAmbient\(next\)/, 'startMusic 未联动环境音');
+  assert.match(facade, /startAmbient\s*\(/, '缺少 startAmbient');
+  assert.match(facade, /stopAmbient\s*\(/, '缺少 stopAmbient');
 });
 
 // ---------- 运行时：总线增益、音量调节、持久化 ----------
@@ -299,5 +302,6 @@ test('页面隐藏时暂停音乐与环境音，恢复后续播', () => {
 test('首次用户手势前不调度音符', () => {
   const src = readSource('public/js/audio.js');
   assert.match(src, /state\s*!==\s*'running'/, '未等待音频上下文就绪');
-  assert.match(src, /maybeBeginAmbient\(\)\s*\{[\s\S]*?state !== 'running'/, '环境音未等待首次手势');
+  const layer = readSource('public/js/audio-ambience.js');
+  assert.match(layer, /maybeBeginAmbient\(\)\s*\{[\s\S]*?state !== 'running'/, '环境音未等待首次手势');
 });

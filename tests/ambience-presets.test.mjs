@@ -39,7 +39,7 @@ const SOURCE = (relative) =>
   fs.readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
 const PRESET_SRC = SOURCE('public/js/shared/ambience.js');
 const BACKGROUND_SRC = SOURCE('public/js/render/background-renderer.js');
-const AUDIO_SRC = SOURCE('public/js/audio.js');
+const AUDIO_SRC = SOURCE('public/js/audio-ambience.js');
 
 const WEATHER_KEYS = ['none', ...AMBIENCE_WEATHER_IDS];
 
