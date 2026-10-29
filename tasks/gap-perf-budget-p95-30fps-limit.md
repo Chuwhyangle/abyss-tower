@@ -1,6 +1,6 @@
 ---
 id: gap-perf-budget-p95-30fps-limit
-title: perf:budget 门禁 p95 预算与 30FPS 场景帧间隔相悖：normal-1x-low 误红（非渲染回归）
+title: perf:budget 门禁 normal-1x-low 误红：p95 绝对阈值对共享宿主 rAF 节奏余量不足（非渲染回归）
 status: todo
 labels:
   - gap
