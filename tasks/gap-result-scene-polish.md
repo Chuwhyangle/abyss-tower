@@ -1,7 +1,7 @@
 ---
 id: gap-result-scene-polish
-title: 结算场景精灵与移动首屏修复：空金框、出屏分数/数据、孤立难度标签、奖励语义色（AC-029 阻断项）
-status: needs-human
+title: 结算场景精灵与移动首屏修复：空金框、出屏分数/数据、孤立难度标签、奖励语义色（可选打磨）
+status: todo
 labels:
   - gap
 parent: null
@@ -79,3 +79,7 @@ AC-029 的语义评审（2026-10-27，全新上下文 subagent `ac76e326a17add0f
 **执行 2026-10-27T10:31:47.122Z — 连续修满重试上限仍不合格（标 needs-human）**
 
 - 阻碍原因：unsatisfiableUnannotatedAc=[本任务落地后，`gap-art-review-record` 可重新采集并由全新上下文复评结算场景]（连续 3 轮被结构上不可派的拦截挡住 ⇒ 作者/人改写；⛔ 不派 fix worker）
+
+---
+
+2026-10-29 用户决定：AC-029 读图评审退役，本任务不再阻断任何 goal，降级为可选打磨（todo）。DoD 里「重新采集并由全新上下文复评结算场景」与 AC 里 contact-sheet 入库两条因不再读图而作废——执行时以浏览器断言（tests/browser-result-scene.mjs）为准，不启动读图评审者。

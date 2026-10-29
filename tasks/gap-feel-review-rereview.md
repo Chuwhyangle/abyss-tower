@@ -1,7 +1,7 @@
 ---
 id: gap-feel-review-rereview
 title: 打击感复评：重合成对照证据 + 全新上下文复评 + 落记录
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
@@ -62,3 +62,5 @@ goal_ac: AC-020
 
 
 2026-10-28 复评中止（用户决定）：读图评审在本机不可行——5 个评审者中 3 个在 600s 无进展被 watchdog 杀掉，2 个武器切片在混叠证据上判不通过 4/10。根因之一是证据采样缺陷（0.5s 帧距 vs 1.5s 射击周期整周期混叠，炮台/电弧/狙击命中层 6 帧 0 次捕获）；已改为 0.05s×30 帧密采样，并用分层像素差确认八塔命中特效均存在。用户决定：先默认视为成功，语义验收交给玩家。WIP 证据/记录/测试保存在分支 task/gap-feel-review-rereview（a89c27f），AC 未勾选、feel-review gate 仍为红，未合入 develop。
+
+2026-10-29 用户决定：打击感语义评审彻底踢掉，不再读图复评。本任务与 gap-feel-review-record 一并 supersede，AC-020 退役，GOAL-005 按「默认视为成功」收口 achieved。

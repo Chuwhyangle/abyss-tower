@@ -1,7 +1,7 @@
 ---
 id: gap-art-review-record
 title: 美术语义评审记录：四场景 × 两视口真实采集 + 全新上下文评审结论（AC-029）
-status: ready
+status: superseded
 labels:
   - gap
 parent: null
@@ -175,3 +175,7 @@ worker 连续两次长时停滞（08:15、09:21 均以 SIGTERM 终止）；改�
 - 未落地原因：AC 未全勾（checked 10/12，剩余未勾 2）——续做只需验证并勾选 AC
 - run_id：wk-prod-anchor
 - session_id：6faa9c67-7534-41b7-a9f1-ccd8a39c5314
+
+---
+
+2026-10-29 用户决定：美术语义评审（读图）与打击感一并踢掉——AC-029 退役，本任务 supersede，GOAL-006 按 9/10 achieved 收口；语义验收交给玩家。result 场景的可见 bug（空金框 / 出屏 / 难度标签 / 奖励色）由 gap-result-scene-polish 降级为可选打磨单独承接，不再阻塞任何 goal。

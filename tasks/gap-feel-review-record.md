@@ -1,7 +1,7 @@
 ---
 id: gap-feel-review-record
 title: 打击感语义评审记录：前后对照 contact sheet + 全新上下文评审结论
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
@@ -74,3 +74,5 @@ GOAL-005 退出条件要求「至少一组前后对照 contact sheet 与全新�
 评审记录是语义层证据，不能替代 `scripts/visual-check.mjs --suite feel` 的机械指标；两者同时成立才支撑 AC-018/AC-020。记录必须诚实：如果 after 仍不够「有重量」，宁可把结论写成不通过并立案修复，也不要为了关 AC 而写通过——那会让 AC-020 重新退化成一条无法自证的证据。检查器与记录格式（`### 标题` + 场景/日期/评审者/结论/分数）以 VIS-001 落地的 `scripts/lib/review-record.mjs` 为准，本任务不另发明格式。
 
 2026-10-28：首次全新上下文语义评审判不通过 4/10（FEEL-001）。记录、原始评审输出、前后对照图与自证测试已提交在分支 task/gap-feel-review-record（d28b166），未并入 develop；AC/DoD 均未勾选。整改与复评由 gap-feel-evidence-and-regressions（todo）承担；复评通过前 AC-020 不成立。
+
+2026-10-29 用户决定：打击感语义评审（读图评审）踢掉——本机读图评审反复超时/误判，语义验收交给玩家实测。本任务与 gap-feel-review-rereview 一并 supersede，AC-020 退役，GOAL-005 按「默认视为成功」收口 achieved。
