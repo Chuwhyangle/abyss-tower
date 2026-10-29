@@ -157,6 +157,17 @@ test('仓库内的预算文件存在且预算值齐全', () => {
   }
 });
 
+test('normal-1x-low 的 p95 预算必须容忍共享宿主 33.4ms 负载帧节奏', () => {
+  const baseline = readJson(DEFAULT_BASELINE_PATH);
+  const maxP95FrameMs = baseline.scenarios['normal-1x-low'].budget.maxP95FrameMs;
+  // p95FrameMs 测的是 rAF 原始帧间隔（呈现节奏），不是渲染成本；共享 VM 软件渲染在
+  // 负载下 rAF 会抖到 33.4ms（30Hz）。旧值 25 是拿 60Hz 呈现标准去卡 30FPS 场景，必然误红。
+  assert.ok(
+    maxP95FrameMs >= 33.4,
+    `normal-1x-low.maxP95FrameMs=${maxP95FrameMs} 必须 ≥ 33.4（共享宿主软件渲染的负载帧节奏下限）`
+  );
+});
+
 function writeTemp(dir, name, value) {
   const file = path.join(dir, name);
   fs.writeFileSync(file, JSON.stringify(value));

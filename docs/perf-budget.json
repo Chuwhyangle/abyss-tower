@@ -18,7 +18,7 @@
       "budget": {
         "minRenderFps": 20,
         "maxAvgRenderMs": 3,
-        "maxP95FrameMs": 25
+        "maxP95FrameMs": 40
       }
     },
     "late-3x-high": {
