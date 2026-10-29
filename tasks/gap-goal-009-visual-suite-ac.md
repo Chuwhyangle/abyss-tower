@@ -1,7 +1,7 @@
 ---
 id: gap-goal-009-visual-suite-ac
 title: GOAL-009 充分性缺口：`visual-check --suite all` 通过无在域 AC（提案新增 AC-050）
-status: needs-human
+status: superseded
 labels:
   - gap
   - refactor
@@ -78,3 +78,7 @@ GOAL-009（结构性重构：拆分长文件与结构门禁）的退出条件是
 
 - `docs/PHASE_REFACTOR.md`
 - `tasks/gap-goal-009-visual-suite-ac.md`
+
+---
+
+2026-10-29 核验：冻结前提已消失——`scripts/visual-parity.mjs` 现已存在（R0 / refactor-closeout 落地），AC-047 不再被 `criterion-capability-unevaluable` 冻结，其 criterion 已含 `visual-check.mjs --suite all`；本提案的 AC-050（`npm run visual:check`）与 AC-047 重复。supersede。提醒：AC-047 仍是 draft 状态，激活/重判是 goal store 的下一步动作，不在本任务。

@@ -1,7 +1,7 @@
 ---
 id: gap-goal-006-ui-skin-ac
 title: GOAL-006 充分性缺口：UI 图标与卡面皮肤化缺目标级 AC（提案新增 AC-043）
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
@@ -115,3 +115,7 @@ GOAL-006（视觉重制：全面精灵化，落地「暗黑霓虹几何」）的
 - `docs/reviews/ui-skin-desktop-contact-sheet.png` (new)
 - `docs/reviews/ui-skin-mobile-contact-sheet.png` (new)
 - `docs/reviews/ui-skin-fallback-contact-sheet.png` (new)
+
+---
+
+2026-10-29 用户决定收口：GOAL-006 已按 achieved 收口（读图评审 AC-029 退役），「UI 图标与卡面皮肤化」接受现状（内联 SVG + CSS）为已交付，不再新增目标级 AC。另：提案里的「AC-043」编号已过期——AC-043 现属 GOAL-009（结构预算门禁）。本提案 supersede。

@@ -1,7 +1,7 @@
 ---
 id: gap-goal-009-debt-clear-ac
 title: GOAL-009 充分性缺口：退出条件第一条的「债务登记清空」无在域 AC 可读（提案新增 AC-051）
-status: needs-human
+status: superseded
 labels:
   - gap
   - refactor
@@ -102,3 +102,7 @@ EXIT=0
 - `docs/PHASE_REFACTOR.md`
 - `tests/phase-refactor-sync.test.mjs`
 - `tasks/gap-goal-009-debt-clear-ac.md`
+
+---
+
+2026-10-29 核验：前提已失效——refactor-closeout 已把债务清空（`scripts/structure-budget.allow.d/refactor-closeout.json` = `{"entries":[]}`），本提案立案时的「债务 16 条」已不存在，新增 AC-051 去读「清空」的边际价值消失。supersede。若仍需目标级「债务为空」读数可另议，但不在本次收口范围。
