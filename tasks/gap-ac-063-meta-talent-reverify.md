@@ -55,10 +55,10 @@ AC-063（GOAL-012 退出条件 2：天赋树与永久强化在模拟、快照与
 
 ## Blocker
 
-**2026-10-30T14:01:03.710Z — worker 未落地（exited-not-landed）**
+**2026-10-30T14:16:39.331Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (c820532e) is NOT a continuation of the project's default branch 'main' (d1a0355a) — it is 4 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (fbd342db) is NOT a continuation of the project's default branch 'main' (7914629f) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
   The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-063-meta-talent-reverify's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
   Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：b6b43425-208a-4083-8e20-41401c055e95
+- session_id：84c2104e-7117-4295-9b2d-52efa3554a36
