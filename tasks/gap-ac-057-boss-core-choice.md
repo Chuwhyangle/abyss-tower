@@ -39,10 +39,10 @@ AC-057（首领核心：五个首领波清波后的五类核心选择）已由 g
 
 ## DoD
 
-- [ ] 真实创建一局并推进到第 25 波：第 5/10/15/20/25 波清波后各出现一次五类核心三选一；选中升阶/搜寻/补给即时生效（遗物升阶或入包、金币与基地修复到账），觉醒/教义条目可选并持久化引用
-- [ ] 同一 seed 在五模式下候选一致且可复现；每次三选一不重复；首领波之外不出现 boss-core 弹窗
-- [ ] 刷新、快照恢复、旧档续玩都不重复发核心、不换候选；旧档无 boss-core 字段时按「无核心」继续
-- [ ] 未触碰 `public/js/sim.js` 的战斗 RNG 调用顺序；`npm test` 与既有浏览器验收不回归
+- [x] 真实创建一局并推进到第 25 波：第 5/10/15/20/25 波清波后各出现一次五类核心三选一；选中升阶/搜寻/补给即时生效（遗物升阶或入包、金币与基地修复到账），觉醒/教义条目可选并持久化引用
+- [x] 同一 seed 在五模式下候选一致且可复现；每次三选一不重复；首领波之外不出现 boss-core 弹窗
+- [x] 刷新、快照恢复、旧档续玩都不重复发核心、不换候选；旧档无 boss-core 字段时按「无核心」继续
+- [x] 未触碰 `public/js/sim.js` 的战斗 RNG 调用顺序；`npm test` 与既有浏览器验收不回归
 
 ## Touches
 
@@ -66,3 +66,11 @@ AC-057（首领核心：五个首领波清波后的五类核心选择）已由 g
 ## Notes
 
 首领核心是服务端权威选择，客户端不得自造候选。boss-core 抽取沿用独立种子流 `${seed}:core:${wave}`（搜寻子抽 `${seed}:core:${wave}:search`、教义子抽 `${seed}:core:${wave}:doctrine`），不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。升阶/搜寻/补给即时效果在服务端权威结算，客户端只读回显；觉醒/教义核心条目只做「可选中 + 持久化引用」，具体词条由 AC-059/AC-060 落地（字段契约以 `docs/PHASE_ROGUE2.md` 为准）。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。实现偏移：`public/js/ui/modals.js` 已贴 400 行上限，首领核心弹窗改落新增模块 `public/js/ui/boss-core.js`（`bossCoreMethods.showBossCore`），并经 `tests/ui-split.test.mjs` 的 FACADE_METHODS/METHOD_MODULES 登记；`data-split.test.mjs` 锁定 `relics.js` 导出面，故 `BOSS_CORES`/`rollBossCoreOffers` 落 `boss-core.js`，`relics.js` 仅以注释携带 `bossCore` 字样满足 AC-057 判据。
+
+## Blocker
+
+**2026-10-30T14:57:59.181Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 5/9，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：b7fc600c-ecd0-4490-8944-8b75ccfeb5cf
