@@ -26,9 +26,9 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 ## AC
 
-- [ ] `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写）
+- [x] `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写）
 - [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` exit 0（parity 臂单独绿）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（四套件 feel/art/ui/mobile 全 PASS）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（四套件 feel/art/ui/mobile 全 PASS）
 - [x] `grep -n 'starter-select' tests/harness.mjs` exit 0（前置导航修复已落地，harness 已处理信物三选一）
 - [x] `npm test` exit 0（无回归）
 
@@ -36,7 +36,7 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 - [x] `visual-parity --check` 真实跑到逐帧对照（不再停在开局弹窗），exit 0 或经复采基线后 exit 0
 - [x] 基线复采（若发生）不是无脑 `--write`：先证明漂移来自信物/海克斯开局改动而非渲染回归，再把「哪些场景/视口/帧漂移 + 归因 + 零缺失帧/多出帧」写进 Notes
-- [ ] `visual-check --suite all` 四套件全 PASS，未因信物三选一引入阈值回归（ui 套件 `.relic-level` 9.5px 阻塞，归在飞任务 `gap-ui-relic-panel-font-floor`）
+- [x] `visual-check --suite all` 四套件全 PASS，未因信物三选一引入阈值回归（ui 套件 `.relic-level` 9.5px 阻塞，归在飞任务 `gap-ui-relic-panel-font-floor`）
 - [x] 不碰 `tests/harness.mjs`（导航修复归 `gap-ac-019-perf-budget-opening-harness`）；不碰 `public/js/**`、`server/**`、sim/RNG/计分/数值/存档
 - [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写 Notes
 - [x] 本任务无独立测试文件：`scripts/visual-parity.mjs --check` 与 `scripts/visual-check.mjs --suite all` 本身就是逐帧/阈值见证（即 AC-047 判据），修复的覆盖即判据本身
@@ -61,7 +61,7 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 **视觉套件 `visual-check --suite all`**：feel / art / mobile 三套件 **PASS**；**ui 套件 FAIL**，唯一红项 `最小可见字号（px）: 9.5000（阈值 ≥ 12）· relic-level`——`public/styles.css` 的 `.relic-level` 硬编码 `font-size: 9.5px`。该缺陷与本任务基线复采无关（`visual-check` 不读基线；9.5px 在 `d16b0d6` 之后遗物列表非空才进入样本面），已由在飞任务 `gap-ui-relic-panel-font-floor`（ready，acceptance `node scripts/visual-check.mjs --suite ui`）认领并给出 Plan。本任务 Touches 只含基线文件与任务文件，不越权改 `public/styles.css`。已加顶层 `depends_on: gap-ui-relic-panel-font-floor`——AC-047 criterion 的 `--suite all` 臂待其落地后 exit 0。
 
-**AC 状态**：parity 臂（AC 2）✓、grep starter-select（AC 4）✓、`npm test` 1803/1803（AC 5）✓；AC 1 / AC 3 的 `--suite all` 臂受 ui 套件 `.relic-level` 阻塞（见上），待 `gap-ui-relic-panel-font-floor` 落地后连写即 exit 0。
+**AC 状态（2026-10-30 续做，依赖已落地）**：`gap-ui-relic-panel-font-floor` 已 fan-in 落地（`35c29d4 fix(ui): 遗物面板字号抬到 ≥12px 可读下限`），`.relic-level` 由硬编码 `9.5px` 改为 `var(--text-min)`（≥12px）。合并 develop 后复验：parity 臂（AC 2）`--check` exit 0（182 帧逐帧对照，0 漂移 / 0 缺失 / 0 多出，仅渲染变体在容差内）；`visual-check --suite all`（AC 3）四套件 feel/art/ui/mobile 全 PASS、exit 0（ui 套件 `最小可见字号 12`，`stat-label` 接替为最小项，`.relic-level` 已过下限）；`grep starter-select`（AC 4）exit 0；`npm test` 1803/1803（AC 5）exit 0。AC 1 连写判据 exit 0。5 AC + 6 DoD 全绿。
 
 ## Blocker
 
