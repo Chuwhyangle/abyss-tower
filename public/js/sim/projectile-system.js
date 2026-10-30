@@ -4,6 +4,9 @@ import { TOWERS } from '../shared/data.js';
 // 穿透教义（bolt）：命中后向 0.8 格内最近的另一名敌人再穿 1 层（第 2 个目标 60% 伤害）。
 const PIERCE_RANGE = 0.8;
 
+// 觉醒（sharp-pierce）：弩塔每第 6 发穿透 2 个目标（穿透目标承受 60% 伤害）。
+const SHARP_PIERCE_INTERVAL = 6;
+
 export class ProjectileSystem {
   constructor(sim) {
     this.sim = sim;
@@ -47,6 +50,14 @@ export class ProjectileSystem {
       return;
     }
 
+    // 觉醒（sharp-pierce）：弩塔每第 6 发穿透 2 个目标（穿透目标承受 60% 伤害）。
+    // 发数计数挂在塔上（命中结算在 impact 读取 pierce2 标记）；未觉醒时不计数，保持原行为。
+    let pierce2 = false;
+    if (tower.type === 'arrow' && this.sim.hasAwakening('sharp')) {
+      tower.arrowShots = (tower.arrowShots || 0) + 1;
+      if (tower.arrowShots % SHARP_PIERCE_INTERVAL === 0) pierce2 = true;
+    }
+
     this.sim.projectiles.push({
       id: this.sim.nextId++,
       kind: def.proj.kind,
@@ -68,6 +79,7 @@ export class ProjectileSystem {
       dotDur: stats.dotDur || 0,
       knockback: stats.knockback || 0,
       ignoreArmor: !!def.ignoreArmor,
+      pierce2,
       ttl: 4,
       done: false,
     });
@@ -185,6 +197,37 @@ export class ProjectileSystem {
             color: '#ffe4b0',
             weapon: proj.towerType,
           });
+        }
+      }
+      // 觉醒（sharp-pierce）：第 6 发命中后向近邻依次穿透 2 个目标，各承受 60% 伤害；
+      // 与穿透教义独立（教义每发、觉醒每 6 发），未觉醒时 pierce2 恒 false，保持原行为。
+      if (proj.pierce2 && proj.towerType === 'arrow') {
+        let current = target;
+        for (let i = 0; i < 2; i++) {
+          let pierce = null;
+          let bestDist = Infinity;
+          for (const enemy of this.sim.enemies) {
+            if (enemy.dead || enemy === current || enemy === target) continue;
+            const d = Math.hypot(enemy.x - current.x, enemy.y - current.y);
+            if (d <= PIERCE_RANGE + enemy.r && d < bestDist) {
+              bestDist = d;
+              pierce = enemy;
+            }
+          }
+          if (!pierce) break;
+          this.sim.dealDamage(pierce, proj.dmg * 0.6, proj.towerType, {
+            ignoreArmor: proj.ignoreArmor,
+            tower: proj.tower || null,
+          });
+          this.sim.addEffect({
+            kind: 'spark',
+            x: pierce.x,
+            y: pierce.y,
+            ttl: 0.15,
+            color: '#ffe4b0',
+            weapon: proj.towerType,
+          });
+          current = pierce;
         }
       }
     }

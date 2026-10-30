@@ -97,6 +97,9 @@ export class EffectRenderer {
 
       if (effect.kind === 'ring') {
         this.drawRing(g, fx);
+      } else if (effect.kind === 'frostBurst' || effect.kind === 'poisonSpread') {
+        // 觉醒（§7）最小表现：霜爆/中毒传播复用环形冲击（r0→r1 外扩），不新增每帧渐变。
+        this.drawRing(g, fx);
       } else if (effect.kind === 'spark') {
         this.drawSpark(g, fx);
       } else if (effect.kind === 'bolt') {

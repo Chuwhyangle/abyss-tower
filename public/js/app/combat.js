@@ -380,8 +380,10 @@ export class CombatController {
     } else if (kind === 'doctrine') {
       // 教义：不可逆、不叠加、每局上限 2；词条行为由 sim.applyDoctrine 落地（AC-059）。
       if (option?.doctrineId) sim.applyDoctrine(option.doctrineId);
+    } else if (kind === 'awakening') {
+      // 觉醒：不可逆、同一遗物最多 1 条；词条行为由 sim.applyAwakening 落地（AC-060）。
+      if (option?.relicId) sim.applyAwakening(option.relicId);
     }
-    // 觉醒：本任务只持久化不可逆引用，觉醒词条由 AC-060 落地。
     this.ui.renderRelics();
     this.ui.updateShopState();
     state.app?.emitHud(true);

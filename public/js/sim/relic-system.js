@@ -2,6 +2,7 @@
 import { RELIC_BY_ID, RELIC_MAX_LEVEL, relicModsAtLevel } from '../shared/data.js';
 import { applyEffect, clampMods, createMods, relicSetTierBonuses } from '../shared/effects.js';
 import { applyContract as applyContractEffect } from '../shared/contracts.js';
+import { applyAwakening as applyAwakeningEffect } from '../shared/awakenings.js';
 
 export class RelicSystem {
   constructor(sim) {
@@ -112,6 +113,18 @@ export class RelicSystem {
     sim.recomputeFactions();
     sim.recomputeMods();
     sim.save();
+    return result;
+  }
+
+  // 觉醒（§7）：不可逆、同一遗物最多 1 条；未觉醒时 hasAwakening 恒 false，不改变结算与 RNG 顺序。
+  hasAwakening(relicId) { return (this.sim.rogue2?.awakenings || []).some((entry) => entry.relicId === relicId); }
+
+  // 觉醒即时结算：只改 rogue2.awakenings，选择失败（未知/重复）不消耗选择。
+  applyAwakening(relicId) {
+    const result = applyAwakeningEffect({ wave: this.sim.clearedWave, awakenings: this.sim.rogue2.awakenings }, relicId);
+    if (!result.ok) return result;
+    this.sim.rogue2 = { ...this.sim.rogue2, awakenings: result.state.awakenings };
+    this.sim.save();
     return result;
   }
 

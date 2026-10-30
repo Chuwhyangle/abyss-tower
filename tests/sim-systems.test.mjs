@@ -36,7 +36,7 @@ const SYSTEMS = [
 
 // 导出面快照：Simulation.prototype 的公共方法集合，拆分前后必须完全一致。
 const EXPORT_SURFACE = [
-  'addCulmination', 'addEffect', 'addFloater', 'addRelic', 'addSkillFx', 'applyContract',
+  'addCulmination', 'addEffect', 'addFloater', 'addRelic', 'addSkillFx', 'applyAwakening', 'applyContract',
   'applyDestructibleEffect',
   'applyDoctrine',
   'applyEventOption',
@@ -46,7 +46,7 @@ const EXPORT_SURFACE = [
   'createHexContext', 'currentWaveHpMul', 'damage', 'damageTower', 'dealDamage', 'destroyDestructible',
   'destructibleAt', 'destructibleAura', 'destructibleState', 'doctrineForTower', 'emberChain', 'endStasis', 'enterBossPhase',
   'evolutionOptions', 'evolveTower', 'findTarget', 'fire', 'flushSplits', 'gameOver', 'getHud',
-  'getRelicLevel', 'hasDoctrine', 'hexCall', 'hitEnemy', 'impact', 'inRange', 'inheritTowerOverdrive', 'initSkill',
+  'getRelicLevel', 'hasAwakening', 'hasDoctrine', 'hexCall', 'hitEnemy', 'impact', 'inRange', 'inheritTowerOverdrive', 'initSkill',
   'isSkillReady', 'isStasisActive', 'killEnemy', 'laneProgressNear', 'leak', 'makeTower',
   'nearestSkillTarget', 'nextWavePreview', 'onSkillKill', 'pickBossSkill', 'pickMeteorPoints', 'placeTower',
   'playSound', 'posAt', 'previewStats', 'queueMeteor', 'recomputeFactions', 'recomputeMods', 'recomputeTowerStats',

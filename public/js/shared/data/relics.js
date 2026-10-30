@@ -275,3 +275,7 @@ export function rollStarterOffers(seedKey, mode = 'normal') {
 // 契约卡（contract，§5）：五条契约的候选生成与代价/收益结算实现位于 shared/contracts.js
 // （§8.1 的 contracts 模块），本模块同样不新增导出面；契约只在 9/14/19/24 波替换一张遗物卡，
 // 抽取走独立种子流 ${seed}:contract:${wave}，不触碰 combatRng。
+
+// 觉醒（awakening，§7）：四条 Ⅲ 级遗物行为词条数据与 applyAwakening 位于 shared/awakenings.js
+// （§8.1 的 awakenings 模块），本模块同样不新增导出面；觉醒把行为词条挂到已拥有 Ⅲ 级遗物上、
+// 不消耗原遗物，首领核心的觉醒候选入口由 boss-core.js 提供（AC-057）。

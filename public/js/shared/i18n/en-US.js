@@ -1683,4 +1683,13 @@ export default {
   'doctrine.arc.desc': 'Arc tower chain +1 target and +0.8 tile range.',
   'doctrine.poison.name': 'Plague',
   'doctrine.poison.desc': 'Poison tower hits spread 60% poison to up to 2 enemies within 0.8 tiles.',
+  // ---- Awakenings (gap-ac-060) ----
+  'awakening.sharp-pierce.name': 'Sharp Pierce',
+  'awakening.sharp-pierce.desc': 'Bolt towers pierce 2 targets on every 6th shot; pierced targets take 60% damage.',
+  'awakening.powder-ignite.name': 'Ignite',
+  'awakening.powder-ignite.desc': 'After 5 cannon hits on the same target, the impact burns for 2s dealing 20% of attack per second.',
+  'awakening.frostheart-shatter.name': 'Frost Burst',
+  'awakening.frostheart-shatter.desc': 'When a slowed target dies, enemies within 1.2 tiles are frozen for 0.4s.',
+  'awakening.toxin-spread.name': 'Catalyze',
+  'awakening.toxin-spread.desc': 'Poisoned deaths spread 1 layer, chaining up to 3 hops.',
 };

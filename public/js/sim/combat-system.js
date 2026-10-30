@@ -4,6 +4,13 @@ import { ENEMIES } from '../shared/data.js';
 import { conditionSnapshot, hitBonuses } from '../shared/effects.js';
 import { pushImpactEvent } from '../shared/impact-events.js';
 
+// 觉醒（§7）：击杀钩子参数。frostheart-shatter 减速死亡霜爆 1.2 格冻结 0.4s；
+// toxin-spread 中毒死亡传播 1 层（单槽取高），最多 3 跳（传播半径沿用蚀毒 T3 死亡传播 1.5 格）。
+const FROSTHEART_BURST_RADIUS = 1.2;
+const FROSTHEART_FREEZE_DURATION = 0.4;
+const TOXIN_SPREAD_RADIUS = 1.5;
+const TOXIN_SPREAD_MAX_HOPS = 3;
+
 export class CombatSystem {
   constructor(sim) {
     this.sim = sim;
@@ -139,6 +146,19 @@ export class CombatSystem {
       enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + 2);
     }
 
+    // 觉醒（powder-ignite）：炮台命中同一目标 5 次后落点燃烧 2s，每秒 20% 攻击力。
+    // 命中计数挂在目标身上（触发后清零）；未觉醒（hasAwakening=false）时不执行，保持原行为。
+    if (this.sim.hasAwakening('powder') && proj.towerType === 'cannon') {
+      enemy.cannonHits = (enemy.cannonHits || 0) + 1;
+      if (enemy.cannonHits >= 5) {
+        const now = this.sim.time;
+        const activeDps = (enemy.burnUntil || 0) > now ? enemy.burnDps || 0 : 0;
+        enemy.burnDps = Math.max(activeDps, proj.dmg * 0.2);
+        enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + 2);
+        enemy.cannonHits = 0;
+      }
+    }
+
     if (proj.slow > 0) {
       const amount = Math.min(0.85, proj.slow + (this.sim.mods.slow || 0));
       // 霜缚 T1：减速时长倍率加成（独立于遗物 slowDur，0 点时乘 1 不变）。
@@ -230,6 +250,8 @@ export class CombatSystem {
     this.sim.onSkillKill(enemy);
     // 派系击杀钩子（§3.2）：火力 T3 击杀爆炸 / 蚀毒 T3 中毒传播。
     this.applyKillSetMods(enemy, killingDamage, opts);
+    // 觉醒击杀钩子（§7）：frostheart-shatter 减速死亡霜爆、toxin-spread 中毒死亡传播。
+    this.applyKillAwakenings(enemy);
   }
 
   // 击杀派生效果（独立于技能与海克斯钩子，结算在击杀尾部）。
@@ -272,6 +294,63 @@ export class CombatSystem {
           );
           other.poisonUntil = Math.max(other.poisonUntil, enemy.poisonUntil);
         }
+      }
+    }
+  }
+
+  // 觉醒击杀钩子（§7）：未觉醒时 hasAwakening 恒 false，整段空跑，不改变 RNG 顺序。
+  // 二者都不产生立即击杀（霜爆只冻结、传播只挂 DoT），无需 noExplosion 防递归。
+  applyKillAwakenings(enemy) {
+    // frostheart-shatter：被减速目标死亡时，1.2 格内敌人霜爆冻结 0.4s（复用 freezeUntil）。
+    if (this.sim.hasAwakening('frostheart') && this.sim.time < (enemy.slowUntil || 0)) {
+      for (const other of this.sim.enemies) {
+        if (other.dead || other === enemy) continue;
+        if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= FROSTHEART_BURST_RADIUS) {
+          other.freezeUntil = Math.max(other.freezeUntil || 0, this.sim.time + FROSTHEART_FREEZE_DURATION);
+        }
+      }
+      this.sim.addEffect({
+        kind: 'frostBurst',
+        x: enemy.x,
+        y: enemy.y,
+        r0: 0.1,
+        r1: FROSTHEART_BURST_RADIUS,
+        ttl: 0.3,
+        color: '#7fd4ff',
+      });
+    }
+
+    // toxin-spread：中毒死亡传播 1 层（单槽取高 + 刷新时长），最多 3 跳。
+    // poisonHop 记录毒素已经跳过的次数：自然中毒为 0，第 3 跳落地的毒素不再传播。
+    if (
+      this.sim.hasAwakening('toxin') &&
+      enemy.poisonDps > 0 &&
+      this.sim.time < (enemy.poisonUntil || 0) &&
+      (enemy.poisonHop || 0) < TOXIN_SPREAD_MAX_HOPS
+    ) {
+      let nearest = null;
+      let bestDist = Infinity;
+      for (const other of this.sim.enemies) {
+        if (other.dead || other === enemy) continue;
+        const d = Math.hypot(other.x - enemy.x, other.y - enemy.y);
+        if (d <= TOXIN_SPREAD_RADIUS && d < bestDist) {
+          bestDist = d;
+          nearest = other;
+        }
+      }
+      if (nearest) {
+        nearest.poisonDps = Math.max(nearest.poisonDps || 0, enemy.poisonDps);
+        nearest.poisonUntil = Math.max(nearest.poisonUntil || 0, enemy.poisonUntil);
+        nearest.poisonHop = (enemy.poisonHop || 0) + 1;
+        this.sim.addEffect({
+          kind: 'poisonSpread',
+          x: nearest.x,
+          y: nearest.y,
+          r0: 0.05,
+          r1: 0.6,
+          ttl: 0.3,
+          color: '#9be15d',
+        });
       }
     }
   }
