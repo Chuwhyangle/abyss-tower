@@ -1,7 +1,7 @@
 ---
 id: gap-ac-047-visual-parity-starter-recapture
 title: 视觉像素逐帧一致：信物三选一开局使 parity 基线过期，复采基线并复核视觉套件（AC-047）
-status: ready
+status: done
 labels:
   - gap
   - refactor
