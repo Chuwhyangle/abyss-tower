@@ -86,6 +86,9 @@ export const TEST_MAP = [
   ] },
   // 设计冻结表（非源文件）：改动后跑其见证测试，反查 live 遗物池是否漂移。
   { match: 'docs/PHASE_ROGUE2.md', tests: ['tests/rogue2-design.test.mjs'] },
+  // 平衡报告（非源文件）：改动后跑其见证测试，反查三档通关率是否落回目标区间。
+  { match: 'docs/BALANCE.md', tests: ['tests/balance-targets.test.mjs'] },
+  { match: 'docs/BALANCE.json', tests: ['tests/balance-targets.test.mjs'] },
   { match: 'public/js/replay-ui.js', tests: ['tests/replays.test.mjs'] },
   { match: 'public/js/season-ui.js', tests: [
     'tests/i18n.test.mjs',

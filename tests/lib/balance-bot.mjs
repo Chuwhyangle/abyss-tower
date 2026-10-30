@@ -1,6 +1,7 @@
 // 平衡模拟的机器人策略：开局整备、建塔升级、遗物/事件/可破坏物的固定决策，以及 --skill 参数解析。
 // 由 tests/balance-sim.mjs 引入；策略改动会改变平衡数据的口径。
 import { SKILLS, relicModsAtLevel } from '../../public/js/shared/data.js';
+import { offerHexes } from '../../public/js/shared/hexes/index.js';
 import { effectBalanceWeight, getEffect } from '../../public/js/shared/effects.js';
 import { DESTRUCTIBLE_BY_ID } from '../../public/js/shared/destructibles.js';
 
@@ -22,7 +23,9 @@ function stringArg(flag, fallback = null) {
   return fallback;
 }
 
-const SKILL_ID = stringArg('skill', 'none');
+// 默认带初始技能「霜月·极光」Lv1：真人开局必带一个技能（aurora 初始解锁），
+// 冷却好就用（见 balance-sim.mjs 的释放循环）；--skill=none 仍可回到无技能旧口径。
+const SKILL_ID = stringArg('skill', 'aurora');
 const SKILL_LEVEL = Math.max(1, Math.min(10, numericArg('skill-level', 1)));
 if (SKILL_ID !== 'none' && !SKILLS[SKILL_ID]) {
   console.error(`未知技能：${SKILL_ID}（可选 none / ${Object.keys(SKILLS).join(' / ')}）`);
@@ -193,6 +196,26 @@ function spendGold(sim, wave, cells) {
     if (sim.towers.length < targetTowers && sim.gold < 240) break;
     sim.upgradeTower(options[0].tower);
   }
+
+  evolveTowers(sim);
+}
+
+// 满级塔立即选分支进化（真人下限：见到进化就选，取第一分支，不卖塔不换塔）。
+// 进化免费、不消耗 RNG、不改变基础塔数值，只叠加数据表里声明的乘法系数。
+function evolveTowers(sim) {
+  for (const tower of sim.towers) {
+    if (!sim.canEvolve(tower)) continue;
+    const options = sim.evolutionOptions(tower);
+    if (!options.length) continue;
+    sim.evolveTower(tower, options[0].id);
+  }
+}
+
+// 开局主海克斯：真人必须在放行波次前从三选一里挑一个（见 run-service.chooseHex）。
+// 机器人取确定性三选一的第一张——不做针对性挑选，是最低决策门槛，而不是完美操作。
+function pickHex(seed) {
+  const offers = offerHexes(seed, 3);
+  return offers.length ? offers[0] : null;
 }
 
 export {
@@ -204,4 +227,6 @@ export {
   resolveBotEvent,
   useDestructibles,
   spendGold,
+  evolveTowers,
+  pickHex,
 };

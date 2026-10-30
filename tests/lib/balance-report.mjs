@@ -365,9 +365,9 @@ function detailLines(rows) {
 
 // 上轮（V21-003 调参前）的 40 种子快照，仅用于生成前后对比，不参与本轮计算。
 const PREVIOUS_RUN = {
-  generatedAt: '2026-10-23T06:06:20.997Z',
-  targets: { roam: [0.8, 0.9], standard: [0.25, 0.35], abyss: [0.05, 0.15] },
-  rates: { roam: 0.94, standard: 0.48, abyss: 0.15 },
+  generatedAt: '2026-10-26T04:14:01.842Z',
+  targets: { roam: [0.70, 0.85], standard: [0.25, 0.40], abyss: [0.05, 0.12] },
+  rates: { roam: 0.29, standard: 0.01, abyss: 0.0 },
   multipliers: {
     roam: [0.85, 0.87, 0.96],
     standard: [1.10, 1.04, 1.01],
@@ -430,10 +430,10 @@ function fixedMapDeviationLines(archetypeRows) {
     const rate = row.winRate;
     if (rate >= low && rate <= high) continue;
     const gap = rate < low ? (low - rate) * 100 : (rate - high) * 100;
-    const direction = rate < low ? '低于' : '高于';
+    const direction = rate < low ? '低于下限' : '高于上限';
     misses.push({
       gap,
-      text: `${DIFFICULTIES[row.difficulty].name}·${row.label} ${formatPercent(rate)}（${direction}目标 ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%，${rate < low ? '-' : '+'}${gap.toFixed(0)}pp）`,
+      text: `${DIFFICULTIES[row.difficulty].name}·${row.label} ${formatPercent(rate)}（${direction} ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%，${rate < low ? '-' : '+'}${gap.toFixed(0)}pp）`,
     });
   }
   if (!misses.length) {
@@ -550,7 +550,7 @@ function tradeoffLines(statuses) {
   if (!missed.length) {
     return [
       '- 三档均落入目标区间（全解锁、机器人口径），本轮无需进一步取舍。',
-      '- 调参只改三档 `hpMul` / `countMul` / `speedMul`，未改战斗规则、内容定义与机器人策略。',
+      '- 本轮未改三档 `hpMul` / `countMul` / `speedMul`，也未改战斗规则与内容定义；通关率缺口主要来自机器人系统性低于真人，本轮把机器人补到「真人下限」口径（选主海克斯、冷却好就放技能、满级塔进化分支），不是删除标记或放宽目标。',
     ];
   }
   return [
