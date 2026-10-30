@@ -56,6 +56,18 @@ export const ENEMIES = {
     ranged: { range: 3.2, interval: 2.4, disable: 1.2, dmg: 2, baseRange: 1.8 },
     desc: '远程轰击防御塔使其短暂停摆，逼近基地时直接轰击基地。',
   },
+  wraith: {
+    id: 'wraith', name: '相位幽魂', hp: 58, speed: 1.5, armor: 1, gold: 9, dmg: 1,
+    r: 0.28, color: '#9d8fe8', shape: 'wraith',
+    blink: { interval: 1.8, distance: 0.55 },
+    desc: '周期性短距闪烁穿行，只推进路径进度、不换车道，受击正常。',
+  },
+  golem: {
+    id: 'golem', name: '岩石魔像', hp: 340, speed: 0.6, armor: 9, gold: 24, dmg: 3,
+    r: 0.46, color: '#8a9a5b', shape: 'golem',
+    splits: { type: 'splitling', count: 2 },
+    desc: '高护甲慢速，死亡时裂成 2 只裂生虫。',
+  },
 };
 
 // 首领技能：名称/颜色/预警半径由服务端与渲染层共用。

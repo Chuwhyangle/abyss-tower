@@ -1,7 +1,7 @@
 ---
 id: gap-ac-050-enemies-expand
 title: 敌人扩充：新增 wraith（相位幽魂）与 golem（岩石魔像）到 14 类并进波次/渲染/i18n（AC-050）
-status: ready
+status: done
 labels:
   - gap
 parent: null

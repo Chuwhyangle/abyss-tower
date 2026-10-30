@@ -235,6 +235,17 @@ function enemySilhouette(shape, cx, cy, r) {
       return regularPolygon(cx, cy, r * 1.2, 6, Math.PI / 6);
     case 'wing':
       return regularPolygon(cx, cy, r * 0.85, 8, Math.PI / 8);
+    case 'wraith':
+      return [
+        [cx, cy - r * 1.2],
+        [cx + r * 0.9, cy - r * 0.5],
+        [cx + r * 0.75, cy + r * 0.9],
+        [cx, cy + r * 1.05],
+        [cx - r * 0.75, cy + r * 0.9],
+        [cx - r * 0.9, cy - r * 0.5],
+      ];
+    case 'golem':
+      return regularPolygon(cx, cy, r * 1.15, 8, Math.PI / 8);
     default:
       return regularPolygon(cx, cy, r, 10, 0);
   }
@@ -282,6 +293,14 @@ function drawEnemy(image, record, state) {
   }
   if (shape === 'caster') {
     drawLine(image, CENTER + radius * 0.4, cy, CENTER + radius * 1.3, cy - radius, 1.6, rgba('#e8ff9a', 200));
+  }
+  if (shape === 'wraith') {
+    fillCircle(image, CENTER - radius * 0.22, cy - radius * 0.12, 2, rgba('#e6e0ff', 220));
+    fillCircle(image, CENTER + radius * 0.22, cy - radius * 0.12, 2, rgba('#e6e0ff', 220));
+  }
+  if (shape === 'golem') {
+    drawLine(image, CENTER - radius * 0.3, cy - radius * 0.35, CENTER + radius * 0.3, cy + radius * 0.3, 1.2, rgba('#1a1d22', 160));
+    drawLine(image, CENTER - radius * 0.15, cy + radius * 0.1, CENTER + radius * 0.35, cy - radius * 0.15, 1.2, rgba('#1a1d22', 160));
   }
   if (shape === 'boss' || shape?.startsWith('boss-')) {
     for (let i = 0; i < 3; i += 1) {

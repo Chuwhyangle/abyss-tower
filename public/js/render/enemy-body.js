@@ -383,6 +383,47 @@ export const enemyBodyMethods = {
       g.beginPath();
       g.arc(r * 0.78, r * 0.1, orb * 1.8, 0, Math.PI * 2);
       g.stroke();
+    } else if (def.shape === 'wraith') {
+      // 相位幽魂：半透明魂体 + 两点幽光。
+      g.fillStyle = Palette.hexToRgba(body, 0.82);
+      primaryStroke(1.6);
+      g.beginPath();
+      g.moveTo(0, -r * 1.2);
+      g.bezierCurveTo(r * 0.9, -r * 0.7, r * 0.95, r * 0.55, 0, r * 1.0);
+      g.bezierCurveTo(-r * 0.95, r * 0.55, -r * 0.9, -r * 0.7, 0, -r * 1.2);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#e6e0ff';
+      g.beginPath();
+      g.arc(-r * 0.22, -r * 0.18, r * 0.09, 0, Math.PI * 2);
+      g.arc(r * 0.22, -r * 0.18, r * 0.09, 0, Math.PI * 2);
+      g.fill();
+    } else if (def.shape === 'golem') {
+      // 岩石魔像：八边岩块 + 熔心裂纹。
+      g.fillStyle = body;
+      primaryStroke(2.6);
+      g.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+        const px = Math.cos(a) * r * 1.12;
+        const py = Math.sin(a) * r * 1.05;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.strokeStyle = 'rgba(24, 28, 34, 0.6)';
+      g.lineWidth = 1.4;
+      g.beginPath();
+      g.moveTo(-r * 0.4, -r * 0.8);
+      g.lineTo(-r * 0.12, -r * 0.2);
+      g.lineTo(-r * 0.4, r * 0.3);
+      g.stroke();
+      g.fillStyle = '#ff8a5c';
+      g.beginPath();
+      g.arc(0, 0, r * 0.16, 0, Math.PI * 2);
+      g.fill();
     } else if (def.shape === 'boss') {
       if (enemy.variant === 'armored') {
         // 磐岩渊主：八边重甲壳 + 双层护板 + 横条面甲。

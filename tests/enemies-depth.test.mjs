@@ -1,4 +1,4 @@
-// 敌人扩容：12 种敌人、机制行为（护盾/分裂/光环/远程）、波次接入、渲染分派与模拟确定性。
+// 敌人扩容：14 种敌人、机制行为（护盾/分裂/光环/远程/闪烁）、波次接入、渲染分派与模拟确定性。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../public/js/sim.js';
@@ -9,8 +9,8 @@ import { EnemyRenderer } from '../public/js/render/enemy-renderer.js';
 
 const STEP = 1 / 60;
 const REQUIRED_FIELDS = ['hp', 'speed', 'armor', 'gold', 'dmg'];
-const NEW_TYPES = ['shielder', 'splitter', 'splitling', 'herald', 'caster'];
-const WAVE_TYPES = ['shielder', 'splitter', 'herald', 'caster'];
+const NEW_TYPES = ['shielder', 'splitter', 'splitling', 'herald', 'caster', 'wraith', 'golem'];
+const WAVE_TYPES = ['shielder', 'splitter', 'herald', 'caster', 'wraith', 'golem'];
 
 function makeSim(seed = 'enemies-depth-seed') {
   return new Simulation({
@@ -57,9 +57,9 @@ function stateOf(sim) {
   });
 }
 
-test('敌人种类 ≥12，id 唯一且必需字段合法', () => {
+test('敌人种类 ≥14，id 唯一且必需字段合法', () => {
   const ids = Object.keys(ENEMIES);
-  assert.ok(ids.length >= 12, `敌人种类只有 ${ids.length} 种`);
+  assert.ok(ids.length >= 14, `敌人种类只有 ${ids.length} 种`);
   const names = new Set();
   for (const [key, def] of Object.entries(ENEMIES)) {
     assert.equal(def.id, key, `${key} 的 id 与键不一致`);
@@ -75,7 +75,7 @@ test('敌人种类 ≥12，id 唯一且必需字段合法', () => {
   }
 });
 
-test('新敌人各有机制说明，四种机制齐备', () => {
+test('新敌人各有机制说明，五种机制齐备', () => {
   for (const type of NEW_TYPES) {
     assert.ok(ENEMIES[type], `缺少敌人 ${type}`);
     assert.ok(ENEMIES[type].desc && ENEMIES[type].desc.trim(), `${type} 缺少机制说明`);
@@ -84,6 +84,7 @@ test('新敌人各有机制说明，四种机制齐备', () => {
   assert.ok(Object.values(ENEMIES).some((e) => e.splits), '缺少分裂型敌人');
   assert.ok(Object.values(ENEMIES).some((e) => e.aura), '缺少光环型敌人');
   assert.ok(Object.values(ENEMIES).some((e) => e.ranged), '缺少远程型敌人');
+  assert.ok(Object.values(ENEMIES).some((e) => e.blink), '缺少闪烁型敌人');
 });
 
 test('新敌人接入波次生成', () => {
@@ -131,6 +132,49 @@ test('分裂敌人死亡后生成子怪', () => {
     assert.equal(child.lane, enemy.lane);
     assert.ok(child.progress >= 0);
   }
+});
+
+test('岩石魔像死亡裂成 2 只裂生虫，且可复现', () => {
+  const run = () => {
+    const sim = makeWaveSim('golem-seed');
+    sim.spawnEnemy('golem', 0);
+    const enemy = lastEnemy(sim);
+    enemy.hp = 1;
+    sim.damage(enemy, 100, { ignoreArmor: true, silent: true });
+    assert.equal(enemy.dead, true, '魔像应死亡');
+    sim.flushSplits();
+    return sim.enemies
+      .filter((e) => e.type === 'splitling' && !e.dead)
+      .map((e) => [e.lane, round6(e.progress)]);
+  };
+
+  const children = run();
+  assert.equal(children.length, ENEMIES.golem.splits.count, '魔像死亡应裂成 2 只裂生虫');
+  for (const [lane, progress] of children) {
+    assert.equal(lane, 0, '子怪应继承魔像车道');
+    assert.ok(progress >= 0);
+  }
+  assert.deepEqual(run(), children, '同种子魔像分裂必须可复现');
+});
+
+test('相位幽魂周期性闪烁：单帧位移突增，且不消耗战斗 RNG', () => {
+  const run = () => {
+    const sim = makeWaveSim('wraith-seed');
+    sim.spawnEnemy('wraith', 0);
+    const enemy = lastEnemy(sim);
+    let maxDelta = 0;
+    for (let i = 0; i < 300; i++) {
+      const before = enemy.progress;
+      sim.update(STEP);
+      maxDelta = Math.max(maxDelta, enemy.progress - before);
+    }
+    return maxDelta;
+  };
+
+  // 正常移动每帧只有 speed*dt ≈ 0.025，闪烁一帧额外推进 distance 0.55。
+  const first = run();
+  assert.ok(first >= 0.4, `闪烁单帧位移突增不足：${first}`);
+  assert.equal(run(), first, '同种子闪烁轨迹必须可复现');
 });
 
 test('光环敌人提升范围内其他敌人的移速', () => {
@@ -201,9 +245,11 @@ test('同种子两次模拟状态一致', () => {
   const run = () => {
     const sim = makeSim('determinism-seed');
     sim.beginWave(generateWave('determinism-seed', 12, 'standard', sim.map.meta || {}));
-    // 直接补入机制型敌人，确保护盾/分裂也进入确定性轨迹。
+    // 直接补入机制型敌人，确保护盾/分裂/闪烁也进入确定性轨迹。
     sim.spawnEnemy('splitter', 0);
     sim.spawnEnemy('shielder', 0);
+    sim.spawnEnemy('wraith', 0);
+    sim.spawnEnemy('golem', 0);
     const anchor = sim.posAt(sim.lanes[0].len * 0.35, 0);
     const tower = sim.makeTower(
       'cannon',

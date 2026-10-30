@@ -79,6 +79,8 @@ export default {
   'data.enemy.splitling.name': '裂生虫',
   'data.enemy.herald.name': '战鼓魔',
   'data.enemy.caster.name': '咒术师',
+  'data.enemy.wraith.name': '相位幽魂',
+  'data.enemy.golem.name': '岩石魔像',
 
   'skill.aurora.name': '霜月·极光',
   'skill.aurora.desc': '极光帘幕扫过战场，冻结并减速全场敌人。',
