@@ -74,10 +74,10 @@ AC-060（觉醒 P0：四条三级遗物行为词条）已由 goal-driver 激活�
 
 ## Blocker
 
-**2026-10-30T17:30:58.575Z — worker 未落地（exited-not-landed）**
+**2026-10-30T17:37:36.548Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (7c50fce6) is NOT a continuation of the project's default branch 'main' (d32afde4) — it is 2 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+- 未落地原因：step=anti-drift-land: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (c077684d) is NOT a continuation of the project's default branch 'main' (2d26a25a) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
   The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-060-awakenings-p0's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
   Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：7c6fdd17-b008-45af-bda4-12fbab86b8fd
+- session_id：e8b07e6b-1d8f-4fb0-b359-084cba6b2916
