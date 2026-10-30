@@ -26,10 +26,10 @@ AC-054（设计重基：PHASE_ROGUE2 覆盖 70 遗物/6 套装与核心/契约/�
 
 ## AC
 
-- [ ] `test -s docs/PHASE_ROGUE2.md && grep -q '五派系' docs/PHASE_ROGUE2.md && grep -q '首领核心' docs/PHASE_ROGUE2.md` exit 0（AC-054 本体判据）
-- [ ] `node --test tests/rogue2-design.test.mjs` exit 0（真实读 relics.js 全部 relic id 做派系/中立与字段表覆盖断言）
-- [ ] `grep -q 'rogue2-design' scripts/test-changed.mjs` exit 0（TEST_MAP 已登记，审计覆盖不红）
-- [ ] `npm test` exit 0（全量测试不回归）
+- [x] `test -s docs/PHASE_ROGUE2.md && grep -q '五派系' docs/PHASE_ROGUE2.md && grep -q '首领核心' docs/PHASE_ROGUE2.md` exit 0（AC-054 本体判据）
+- [x] `node --test tests/rogue2-design.test.mjs` exit 0（真实读 relics.js 全部 relic id 做派系/中立与字段表覆盖断言）
+- [x] `grep -q 'rogue2-design' scripts/test-changed.mjs` exit 0（TEST_MAP 已登记，审计覆盖不红）
+- [x] `npm test` exit 0（全量测试不回归）
 
 ## DoD
 
