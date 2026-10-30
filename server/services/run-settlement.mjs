@@ -11,10 +11,12 @@ import { validateLeaderboardEntry } from '../db/leaderboard-validate.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import { unlockAchievements } from '../db/achievements.mjs';
 import { grantVictorySkillUnlock } from '../db/skills.mjs';
+import { grantLegacyInTx } from '../db/legacy.mjs';
 import { AUTH_ENABLED, CONTENT_VERSION } from '../config.mjs';
 import { clampFinishPayload, computeOutcome, hexScoreMul } from '../../public/js/shared/scoring.js';
 import { mutationScoreMul } from '../../public/js/shared/mutations.js';
 import { SKILLS } from '../../public/js/shared/data.js';
+import { legacyYield } from '../../public/js/shared/data/meta.js';
 import { chosenMapFor, dailyAttemptsLeft, hexFor, weeklyAttemptsLeft } from './run-rules.mjs';
 
 // 结算一局的全部副作用；replaySummary 由服务类提供，保证回放摘要与主动读取共用同一口径。
@@ -37,6 +39,13 @@ export function settleRunOutcome({ run, profile, body, replaySummary }) {
   const durationMs = Math.max(0, now - run.createdAt);
   // 无尽榜按结算时间归入赛季，与榜单 created_at 的赛季边界保持一致。
   const season = seasonOf(now);
+
+  // 跨局传承：按本局表现确定性产出传承材料，与星核（cores）分账、不重复结算。
+  const legacy = legacyYield({
+    waveReached: payload.waveReached,
+    kills: payload.kills,
+    victory: outcome.victory,
+  });
 
   const isPersonalBest = outcome.score > personalBest(token, run.mode, run.day, { season });
   const replayId = crypto.randomBytes(9).toString('base64url');
@@ -166,6 +175,9 @@ export function settleRunOutcome({ run, profile, body, replaySummary }) {
     stats,
   });
 
+  // 传承材料累加到账号级账本（player_kv('meta','legacy')），与星核 wallet 分账、互不混用。
+  const legacyAfter = transaction(() => grantLegacyInTx(token, legacy.bank));
+
   recordPlayerEvent(token, 'run_finished', {
     runId: run.id,
     mode: run.mode,
@@ -205,6 +217,8 @@ export function settleRunOutcome({ run, profile, body, replaySummary }) {
     score: outcome.score,
     coresEarned: outcome.cores,
     totalCores: updated.cores,
+    legacyEarned: legacy.bank,
+    totalLegacy: legacyAfter.bank,
     personalBest: guard.accepted && isPersonalBest,
     rank,
     durationMs,

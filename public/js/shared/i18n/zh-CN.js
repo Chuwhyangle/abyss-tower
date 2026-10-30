@@ -1570,4 +1570,10 @@ export default {
   'data.mapArchetype.cross.name': '交叉回廊',
   'data.mapArchetype.switchback.name': '折返长廊',
   'data.mapArchetype.doubleRing.name': '双环回廊',
+
+  // ---- Legacy meta (cross-run progression material) ----
+  'meta.legacy.label': '传承材料',
+  'meta.legacy.earned': '本局传承材料',
+  'data.legacy.material.legacy_core.name': '传承之核',
+  'data.legacy.material.legacy_core.desc': '每局结算按表现产出，用于天赋树与永久强化',
 };

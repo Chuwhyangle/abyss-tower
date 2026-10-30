@@ -1577,4 +1577,10 @@ export default {
   'data.mapArchetype.cross.name': 'Cross Corridor',
   'data.mapArchetype.switchback.name': 'Switchback Hall',
   'data.mapArchetype.doubleRing.name': 'Double Ring',
+
+  // ---- Legacy meta (cross-run progression material) ----
+  'meta.legacy.label': 'Legacy Material',
+  'meta.legacy.earned': 'Legacy materials earned',
+  'data.legacy.material.legacy_core.name': 'Legacy Core',
+  'data.legacy.material.legacy_core.desc': 'Earned each run from performance, spent on the talent tree and permanent upgrades',
 };
