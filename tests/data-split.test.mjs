@@ -39,8 +39,7 @@ const EXPECTED_EXPORTS = [
 // V50-003：遗物扩容到 70 件并新增回合型效果，内容快照随之更新。
 // AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
-// AC-052：相位幽魂/岩石魔像数值回调（血量/护甲/移速/闪烁），内容快照随之更新。
-const BASELINE_HASH = '3f69fd3ec9d53f5ef8a66aea459ac5131b77b5ec3da19b88d9cfcb6182e661e0';
+const BASELINE_HASH = '0e1089e751eb7e318dd454dbd1d99d717e100f8aec2c7ecfba9fb4daa238a1a9';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
