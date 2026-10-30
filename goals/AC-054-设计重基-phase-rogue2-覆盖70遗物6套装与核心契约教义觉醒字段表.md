@@ -1,7 +1,7 @@
 ---
 id: AC-054
 title: 设计重基：PHASE_ROGUE2 覆盖 70 遗物/6 套装与核心/契约/教义/觉醒字段表
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-011
 criterion: test -s docs/PHASE_ROGUE2.md && grep -q '五派系' docs/PHASE_ROGUE2.md &&
@@ -15,6 +15,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-10-30T09:28:16.214Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"
