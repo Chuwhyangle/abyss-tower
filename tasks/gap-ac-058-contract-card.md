@@ -1,7 +1,7 @@
 ---
 id: gap-ac-058-contract-card
 title: 契约卡：第 9/14/19/24 波替换一张遗物卡每局最多两次在五模式确定性可复现（AC-058）
-status: ready
+status: done
 labels:
   - gap
 parent: null
