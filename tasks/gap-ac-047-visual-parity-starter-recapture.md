@@ -62,3 +62,11 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 **视觉套件 `visual-check --suite all`**：feel / art / mobile 三套件 **PASS**；**ui 套件 FAIL**，唯一红项 `最小可见字号（px）: 9.5000（阈值 ≥ 12）· relic-level`——`public/styles.css` 的 `.relic-level` 硬编码 `font-size: 9.5px`。该缺陷与本任务基线复采无关（`visual-check` 不读基线；9.5px 在 `d16b0d6` 之后遗物列表非空才进入样本面），已由在飞任务 `gap-ui-relic-panel-font-floor`（ready，acceptance `node scripts/visual-check.mjs --suite ui`）认领并给出 Plan。本任务 Touches 只含基线文件与任务文件，不越权改 `public/styles.css`。已加顶层 `depends_on: gap-ui-relic-panel-font-floor`——AC-047 criterion 的 `--suite all` 臂待其落地后 exit 0。
 
 **AC 状态**：parity 臂（AC 2）✓、grep starter-select（AC 4）✓、`npm test` 1803/1803（AC 5）✓；AC 1 / AC 3 的 `--suite all` 臂受 ui 套件 `.relic-level` 阻塞（见上），待 `gap-ui-relic-panel-font-floor` 落地后连写即 exit 0。
+
+## Blocker
+
+**2026-10-30T14:24:31.847Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 8/11，剩余未勾 3）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：5ffa585a-89a2-42c9-975b-1cc490bd3351

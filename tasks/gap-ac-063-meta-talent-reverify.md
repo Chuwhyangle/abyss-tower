@@ -1,7 +1,7 @@
 ---
 id: gap-ac-063-meta-talent-reverify
 title: AC-063 复验：meta.js 天赋键已落地（commit 7655b8e），criterion 现 exit 0，台账 fail 为陈旧读数
-status: ready
+status: done
 labels:
   - gap
 parent: null
