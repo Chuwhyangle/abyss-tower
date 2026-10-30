@@ -3,7 +3,7 @@ import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-
 import { RunError, RunService } from '../services/run-service.mjs';
 import { dailyAttemptsLeft, weeklyAttemptsLeft } from '../services/run-rules.mjs';
 
-const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|relics|relic|events|event|finish|abandon))?$/;
+const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|starter|relics|relic|events|event|finish|abandon))?$/;
 
 export class RunRoutes {
   constructor(service = new RunService()) {
@@ -64,6 +64,7 @@ export class RunRoutes {
 
     if (action === 'map') return this.map(ctx, run);
     if (action === 'hex') return this.hex(ctx, run);
+    if (action === 'starter') return this.starter(ctx, run);
     if (action === 'wave') return this.wave(ctx, run);
     if (action === 'clear') return this.clear(ctx, run);
     if (action === 'relics') return this.relics(ctx, run);
@@ -83,6 +84,11 @@ export class RunRoutes {
   async hex(ctx, run) {
     const body = await ctx.readJson();
     return this.respond(ctx, () => ctx.json(200, this.service.chooseHex(run, body.hexId)));
+  }
+
+  async starter(ctx, run) {
+    const body = await ctx.readJson();
+    return this.respond(ctx, () => ctx.json(200, this.service.chooseStarter(run, body.relicId)));
   }
 
   wave(ctx, run) {

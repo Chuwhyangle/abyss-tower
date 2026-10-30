@@ -307,6 +307,13 @@ export default {
   'draft.pick': 'Choose',
   'draft.faction': 'Faction',
 
+  'starter.eyebrow': 'Opening · Starter Relic',
+  'starter.title': 'Choose a starter relic',
+  'starter.note': 'One from each of three factions · permanent choice',
+  'starter.confirm': 'Confirm',
+  'starter.confirmPick': 'Confirm {name}',
+  'starter.abandon': 'Abandon run',
+
   'settings.eyebrow': 'SETTINGS',
   'settings.title': 'Settings',
   'settings.sectionDisplay': 'Display',
@@ -1508,6 +1515,7 @@ export default {
   'input.skillCooling': 'Skill cooling down · {s}s',
   'input.skillUnavailable': 'Skill is not available right now',
   'runUi.hexRestored': 'Hex selection restored',
+  'runUi.starterRestored': 'Starter relic selection restored',
   'runUi.mapSelectionRestored': 'Map selection for this expedition restored',
   'runUi.mapRestored': 'Map selection restored',
   'runUi.noResumableRun': 'No expedition to resume',

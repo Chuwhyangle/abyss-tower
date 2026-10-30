@@ -44,6 +44,7 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 - `normalizeTalent`/`investTalent`/`talentEffect`/`talentMods` 纯函数；`talentMods` 只汇总 `EFFECT_REGISTRY` 已声明键（`skillCd`/`skillPower` 未注册，留给技能层，sim 不折叠）。
 - sim 在 `recomputeMods()` 内折叠天赋被动（零投入为空操作，逐字节一致）；持久化走 `player_kv('meta','talent')`，与星核/成就/通行证/悬赏分离；`toSnapshot` 不写天赋字段。
 - DOM 加点面板不在本任务 Touches（无 ui 文件），本次只落地数据/持久化/sim/i18n 四层；i18n 中英已成对（`talent.*` 与 `data.talent.*`）。
+- sim.js 由 595 → 608 行越过 600 行运行时预算，登记结构债务 `scripts/structure-budget.allow.d/gap-ac-063-meta-talent-tree.json`（maxLines 650）；同时删除 R6 收口遗留的空壳 `scripts/structure-budget.allow.d/refactor-closeout.json`（债务登记非空后空壳文件非法，见 `tests/structure-budget.test.mjs`）。
 
 ## Touches
 
@@ -53,6 +54,8 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/meta-tree.test.mjs`
+- `scripts/structure-budget.allow.d/gap-ac-063-meta-talent-tree.json`
+- `scripts/structure-budget.allow.d/refactor-closeout.json`
 - `tasks/gap-ac-063-meta-talent-tree.md`
 
 ## Blocker

@@ -18,6 +18,7 @@ export {
   relicEffectText,
   fallbackOffers,
   rollRelicOffers,
+  rollStarterOffers,
 } from './data/relics.js';
 export { UNLOCKS, UNLOCK_BY_ID, unlockedTowerIds } from './data/unlocks.js';
 export { SKILL_LEVEL_COSTS, SKILLS, SKILL_ORDER, skillStats, skillUpgradeCost, skillUnlockText, isSkillUnlocked } from './data/skills.js';

@@ -315,6 +315,13 @@ export function createApi({
         body: { hexId },
       });
     },
+    // 开局信物：服务端校验 id 属于本次三选一，重复提交同一 id 幂等。
+    chooseStarter(id, relicId) {
+      return request(`/api/runs/${encodeURIComponent(id)}/starter`, {
+        method: 'POST',
+        body: { relicId },
+      });
+    },
     startWave(id) {
       return request(`/api/runs/${encodeURIComponent(id)}/wave`, { method: 'POST', body: {} });
     },

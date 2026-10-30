@@ -58,7 +58,17 @@ export class RunController {
         skill: run.ruleset?.skill || pending.skill || null,
         hex: run.hex || null,
         hexOffers: run.hexOffers || [],
+        starter: run.starter || null,
+        // 遗物以服务端为准：信物选中后已入包，覆盖开局前的空记录。
+        relics: run.relics?.length ? run.relics : (pending.relics || []),
       };
+      // 信物尚未选定：按服务端的同一组候选恢复三选一，不重复发信物也不换牌。
+      if (run.starter && !run.starter.picked) {
+        store.savePendingMap(data);
+        this.showStarterSelectFlow(data, run.starter.offers);
+        this.ui.toast(t('runUi.starterRestored'), 2200);
+        return true;
+      }
       // 海克斯尚未选定：按服务端的同一组 offers 恢复三选一，不重复消耗也不换牌。
       if (!run.hex && run.hexOffers?.length) {
         store.savePendingMap(data);
@@ -163,8 +173,14 @@ export class RunController {
     return this.startRun(mode, difficulty, mutations);
   }
 
-  // 开局选择顺序：海克斯三选一 → 地图三选一 → beginGame；旧服务端无海克斯时直接选图。
+  // 开局选择顺序：信物三选一 → 海克斯三选一 → 地图三选一 → beginGame；
+  // 旧服务端无信物/海克斯字段时按需直接选图或开局。
   startSelectionFlow(data) {
+    if (data.starter && !data.starter.picked) {
+      this.store.savePendingMap(data);
+      this.showStarterSelectFlow(data, data.starter.offers);
+      return;
+    }
     if (!data.hex && data.hexOffers?.length) {
       this.store.savePendingMap(data);
       this.showHexSelectFlow(data, data.hexOffers);
@@ -177,6 +193,36 @@ export class RunController {
     }
     // 兼容旧服务端：直接返回 map
     this.beginGame(data, null);
+  }
+
+  // 信物确认后不可返回：成功后遗物入包（服务端权威），随后进入海克斯三选一；
+  // 失败停留在同一组候选不重复消耗。
+  showStarterSelectFlow(data, offers) {
+    let submitting = false;
+    this.ui.showStarterSelect({
+      offers,
+      onChoose: async (relicId) => {
+        if (submitting) return;
+        submitting = true;
+        try {
+          const selection = await this.api.chooseStarter(data.runId, relicId);
+          this.ui.closeModal();
+          const next = {
+            ...data,
+            ...selection,
+            starter: { ...(data.starter || {}), picked: relicId },
+          };
+          this.startSelectionFlow(next);
+        } catch (error) {
+          submitting = false;
+          this.ui.toast(error.message, 3000);
+        }
+      },
+      onCancel: async () => {
+        this.ui.closeModal();
+        await this.abandonCurrentRun(data.runId);
+      },
+    });
   }
 
   // 海克斯确认后不可返回：成功后立刻进入选图；失败停留在同一组 offers。

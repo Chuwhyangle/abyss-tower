@@ -58,8 +58,11 @@ function scenario(name, options) {
 }
 
 const SCENARIOS = [
-  scenario('normal-1x-low', { wave: 12, towerCount: 8, towerLevel: 1, relicLevels: RELICS_MID, extraEnemies: 0, speed: 1, quality: LOW }),
-  scenario('normal-1x-high', { wave: 12, towerCount: 8, towerLevel: 1, relicLevels: RELICS_MID, extraEnemies: 0, speed: 1, quality: HIGH }),
+  // normal 场景补 1 只站场敌人：wave 12 滴灌出生，1.2s 快照点 8 塔会把最早出生的几只
+  // 瞬间清空导致「没有存活敌人」空场误红。注入通道首只固定为 tank（见下方 extraEnemies
+  // 循环），按波 12 血量倍率可存活远超测量窗口；只有 1 只，不把 normal 改造成 stress。
+  scenario('normal-1x-low', { wave: 12, towerCount: 8, towerLevel: 1, relicLevels: RELICS_MID, extraEnemies: 1, speed: 1, quality: LOW }),
+  scenario('normal-1x-high', { wave: 12, towerCount: 8, towerLevel: 1, relicLevels: RELICS_MID, extraEnemies: 1, speed: 1, quality: HIGH }),
   scenario('late-3x-low', { wave: 25, towerCount: 18, towerLevel: 2, relicLevels: RELICS_LATE, extraEnemies: 0, speed: 3, quality: LOW }),
   scenario('late-3x-high', { wave: 25, towerCount: 18, towerLevel: 2, relicLevels: RELICS_LATE, extraEnemies: 0, speed: 3, quality: HIGH }),
   scenario('stress-3x-low', { wave: 29, towerCount: 18, towerLevel: 2, relicLevels: RELICS_LATE, extraEnemies: 250, speed: 3, quality: LOW }),

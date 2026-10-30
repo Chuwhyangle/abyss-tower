@@ -45,6 +45,7 @@ import {
   mapCandidatesFor,
   maxRerollsFor,
   planRunStart,
+  starterFor,
 } from './run-rules.mjs';
 import { settleRunOutcome } from './run-settlement.mjs';
 
@@ -81,6 +82,8 @@ export class RunService {
       // 已选主海克斯（旧 run 为 null）与本次开局的三选一；刷新恢复读同一组。
       hex: hexFor(run),
       hexOffers: hexOffersOf(run),
+      // 信物三选一：旧 run 无该字段时为 null，客户端据此跳过信物流程。
+      starter: starterFor(run),
       ruleset: run.ruleset || null,
       mutations: run.ruleset?.mutations || null,
       status: run.status,
@@ -154,6 +157,36 @@ export class RunService {
     setRuleset(run.id, JSON.stringify(ruleset));
     run.ruleset = ruleset;
     return { hex: hexFor(run), hexOffers: offers, alreadyChosen: false };
+  }
+
+  // 开局信物：必须在放行波次前选定；重复选择同一 id 幂等，换 id 一律 409。
+  // 候选由服务端开局时派生并持久化在 ruleset.rogue2.starter，客户端不得自造。
+  chooseStarter(run, relicId) {
+    const id = typeof relicId === 'string' ? relicId.trim() : '';
+    const starter = starterFor(run);
+    if (!starter) throw new RunError(409, '本局没有信物三选一', 'STARTER_LOCKED');
+    if (starter.picked) {
+      if (starter.picked === id) {
+        return { starter, relics: normalizeRelicStates(run.relics), alreadyChosen: true };
+      }
+      throw new RunError(409, '本局信物已经选择，不能更换', 'STARTER_LOCKED');
+    }
+    if (run.wavesServed > 0) {
+      throw new RunError(409, '远征已经开始，不能选择信物', 'STARTER_LOCKED');
+    }
+    if (!RELIC_BY_ID[id] || !starter.offers.includes(id)) {
+      throw new RunError(400, '选择不在本次信物选项中', 'INVALID_STARTER');
+    }
+    const relics = [{ id, level: 1 }];
+    const ruleset = {
+      ...(run.ruleset || {}),
+      rogue2: { starter: { offers: [...starter.offers], picked: id } },
+    };
+    setRelics(run.id, JSON.stringify(relics));
+    setRuleset(run.id, JSON.stringify(ruleset));
+    run.relics = relics;
+    run.ruleset = ruleset;
+    return { starter: starterFor(run), relics: normalizeRelicStates(run.relics), alreadyChosen: false };
   }
 
   chooseMap(run, index) {    if (!Number.isInteger(index) || index < 0 || index > 2) {
