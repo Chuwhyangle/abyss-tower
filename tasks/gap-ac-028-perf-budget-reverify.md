@@ -66,3 +66,13 @@ AC-028（GOAL-006 退出条件「`npm run perf:budget` 通过，60fps 目标不�
 - 第 2 轮：exit 0；无 `[perf] FAIL`、无「等待超时」；`性能预算门禁：PASS`，3 场景全 PASS：`normal-1x-low` 29.92→29.97 (+0.050)、1.197→0.547、16.7；`late-3x-high` 57.70→60.37 (+2.670)、2.089→1.210、16.7；`skills-1x-high` 25.68→51.08 (+25.400)、4.710→1.568、33.4；`[perf:budget] PASS`。
 - 真实预算回归判据（AC 第 5 条）：**未触发**——两轮 Δ 列全为正（renderFps 上升、avgRenderMs 下降、p95 均未越线），除「等待超时」外无任何失败面；`## Touches` 不扩容，只保留自身任务文件。
 - 取舍：AC-028 见证不折叠进 AC-019，因 `goal_ac` 是单值标量——AC-019 拥有「harness 补信物三选一」机制面（改 `tests/harness.mjs`），AC-028 需独立、可被 driver 逐字复算的 `npm run perf:budget` exit 0 归属；二者 Touches 零文件重叠。
+
+## Blocker
+
+**2026-10-30T14:05:01.299Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (c820532e) is NOT a continuation of the project's default branch 'main' (a9e744c2) — it is 7 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-028-perf-budget-reverify's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：a39b1533-bcfa-40c9-81ac-b2ec31900ead
