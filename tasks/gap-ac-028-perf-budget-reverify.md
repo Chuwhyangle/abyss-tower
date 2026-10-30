@@ -69,10 +69,10 @@ AC-028（GOAL-006 退出条件「`npm run perf:budget` 通过，60fps 目标不�
 
 ## Blocker
 
-**2026-10-30T14:16:40.939Z — worker 未落地（exited-not-landed）**
+**2026-10-30T14:27:05.059Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (fbd342db) is NOT a continuation of the project's default branch 'main' (fd5bb1dc) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (be855a90) is NOT a continuation of the project's default branch 'main' (52ca8379) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
   The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-028-perf-budget-reverify's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
   Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：13ca4f0f-315b-48b8-be2a-af2761a65192
+- session_id：5cf9f1a2-ba81-46aa-ac28-21f44abd84e5
