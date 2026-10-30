@@ -29,15 +29,15 @@ AC-062（GOAL-012 退出条件 1，已 active）的判据要求产出设计正�
 
 ## AC
 
-- [ ] `test -s docs/PHASE_META.md && grep -q '字段契约' docs/PHASE_META.md && grep -q 'AC 映射' docs/PHASE_META.md && grep -q 'GOAL-012' docs/PHASE_META.md` exit 0
-- [ ] `node scripts/check-doc-ownership.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `test -s docs/PHASE_META.md && grep -q '字段契约' docs/PHASE_META.md && grep -q 'AC 映射' docs/PHASE_META.md && grep -q 'GOAL-012' docs/PHASE_META.md` exit 0
+- [x] `node scripts/check-doc-ownership.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] `docs/PHASE_META.md` 是唯一冻结表：机制/数值/字段契约/AC 映射四节齐全，AC 映射含 `GOAL-012` 并逐条映射 AC-062..AC-065
-- [ ] `git diff --name-only` 仅含本任务 Touches 声明的文件（不含 `goals/`、`docs/PRD.md`、`docs/TECH_DESIGN.md`）
-- [ ] AC-062 criterion exit 0
+- [x] `docs/PHASE_META.md` 是唯一冻结表：机制/数值/字段契约/AC 映射四节齐全，AC 映射含 `GOAL-012` 并逐条映射 AC-062..AC-065
+- [x] `git diff --name-only` 仅含本任务 Touches 声明的文件（不含 `goals/`、`docs/PRD.md`、`docs/TECH_DESIGN.md`）
+- [x] AC-062 criterion exit 0
 
 ## Touches
 
