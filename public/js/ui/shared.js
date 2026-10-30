@@ -139,3 +139,22 @@ export function mapPreviewSvg(map) {
     ${base}
   </svg>`;
 }
+
+// 契约卡（§5）：与遗物卡共用草稿弹窗、仍是 3 张；债契在刷新次数耗尽时置灰（代价不成立不可选）。
+export function contractCardHtml(offer, index, { used = 0, max = 0 } = {}) {
+  const scope = offer.chip?.scope === 'wave' ? 'wave' : 'run';
+  const unaffordable = offer.id === 'debt' && used >= max;
+  const factionTag = offer.faction
+    ? `<span class="faction-tag">${t('draft.faction')} · ${t(`faction.${offer.faction}.name`)}</span>`
+    : '';
+  return `
+    <button class="relic-card contract-card ${unaffordable ? 'locked' : ''}" data-index="${index}" ${unaffordable ? 'disabled' : ''} style="--rarity:#b26bff">
+      <span class="rarity">${t('contract.eyebrow')} · ${t(`contract.chip.${scope}`)}</span>
+      ${factionTag}
+      <h3>${t(offer.nameKey)}</h3>
+      <div class="relic-effect"><span>${t('draft.effect')}</span>${t(offer.descKey)}</div>
+      <p class="relic-flavor">${t('contract.flavor')}</p>
+      <span class="pick">${unaffordable ? t('contract.unaffordable') : t('draft.pick')}</span>
+    </button>
+  `;
+}

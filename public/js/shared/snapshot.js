@@ -20,6 +20,7 @@ import { ARCHETYPES, MODIFIER_BY_ID } from './mapgen.js';
 import { normalizeChains, normalizeEventHistory } from './events.js';
 import { DESTRUCTIBLE_BY_ID } from './destructibles.js';
 import { ENDLESS } from './waves.js';
+import { normalizeBonusPoints, normalizeContractRecords } from './contracts.js';
 
 export const SAVE_VERSION = 7;
 export const MIN_SAVE_VERSION = 2;
@@ -138,6 +139,21 @@ function normalizeSkill(raw) {
   return out;
 }
 
+// 契约局内状态（§8.4）：只落本任务拥有的 contracts + bonusPoints 两个字段；
+// 旧档缺 rogue2 时按「无契约、零加点」处理，其余子字段由各自任务（核心/教义/觉醒）落地。
+function normalizeRogue2Save(state) {
+  return {
+    contracts: normalizeContractRecords(state?.rogue2?.contracts || []),
+    bonusPoints: normalizeBonusPoints(state?.rogue2?.bonusPoints || {}),
+  };
+}
+
+// 只有真的接受过契约才写 rogue2 块（bonusPoints 只由契约写入，有契约才有加点），
+// 未受影响的旧对局保持原存档字节结构。
+function hasRogue2State(rogue2) {
+  return rogue2.contracts.length > 0;
+}
+
 function collectWarnings(snap) {
   const warnings = [];
   if ('relics' in snap && !Array.isArray(snap.relics)) warnings.push('relics-not-array');
@@ -155,6 +171,7 @@ function collectWarnings(snap) {
   }
   if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
   if ('chains' in snap && !Array.isArray(snap.chains)) warnings.push('invalid-chains');
+  if ('rogue2' in snap && !isRecord(snap.rogue2)) warnings.push('invalid-rogue2');
   if ('destructibles' in snap && !isRecord(snap.destructibles)) {
     warnings.push('invalid-destructibles');
   }
@@ -180,10 +197,11 @@ export function toSnapshot(state) {
   const hex = normalizeHexSave(state);
   // 模拟层作为快照视图暴露拆除结果；纯状态对象没有该字段时按「全部存活」处理。
   const destructibles = normalizeDestructibleState(state.destructibleState);
+  const rogue2 = normalizeRogue2Save(state);
   const snapshot = {
-    // 有海克斯/连锁/可破坏物状态都写当前版本；否则沿用 v4/v3 的旧版本号。
+    // 有海克斯/连锁/可破坏物/契约状态都写当前版本；否则沿用 v4/v3 的旧版本号。
     version:
-      hex.id || chains.length || hasDestructibleState(destructibles)
+      hex.id || chains.length || hasDestructibleState(destructibles) || hasRogue2State(rogue2)
         ? SAVE_VERSION
         : skill
           ? SKILL_SAVE_VERSION
@@ -217,6 +235,8 @@ export function toSnapshot(state) {
   }
   // 可破坏物同理：一件没拆时不写字段，未受影响的旧对局存档字节结构不变。
   if (hasDestructibleState(destructibles)) snapshot.destructibles = destructibles;
+  // 契约同理：没接受过契约时不写 rogue2 块，旧对局字节结构不变。
+  if (hasRogue2State(rogue2)) snapshot.rogue2 = rogue2;
   return snapshot;
 }
 
@@ -288,6 +308,12 @@ export function migrateSnapshot(snap) {
     const destructibles = normalizeDestructibleState(snap.destructibles);
     if (hasDestructibleState(destructibles)) out.destructibles = destructibles;
     else delete out.destructibles;
+  }
+  // 契约局内状态：旧档缺字段视为「无契约、零加点」；没契约时不写空字段。
+  if ('rogue2' in snap) {
+    const rogue2 = normalizeRogue2Save(snap);
+    if (hasRogue2State(rogue2)) out.rogue2 = rogue2;
+    else delete out.rogue2;
   }
   if ('preWave' in snap) out.preWave = snap.preWave === true;
 

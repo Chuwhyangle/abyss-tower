@@ -304,6 +304,11 @@ export class RunController {
       if (snapshot?.skill?.cooldown != null) skill.cooldown = snapshot.skill.cooldown;
       if (snapshot?.skill?.readyAt != null) skill.readyAt = snapshot.skill.readyAt;
     }
+    // 契约局内状态：快照为准，旧档无 rogue2 时回退服务端规则集（服务端权威）。
+    const rogue2 = {
+      contracts: snapshot?.rogue2?.contracts || ruleset?.rogue2?.contracts || [],
+      bonusPoints: snapshot?.rogue2?.bonusPoints || ruleset?.rogue2?.bonusPoints || {},
+    };
 
     const sim = new Simulation({
       map,
@@ -335,6 +340,8 @@ export class RunController {
       hex: hexId,
       hexState: snapshot?.hexState ?? null,
       ruleset,
+      // 契约/觉醒局内状态（§8.4）：本任务只恢复 contracts + bonusPoints。
+      rogue2,
       onWaveClear: (wave, info) => this.onWaveClear(wave, info),
       onGameOver: (stats) => this.onGameOver(stats),
       onSave: (snap) => this.store.saveSnapshot(this.stampSkillCooldown(snap)),

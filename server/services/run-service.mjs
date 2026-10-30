@@ -31,6 +31,7 @@ import {
 import { composeWaveModifier } from '../../public/js/shared/mutations.js';
 import { HEX_POOL_VERSION, validateHexChoice } from '../../public/js/shared/hexes.js';
 import { applyBossCore, isBossCoreWave, rollBossCoreOffers } from '../../public/js/shared/boss-core.js';
+import { applyContract, CONTRACT_MAX_PER_RUN, rollContractOffer } from '../../public/js/shared/contracts.js';
 import {
   RELIC_OFFER_COUNT,
   RELIC_REROLL_COST,
@@ -73,6 +74,11 @@ function coreRerollBonus(run) {
     .reduce((sum, [, slot]) => sum + (slot?.picked && slot.kind === 'supply' && slot.option?.type === 'reroll'
       ? Math.max(0, Math.floor(Number(slot.option.amount) || 0))
       : 0), 0);
+}
+
+// 契约（§5）：已接受数从 ruleset.rogue2.contracts 派生，服务端据此控制每局上限与候选生成。
+function contractCount(run) {
+  return Array.isArray(run.ruleset?.rogue2?.contracts) ? run.ruleset.rogue2.contracts.length : 0;
 }
 
 export class RunService {
@@ -328,14 +334,23 @@ export class RunService {
       offers[key] = slot;
     }
     if (!slot) {
+      const rolled = rollRelicOffers(
+        `${run.seed}:relic:${run.clearedWaves}:${rerollsUsed}`,
+        relicStates,
+        offerCount,
+        run.clearedWaves,
+        relicMode
+      );
+      // 契约卡（§5.1）：仅在契约波次的首次三选一替换一张遗物卡；刷新后随整组消失，不再补插。
+      if (!reroll) {
+        const contract = rollContractOffer(run.seed, run.clearedWaves, {
+          accepted: contractCount(run),
+          relics: relicStates,
+        });
+        if (contract && rolled.length) rolled[rolled.length - 1] = contract;
+      }
       slot = {
-        offers: rollRelicOffers(
-          `${run.seed}:relic:${run.clearedWaves}:${rerollsUsed}`,
-          relicStates,
-          offerCount,
-          run.clearedWaves,
-          relicMode
-        ),
+        offers: rolled,
         picked: false,
       };
       offers[key] = slot;
@@ -355,7 +370,7 @@ export class RunService {
     };
   }
 
-  pickRelic(run, { index, relicId } = {}) {
+  pickRelic(run, { index, relicId } = {}, profile = null) {
     if (run.clearedWaves !== run.wavesServed) {
       throw new RunError(409, '当前波次尚未结算完成');
     }
@@ -386,6 +401,54 @@ export class RunService {
       if (existing) existing.level = targetLevel;
       else states.push({ id: offer.id, level: targetLevel });
       setRelics(run.id, JSON.stringify(states));
+    } else if (offer.kind === 'contract') {
+      // 契约卡（§5）：服务端权威结算遗物/契约记录/bonusPoints；金币/生命等客户端可模拟资源随客户端本地结算。
+      if (contractCount(run) >= CONTRACT_MAX_PER_RUN) {
+        throw new RunError(409, '本局已接受两次契约', 'CONTRACT_LIMIT');
+      }
+      const maxRerolls = hexRuntimeFor(run).relicRerollBonus(maxRerollsFor(profile)) + coreRerollBonus(run);
+      const remaining = Math.max(0, maxRerolls - (run.rerollsUsed || 0));
+      const result = applyContract(
+        {
+          gold: 0,
+          hp: 1,
+          maxHp: 1,
+          rerolls: remaining,
+          relics: states,
+          bonusPoints: run.ruleset?.rogue2?.bonusPoints || {},
+          contracts: run.ruleset?.rogue2?.contracts || [],
+          wave: run.clearedWaves,
+        },
+        offer
+      );
+      if (!result.ok) throw new RunError(400, '契约代价不足', 'CONTRACT_UNAFFORDABLE');
+      if (JSON.stringify(result.state.relics) !== JSON.stringify(states)) {
+        setRelics(run.id, JSON.stringify(result.state.relics));
+      }
+      const rogue2 = {
+        ...(run.ruleset?.rogue2 || {}),
+        contracts: result.state.contracts,
+        bonusPoints: result.state.bonusPoints,
+      };
+      const ruleset = { ...(run.ruleset || {}), rogue2 };
+      setRuleset(run.id, JSON.stringify(ruleset));
+      run.ruleset = ruleset;
+      slot.picked = true;
+      if (offer.id === 'debt') {
+        run.rerollsUsed = (run.rerollsUsed || 0) + 1;
+        setOffersAndRerolls(run.id, JSON.stringify(offers), run.rerollsUsed);
+      } else {
+        setOffers(run.id, JSON.stringify(offers));
+      }
+      return {
+        applied: offer,
+        picked: true,
+        relics: result.state.relics,
+        contracts: result.state.contracts,
+        bonusPoints: result.state.bonusPoints,
+        rerollsUsed: run.rerollsUsed,
+        event: result.event,
+      };
     }
 
     slot.picked = true;

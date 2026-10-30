@@ -269,3 +269,7 @@ export function rollStarterOffers(seedKey, mode = 'normal') {
 // 首领核心（bossCore，§4）：五类候选与即时效果实现位于 shared/boss-core.js（§8.1 的 cores 模块），
 // 本模块不新增导出面（data-split 断言 relics 单一职责）；「搜寻」候选与上方信物三选一同池，
 // 只从五个非中立派系中抽取，不包含 neutral。
+
+// 契约卡（contract，§5）：五条契约的候选生成与代价/收益结算实现位于 shared/contracts.js
+// （§8.1 的 contracts 模块），本模块同样不新增导出面；契约只在 9/14/19/24 波替换一张遗物卡，
+// 抽取走独立种子流 ${seed}:contract:${wave}，不触碰 combatRng。

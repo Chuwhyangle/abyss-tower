@@ -135,6 +135,7 @@ const SHARED_EXPORTS = [
   'skillSummary',
   'mapPreviewSvg',
   'escapeHtml',
+  'contractCardHtml',
 ];
 
 test('门面保留拆分前的全部公共方法，且仍是同一个 UI 单例', async () => {

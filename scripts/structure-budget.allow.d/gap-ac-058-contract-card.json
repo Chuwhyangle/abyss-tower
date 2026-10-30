@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "server/services/run-service.mjs",
+      "maxLines": 680,
+      "owner": "gap-ac-058-contract-card"
+    }
+  ]
+}

@@ -14,6 +14,7 @@ import { createFloater, floaterVisible, pushFloater } from './shared/floaters.js
 import { RNG } from './shared/rng.js';
 import { computeOutcome } from './shared/scoring.js';
 import { FACTION_ORDER, factionPoints, factionSetMods } from './shared/factions.js';
+import { normalizeBonusPoints, normalizeContractRecords } from './shared/contracts.js';
 import { HexRuntime } from './shared/hexes/runtime.js';
 import { CombatSystem } from './sim/combat-system.js';
 import {
@@ -56,6 +57,13 @@ export class Simulation {
     this.talentMods = talentMods(normalizeTalent(opts.talent));
     // 派系层（§8.2）：points/tiers/setMods 由 recomputeFactions 重算；bonusPoints 仅契约写入。
     this.factions = { points: {}, bonusPoints: {}, tiers: {}, setMods: {} };
+    // 契约/觉醒局内状态（§8.2）：本任务只落 contracts 与 bonusPoints；
+    // bonusPoints 是 points 的加点覆盖层，读档时从 opts.rogue2 恢复，绝不并入 points。
+    this.rogue2 = {
+      contracts: normalizeContractRecords(opts.rogue2?.contracts || []),
+      bonusPoints: normalizeBonusPoints(opts.rogue2?.bonusPoints || {}),
+    };
+    this.factions.bonusPoints = this.rogue2.bonusPoints;
     // 守护 T3 setWaveHeal 的每局已回复量（运行时计数，不进快照）。
     this.factionWaveHealUsed = 0;
     // 事件历史：旧存档没有该字段时按“无事件”处理；事件波规则随模式变化。
@@ -501,11 +509,21 @@ export class Simulation {
 
   // ---------- 系统委派（公共 API 保持不变） ----------
 
-  beginWave(waveDef) { return this.waveDirector.beginWave(waveDef); }
+  beginWave(waveDef) {
+    const result = this.waveDirector.beginWave(waveDef);
+    // 惰契「下一波攻速 −12%」按 clearedWave + 1 === untilWave 派生；开波时统一重算（无 RNG，安全）。
+    if (result) this.recomputeMods();
+    return result;
+  }
   spawnDue() { return this.waveDirector.spawnDue(); }
   spawnEnemy(type, laneIndex = 0, hpMulOverride = null, progress = 0) { return this.waveDirector.spawnEnemy(type, laneIndex, hpMulOverride, progress); }
   spawnEnemyAt(type, lane, progress) { return this.waveDirector.spawnEnemyAt(type, lane, progress); }
-  completeWave() { return this.waveDirector.completeWave(); }
+  completeWave() {
+    const result = this.waveDirector.completeWave();
+    // 清波推进 clearedWave 后立即重算：惰契的本波攻速副作用随 untilWave 到期自然失效（无 RNG）。
+    this.recomputeMods();
+    return result;
+  }
   updateEnemies(dt) { return this.enemySystem.updateEnemies(dt); }
   auraBuffFor(enemy, sources) { return this.enemySystem.auraBuffFor(enemy, sources); }
   updateRanged(enemy, dt, now) { return this.enemySystem.updateRanged(enemy, dt, now); }
@@ -560,6 +578,7 @@ export class Simulation {
   getRelicLevel(id) { return this.relicSystem.getRelicLevel(id); }
   addRelic(relicOrOffer) { return this.relicSystem.addRelic(relicOrOffer); }
   applyOffer(offer) { return this.relicSystem.applyOffer(offer); }
+  applyContract(offer, opts) { return this.relicSystem.applyContract(offer, opts); }
   recomputeMods() {
     // 天赋被动与遗物/套装/海克斯同源聚合，仍受注册表单件/全局封顶约束；零投入为空操作。
     this.relicSystem.recomputeMods();

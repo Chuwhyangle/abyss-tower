@@ -1,6 +1,7 @@
 // 遗物与奖励：等级读写、遗物获得、金币/修复 offer 与 mod 聚合。
 import { RELIC_BY_ID, RELIC_MAX_LEVEL, relicModsAtLevel } from '../shared/data.js';
 import { applyEffect, clampMods, createMods, relicSetTierBonuses } from '../shared/effects.js';
+import { applyContract as applyContractEffect } from '../shared/contracts.js';
 
 export class RelicSystem {
   constructor(sim) {
@@ -78,6 +79,42 @@ export class RelicSystem {
     return { applied: false };
   }
 
+  // 契约卡即时结算（§5.2/§5.3）：代价先于收益；只改客户端可模拟资源，绝不触碰敌人/波次。
+  // offer 为服务端已解析的契约卡（含 id/faction/grantRelicId/burnRelicId）；opts.rerolls 是
+  // 当前剩余刷新次数（sim 不持有该字段，由外层按 maxRerolls - rerollsUsed 传入），供债契代价门禁。
+  applyContract(offer, { rerolls = 0 } = {}) {
+    const sim = this.sim;
+    const result = applyContractEffect(
+      {
+        accepted: sim.rogue2.contracts.length,
+        wave: sim.clearedWave,
+        gold: sim.gold,
+        hp: sim.baseHp,
+        maxHp: sim.maxBaseHp,
+        rerolls,
+        relics: sim.relics,
+        nextOfferCount: null,
+        bonusPoints: sim.rogue2.bonusPoints,
+        contracts: sim.rogue2.contracts,
+      },
+      offer
+    );
+    if (!result.ok) return result;
+    const state = result.state;
+    sim.gold = state.gold;
+    sim.maxBaseHp = state.maxHp;
+    sim.baseHp = state.hp;
+    sim.relics = state.relics;
+    sim.rogue2 = { contracts: state.contracts, bonusPoints: state.bonusPoints };
+    sim.factions.bonusPoints = state.bonusPoints;
+    if (state.nextOfferCount != null) sim.pendingNextOfferCount = state.nextOfferCount;
+    // bonusPoints 变更触发派系重算（§8.2 不变式 2）；recomputeMods 顺带刷新惰契攻速副作用。
+    sim.recomputeFactions();
+    sim.recomputeMods();
+    sim.save();
+    return result;
+  }
+
   // 聚合与封顶完全由效果注册表驱动：未注册的键会在 relicModsAtLevel/applyEffect 中报错。
   recomputeMods() {
     const mods = createMods();
@@ -106,6 +143,13 @@ export class RelicSystem {
     // 海克斯波内临时 mod 与遗物同源聚合，仍受注册表的单件/全局封顶约束。
     this.sim.hexRuntime.applyTempMods(mods);
     clampMods(mods);
+
+    // 契约「惰契」（§5.2）：下一波全体塔攻速 −12%（本波 chip，untilWave = 接受波 +1）。
+    // 只改客户端可模拟资源，不触碰敌人 HP/速度/入口；到波后重算即失效。
+    const slothActive = (this.sim.rogue2?.contracts || []).some(
+      (contract) => contract.id === 'sloth' && contract.untilWave === this.sim.clearedWave + 1
+    );
+    if (slothActive) mods.fireRate = (mods.fireRate || 0) - 0.12;
 
     this.sim.mods = mods;
     // 派系层独立重算：setMods 不走 clampMods，0 点时为空对象。

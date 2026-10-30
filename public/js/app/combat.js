@@ -152,8 +152,9 @@ export class CombatController {
     if (!sim || !offer) return;
 
     let applyLocally = false;
+    let serverData = null;
     try {
-      await this.api.pickRelic(state.run.id, { index });
+      serverData = await this.api.pickRelic(state.run.id, { index });
       applyLocally = true;
     } catch (error) {
       if (error.status === 409) {
@@ -165,7 +166,24 @@ export class CombatController {
       }
     }
 
-    if (applyLocally) sim.applyOffer(offer);
+    if (applyLocally) {
+      if (offer.kind === 'contract') {
+        // 契约卡走专用结算：代价先于收益、只改客户端可模拟资源；债契刷新次数在 run 层扣减。
+        const rerolls = Math.max(0, (state.run.maxRerolls || 0) - (state.run.rerollsUsed || 0));
+        const result = sim.applyContract(offer, { rerolls });
+        if (!result.ok) {
+          this.ui.toast(t('contract.unaffordable'), 2400);
+          return;
+        }
+        if (offer.id === 'debt') {
+          state.run.rerollsUsed = Number.isFinite(serverData?.rerollsUsed)
+            ? serverData.rerollsUsed
+            : Math.min(state.run.maxRerolls, (state.run.rerollsUsed || 0) + 1);
+        }
+      } else {
+        sim.applyOffer(offer);
+      }
+    }
     sim.pendingDraft = false;
     state.currentOffers = null;
     sim.save();

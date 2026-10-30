@@ -31,12 +31,12 @@ AC-058（契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两�
 
 ## AC
 
-- [ ] `grep -q 'contract' public/js/shared/data/relics.js` exit 0（AC-058 本体判据）
-- [ ] `node --test tests/contracts.test.mjs` exit 0
-- [ ] `node --test tests/relics-depth.test.mjs tests/run-lifecycle.test.mjs` exit 0
-- [ ] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
-- [ ] `grep -q 'contracts' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
-- [ ] `npm test` exit 0
+- [x] `grep -q 'contract' public/js/shared/data/relics.js` exit 0（AC-058 本体判据）
+- [x] `node --test tests/contracts.test.mjs` exit 0
+- [x] `node --test tests/relics-depth.test.mjs tests/run-lifecycle.test.mjs` exit 0
+- [x] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
+- [x] `grep -q 'contracts' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
+- [x] `npm test` exit 0
 
 ## DoD
 
@@ -50,6 +50,7 @@ AC-058（契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两�
 
 - `public/js/shared/data/relics.js`
 - `public/js/shared/contracts.js` (new)
+- `public/js/shared/snapshot.js`
 - `server/services/run-service.mjs`
 - `server/routes/runs.mjs`
 - `public/js/sim.js`
@@ -58,12 +59,18 @@ AC-058（契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两�
 - `public/js/app/run.js`
 - `public/js/ui/modals.js`
 - `public/js/ui/hud.js`
+- `public/js/ui/shared.js`
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/contracts.test.mjs` (new)
+- `tests/sim-systems.test.mjs`
+- `tests/ui-split.test.mjs`
 - `scripts/test-changed.mjs`
+- `scripts/structure-budget.allow.d/gap-ac-058-contract-card.json` (new)
 - `tasks/gap-ac-058-contract-card.md`
 
 ## Notes
 
 契约卡是服务端权威选择，客户端不得自造候选。契约抽取沿用独立种子流 `${seed}:contract:${wave}`，不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。`bonusPoints` 单派系上限 +3、只由契约卡写入，UI 与遗物点数分色显示（以 `docs/PHASE_ROGUE2.md` §2.2 为准）；`bonusPoints` 变更必须触发 `recomputeFactions()`。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
+
+实现补充：契约卡结算主体落在 `public/js/sim/relic-system.js`（`applyContract` 方法），`sim.js` 只保留一行委派，避免 sim.js 越 650 行债务上限。`server/services/run-service.mjs` 因契约分支超 600 行预算，按结构预算门禁登记债务 `scripts/structure-budget.allow.d/gap-ac-058-contract-card.json`（maxLines 680）。契约卡 UI 文案渲染抽到 `public/js/ui/shared.js` 的 `contractCardHtml`，`modals.js` 保持 < 400 行。`tests/sim-systems.test.mjs` / `tests/ui-split.test.mjs` 因新增导出面（`Simulation.prototype.applyContract` / `shared.js` 的 `contractCardHtml`）同步更新基线。

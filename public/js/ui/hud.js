@@ -139,6 +139,7 @@ export const hudMethods = {
 
     this.updatePortalHint(hud);
     this.updateNextWave(hud);
+    this.updateContractChips();
 
     if (hud.phase === 'wave') {
       audio.startMusic(hud.waveDef?.boss || hud.waveDef?.finalBoss ? 'boss' : 'battle');
@@ -300,6 +301,37 @@ export const hudMethods = {
       .map(({ type, count }) => {
         const def = ENEMIES[type] || { id: type, name: type, color: '#9fb0c3' };
         return `<div class="next-wave-row"><i style="--c:${def.color}"></i>${enemyName(def)}<b>×${count}</b></div>`;
+      })
+      .join('');
+  },
+
+  // 契约常驻 chip（§5.3）：run 契约整局常驻；wave 契约只在未过 untilWave 时显示。
+  // 复用遗物列表的样式类，避免新增 CSS 触及 Touches 之外的文件。
+  updateContractChips() {
+    const list = this.el?.relicList;
+    if (!list || !this.game) return;
+    const active = (this.game.rogue2?.contracts || []).filter(
+      (record) => record.scope === 'run' || this.game.clearedWave < record.untilWave
+    );
+    if (!active.length) {
+      if (this.el.contractChips) this.el.contractChips.hidden = true;
+      return;
+    }
+    let container = this.el.contractChips;
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'contract-chips';
+      container.className = 'relic-list';
+      list.parentElement.insertBefore(container, list);
+      this.el.contractChips = container;
+    }
+    container.hidden = false;
+    container.innerHTML = active
+      .map((record) => {
+        const scopeKey = record.scope === 'run' ? 'contract.chip.run' : 'contract.chip.wave';
+        return `<div class="relic-chip contract-chip"><i style="background:#b48bff"></i><span>${escapeHtml(
+          t(`contract.${record.id}.name`)
+        )} <em class="relic-level">${escapeHtml(t(scopeKey))}</em></span></div>`;
       })
       .join('');
   },

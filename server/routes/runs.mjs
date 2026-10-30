@@ -114,7 +114,7 @@ export class RunRoutes {
     return this.respond(ctx, () =>
       ctx.json(
         200,
-        this.service.pickRelic(run, { index: body.index, relicId: body.relicId })
+        this.service.pickRelic(run, { index: body.index, relicId: body.relicId }, ctx.profile)
       )
     );
   }

@@ -7,11 +7,10 @@ import { t, tData, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
 import { destructibleCostSpec, destructibleEffectSpec, destructibleFailureKey, destructibleWarningKey } from '../render/destructible-renderer.js';
-import { fmt, modifierName, modifierDesc, mapPreviewSvg, escapeHtml } from './shared.js';
+import { fmt, modifierName, modifierDesc, mapPreviewSvg, escapeHtml, contractCardHtml } from './shared.js';
 
 // 固定地图的专有名词按 id 取译名；旧随机地图没有 id 时回退数据表自带名称。
-const mapName = (map) =>
-  map ? tData('map', map.id, 'name', map.name || map.archetypeName) : null;
+const mapName = (map) => (map ? tData('map', map.id, 'name', map.name || map.archetypeName) : null);
 const mapDesc = (map) => (map ? tData('map', map.id, 'desc', map.desc || '') : null);
 
 // 遗物草稿的等级分组：fromLevel 为 0 表示新遗物，升级组夹在 1–3 级（纯函数）。
@@ -95,6 +94,7 @@ export const modalMethods = {
     const max = rerolls?.max || 0;
     const cards = offers
       .map((offer, index) => {
+        if (offer.kind === 'contract') return contractCardHtml(offer, index, { used, max });
         if (offer.kind === 'relic') {
           const relic = RELIC_BY_ID[offer.id];
           if (!relic) return '';
