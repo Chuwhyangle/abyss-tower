@@ -31,25 +31,26 @@ AC-058（契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两�
 
 ## AC
 
-- [ ] `grep -q 'contract' public/js/shared/data/relics.js` exit 0（AC-058 本体判据）
-- [ ] `node --test tests/contracts.test.mjs` exit 0
-- [ ] `node --test tests/relics-depth.test.mjs tests/run-lifecycle.test.mjs` exit 0
-- [ ] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
-- [ ] `grep -q 'contracts' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
-- [ ] `npm test` exit 0
+- [x] `grep -q 'contract' public/js/shared/data/relics.js` exit 0（AC-058 本体判据）
+- [x] `node --test tests/contracts.test.mjs` exit 0
+- [x] `node --test tests/relics-depth.test.mjs tests/run-lifecycle.test.mjs` exit 0
+- [x] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
+- [x] `grep -q 'contracts' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 真实跑到第 9/14/19/24 波：三选一里恰有一张契约卡、同一弹窗仍 3 张，刷新后契约卡随整组消失
-- [ ] 接受一条契约后代价与收益立即生效，并在 HUD 留下标注「本波/本局」的 chip
-- [ ] 每局最多接受 2 次；达到上限后 `rollContractOffer` 返回 null、不再出现契约卡
-- [ ] 契约只改客户端可模拟资源，同一 seed 下敌人 HP/速度/入口与不接受契约时完全一致
-- [ ] 快照恢复、旧档续玩都不重复发契约、不重置已接受次数；五模式（普通/每日/本周/无尽/变异）可用且确定性可复现
+- [x] 真实跑到第 9/14/19/24 波：三选一里恰有一张契约卡、同一弹窗仍 3 张，刷新后契约卡随整组消失
+- [x] 接受一条契约后代价与收益立即生效，并在 HUD 留下标注「本波/本局」的 chip
+- [x] 每局最多接受 2 次；达到上限后 `rollContractOffer` 返回 null、不再出现契约卡
+- [x] 契约只改客户端可模拟资源，同一 seed 下敌人 HP/速度/入口与不接受契约时完全一致
+- [x] 快照恢复、旧档续玩都不重复发契约、不重置已接受次数；五模式（普通/每日/本周/无尽/变异）可用且确定性可复现
 
 ## Touches
 
 - `public/js/shared/data/relics.js`
 - `public/js/shared/contracts.js` (new)
+- `public/js/shared/snapshot.js`
 - `server/services/run-service.mjs`
 - `server/routes/runs.mjs`
 - `public/js/sim.js`
@@ -58,12 +59,28 @@ AC-058（契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两�
 - `public/js/app/run.js`
 - `public/js/ui/modals.js`
 - `public/js/ui/hud.js`
+- `public/js/ui/shared.js`
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/contracts.test.mjs` (new)
+- `tests/sim-systems.test.mjs`
+- `tests/ui-split.test.mjs`
 - `scripts/test-changed.mjs`
+- `scripts/structure-budget.allow.d/gap-ac-058-contract-card.json` (new)
 - `tasks/gap-ac-058-contract-card.md`
 
 ## Notes
 
 契约卡是服务端权威选择，客户端不得自造候选。契约抽取沿用独立种子流 `${seed}:contract:${wave}`，不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。`bonusPoints` 单派系上限 +3、只由契约卡写入，UI 与遗物点数分色显示（以 `docs/PHASE_ROGUE2.md` §2.2 为准）；`bonusPoints` 变更必须触发 `recomputeFactions()`。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
+
+实现补充：契约卡结算主体落在 `public/js/sim/relic-system.js`（`applyContract` 方法），`sim.js` 只保留一行委派，避免 sim.js 越 650 行债务上限。`server/services/run-service.mjs` 因契约分支超 600 行预算，按结构预算门禁登记债务 `scripts/structure-budget.allow.d/gap-ac-058-contract-card.json`（maxLines 680）。契约卡 UI 文案渲染抽到 `public/js/ui/shared.js` 的 `contractCardHtml`，`modals.js` 保持 < 400 行。`tests/sim-systems.test.mjs` / `tests/ui-split.test.mjs` 因新增导出面（`Simulation.prototype.applyContract` / `shared.js` 的 `contractCardHtml`）同步更新基线。
+
+## Blocker
+
+**2026-10-30T16:14:54.552Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (82b45a17) is NOT a continuation of the project's default branch 'main' (32052104) — it is 6 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-058-contract-card's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：31fc9810-9e8f-4c7c-a06d-88a4b439b1e6
