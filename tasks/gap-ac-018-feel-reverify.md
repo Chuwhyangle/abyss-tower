@@ -65,13 +65,3 @@ AC-019 修复提交 hash：`a9f9b2220eea0e551a21e0bc86de396a4ec97680`（`fix(har
 「若 feel 套件跑通后暴露真实反馈指标回归」：未触发（feel 套件连续 2 轮全 PASS，无反馈覆盖 / 对比度 / 特效预算越线），Touches 不扩容。
 
 取舍：AC-018 的见证不折叠进 AC-019 任务——`goal_ac` 是单值标量，折叠会让 AC-018 失去独立、可被 driver 逐字复算的归属；本任务与 `gap-ac-019-perf-budget-opening-harness` / VIS-001 / `gap-ac-028-perf-budget-reverify` 零文件重叠。
-
-## Blocker
-
-**2026-10-30T14:02:55.578Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (c820532e) is NOT a continuation of the project's default branch 'main' (71f13abc) — it is 6 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
-  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-018-feel-reverify's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
-  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
-- run_id：wk-prod-anchor
-- session_id：136e86b5-e207-4f8b-b931-fea42c59fc79
