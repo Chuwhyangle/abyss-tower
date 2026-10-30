@@ -1,7 +1,7 @@
 ---
 id: gap-ac-051-sprite-i18n-coverage
 title: 敌人覆盖门禁：wraith/golem i18n 双语键 + 精灵图集重建 + sprite-coverage 计数更新（AC-051）
-status: ready
+status: done
 labels:
   - gap
 parent: null
