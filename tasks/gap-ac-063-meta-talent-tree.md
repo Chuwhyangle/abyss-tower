@@ -1,7 +1,7 @@
 ---
 id: gap-ac-063-meta-talent-tree
 title: 天赋树与永久强化：账号技能点、塔/技能/经济永久被动在模拟/快照/UI 一致生效（AC-063）
-status: ready
+status: done
 labels:
   - gap
 parent: null
