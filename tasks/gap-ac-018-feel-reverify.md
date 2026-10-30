@@ -2,7 +2,7 @@
 id: gap-ac-018-feel-reverify
 title: AC-018 复验：harness 开局信物三选一修复落地后 visual-check --suite feel 恢复 exit
   0（开局弹窗超时红由 AC-019 拥有）
-status: ready
+status: done
 labels:
   - gap
   - defect
