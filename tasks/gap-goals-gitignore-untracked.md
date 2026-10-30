@@ -1,7 +1,7 @@
 ---
 id: gap-goals-gitignore-untracked
 title: 修复 .gitignore：goals/*.md 进版本库（镜像 tasks 修法）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
