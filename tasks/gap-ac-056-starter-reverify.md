@@ -1,7 +1,7 @@
 ---
 id: gap-ac-056-starter-reverify
 title: AC-056 复验：开局信物三选一修复已 fan-in 落地，criterion 现 exit 0（台账红是 fan-in 前 24s 陈旧读数）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
