@@ -1,7 +1,7 @@
 ---
 id: gap-perf-budget-normal-scenario-no-enemies
 title: perf:budget 门禁 normal-1x-low 空场误红：波 12 滴灌出生被 8 塔守入口清空（AC-028）
-status: ready
+status: done
 labels:
   - gap
   - defect
