@@ -16,6 +16,7 @@ export class EnemySystem {
     const curse = this.sim.destructibleAura();
     // 时之终章：敌人移动、治疗、中毒/灼烧计时与首领计时全部暂停。
     const stasisActive = this.sim.isStasisActive();
+    const setMods = this.sim.factions?.setMods || {};
     for (const enemy of this.sim.enemies) {
       if (enemy.dead) continue;
       enemy.hitFlash = Math.max(0, enemy.hitFlash - dt * 4);
@@ -27,8 +28,10 @@ export class EnemySystem {
       const buff = now < (enemy.speedBuffUntil || 0) ? enemy.speedBuff || 0 : 0;
       const auraBuff = this.sim.auraBuffFor(enemy, auraSources);
       const frozen = now < (enemy.freezeUntil || 0);
+      // 蚀毒 T1：中毒目标移速 −值（0 点时值为 0，乘 1 不变）。
+      const poisonSlow = now < enemy.poisonUntil && enemy.poisonDps > 0 ? setMods.poisonSlow || 0 : 0;
       let speed = enemy.baseSpeed * (1 - (slowed ? enemy.slowAmt : 0)) * (1 + buff) * (1 + auraBuff)
-        * curse.speedMul;
+        * (1 - poisonSlow) * curse.speedMul;
       // 冻结只停移动，不打断首领蓄力；时停则连首领计时一起暂停。
       if (frozen || stasisActive) speed = 0;
       if (!stasisActive) {
@@ -268,13 +271,19 @@ export class EnemySystem {
   leak(enemy) {
     if (enemy.dead) return;
     enemy.dead = true;
-    this.sim.baseHp -= enemy.dmg;
+    const setMods = this.sim.factions?.setMods || {};
+    // 守护 T2：漏怪伤害 −N（下限 1）；守护 T1：漏怪概率免伤。0 点时二者都不生效，
+    // 且只有免伤概率 >0 才消耗 RNG，保持「0 点 → 战斗字节一致」。
+    let dmg = enemy.dmg;
+    if (setMods.leakDamageReduction) dmg = Math.max(1, dmg - setMods.leakDamageReduction);
+    if (setMods.leakIgnoreChance > 0 && this.sim.combatRng.float() < setMods.leakIgnoreChance) dmg = 0;
+    this.sim.baseHp -= dmg;
     this.sim.shake = Math.min(16, this.sim.shake + 7);
     this.sim.addEffect({ kind: 'leak', x: enemy.x, y: enemy.y, ttl: 0.5 });
-    this.sim.addFloater(enemy.x, enemy.y - 0.4, `-${enemy.dmg}`, '#ff6b6b', true, { key: true });
+    this.sim.addFloater(enemy.x, enemy.y - 0.4, `-${dmg}`, '#ff6b6b', true, { key: true });
     // 高潮演出事件：只记录（含漏怪后的基地生命），结算与音效保持原有顺序。
     this.sim.addCulmination('leak', {
-      damage: enemy.dmg,
+      damage: dmg,
       baseHp: this.sim.baseHp,
       x: enemy.x,
       y: enemy.y,

@@ -134,6 +134,8 @@ export class WaveDirector {
       freezeSlow: 0,
       freezeSlowDur: 0,
       freezeShatter: 0,
+      // 霜缚 T2 每 N 次霜塔命中冻结的命中计数
+      frostHits: 0,
       burnUntil: 0,
       burnDps: 0,
       skillVulnUntil: 0,
@@ -170,6 +172,17 @@ export class WaveDirector {
     this.sim.gold += reward + interest;
     // 回合型遗物在波末按注册表周期结算；纯状态读写，不消耗随机数。
     const periodic = applyPeriodicWaveEffects(this.sim, this.sim.wave);
+    // 守护 T3：每 every 波回复 amount 点，每局上限 capPerRun（0 点时 setMods 为空，不触发）。
+    const setWaveHeal = this.sim.factions?.setMods?.setWaveHeal;
+    if (
+      setWaveHeal &&
+      this.sim.wave % setWaveHeal.every === 0 &&
+      this.sim.factionWaveHealUsed < setWaveHeal.capPerRun
+    ) {
+      this.sim.baseHp = Math.min(this.sim.maxBaseHp, this.sim.baseHp + setWaveHeal.amount);
+      this.sim.factionWaveHealUsed += 1;
+      this.sim.addEffect({ kind: 'heal', x: this.sim.map.base.x, y: this.sim.map.base.y, ttl: 0.8 });
+    }
     // 海克斯波末结算：先让钩子读到本波临时 mod，再统一清理（临时 mod 不跨波）。
     if (this.sim.hexRuntime.active) {
       this.sim.hexCall('onWaveEnd', this.sim.wave, this.sim.hexCtx);

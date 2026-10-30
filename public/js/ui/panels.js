@@ -8,6 +8,7 @@ import {
   relicEffectText,
   ENEMIES,
 } from '../shared/data.js';
+import { FACTION_ORDER, FACTION_TIERS } from '../shared/factions.js';
 import { t } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { fmt, diffName, enemyName, escapeHtml } from './shared.js';
@@ -129,6 +130,27 @@ export const panelMethods = {
     const relics = this.game?.relics || [];
     const hud = this.game?.getHud?.() || {};
     const preview = hud.phase === 'prep' ? hud.nextWave : null;
+    // 派系点数 + 下一档：只列出本局已有投入的派系，中立不参与派系层。
+    const factions = this.game?.factions || {};
+    const points = factions.points || {};
+    const tiers = factions.tiers || {};
+    const factionBlock = FACTION_ORDER.filter((f) => (points[f] || 0) > 0)
+      .map((f) => {
+        const tier = tiers[f] || 0;
+        const next = FACTION_TIERS[tier];
+        const nextLabel =
+          tier >= 3 ? t('relicsModal.factionMax') : t('relicsModal.factionNext', { n: next });
+        return `
+          <div class="faction-row">
+            <b>${t(`faction.${f}.name`)}</b>
+            <span>${t('relicsModal.factionPoints', { n: points[f] })}</span>
+            <span>${nextLabel}</span>
+          </div>`;
+      })
+      .join('');
+    const factionHtml = factionBlock
+      ? `<p class="eyebrow">${t('relicsModal.factions')}</p><div class="faction-list">${factionBlock}</div>`
+      : '';
     const rows = relics.length
       ? relics
           .map((state) => {
@@ -164,6 +186,7 @@ export const panelMethods = {
       `
         <div class="relics-modal">
           ${waveBlock}
+          ${factionHtml}
           <p class="eyebrow">RELICS</p>
           <h2>${t('relicsModal.title')} <span class="cores-inline">${relics.length}</span></h2>
           <div class="relic-modal-list">${rows}</div>

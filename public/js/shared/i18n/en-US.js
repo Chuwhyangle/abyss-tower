@@ -303,6 +303,7 @@ export default {
   'draft.repairEffect': 'Restore {n} base HP (up to max)',
   'draft.fallbackFlavor': 'Fallback reward when the relic pool is exhausted, keeping the draft flowing.',
   'draft.pick': 'Choose',
+  'draft.faction': 'Faction',
 
   'settings.eyebrow': 'SETTINGS',
   'settings.title': 'Settings',
@@ -421,6 +422,17 @@ export default {
   'relicsModal.nextWave': 'NEXT WAVE',
   'relicsModal.enemies': '{n} enemies',
   'relicsModal.title': 'Relics',
+  'relicsModal.factions': 'Factions',
+  'relicsModal.factionPoints': '{n} pts',
+  'relicsModal.factionNext': 'Next {n}',
+  'relicsModal.factionMax': 'Max tier',
+
+  'faction.fire.name': 'Fire',
+  'faction.frost.name': 'Frost',
+  'faction.venom.name': 'Venom',
+  'faction.storm.name': 'Storm',
+  'faction.warden.name': 'Warden',
+  'faction.neutral.name': 'Neutral',
 
   'help.eyebrow': 'Field Manual',
   'help.title': 'How to Play',

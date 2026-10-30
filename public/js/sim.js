@@ -11,6 +11,7 @@ import {
 import { createFloater, floaterVisible, pushFloater } from './shared/floaters.js';
 import { RNG } from './shared/rng.js';
 import { computeOutcome } from './shared/scoring.js';
+import { FACTION_ORDER, factionPoints, factionSetMods } from './shared/factions.js';
 import { HexRuntime } from './shared/hexes/runtime.js';
 import { CombatSystem } from './sim/combat-system.js';
 import {
@@ -49,6 +50,10 @@ export class Simulation {
     this.clearPending = false;
     this.kills = opts.kills || 0;
     this.relics = normalizeRelicStates(opts.relics || []);
+    // 派系层（§8.2）：points/tiers/setMods 由 recomputeFactions 重算；bonusPoints 仅契约写入。
+    this.factions = { points: {}, bonusPoints: {}, tiers: {}, setMods: {} };
+    // 守护 T3 setWaveHeal 的每局已回复量（运行时计数，不进快照）。
+    this.factionWaveHealUsed = 0;
     // 事件历史：旧存档没有该字段时按“无事件”处理；事件波规则随模式变化。
     this.events = normalizeEventHistory(opts.events || [], this.mode);
     // 连锁排期：快照里的记录只是冗余，历史才是事实来源，二者合并去重。
@@ -177,6 +182,24 @@ export class Simulation {
     this.towerSystem.recomputeTowerStats();
 
     this.combatRng = new RNG(`${this.seed}:combat:0`);
+  }
+
+  // 派系层重算（§8.2 不变式 1）：遗物/契约/核心变化后统一调用，模拟步内不重建对象。
+  // setMods 是独立乘区，绝不经过 clampMods / GLOBAL_MOD_CAPS；0 档时为空对象，行为与无 2.0 一致。
+  recomputeFactions() {
+    const points = factionPoints(this.relics);
+    const bonusPoints = this.factions?.bonusPoints || {};
+    const tiers = {};
+    for (const faction of FACTION_ORDER) {
+      const bonus = Math.max(0, Math.min(3, Math.floor(Number(bonusPoints[faction]) || 0)));
+      const total = points[faction] + bonus;
+      let tier = 0;
+      if (total >= 12) tier = 3;
+      else if (total >= 8) tier = 2;
+      else if (total >= 4) tier = 1;
+      tiers[faction] = tier;
+    }
+    this.factions = { points, bonusPoints: { ...bonusPoints }, tiers, setMods: factionSetMods(tiers) };
   }
 
   // ---------- 主更新 ----------
@@ -499,7 +522,7 @@ export class Simulation {
   dealDamage(enemy, base, towerType, opts = {}) { return this.combatSystem.dealDamage(enemy, base, towerType, opts); }
   computeHit(base, towerType, enemy, opts = {}) { return this.combatSystem.computeHit(base, towerType, enemy, opts); }
   damage(enemy, amount, opts = {}) { return this.combatSystem.damage(enemy, amount, opts); }
-  killEnemy(enemy) { return this.combatSystem.killEnemy(enemy); }
+  killEnemy(enemy, killingDamage = 0, opts) { return this.combatSystem.killEnemy(enemy, killingDamage, opts); }
   flushSplits() { return this.combatSystem.flushSplits(); }
   cleanup() { return this.combatSystem.cleanup(); }
   get towerDamageMul() { return this.destructibleSystem.towerDamageMul; }
