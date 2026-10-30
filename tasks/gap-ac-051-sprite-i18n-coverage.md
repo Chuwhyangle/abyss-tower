@@ -63,3 +63,13 @@ AC-051（GOAL-010「新敌人精灵/渲染/i18n 覆盖通过既有门禁」）cr
 - `public/assets/sprites/manifest.json`
 - `tests/sprite-coverage.test.mjs`
 - `tasks/gap-ac-051-sprite-i18n-coverage.md`
+
+## Blocker
+
+**2026-10-30T12:06:37.072Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (7675f640) is NOT a continuation of the project's default branch 'main' (54f29408) — it is 4 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-051-sprite-i18n-coverage's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：1b17d5e6-8309-4f05-a428-cf885e043b0d
