@@ -1,7 +1,7 @@
 ---
 id: gap-ac-059-doctrines
 title: 教义：五条塔专精通过首领核心选择且不可逆（AC-059）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
