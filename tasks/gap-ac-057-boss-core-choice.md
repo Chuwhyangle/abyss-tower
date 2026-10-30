@@ -1,7 +1,7 @@
 ---
 id: gap-ac-057-boss-core-choice
 title: 首领核心：第 5/10/15/20/25 波清波后五类核心三选一在五模式确定性可复现（AC-057）
-status: ready
+status: done
 labels:
   - gap
 parent: null
