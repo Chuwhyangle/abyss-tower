@@ -1,7 +1,7 @@
 ---
 id: gap-ac-054-rogue2-design-rebase
 title: 落地 AC-054：PHASE_ROGUE2 设计重基冻结表（70 遗物/6 套装 + 核心/契约/教义/觉醒字段表）与测试覆盖
-status: todo
+status: ready
 labels:
   - gap
 parent: null
