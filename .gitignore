@@ -45,7 +45,10 @@ coverage/
 # 机械 fan-in 必然卡在 flip-done。故只忽略目录内的非 .md 运行时文件。
 tasks/*
 !tasks/*.md
-goals/
+# 目标体（goals/*.md）与任务体同型：整目录忽略会让 git 连已跟踪/待跟踪的 goals/*.md 都拒 add，
+# fan-in 的 doc-surface 只判已提交 diff，goals 的改动因此进不了校验面。故只忽略目录内非 .md 运行时文件。
+goals/*
+!goals/*.md
 adr/
 meta/
 # cloudcli Architecture tab 的 ArchGuard 分析产物（运行时生成）
