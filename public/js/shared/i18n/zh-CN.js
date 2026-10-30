@@ -304,6 +304,13 @@ export default {
   'draft.pick': '选择',
   'draft.faction': '派系',
 
+  'starter.eyebrow': '开局 · 信物三选一',
+  'starter.title': '选择一件信物',
+  'starter.note': '来自三个不同派系 · 选定后不可更改',
+  'starter.confirm': '确认',
+  'starter.confirmPick': '确认选择 {name}',
+  'starter.abandon': '放弃本局',
+
   'settings.eyebrow': 'SETTINGS',
   'settings.title': '设置',
   'settings.sectionDisplay': '画面',
@@ -1501,6 +1508,7 @@ export default {
   'input.skillCooling': '技能冷却中 · {s} 秒',
   'input.skillUnavailable': '技能当前不可用',
   'runUi.hexRestored': '已恢复海克斯选择',
+  'runUi.starterRestored': '已恢复信物选择',
   'runUi.mapSelectionRestored': '已恢复本次远征的地图选择',
   'runUi.mapRestored': '已恢复地图选择',
   'runUi.noResumableRun': '没有可继续的远征',

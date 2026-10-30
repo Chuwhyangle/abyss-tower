@@ -202,6 +202,21 @@ export function rollRelicOffers(seedKey, relicStates = [], count = 3, wave = 1, 
   const pool = RELICS.filter((relic) => (levels.get(relic.id) || 0) < RELIC_MAX_LEVEL);
   const offers = [];
 
+  // 第 3 波起保底一张升级卡：已拥有且未满级的遗物中必有一件成为首个 offer。
+  // 仅当确实存在可升级遗物时生效；不生效时不做任何 RNG 调用，保持既有抽取序列逐字不变。
+  const upgradable = states.filter((state) => state.level < RELIC_MAX_LEVEL);
+  if (wave >= 3 && upgradable.length > 0) {
+    const target = rng.pick(upgradable);
+    offers.push({
+      kind: 'relic',
+      id: target.id,
+      fromLevel: target.level,
+      toLevel: target.level + 1,
+    });
+    const idx = pool.findIndex((relic) => relic.id === target.id);
+    if (idx >= 0) pool.splice(idx, 1);
+  }
+
   while (offers.length < count && pool.length) {
     const relic = rng.weighted(pool, (item) => rarityWeightForMode(item.rarity, mode));
     const fromLevel = levels.get(relic.id) || 0;
@@ -226,4 +241,27 @@ export function rollRelicOffers(seedKey, relicStates = [], count = 3, wave = 1, 
     fallbackIndex++;
   }
   return offers;
+}
+
+// 信物三选一（§2.5/§8.1）：3 张来自三个不同派系的入门遗物（普通、Ⅰ 级新卡），不含中立。
+// 派系规模只影响「信物」的选择面，稀有度不做加权——开局只给入门卡。
+// 独立种子流 ${seed}:starter:${mode}（§9）；同一 (seedKey, mode) 可复现。
+// 注意：本模块不得 import factions.js（会形成 relics → factions → data → relics 循环）。
+const STARTER_FACTIONS = ['fire', 'frost', 'venom', 'storm', 'warden'];
+
+export function rollStarterOffers(seedKey, mode = 'normal') {
+  const rng = new RNG(seedKey);
+  const byFaction = new Map();
+  for (const relic of RELICS) {
+    const faction = relic.faction;
+    if (!faction || faction === 'neutral' || relic.rarity !== 'common') continue;
+    if (!byFaction.has(faction)) byFaction.set(faction, []);
+    byFaction.get(faction).push(relic);
+  }
+  const factions = STARTER_FACTIONS.filter((faction) => (byFaction.get(faction) || []).length > 0);
+  const chosen = rng.shuffle(factions).slice(0, 3);
+  return chosen.map((faction) => {
+    const relic = rng.pick(byFaction.get(faction));
+    return { kind: 'relic', id: relic.id, fromLevel: 0, toLevel: 1 };
+  });
 }
