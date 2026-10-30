@@ -77,8 +77,10 @@ AC-058（契约卡：第 9/14/19/24 波替换一张遗物卡，每局最多两�
 
 ## Blocker
 
-**2026-10-30T16:07:46.540Z — worker 未落地（exited-not-landed）**
+**2026-10-30T16:14:54.552Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：AC 未全勾（checked 6/11，剩余未勾 5）——续做只需验证并勾选 AC
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (82b45a17) is NOT a continuation of the project's default branch 'main' (32052104) — it is 6 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-058-contract-card's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：727aa7aa-87b8-479c-9e08-4e20c648d9e6
+- session_id：31fc9810-9e8f-4c7c-a06d-88a4b439b1e6
