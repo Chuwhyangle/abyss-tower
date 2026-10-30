@@ -149,7 +149,8 @@ test('固定种子结算哈希与重构前逐字一致', () => {
   // 全遗物配置的 mods 与第 2/3 波结算结果变化，基线随内容更新。
   // MAP-001：地图改为固定三张（generateMap 指向固定 canyon），塔位坐标随固定几何更新，
   // 全遗物结算基线随地图更新（行为本身无改动）。
-  assert.equal(hash, '36a22148db680307e362e86e840eb69d1acb9eaa1c91b54af5716a9ae52992f7');
+  // AC-052：波次 countMult 回调（×1.3）使第 1–3 波敌人数量变化，结算基线随波次更新。
+  assert.equal(hash, '2c6c844395754dae0b0af733eeb6c2484c1750ac9e079bcf9e681faadc74e764');
 });
 
 function round(n) {

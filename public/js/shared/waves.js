@@ -38,18 +38,18 @@ export function selectBossAffixes(wave) {
 }
 
 const POOL = [
-  { type: 'grunt', weight: 5.0, countMult: 1.0, minWave: 1, interval: 0.62 },
-  { type: 'runner', weight: 3.2, countMult: 1.05, minWave: 2, interval: 0.42 },
-  { type: 'swarm', weight: 2.6, countMult: 2.2, minWave: 3, interval: 0.28 },
-  { type: 'tank', weight: 2.1, countMult: 0.5, minWave: 4, interval: 1.15 },
-  { type: 'flyer', weight: 2.3, countMult: 0.8, minWave: 6, interval: 0.7 },
-  { type: 'healer', weight: 1.2, countMult: 0.38, minWave: 8, interval: 1.5 },
-  { type: 'shielder', weight: 1.5, countMult: 0.45, minWave: 7, interval: 1.25 },
-  { type: 'splitter', weight: 1.5, countMult: 0.55, minWave: 9, interval: 1.0 },
-  { type: 'herald', weight: 0.9, countMult: 0.3, minWave: 11, interval: 1.5 },
-  { type: 'caster', weight: 1.1, countMult: 0.4, minWave: 13, interval: 1.3 },
-  { type: 'wraith', weight: 1.4, countMult: 0.55, minWave: 10, interval: 0.8 },
-  { type: 'golem', weight: 1.0, countMult: 0.3, minWave: 14, interval: 1.7 },
+  { type: 'grunt', weight: 5.0, countMult: 1.3, minWave: 1, interval: 0.62 },
+  { type: 'runner', weight: 3.2, countMult: 1.37, minWave: 2, interval: 0.42 },
+  { type: 'swarm', weight: 2.6, countMult: 2.86, minWave: 3, interval: 0.28 },
+  { type: 'tank', weight: 2.1, countMult: 0.65, minWave: 4, interval: 1.15 },
+  { type: 'flyer', weight: 2.3, countMult: 1.04, minWave: 6, interval: 0.7 },
+  { type: 'healer', weight: 1.2, countMult: 0.49, minWave: 8, interval: 1.5 },
+  { type: 'shielder', weight: 1.5, countMult: 0.59, minWave: 7, interval: 1.25 },
+  { type: 'splitter', weight: 1.5, countMult: 0.72, minWave: 9, interval: 1.0 },
+  { type: 'herald', weight: 0.9, countMult: 0.39, minWave: 11, interval: 1.5 },
+  { type: 'caster', weight: 1.1, countMult: 0.52, minWave: 13, interval: 1.3 },
+  { type: 'wraith', weight: 1.4, countMult: 0.72, minWave: 10, interval: 0.8 },
+  { type: 'golem', weight: 1.0, countMult: 0.39, minWave: 14, interval: 1.7 },
 ];
 
 // 无尽模式曲线硬上限：血量/移速/数量在封顶后不再增长，避免数值爆炸。

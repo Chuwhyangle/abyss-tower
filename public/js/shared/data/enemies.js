@@ -57,13 +57,13 @@ export const ENEMIES = {
     desc: '远程轰击防御塔使其短暂停摆，逼近基地时直接轰击基地。',
   },
   wraith: {
-    id: 'wraith', name: '相位幽魂', hp: 58, speed: 1.5, armor: 1, gold: 9, dmg: 1,
+    id: 'wraith', name: '相位幽魂', hp: 132, speed: 1.65, armor: 3, gold: 9, dmg: 1,
     r: 0.28, color: '#9d8fe8', shape: 'wraith',
-    blink: { interval: 1.8, distance: 0.55 },
+    blink: { interval: 1.5, distance: 0.6 },
     desc: '周期性短距闪烁穿行，只推进路径进度、不换车道，受击正常。',
   },
   golem: {
-    id: 'golem', name: '岩石魔像', hp: 340, speed: 0.6, armor: 9, gold: 24, dmg: 3,
+    id: 'golem', name: '岩石魔像', hp: 700, speed: 0.6, armor: 17, gold: 20, dmg: 3,
     r: 0.46, color: '#8a9a5b', shape: 'golem',
     splits: { type: 'splitling', count: 2 },
     desc: '高护甲慢速，死亡时裂成 2 只裂生虫。',
