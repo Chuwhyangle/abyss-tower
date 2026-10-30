@@ -1,7 +1,7 @@
 ---
 id: gap-phase-meta-design-freeze
 title: 设计定稿：产出 PHASE_META 冻结表（机制/数值/字段契约/AC 映射）
-status: ready
+status: done
 labels:
   - gap
 parent: null
