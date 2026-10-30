@@ -30,11 +30,11 @@ AC-056（开局信物三选一与第 3 波起保底升级卡）已由 goal-drive
 
 ## AC
 
-- [ ] `grep -q 'starter' public/js/shared/data/relics.js` exit 0（AC-056 本体判据）
-- [ ] `node --test tests/starter-relic.test.mjs` exit 0
-- [ ] `node --test tests/relics-depth.test.mjs tests/daily-challenge.test.mjs` exit 0
-- [ ] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `grep -q 'starter' public/js/shared/data/relics.js` exit 0（AC-056 本体判据）
+- [x] `node --test tests/starter-relic.test.mjs` exit 0
+- [x] `node --test tests/relics-depth.test.mjs tests/daily-challenge.test.mjs` exit 0
+- [x] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
@@ -46,16 +46,23 @@ AC-056（开局信物三选一与第 3 波起保底升级卡）已由 goal-drive
 ## Touches
 
 - `public/js/shared/data/relics.js`
+- `public/js/shared/data.js`
 - `server/services/run-service.mjs`
 - `server/services/run-rules.mjs`
 - `server/routes/runs.mjs`
+- `public/js/api.js`
 - `public/js/app/run.js`
-- `public/js/ui/modals.js`
+- `public/js/ui.js`
+- `public/js/ui/starter-select.js` (new)
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/starter-relic.test.mjs` (new)
+- `tests/data-split.test.mjs`
+- `tests/ui-split.test.mjs`
 - `tasks/gap-ac-056-starter-relic-upgrade-guarantee.md`
 
 ## Notes
 
 开局信物是服务端权威选择，客户端不得自造候选。升级保底只在 `rollRelicOffers` 内实现，沿用既有 `${run.seed}:relic:...` 抽取流、不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。`start_relic` 解锁（run-rules.mjs 现有随机送 1 件）与信物三选一的取舍以 `docs/PHASE_ROGUE2.md` 冻结表为准。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
+
+实现落点：信物三选一 UI 抽出为 `public/js/ui/starter-select.js`（新面板 `starterSelectMethods`），未改 `modals.js`；`rollStarterOffers` 用本地 `STARTER_FACTIONS` 列表避免 relics→factions→data→relics 循环，独立种子流 `${seed}:starter:${mode}`；升级保底在 `rollRelicOffers` 内仅 `wave >= 3` 且存在可升级遗物时触发，不触发时是 RNG no-op 以保持既有序列。
