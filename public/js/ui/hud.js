@@ -1,5 +1,6 @@
 // HUD 与战场外壳：状态栏、技能按钮、入口提示、首领横幅、音效与转场。
 import { DIFFICULTIES, ENEMIES, MAX_WAVE, SKILLS, skillStats } from '../shared/data.js';
+import { DOCTRINES } from '../shared/doctrines.js';
 import { t, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
@@ -140,6 +141,7 @@ export const hudMethods = {
     this.updatePortalHint(hud);
     this.updateNextWave(hud);
     this.updateContractChips();
+    this.updateDoctrineChips();
 
     if (hud.phase === 'wave') {
       audio.startMusic(hud.waveDef?.boss || hud.waveDef?.finalBoss ? 'boss' : 'battle');
@@ -332,6 +334,34 @@ export const hudMethods = {
         return `<div class="relic-chip contract-chip"><i style="background:#b48bff"></i><span>${escapeHtml(
           t(`contract.${record.id}.name`)
         )} <em class="relic-level">${escapeHtml(t(scopeKey))}</em></span></div>`;
+      })
+      .join('');
+  },
+
+  // 教义常驻 chip（§6）：只显示已选教义（1–2 个），复用遗物列表样式，不新增面板层级。
+  updateDoctrineChips() {
+    const list = this.el?.relicList;
+    if (!list || !this.game) return;
+    const active = (this.game.rogue2?.doctrines || []).filter((id) => DOCTRINES[id]);
+    if (!active.length) {
+      if (this.el.doctrineChips) this.el.doctrineChips.hidden = true;
+      return;
+    }
+    let container = this.el.doctrineChips;
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'doctrine-chips';
+      container.className = 'relic-list';
+      list.parentElement.insertBefore(container, list);
+      this.el.doctrineChips = container;
+    }
+    container.hidden = false;
+    container.innerHTML = active
+      .map((id) => {
+        const def = DOCTRINES[id];
+        return `<div class="relic-chip doctrine-chip"><i style="background:${def.color}">${escapeHtml(
+          def.glyph
+        )}</i><span>${escapeHtml(t(def.nameKey))}</span></div>`;
       })
       .join('');
   },

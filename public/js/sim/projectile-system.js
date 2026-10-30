@@ -1,6 +1,9 @@
 // 投射物：开火、飞行推进与落点命中。
 import { TOWERS } from '../shared/data.js';
 
+// 穿透教义（bolt）：命中后向 0.8 格内最近的另一名敌人再穿 1 层（第 2 个目标 60% 伤害）。
+const PIERCE_RANGE = 0.8;
+
 export class ProjectileSystem {
   constructor(sim) {
     this.sim = sim;
@@ -13,9 +16,12 @@ export class ProjectileSystem {
 
     if (tower.type === 'arc') {
       // 雷暴 T1：连锁目标 +N；雷暴 T2：连锁跳转范围 +N 格。0 点时二者均为 0，行为不变。
+      // 过载教义（arc）：连锁 +1、连锁范围 +0.8 格，与雷暴同类键加算（§3.2）。
       const setMods = this.sim.factions?.setMods || {};
-      const chain = Math.max(1, Math.round(stats.chain) + (setMods.chainExtra || 0));
-      const chainRange = def.chainRange + (setMods.chainRange || 0);
+      const doctrineChain = this.sim.hasDoctrine('arc') ? 1 : 0;
+      const doctrineRange = this.sim.hasDoctrine('arc') ? 0.8 : 0;
+      const chain = Math.max(1, Math.round(stats.chain) + (setMods.chainExtra || 0) + doctrineChain);
+      const chainRange = def.chainRange + (setMods.chainRange || 0) + doctrineRange;
       const hit = new Set();
       const points = [{ x: tower.x, y: tower.y }];
       let current = target;
@@ -153,6 +159,34 @@ export class ProjectileSystem {
         color: '#ffe4b0',
         weapon: proj.towerType,
       });
+      // 穿透教义（bolt）：命中后向最近另一名敌人再穿 1 层，第 2 个目标承受 60% 伤害；
+      // 只穿 1 层，未选教义（hasDoctrine=false）时整段不执行，保持原行为字节一致。
+      if (this.sim.hasDoctrine('bolt') && proj.towerType === 'arrow') {
+        let pierce = null;
+        let bestDist = Infinity;
+        for (const enemy of this.sim.enemies) {
+          if (enemy.dead || enemy === target) continue;
+          const d = Math.hypot(enemy.x - target.x, enemy.y - target.y);
+          if (d <= PIERCE_RANGE + enemy.r && d < bestDist) {
+            bestDist = d;
+            pierce = enemy;
+          }
+        }
+        if (pierce) {
+          this.sim.dealDamage(pierce, proj.dmg * 0.6, proj.towerType, {
+            ignoreArmor: proj.ignoreArmor,
+            tower: proj.tower || null,
+          });
+          this.sim.addEffect({
+            kind: 'spark',
+            x: pierce.x,
+            y: pierce.y,
+            ttl: 0.15,
+            color: '#ffe4b0',
+            weapon: proj.towerType,
+          });
+        }
+      }
     }
   }
 }

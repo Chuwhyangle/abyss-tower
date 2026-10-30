@@ -105,7 +105,7 @@ export class RelicSystem {
     sim.maxBaseHp = state.maxHp;
     sim.baseHp = state.hp;
     sim.relics = state.relics;
-    sim.rogue2 = { contracts: state.contracts, bonusPoints: state.bonusPoints };
+    sim.rogue2 = { ...sim.rogue2, contracts: state.contracts, bonusPoints: state.bonusPoints };
     sim.factions.bonusPoints = state.bonusPoints;
     if (state.nextOfferCount != null) sim.pendingNextOfferCount = state.nextOfferCount;
     // bonusPoints 变更触发派系重算（§8.2 不变式 2）；recomputeMods 顺带刷新惰契攻速副作用。

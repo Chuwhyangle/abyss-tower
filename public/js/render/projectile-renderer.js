@@ -3,6 +3,7 @@
 //
 // 形态表与逐弹种绘制规格在 projectile-draw.js，本模块只留贴图光栅化缓存与逐桶编排。
 import { TILE } from '../shared/data.js';
+import { DOCTRINES } from '../shared/doctrines.js';
 import { projectileArt, projectileTowerForm } from './projectile-draw.js';
 
 const T = TILE;
@@ -200,6 +201,17 @@ export class ProjectileRenderer {
       }
       g.drawImage(body, -bodySpec.ox, -bodySpec.oy, bodySpec.w, bodySpec.h);
       calls++;
+      // 教义弹道变体：该塔类选了教义时，弹体加一圈教义色光环（可见变化）；
+      // 未选教义（doctrineForTower 返回 null）时整段不执行，不新增绘制调用。
+      const doctrineId = this.game.doctrineForTower?.(proj.towerType) || null;
+      if (doctrineId && DOCTRINES[doctrineId]) {
+        g.strokeStyle = DOCTRINES[doctrineId].color;
+        g.lineWidth = 1.4;
+        g.beginPath();
+        g.arc(0, 0, 9, 0, Math.PI * 2);
+        g.stroke();
+        calls++;
+      }
       g.restore();
     }
     return calls;

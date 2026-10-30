@@ -3,6 +3,7 @@
 // 动画/进化/皮肤预算表在 tower-data.js，进化与停摆绘制在 tower-draw.js，八种塔体造型在 tower-body.js
 // （方法集合挂回本类原型，对外仍是同一个 TowerRenderer、同一套方法签名）。
 import { TILE, TOWERS } from '../shared/data.js';
+import { DOCTRINES } from '../shared/doctrines.js';
 import { Palette } from './palette.js';
 import { towerSpriteId } from './sprite-coverage.js';
 import { activeSkin, skinColorFor } from '../shared/skins.js';
@@ -208,6 +209,21 @@ export class TowerRenderer {
 
         // 被首领震击停摆：变暗 + 电弧 + 剩余时间弧线。
         if (disabled) this.drawDisabled(g, time, disableLeft);
+      }
+
+      // 教义徽记：该塔类选了教义时，在塔顶画一枚菱形徽记。精灵/程序化路径都覆盖，
+      // 低配同样显示，且只有一次 fill + stroke，不新增逐帧动画开销（GOAL-006 约束）。
+      const doctrineId = game.doctrineForTower?.(tower.type) || null;
+      if (doctrineId && DOCTRINES[doctrineId]) {
+        g.save();
+        g.translate(0, -30);
+        g.rotate(Math.PI / 4);
+        g.fillStyle = DOCTRINES[doctrineId].color;
+        g.fillRect(-4.5, -4.5, 9, 9);
+        g.strokeStyle = 'rgba(0,0,0,0.45)';
+        g.lineWidth = 1;
+        g.strokeRect(-4.5, -4.5, 9, 9);
+        g.restore();
       }
 
       if (game.selectedTower === tower) {

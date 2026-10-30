@@ -21,6 +21,7 @@ import { normalizeChains, normalizeEventHistory } from './events.js';
 import { DESTRUCTIBLE_BY_ID } from './destructibles.js';
 import { ENDLESS } from './waves.js';
 import { normalizeBonusPoints, normalizeContractRecords } from './contracts.js';
+import { normalizeDoctrineIds } from './doctrines.js';
 
 export const SAVE_VERSION = 7;
 export const MIN_SAVE_VERSION = 2;
@@ -139,19 +140,20 @@ function normalizeSkill(raw) {
   return out;
 }
 
-// 契约局内状态（§8.4）：只落本任务拥有的 contracts + bonusPoints 两个字段；
-// 旧档缺 rogue2 时按「无契约、零加点」处理，其余子字段由各自任务（核心/教义/觉醒）落地。
+// 契约/教义局内状态（§8.4）：只落本任务拥有的 contracts + bonusPoints + doctrines 三个字段；
+// 旧档缺 rogue2 时按「无契约、零加点、无教义」处理，其余子字段由各自任务（核心/觉醒）落地。
 function normalizeRogue2Save(state) {
   return {
     contracts: normalizeContractRecords(state?.rogue2?.contracts || []),
     bonusPoints: normalizeBonusPoints(state?.rogue2?.bonusPoints || {}),
+    doctrines: normalizeDoctrineIds(state?.rogue2?.doctrines || []),
   };
 }
 
-// 只有真的接受过契约才写 rogue2 块（bonusPoints 只由契约写入，有契约才有加点），
+// 只有真的接受过契约或教义才写 rogue2 块（bonusPoints 只由契约写入，有契约才有加点），
 // 未受影响的旧对局保持原存档字节结构。
 function hasRogue2State(rogue2) {
-  return rogue2.contracts.length > 0;
+  return rogue2.contracts.length > 0 || rogue2.doctrines.length > 0;
 }
 
 function collectWarnings(snap) {

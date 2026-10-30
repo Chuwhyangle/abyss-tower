@@ -63,6 +63,10 @@ export class CombatSystem {
     if (this.sim.mods.frostDmgBonus && this.sim.time < enemy.slowUntil) {
       final *= 1 + this.sim.mods.frostDmgBonus;
     }
+    // 冰封教义（frost）：霜塔对已减速目标伤害 +25%（结算点「霜塔伤害」，未选教义时不生效）。
+    if (this.sim.hasDoctrine('frost') && opts.weapon === 'frost' && this.sim.time < (enemy.slowUntil || 0)) {
+      final *= 1.25;
+    }
     // 首领停顿/蓄力时是破绽窗口，鼓励集火。
     if (enemy.boss && this.sim.time < (enemy.vulnUntil || 0)) {
       final *= BALANCE.bossVulnMul;
@@ -126,6 +130,15 @@ export class CombatSystem {
     const setMods = this.sim.factions?.setMods || {};
     this.sim.dealDamage(enemy, proj.dmg, proj.towerType, { ignoreArmor: proj.ignoreArmor, tower: proj.tower || null });
 
+    // 燃烧教义（cannon）：炮台落点附加 2s 燃烧，每秒造成 15% 攻击力（复用 burnDps/burnUntil 单槽）。
+    // 重复命中只刷新时长，DPS 取较高值（不叠层）；未选教义（hasDoctrine=false）时不执行。
+    if (this.sim.hasDoctrine('cannon') && proj.towerType === 'cannon') {
+      const now = this.sim.time;
+      const activeDps = (enemy.burnUntil || 0) > now ? enemy.burnDps || 0 : 0;
+      enemy.burnDps = Math.max(activeDps, proj.dmg * 0.15);
+      enemy.burnUntil = Math.max(enemy.burnUntil || 0, now + 2);
+    }
+
     if (proj.slow > 0) {
       const amount = Math.min(0.85, proj.slow + (this.sim.mods.slow || 0));
       // 霜缚 T1：减速时长倍率加成（独立于遗物 slowDur，0 点时乘 1 不变）。
@@ -138,6 +151,23 @@ export class CombatSystem {
       if (dps >= enemy.poisonDps || this.sim.time > enemy.poisonUntil) {
         enemy.poisonDps = Math.max(dps, this.sim.time > enemy.poisonUntil ? 0 : enemy.poisonDps);
         enemy.poisonUntil = this.sim.time + (proj.dotDur || 3);
+      }
+      // 疫病教义（poison）：命中时向 0.8 格内最多 2 名敌人扩散 60% 毒伤（不叠层，单槽取高）。
+      if (this.sim.hasDoctrine('poison') && proj.towerType === 'poison') {
+        const spreadDps = dps * 0.6;
+        const spreadUntil = this.sim.time + (proj.dotDur || 3);
+        const candidates = [];
+        for (const other of this.sim.enemies) {
+          if (other.dead || other === enemy) continue;
+          if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= 0.8) candidates.push(other);
+        }
+        for (let i = 0; i < Math.min(2, candidates.length); i++) {
+          const other = candidates[i];
+          if (spreadDps >= other.poisonDps || this.sim.time > other.poisonUntil) {
+            other.poisonDps = Math.max(spreadDps, this.sim.time > other.poisonUntil ? 0 : other.poisonDps);
+            other.poisonUntil = Math.max(other.poisonUntil, spreadUntil);
+          }
+        }
       }
     }
     if (proj.knockback > 0) {

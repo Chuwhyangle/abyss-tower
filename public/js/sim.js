@@ -15,6 +15,7 @@ import { RNG } from './shared/rng.js';
 import { computeOutcome } from './shared/scoring.js';
 import { FACTION_ORDER, factionPoints, factionSetMods } from './shared/factions.js';
 import { normalizeBonusPoints, normalizeContractRecords } from './shared/contracts.js';
+import { TOWER_TYPE_DOCTRINE, applyDoctrine as applyDoctrineEffect, normalizeDoctrineIds } from './shared/doctrines.js';
 import { HexRuntime } from './shared/hexes/runtime.js';
 import { CombatSystem } from './sim/combat-system.js';
 import {
@@ -57,11 +58,12 @@ export class Simulation {
     this.talentMods = talentMods(normalizeTalent(opts.talent));
     // 派系层（§8.2）：points/tiers/setMods 由 recomputeFactions 重算；bonusPoints 仅契约写入。
     this.factions = { points: {}, bonusPoints: {}, tiers: {}, setMods: {} };
-    // 契约/觉醒局内状态（§8.2）：本任务只落 contracts 与 bonusPoints；
+    // 契约/觉醒/教义局内状态（§8.2）：本任务只落 contracts/bonusPoints/doctrines；
     // bonusPoints 是 points 的加点覆盖层，读档时从 opts.rogue2 恢复，绝不并入 points。
     this.rogue2 = {
       contracts: normalizeContractRecords(opts.rogue2?.contracts || []),
       bonusPoints: normalizeBonusPoints(opts.rogue2?.bonusPoints || {}),
+      doctrines: normalizeDoctrineIds(opts.rogue2?.doctrines || []),
     };
     this.factions.bonusPoints = this.rogue2.bonusPoints;
     // 守护 T3 setWaveHeal 的每局已回复量（运行时计数，不进快照）。
@@ -579,6 +581,21 @@ export class Simulation {
   addRelic(relicOrOffer) { return this.relicSystem.addRelic(relicOrOffer); }
   applyOffer(offer) { return this.relicSystem.applyOffer(offer); }
   applyContract(offer, opts) { return this.relicSystem.applyContract(offer, opts); }
+  // 教义（§6）：不可逆、不叠加、每局最多 2 条；未选时 hasDoctrine 恒 false，不改变结算与 RNG 顺序。
+  hasDoctrine(id) { return (this.rogue2?.doctrines || []).includes(id); }
+  // 某塔类型当前生效的教义 id；没有教义的塔类型返回 null。
+  doctrineForTower(towerType) {
+    const id = TOWER_TYPE_DOCTRINE[towerType];
+    return id && this.hasDoctrine(id) ? id : null;
+  }
+  // 教义即时结算：只改 rogue2.doctrines，选择失败（未知/重复/超上限）不消耗选择。
+  applyDoctrine(doctrineId) {
+    const result = applyDoctrineEffect({ wave: this.clearedWave, doctrines: this.rogue2.doctrines }, doctrineId);
+    if (!result.ok) return result;
+    this.rogue2 = { ...this.rogue2, doctrines: result.state.doctrines };
+    this.save();
+    return result;
+  }
   recomputeMods() {
     // 天赋被动与遗物/套装/海克斯同源聚合，仍受注册表单件/全局封顶约束；零投入为空操作。
     this.relicSystem.recomputeMods();

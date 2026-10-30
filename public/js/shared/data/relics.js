@@ -1,4 +1,6 @@
 // 遗物定义、等级与抽取逻辑。
+// 教义（doctrine，§6.2）的五条塔专精数据与 applyDoctrine 在 shared/doctrines.js；
+// 本文件只维护遗物归属与抽取，不承载教义行为。
 import { RNG } from '../rng.js';
 import { TOWERS } from './towers.js';
 import { capEffect, effectText, roundEffect } from '../effects.js';

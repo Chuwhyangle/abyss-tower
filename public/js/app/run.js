@@ -304,10 +304,11 @@ export class RunController {
       if (snapshot?.skill?.cooldown != null) skill.cooldown = snapshot.skill.cooldown;
       if (snapshot?.skill?.readyAt != null) skill.readyAt = snapshot.skill.readyAt;
     }
-    // 契约局内状态：快照为准，旧档无 rogue2 时回退服务端规则集（服务端权威）。
+    // 契约/教义局内状态：快照为准，旧档无 rogue2 时回退服务端规则集（服务端权威）。
     const rogue2 = {
       contracts: snapshot?.rogue2?.contracts || ruleset?.rogue2?.contracts || [],
       bonusPoints: snapshot?.rogue2?.bonusPoints || ruleset?.rogue2?.bonusPoints || {},
+      doctrines: snapshot?.rogue2?.doctrines || ruleset?.rogue2?.doctrines || [],
     };
 
     const sim = new Simulation({
