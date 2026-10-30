@@ -22,17 +22,17 @@ AC-063（GOAL-012 退出条件 2：天赋树与永久强化在模拟、快照与
 
 ## AC
 
-- [ ] 逐字执行 criterion `test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js` exit 0（AC-063 本体判据）
-- [ ] 在被评估 HEAD 上独立连续 2 次执行上述 criterion，每轮退出码写入 Notes
-- [ ] `git merge-base --is-ancestor 7655b8e HEAD` exit 0，Notes 写明该 hash 与 `git log --oneline -1 -- public/js/shared/data/meta.js` 输出
-- [ ] Notes 记录台账 stale 证据：last evidence `at` 2026-10-30T13:30:19.651Z 早于前任任务 done 时间 2026-10-30T13:31:34Z（75 秒），判据真值已翻转
+- [x] 逐字执行 criterion `test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js` exit 0（AC-063 本体判据）
+- [x] 在被评估 HEAD 上独立连续 2 次执行上述 criterion，每轮退出码写入 Notes
+- [x] `git merge-base --is-ancestor 7655b8e HEAD` exit 0，Notes 写明该 hash 与 `git log --oneline -1 -- public/js/shared/data/meta.js` 输出
+- [x] Notes 记录台账 stale 证据：last evidence `at` 2026-10-30T13:30:19.651Z 早于前任任务 done 时间 2026-10-30T13:31:34Z（75 秒），判据真值已翻转
 
 ## DoD
 
-- [ ] 读数可被 driver 独立复算：Notes 给出命令原文、每轮退出码与 `goal_gate AC-063` 的 verdict
-- [ ] 被评估 HEAD 已提交，`git status --short` 无本任务相关未提交改动
-- [ ] 零运行时/玩家可见改动、零第三方依赖；本任务 diff 仅 `tasks/gap-ac-063-meta-talent-reverify.md`
-- [ ] 门禁语义未被放宽：不改 `public/js/shared/data/meta.js`、不改 criterion，只重读判定
+- [x] 读数可被 driver 独立复算：Notes 给出命令原文、每轮退出码与 `goal_gate AC-063` 的 verdict
+- [x] 被评估 HEAD 已提交，`git status --short` 无本任务相关未提交改动
+- [x] 零运行时/玩家可见改动、零第三方依赖；本任务 diff 仅 `tasks/gap-ac-063-meta-talent-reverify.md`
+- [x] 门禁语义未被放宽：不改 `public/js/shared/data/meta.js`、不改 criterion，只重读判定
 
 ## Touches
 
@@ -40,4 +40,25 @@ AC-063（GOAL-012 退出条件 2：天赋树与永久强化在模拟、快照与
 
 ## Notes
 
-立案依据（2026-10-30，本 agent 直接测量，非台账陈旧尾巴）：criterion exit 0、`goal_gate AC-063` verdict=pass。台账 fail 是陈旧读数（13:30:19Z 早于 fan-in 13:31:34Z）。meta.js 由前任任务（done）的 commit `7655b8e` 交付，含 9 处 `talent`。读数占位（worker 落地后填）：第 1/2 轮退出码、`git log --oneline -1 -- public/js/shared/data/meta.js` 输出、`git merge-base --is-ancestor 7655b8e HEAD` 退出码。
+立案依据（2026-10-30，本 agent 直接测量，非台账陈旧尾巴）：criterion exit 0、`goal_gate AC-063` verdict=pass。台账 fail 是陈旧读数（13:30:19Z 早于 fan-in 13:31:34Z）。meta.js 由前任任务（done）的 commit `7655b8e` 交付，含 9 处 `talent`。
+
+复验读数（worker 落地，2026-10-30T13:57Z，被评估 HEAD = `c820532eaa26e92dff2a7fd53b161bddbf33d018`，分支 `task/gap-ac-063-meta-talent-reverify`，由 develop 切出）：
+
+- 第 1 轮：`test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js` → 退出码 0
+- 第 2 轮：同上 → 退出码 0
+- `git merge-base --is-ancestor 7655b8e HEAD` → 退出码 0（HEAD = c820532eaa26e92dff2a7fd53b161bddbf33d018）
+- `git log --oneline -1 -- public/js/shared/data/meta.js` → `1274a2a Merge branch 'develop' into task/gap-ac-064-meta-legacy`
+- 落地提交 `7655b8e` 是 main 祖先（yes）且是 develop 祖先（yes）
+- 当前 meta.js 含 `talent` 10 处（落地提交 7655b8e 时为 9 处，后续合并再增 1 处；criterion 只判 `grep -q`，不受影响）
+- `goal_gate AC-063` → verdict=pass（acceptance passed, exit 0）
+- 台账 stale 证据：last evidence `at` 2026-10-30T13:30:19.651Z 早于前任任务 done 时间 2026-10-30T13:31:34Z（75 秒），判据真值已由 fail 翻转为 pass
+
+## Blocker
+
+**2026-10-30T14:01:03.710Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (c820532e) is NOT a continuation of the project's default branch 'main' (d1a0355a) — it is 4 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-063-meta-talent-reverify's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：b6b43425-208a-4083-8e20-41401c055e95
