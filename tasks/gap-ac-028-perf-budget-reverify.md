@@ -1,7 +1,7 @@
 ---
 id: gap-ac-028-perf-budget-reverify
 title: AC-028 复验：harness 开局信物三选一修复落地后 perf:budget 恢复 exit 0（开局弹窗超时红由 AC-019 拥有）
-status: needs-human
+status: ready
 labels:
   - gap
   - defect
