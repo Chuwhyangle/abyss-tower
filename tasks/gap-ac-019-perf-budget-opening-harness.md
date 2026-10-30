@@ -1,7 +1,7 @@
 ---
 id: gap-ac-019-perf-budget-opening-harness
 title: perf:budget 开局超时：harness 未处理信物三选一导致等待海克斯/地图弹窗超时（AC-019）
-status: ready
+status: done
 labels:
   - gap
   - defect
