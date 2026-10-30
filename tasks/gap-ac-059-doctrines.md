@@ -35,14 +35,14 @@ AC-059（教义：五条塔专精通过首领核心选择且不可逆）已由 g
 - [x] `node --test tests/doctrines.test.mjs` exit 0
 - [x] `node --test tests/snapshot.test.mjs` exit 0
 - [x] `grep -q 'doctrines' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
-- [ ] `npm test` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 通过首领核心选择一条教义后，该类塔的全部实例（已建与后续新建）都获得对应行为（穿透/燃烧/冰封/过载/疫病），其他塔类型不变
-- [ ] 塔身出现徽记、弹道形态有可见变化；低配档仍有徽记且不加额外每帧开销
-- [ ] 教义不可逆、不叠加，每局最多 2 条；快照恢复后仍生效；旧档无 `doctrines` 字段按空继续
-- [ ] 未选教义的同一 seed 与改动前逐字节一致，不触碰 `public/js/sim.js` 战斗 RNG 调用顺序
+- [x] 通过首领核心选择一条教义后，该类塔的全部实例（已建与后续新建）都获得对应行为（穿透/燃烧/冰封/过载/疫病），其他塔类型不变
+- [x] 塔身出现徽记、弹道形态有可见变化；低配档仍有徽记且不加额外每帧开销
+- [x] 教义不可逆、不叠加，每局最多 2 条；快照恢复后仍生效；旧档无 `doctrines` 字段按空继续
+- [x] 未选教义的同一 seed 与改动前逐字节一致，不触碰 `public/js/sim.js` 战斗 RNG 调用顺序
 
 ## Touches
 
@@ -71,3 +71,11 @@ AC-059（教义：五条塔专精通过首领核心选择且不可逆）已由 g
 ## Notes
 
 教义通过首领核心选择、每局上限 2、不可逆，候选与选择持久化由 `gap-ac-057-boss-core-choice`（AC-057）提供，本任务只落地 `applyDoctrine` 行为与表现；教义抽取不新开种子流（核心候选沿用 `${seed}:core:${wave}`，§9.1），不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。与觉醒（AC-060）的边界：觉醒改单件遗物行为、教义改某一类塔的全部实例，两者可同时存在但不得互相覆盖效果键。与派系 setMods 的同类键加算（§3.2）：arc 教义连锁 +1 与雷暴 T1 `chainExtra` 加算，不得覆盖。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
+
+## Blocker
+
+**2026-10-30T16:53:22.778Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 4/9，剩余未勾 5）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：936407bb-8fcd-4a67-9a92-20cf0754d7f0
