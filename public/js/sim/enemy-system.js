@@ -1,6 +1,6 @@
 // 敌人与友方单位：移动、光环/远程、首领状态机，以及召唤物自动攻击。
 import { BALANCE } from '../shared/config.js';
-import { BOSS_SKILLS } from '../shared/data.js';
+import { BOSS_SKILLS, ENEMIES } from '../shared/data.js';
 import { BOSS_VARIANTS } from '../shared/data/enemies.js';
 
 export class EnemySystem {
@@ -34,6 +34,26 @@ export class EnemySystem {
       if (!stasisActive) {
         if (enemy.boss) speed = this.sim.updateBoss(enemy, dt, speed, now);
         enemy.progress += speed * dt;
+        // 相位幽魂：周期性短距闪烁，只推进路径进度、不换车道，也不消耗战斗 RNG。
+        const blink = !frozen ? ENEMIES[enemy.type]?.blink : null;
+        if (blink) {
+          if (!Number.isFinite(enemy.blinkTimer)) enemy.blinkTimer = blink.interval;
+          enemy.blinkTimer -= dt;
+          if (enemy.blinkTimer <= 0) {
+            enemy.blinkTimer += blink.interval;
+            const lane = this.sim.lanes[enemy.lane] || this.sim.lanes[0];
+            this.sim.addEffect({
+              kind: 'ring',
+              x: enemy.x,
+              y: enemy.y,
+              r0: 0.05,
+              r1: enemy.r + 0.35,
+              ttl: 0.22,
+              color: ENEMIES[enemy.type].color,
+            });
+            enemy.progress = Math.min(enemy.progress + blink.distance, lane.len - 0.001);
+          }
+        }
       }
 
       const pos = this.sim.posAt(enemy.progress, enemy.lane);

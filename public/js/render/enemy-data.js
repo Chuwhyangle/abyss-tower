@@ -28,6 +28,8 @@ export const ENEMY_WALK_PROFILES = Object.freeze({
   split: Object.freeze({ bob: 0.9, stride: 0.55, lean: 0.03 }),
   drum: Object.freeze({ bob: 0.9, stride: 0.45, lean: 0.03 }),
   caster: Object.freeze({ bob: 1.0, stride: 0.45, lean: 0.03 }),
+  wraith: Object.freeze({ bob: 1.3, stride: 0.55, lean: 0.03 }),
+  golem: Object.freeze({ bob: 0.5, stride: 0.35, lean: 0.015 }),
   boss: Object.freeze({ bob: 0.8, stride: 0.35, lean: 0.02 }),
 });
 

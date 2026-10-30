@@ -10,7 +10,7 @@
       },
       "size": {
         "w": 1008,
-        "h": 336
+        "h": 384
       }
     },
     "probe-atlas": {
@@ -1091,6 +1091,84 @@
       "generator": "procedural-canvas2d"
     },
     {
+      "id": "enemy.golem.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.golem.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.golem.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.golem.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
       "id": "enemy.grunt.hit",
       "path": "public/assets/sprites/entities/entity-atlas@1x.png",
       "src": "/assets/sprites/entities/entity-atlas@1x.png",
@@ -1898,6 +1976,84 @@
       ],
       "atlas": "entity-atlas",
       "frame": "enemy.tank.move",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.wraith.hit",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "hit"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.wraith.hit",
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "scripts/build-entity-sprites.mjs",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-10-27"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "enemy.wraith.move",
+      "path": "public/assets/sprites/entities/entity-atlas@1x.png",
+      "src": "/assets/sprites/entities/entity-atlas@1x.png",
+      "srcs": {
+        "1": "/assets/sprites/entities/entity-atlas@1x.png",
+        "2": "/assets/sprites/entities/entity-atlas@2x.png"
+      },
+      "size": {
+        "w": 48,
+        "h": 48
+      },
+      "anchor": "foot",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1,
+        2
+      ],
+      "atlas": "entity-atlas",
+      "frame": "enemy.wraith.move",
       "compression": "lossless",
       "provenance": {
         "source": "自带程序生成",

@@ -37,7 +37,8 @@ const EXPECTED_EXPORTS = [
 // V36-002：塔的进化扩容到三分支（24 条路线），内容快照随之更新。
 // V41-004：遗物扩容到 60 件并新增条件型套装，内容快照随之更新。
 // V50-003：遗物扩容到 70 件并新增回合型效果，内容快照随之更新。
-const BASELINE_HASH = '85fdc3f1bed8417f544219a0d35148bd3df458b55e0a156d0e7b20e3153385df';
+// AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
+const BASELINE_HASH = 'dbc38e64b2834557ac49ce651ff73af9083563781d718cc397b12f6f1d3579a1';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -150,7 +151,7 @@ test('各主题模块的导出面保持单一职责', () => {
 test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
-  assert.equal(Object.keys(data.ENEMIES).length, 12);
+  assert.equal(Object.keys(data.ENEMIES).length, 14);
   assert.equal(data.RELICS.length, 70);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);

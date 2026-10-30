@@ -63,6 +63,8 @@ const BLUE_YELLOW_TOKENS = Object.freeze({
     splitling: '#3e2723',
     herald: '#90caf9',
     caster: '#f5f5f5',
+    wraith: '#7986cb',
+    golem: '#8d6e63',
   }),
 });
 
@@ -92,6 +94,8 @@ const RED_GREEN_TOKENS = Object.freeze({
     splitling: '#7b1fa2',
     herald: '#388e3c',
     caster: '#f5f5f5',
+    wraith: '#ce93d8',
+    golem: '#455a64',
   }),
 });
 

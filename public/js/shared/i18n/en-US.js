@@ -82,6 +82,8 @@ export default {
   'data.enemy.splitling.name': 'Riftling',
   'data.enemy.herald.name': 'War Drummer',
   'data.enemy.caster.name': 'Hexbinder',
+  'data.enemy.wraith.name': 'Phase Wraith',
+  'data.enemy.golem.name': 'Rock Golem',
 
   'skill.aurora.name': 'Frostmoon · Aurora',
   'skill.aurora.desc': 'An aurora curtain sweeps the battlefield, freezing and slowing all enemies.',
