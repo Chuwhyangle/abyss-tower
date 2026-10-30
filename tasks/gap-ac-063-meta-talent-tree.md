@@ -28,14 +28,22 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 
 ## AC
 
-- [ ] `test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js` exit 0（AC-063 本体判据）
-- [ ] `node --test tests/meta-tree.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js` exit 0（AC-063 本体判据）
+- [x] `node --test tests/meta-tree.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 账号投入天赋点后，对应永久被动在同一 seed 的确定性模拟里真实生效（非只测函数），且未加点时与改动前逐字节一致
-- [ ] 天赋点与星核/成就/通行证/悬赏数据分离、无重复结算；快照与旧档兼容
+- [x] 账号投入天赋点后，对应永久被动在同一 seed 的确定性模拟里真实生效（非只测函数），且未加点时与改动前逐字节一致
+- [x] 天赋点与星核/成就/通行证/悬赏数据分离、无重复结算；快照与旧档兼容
+
+## Notes
+
+设计增量（PHASE_META §5.2 契约落地）：
+- `TALENT_NODES` 8 节点（塔/技能/经济三系，各 maxRank 2），`TALENT_CATEGORIES`/`TALENT_ORDER`/`TALENT_BY_ID` 与冻结表一致。
+- `normalizeTalent`/`investTalent`/`talentEffect`/`talentMods` 纯函数；`talentMods` 只汇总 `EFFECT_REGISTRY` 已声明键（`skillCd`/`skillPower` 未注册，留给技能层，sim 不折叠）。
+- sim 在 `recomputeMods()` 内折叠天赋被动（零投入为空操作，逐字节一致）；持久化走 `player_kv('meta','talent')`，与星核/成就/通行证/悬赏分离；`toSnapshot` 不写天赋字段。
+- DOM 加点面板不在本任务 Touches（无 ui 文件），本次只落地数据/持久化/sim/i18n 四层；i18n 中英已成对（`talent.*` 与 `data.talent.*`）。
 
 ## Touches
 
@@ -46,3 +54,13 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 - `public/js/shared/i18n/en-US.js`
 - `tests/meta-tree.test.mjs`
 - `tasks/gap-ac-063-meta-talent-tree.md`
+
+## Blocker
+
+**2026-10-30T11:22:35.823Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (420e8801) — it is 6 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-063-meta-talent-tree's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：986a3af8-85cf-4406-b7f6-ad9d54dbe297
