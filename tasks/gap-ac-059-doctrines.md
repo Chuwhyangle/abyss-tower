@@ -35,14 +35,14 @@ AC-059（教义：五条塔专精通过首领核心选择且不可逆）已由 g
 - [x] `node --test tests/doctrines.test.mjs` exit 0
 - [x] `node --test tests/snapshot.test.mjs` exit 0
 - [x] `grep -q 'doctrines' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
-- [ ] `npm test` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 通过首领核心选择一条教义后，该类塔的全部实例（已建与后续新建）都获得对应行为（穿透/燃烧/冰封/过载/疫病），其他塔类型不变
-- [ ] 塔身出现徽记、弹道形态有可见变化；低配档仍有徽记且不加额外每帧开销
-- [ ] 教义不可逆、不叠加，每局最多 2 条；快照恢复后仍生效；旧档无 `doctrines` 字段按空继续
-- [ ] 未选教义的同一 seed 与改动前逐字节一致，不触碰 `public/js/sim.js` 战斗 RNG 调用顺序
+- [x] 通过首领核心选择一条教义后，该类塔的全部实例（已建与后续新建）都获得对应行为（穿透/燃烧/冰封/过载/疫病），其他塔类型不变
+- [x] 塔身出现徽记、弹道形态有可见变化；低配档仍有徽记且不加额外每帧开销
+- [x] 教义不可逆、不叠加，每局最多 2 条；快照恢复后仍生效；旧档无 `doctrines` 字段按空继续
+- [x] 未选教义的同一 seed 与改动前逐字节一致，不触碰 `public/js/sim.js` 战斗 RNG 调用顺序
 
 ## Touches
 
