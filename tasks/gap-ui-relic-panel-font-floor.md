@@ -1,7 +1,7 @@
 ---
 id: gap-ui-relic-panel-font-floor
 title: UI 可读性字号下限：修掉 9.5px 遗物等级角标 .relic-level，让 ui 视觉套件 exit 0（AC-025）
-status: todo
+status: ready
 labels:
   - gap
   - defect
