@@ -35,7 +35,7 @@ AC-018（GOAL-005 退出条件「战斗场景机械指标：反馈覆盖、对�
 - [ ] 在被评估 HEAD 上独立连续 2 次 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` exit 0，每次读数（退出码 / 是否 `[visual-check] Error` / feel 各指标 ok 表）写入 Notes
 - [ ] `git merge-base --is-ancestor <AC-019 修复提交> HEAD` exit 0，Notes 写明该提交 hash
 - [ ] Notes 记录本轮失败面证据：`[visual-check] Error: 等待超时：海克斯/地图选择弹窗` 原文 + 根因（`21ae9a9` 开局信物三选一，`chooseOpeningHex` 未处理 `.starter-select`）
-- [ ] 若 AC-019 落地后 feel 套件仍非零（真实反馈覆盖 / 对比度 / 特效预算回归，非开局超时），对应源文件已出现在本任务 `## Touches`，且 Notes 记录失败文本与根因（未触发则 Touches 不扩容、Notes 记「未触发」）
+- [ ] 若 feel 套件跑通后暴露真实反馈指标回归（反馈覆盖 / 对比度 / 特效预算越线，非开局超时），对应源文件已出现在本任务 `## Touches`，且 Notes 记录失败文本与根因（未触发则 Touches 不扩容、Notes 记「未触发」）
 
 ## DoD
 
