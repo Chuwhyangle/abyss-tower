@@ -110,6 +110,7 @@ export const modalMethods = {
           return `
             <button class="relic-card ${isUpgrade ? 'upgrade' : ''}" data-index="${index}" style="--rarity:${rarity.color}">
               <span class="rarity">${rarity.name} ${iconSvg(relicIconName(relic.rarity), 'icon-inline')}· ${levelLabel}</span>
+              <span class="faction-tag">${t('draft.faction')} · ${t(`faction.${relic.faction}.name`)}</span>
               <h3>${relic.name}</h3>
               ${effect}
               <p class="relic-flavor">${relic.desc}</p>

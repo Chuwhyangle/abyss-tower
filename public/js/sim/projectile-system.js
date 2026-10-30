@@ -12,20 +12,24 @@ export class ProjectileSystem {
     this.sim.playSound(`shoot_${tower.type}`);
 
     if (tower.type === 'arc') {
-      const chain = Math.max(1, Math.round(stats.chain));
+      // 雷暴 T1：连锁目标 +N；雷暴 T2：连锁跳转范围 +N 格。0 点时二者均为 0，行为不变。
+      const setMods = this.sim.factions?.setMods || {};
+      const chain = Math.max(1, Math.round(stats.chain) + (setMods.chainExtra || 0));
+      const chainRange = def.chainRange + (setMods.chainRange || 0);
       const hit = new Set();
       const points = [{ x: tower.x, y: tower.y }];
       let current = target;
       for (let i = 0; i < chain && current; i++) {
         hit.add(current.id);
         points.push({ x: current.x, y: current.y });
+        // 雷暴 T3「连锁可以暴击」为既有行为：连锁命中走 dealDamage → computeHit 的常规暴击判定。
         this.sim.dealDamage(current, stats.dmg, 'arc', { ignoreArmor: true, tower });
         let next = null;
         let bestDist = Infinity;
         for (const enemy of this.sim.enemies) {
           if (enemy.dead || hit.has(enemy.id)) continue;
           const d = Math.hypot(enemy.x - current.x, enemy.y - current.y);
-          if (d <= def.chainRange + enemy.r && d < bestDist) {
+          if (d <= chainRange + enemy.r && d < bestDist) {
             bestDist = d;
             next = enemy;
           }
