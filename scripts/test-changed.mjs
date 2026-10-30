@@ -84,6 +84,8 @@ export const TEST_MAP = [
     'tests/relic-codex.test.mjs',
     'tests/relic-codex-detail.test.mjs',
   ] },
+  // 设计冻结表（非源文件）：改动后跑其见证测试，反查 live 遗物池是否漂移。
+  { match: 'docs/PHASE_ROGUE2.md', tests: ['tests/rogue2-design.test.mjs'] },
   { match: 'public/js/replay-ui.js', tests: ['tests/replays.test.mjs'] },
   { match: 'public/js/season-ui.js', tests: [
     'tests/i18n.test.mjs',
