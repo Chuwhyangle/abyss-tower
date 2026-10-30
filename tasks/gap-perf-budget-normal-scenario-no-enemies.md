@@ -28,21 +28,40 @@ AC-028（GOAL-006 退出条件「`npm run perf:budget` 通过，60fps 目标不�
 
 ## AC
 
-- [ ] `npm run perf:budget` exit 0（AC-028 本体判据）
-- [ ] `npm run perf:budget` 连续两次 exit 0，两次 `normal-1x-low` 均未报「没有存活敌人」（排除共享宿主偶发）
-- [ ] `node --test tests/perf-budget.test.mjs` exit 0（含新增守卫：normal 场景携带站场敌人保证，防再次空场）
-- [ ] `npm test` exit 0
+- [x] `npm run perf:budget` exit 0（AC-028 本体判据）
+- [x] `npm run perf:budget` 连续两次 exit 0，两次 `normal-1x-low` 均未报「没有存活敌人」（排除共享宿主偶发）
+- [x] `node --test tests/perf-budget.test.mjs` exit 0（含新增守卫：normal 场景携带站场敌人保证，防再次空场）
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 真实跑通 `npm run perf:budget`（Chrome headless 软件渲染，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`）exit 0，输出里 `normal-1x-low` / `normal-1x-high` 不再报「没有存活敌人」
-- [ ] 连续两次复跑 exit 0，两次 `normal-1x-low` 都在测量窗口内保持 `sim.enemies.length ≥ 1`（确定性，非偶发）
-- [ ] 未触碰 `public/js/sim.js` / `public/js/shared/waves.js` / `public/js/shared/data/enemies.js` / `public/js/shared/config.js`；战斗数值、波次、敌人、RNG 调用顺序不变
-- [ ] 若 normal 场景负载特征改变导致预算越线，`docs/perf-budget.json` 已同步更新且 Notes 说明改动依据；否则证明预算仍达标
-- [ ] Notes 记录：为什么是空场而非平衡回归（AC-052 通关率达标、config.js 平衡曲线未变、`72759d4` 波 12 组成变化），以及为什么选用的修复不把 normal 改造成 stress
+- [x] 真实跑通 `npm run perf:budget`（Chrome headless 软件渲染，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN`）exit 0，输出里 `normal-1x-low` / `normal-1x-high` 不再报「没有存活敌人」
+- [x] 连续两次复跑 exit 0，两次 `normal-1x-low` 都在测量窗口内保持 `sim.enemies.length ≥ 1`（确定性，非偶发）
+- [x] 未触碰 `public/js/sim.js` / `public/js/shared/waves.js` / `public/js/shared/data/enemies.js` / `public/js/shared/config.js`；战斗数值、波次、敌人、RNG 调用顺序不变
+- [x] 若 normal 场景负载特征改变导致预算越线，`docs/perf-budget.json` 已同步更新且 Notes 说明改动依据；否则证明预算仍达标
+- [x] Notes 记录：为什么是空场而非平衡回归（AC-052 通关率达标、config.js 平衡曲线未变、`72759d4` 波 12 组成变化），以及为什么选用的修复不把 normal 改造成 stress
+
+## Notes
+
+空场而非平衡回归：`npm run perf:budget` 连续两次 exit 0，两次 `normal-1x-low` 快照实体数 `enemies ≥ 1`（实测 enemies:1，站场 tank 存活满 1200ms 测量窗口），预算 Δ 列全绿、`docs/perf-budget.json` 未越线、无需更新基线。平衡未变——`public/js/shared/config.js` 的 `BALANCE` 曲线自 v1.17.0 后未改，AC-052 平衡复测已把三档通关率拉回目标区间；回归触发源是敌人扩充 commit `72759d4`（wraith 进波 12 池）改了波 12 组成，把原本就边缘的 1.2s 空场快照推过线。
+
+修复选 `extraEnemies: 1`（注入通道首只固定 tank）：wave 12 血量倍率（1.17^11 ≈ 5.7）下 tank 约 1300 HP，8 座 Lv.1 塔无法在 1.2s 内清掉，测量窗口内场上始终 ≥1 敌人；只有 1 只慢速 tank，负载增量可忽略，不把 normal 改造成 stress（stress 场景为 `extraEnemies: 250`）。未触碰 `sim.js` / `waves.js` / `data/enemies.js` / `config.js`，战斗数值、波次、敌人、RNG 调用顺序不变。
+
+核验读数：
+- AC1/AC2：`npm run perf:budget` 连续两次 exit 0，两次 `normal-1x-low` 均未报「没有存活敌人」
+- AC3：`node --test tests/perf-budget.test.mjs` 14 pass 0 fail（含新增守卫「normal 场景必须携带站场敌人保证」）
+- AC4：`npm test` 1779 pass 0 fail
 
 ## Touches
 
 - `tasks/gap-perf-budget-normal-scenario-no-enemies.md`
 - `tests/dynamic-perf.mjs`
 - `tests/perf-budget.test.mjs`
+
+## Blocker
+
+**2026-10-30T12:42:48.668Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/9，剩余未勾 9）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：268267bb-9310-43b8-92e4-de5ab2902219
