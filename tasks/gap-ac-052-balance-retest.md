@@ -1,7 +1,7 @@
 ---
 id: gap-ac-052-balance-retest
 title: 三档平衡复测：通关率回到 70–85 / 25–40 / 5–12 并重写 docs/BALANCE.md（AC-052）
-status: ready
+status: needs-human
 labels:
   - gap
 parent: null
@@ -27,25 +27,37 @@ AC-052（GOAL-010 退出条件 3）已激活，criterion `! grep -qE '低于目�
 
 ## AC
 
-- [x] `! grep -qE '低于目标|高于目标' docs/BALANCE.md` exit 0（AC-052 本体判据）
+- [ ] `! grep -qE '低于目标|高于目标' docs/BALANCE.md` exit 0（AC-052 本体判据）
 - [x] `node tests/balance-sim.mjs 40 --report=docs/BALANCE.json` exit 0
-- [x] `node --test tests/balance-targets.test.mjs` exit 0
-- [x] `npm test` exit 0
+- [ ] `node --test tests/balance-targets.test.mjs` exit 0
+- [ ] `npm test` exit 0
 
 ## DoD
 
-- [x] `docs/BALANCE.json` 与 `docs/BALANCE.md` 来自同一轮 40 种子复跑，三档 full-unlock 通关率逐档真实落在 `BALANCE_TARGETS`（不是删标记、改 `BALANCE_TARGETS` 或关系统凑数）
+- [ ] `docs/BALANCE.json` 与 `docs/BALANCE.md` 来自同一轮 40 种子复跑，三档 full-unlock 通关率逐档真实落在 `BALANCE_TARGETS`（不是删标记、改 `BALANCE_TARGETS` 或关系统凑数）
 - [x] 未改 30 波结构、三档难度倍率表、经济与计分口径、首领红线、战斗公式；`docs/BALANCE.md` 由 `npm run balance:write` 重新生成、无手工改数字
 - [x] 机器人策略若改动，给出「代表真人下限而非完美操作/作弊」的证据（选取率/使用率写入 Notes），不是靠改测量仪器把数字抬上去
 
 ## Notes
 
-机器人从「不选主海克斯 / 不用技能 / 不进化」补到真人下限口径后，三档 full-unlock 通关率由 29/1/0% 回到 76/26/11%（40 种子 × 3 候选图 × 全解锁，720 局）。随后 develop 合入派系套装（AC-055），机器人被套装增益抬高，深渊全解锁一度到 20.8%（超 12% 上限）、标准到 41.7%（超 40% 上限）。本轮回调波次组成与新敌人数值，三档落回 72.5% / 29.2% / 10.8%（目标 70–85 / 25–40 / 5–12），全部「达标」。
+机器人从「不选主海克斯 / 不用技能 / 不进化」补到真人下限口径后，三档 full-unlock 通关率由 29/1/0% 回到 76/26/11%（40 种子 × 3 候选图 × 全解锁，720 局）。随后 develop 合入派系套装（AC-055），机器人被套装增益抬高（深渊全解锁一度到 20.8%、标准到 41.7%），一度靠回调波次组成与新敌人数值落回 72.5% / 29.2% / 10.8%。再后 develop 合入开局信物升级保底（AC-056：`rollRelicOffers` 从第 3 波起强制占用一个 offer 位推升级卡），压缩了新遗物多样性，机器人首领波 DPS 不足，三档回落到 66.67% / 26.67% / 9.17%（原配置）——漫游档低于 70% 下限。
 
-- **波次组成**：`public/js/shared/waves.js` POOL 全 12 项 `countMult` ×1.3（weight / minWave / interval 不变）。
-- **新敌人数值**：相位幽魂 hp 58→132、护甲 1→3、移速 1.5→1.65、闪烁间隔 1.8→1.5 / 距离 0.55→0.6；岩石魔像 hp 340→700、护甲 9→17、金币 24→20。
+**结论：漫游档在任务允许范围内无法回到 70%，任务保持打开（needs-human）。** 已试遍 Plan 允许的三类杠杆，均不能把漫游拉到 70%：
 
-红线未动：30 波结构、DIFFICULTIES 三档倍率表、经济与计分、首领机制、战斗公式、BALANCE_TARGETS 均未改。`docs/BALANCE.md` 与 `docs/BALANCE.json` 由同一轮 `node tests/balance-sim.mjs 40 --write --baseline --report=docs/BALANCE.json` 生成，无手工改数字；数据层内容快照（data-split）与固定种子结算基线（effects-registry）哈希随数值更新。
+- **波次 `countMult`**：×0.8 / ×0.9 / ×1.0 / ×1.3 → 漫游 65.83% / 67.50% / 66.67% / 53.33%（峰值 67.50%，非单调，killGold 自限）。
+- **新敌人数值（相位幽魂/岩石魔像）**：调易（幽魂 hp 45/护甲 0、魔像 hp 260/护甲 6）漫游仍 67.50%，39 局败局中 37 局不变——漫游 31/39 败局死在首领波（第 25 波裂隙亲王 + 第 30 波血怒渊主），这两波是冻结红线，敌人侧数值触及不到。
+- **波次 `weight`**（坦克型下调、群体型上调）：漫游仍 67.50%。
+
+根因：AC-056 的保底升级卡让机器人每局少拿约 1/3 新遗物，18 塔 + ~19 遗物的 DPS 上限打不死已冻结的首领波；首领波小怪（grunt/flyer/tank/shielder/caster）在 `waves.js` 的 `isBoss` 分支硬编码、不随 countMult/weight 变化，战斗公式、遗物与首领机制又是红线/他任务领地。
+
+因此本轮把波次组成与新敌人数值**全部回退到 AC-055 前基线**（`waves.js` countMult 恢复原值、相位幽魂/岩石魔像恢复 hp 58/护甲 1 与 hp 340/护甲 9），仅保留机器人真人下限修复。回退后 `docs/BALANCE.md`/`docs/BALANCE.json` 同一轮真实重跑为 66.67% / 26.67% / 9.17%：远征与深渊均在区间内，漫游低于 70% 下限，故 `grep '低于目标'` 判据与 `balance-targets` 见证测试如实失败，任务不翻转。
+
+**需人工拍板（三选一，均不在本任务允许范围内）：**
+1. 重校准漫游目标下限（0.70 → 0.65 一带，需人确认）；或
+2. 机器人塔组补狙击/战旗等首领对策（需人确认仍属「真人下限」、并重跑三档校准）；或
+3. AC-056 侧回调遗物 offer 保底（降频/放宽），由遗物/肉鸽 lane 落地。
+
+红线未动：30 波结构、DIFFICULTIES 三档倍率表、经济与计分、首领机制、战斗公式、BALANCE_TARGETS 均未改；`docs/BALANCE.md` 与 `docs/BALANCE.json` 由同一轮 `node tests/balance-sim.mjs 40 --write --baseline --report=docs/BALANCE.json` 生成，无手工改数字。数据层内容快照（data-split）与固定种子结算基线（effects-registry）哈希随数值回退到基线、不再变更。
 
 机器人「真人下限而非完美操作/作弊」证据（沿用）：
 
@@ -60,10 +72,6 @@ AC-052（GOAL-010 退出条件 3）已激活，criterion `! grep -qE '低于目�
 - `tests/lib/balance-report.mjs`
 - `tests/balance-targets.test.mjs` (new)
 - `scripts/test-changed.mjs`
-- `public/js/shared/waves.js`
-- `public/js/shared/data/enemies.js`
-- `tests/data-split.test.mjs`
-- `tests/effects-registry.test.mjs`
 - `docs/BALANCE.md`
 - `docs/BALANCE.json` (new)
 - `tasks/gap-ac-052-balance-retest.md`
