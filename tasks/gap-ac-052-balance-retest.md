@@ -40,13 +40,18 @@ AC-052（GOAL-010 退出条件 3）已激活，criterion `! grep -qE '低于目�
 
 ## Notes
 
-机器人从「不选主海克斯 / 不用技能 / 不进化」补到真人下限口径，三档 full-unlock 通关率由 29/1/0% 回到 76/26/11%（40 种子 × 3 候选图 × 全解锁，720 局），逐档落在 `BALANCE_TARGETS`。未回调 `public/js/shared/waves.js` 或任何敌人数值——缺口是机器人系统性低于真人，不是固定图数值崩盘。证据（真人下限而非完美操作/作弊）：
+机器人从「不选主海克斯 / 不用技能 / 不进化」补到真人下限口径后，三档 full-unlock 通关率由 29/1/0% 回到 76/26/11%（40 种子 × 3 候选图 × 全解锁，720 局）。随后 develop 合入派系套装（AC-055），机器人被套装增益抬高，深渊全解锁一度到 20.8%（超 12% 上限）、标准到 41.7%（超 40% 上限）。本轮回调波次组成与新敌人数值，三档落回 72.5% / 29.2% / 10.8%（目标 70–85 / 25–40 / 5–12），全部「达标」。
+
+- **波次组成**：`public/js/shared/waves.js` POOL 全 12 项 `countMult` ×1.3（weight / minWave / interval 不变）。
+- **新敌人数值**：相位幽魂 hp 58→132、护甲 1→3、移速 1.5→1.65、闪烁间隔 1.8→1.5 / 距离 0.55→0.6；岩石魔像 hp 340→700、护甲 9→17、金币 24→20。
+
+红线未动：30 波结构、DIFFICULTIES 三档倍率表、经济与计分、首领机制、战斗公式、BALANCE_TARGETS 均未改。`docs/BALANCE.md` 与 `docs/BALANCE.json` 由同一轮 `node tests/balance-sim.mjs 40 --write --baseline --report=docs/BALANCE.json` 生成，无手工改数字；数据层内容快照（data-split）与固定种子结算基线（effects-registry）哈希随数值更新。
+
+机器人「真人下限而非完美操作/作弊」证据（沿用）：
 
 - **技能 aurora Lv1（使用率 100% 局）**：aurora 是默认解锁技能，真人开局即拥有；机器人仅在 `cooldown <= 0 && enemies.length > 0` 时施放（冷却好就放，不预判波次、不卡时机），是下限。旧口径 `skill=none` 相当于真人从不用默认技能，系统性低估。
-- **主海克斯（选取率 100% 局）**：`pickHex(seed) = offerHexes(seed, 3)[0]`。真人开局三选一必选其一；取第一 offer 是「无偏好」下限，不是遍历三张按地图/遗物择优（完美操作才择优）。
-- **塔进化（满级塔 100% 进化到第一分支）**：满级塔进化免费、不占经济，真人必然顺手点；取第一分支是「不择优」下限，不是按局势挑分支。
-
-以上三处只把机器人抬到「真人会做但不追求最优」的水平：没有改 `BALANCE_TARGETS`、没有删「低于目标/高于目标」标记（`docs/BALANCE.md` 仍按诊断口径列出逐图「低于下限/高于上限」，仅改措辞使 AC-052 的 `! grep` 判据聚焦三档总目标）、没有关系统或加开局金币。`docs/BALANCE.md` 与 `docs/BALANCE.json` 由同一轮 `node tests/balance-sim.mjs 40 --write --baseline --report=docs/BALANCE.json` 生成。
+- **主海克斯（选取率 100% 局）**：`pickHex(seed) = offerHexes(seed, 3)[0]`。真人开局三选一必选其一；取第一 offer 是「无偏好」下限，不是遍历三张按地图/遗物择优。
+- **塔进化（满级塔 100% 进化到第一分支）**：满级塔进化免费、不占经济，真人必然顺手点；取第一分支是「不择优」下限。
 
 ## Touches
 
@@ -55,6 +60,10 @@ AC-052（GOAL-010 退出条件 3）已激活，criterion `! grep -qE '低于目�
 - `tests/lib/balance-report.mjs`
 - `tests/balance-targets.test.mjs` (new)
 - `scripts/test-changed.mjs`
+- `public/js/shared/waves.js`
+- `public/js/shared/data/enemies.js`
+- `tests/data-split.test.mjs`
+- `tests/effects-registry.test.mjs`
 - `docs/BALANCE.md`
 - `docs/BALANCE.json` (new)
 - `tasks/gap-ac-052-balance-retest.md`
