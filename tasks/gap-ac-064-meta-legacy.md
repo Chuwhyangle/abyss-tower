@@ -27,20 +27,39 @@ AC-064（跨局传承与星核/成就/通行证/悬赏分层清晰无重复）�
 
 ## AC
 
-- [ ] `test -s public/js/shared/data/meta.js && grep -q 'legacy' public/js/shared/data/meta.js` exit 0（AC-064 本体判据）
-- [ ] `node --test tests/meta-legacy.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `test -s public/js/shared/data/meta.js && grep -q 'legacy' public/js/shared/data/meta.js` exit 0（AC-064 本体判据）
+- [x] `node --test tests/meta-legacy.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 同一 seed 的结算里，传承材料按表现真实产出且与星核分账清晰、无重复结算（能对账）
-- [ ] 传承材料可用于天赋/强化，快照与旧档兼容；未启用 meta 的旧档照常结算
+- [x] 同一 seed 的结算里，传承材料按表现真实产出且与星核分账清晰、无重复结算（能对账）
+- [x] 传承材料可用于天赋/强化，快照与旧档兼容；未启用 meta 的旧档照常结算
+
+## Notes
+
+设计增量（PHASE_META §5.3 契约落地）：
+- `LEGACY_MATERIALS` 单材料 `legacy_core`（source=settlement, sink=talent_upgrade），`legacyYield` 为确定性纯函数（波次×1 + 击杀÷10 + 通关 +5，无 RNG）。
+- 持久化走 `server/db/legacy.mjs`（`player_kv('meta','legacy')`），与星核 wallet（`player_wallets('cores')`）、成就/通行证/悬赏分离；`normalizeLegacy` 保证 bank 恒等于 materials 求和（机械可检）。
+- 结算在 `run-settlement.mjs` 内按表现产出并累加，返回 `legacyEarned` / `totalLegacy`；`toSnapshot` 不写 legacy（账号级状态，不随单局存档）。
+- 消耗入口本次落地服务端校验（`spendLegacyInTx`，余额不足拒绝）；DOM 消耗面板属 AC-063 天赋树，不在本任务 Touches。
 
 ## Touches
 
 - `public/js/shared/data/meta.js`
+- `server/db/legacy.mjs`
 - `server/services/run-settlement.mjs`
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/meta-legacy.test.mjs`
 - `tasks/gap-ac-064-meta-legacy.md`
+
+## Blocker
+
+**2026-10-30T11:45:52.035Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (6e669ed6) — it is 9 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-064-meta-legacy's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：cc484fb0-f4ba-497b-b549-eddc4cca9c60

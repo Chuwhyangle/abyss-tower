@@ -65,3 +65,13 @@ AC-055（五派系点数与 4/8/12 阈值在模拟、快照与 UI 一致生效�
 ## Notes
 
 setMods 必须走独立层：旧 GLOBAL_MOD_CAPS / 每件上限已被 Ⅲ 级遗物顶满，继续塞旧键会被静默裁成 0。派系点数只由遗物等级决定，不引入第二货币。若某件遗物在 PHASE_ROGUE2 里被判为中立，测试仍要求它出现在映射表中并标注 neutral。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。落地实现：`sim.factions = { points, bonusPoints, tiers, setMods }`（§8.2），15 键 setMods 由 `factionSetMods(tiers)` 派生，同键相加；派系层不入快照（由 relics 重算）；0 点时 `setMods = {}` 且不消耗战斗 RNG。
+
+## Blocker
+
+**2026-10-30T10:57:38.499Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (79567ff7) — it is 4 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-055-factions-points's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：a364dba2-5c46-4c1c-963f-78fbba7c04dd
