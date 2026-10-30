@@ -354,8 +354,18 @@ export async function launchBrowser(options = {}) {
 }
 
 // 新开局流程：难度卡片点击后需要从三张地图中选一张。
-// 开局先出现主海克斯三选一：点选第一张并确认。旧服务端没有该弹窗时直接跳过。
+// 开局顺序：信物三选一 → 海克斯三选一 → 地图三选一。旧服务端没有对应弹窗时直接跳过。
+// 先处理信物三选一（AC-056 开局信物）：点第一张并确认，随后进入海克斯/地图选择。
 export async function chooseOpeningHex(browser) {
+  await browser.waitFor(
+    `!!document.querySelector('.starter-select, .hex-modal, .map-modal')`,
+    '信物/海克斯/地图选择弹窗'
+  );
+  const hasStarter = await browser.evaluate(`!!document.querySelector('.starter-select')`);
+  if (hasStarter) {
+    await browser.evaluate(`document.querySelector('.relic-card').click()`);
+    await browser.evaluate(`document.querySelector('#btn-confirm-starter').click()`);
+  }
   await browser.waitFor(
     `!!document.querySelector('.hex-modal, .map-modal')`,
     '海克斯/地图选择弹窗'
