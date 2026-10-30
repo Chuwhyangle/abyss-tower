@@ -36,9 +36,9 @@ AC-050（敌人总数 ≥14 且新敌人行为有区分度并进波次）已激�
 
 ## DoD
 
-- [ ] 同一 seed 的确定性模拟里，wraith 的闪烁与 golem 的分裂真实发生、可复现（RNG 调用序不漂移），且 0 改动前同一 seed 逐字节一致
-- [ ] wraith/golem 在对应 minWave 起随波次出现，渲染分派正确、桌面与移动视口不破版
-- [ ] 两个新敌人 i18n 中英成对、无裸键；`tests/enemies-depth.test.mjs` 覆盖其行为与波次接入
+- [x] 同一 seed 的确定性模拟里，wraith 的闪烁与 golem 的分裂真实发生、可复现（RNG 调用序不漂移），且 0 改动前同一 seed 逐字节一致
+- [x] wraith/golem 在对应 minWave 起随波次出现，渲染分派正确、桌面与移动视口不破版
+- [x] 两个新敌人 i18n 中英成对、无裸键；`tests/enemies-depth.test.mjs` 覆盖其行为与波次接入
 
 ## Touches
 
