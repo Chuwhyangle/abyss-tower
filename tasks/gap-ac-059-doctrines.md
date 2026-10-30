@@ -31,10 +31,10 @@ AC-059（教义：五条塔专精通过首领核心选择且不可逆）已由 g
 
 ## AC
 
-- [ ] `grep -q 'doctrine' public/js/shared/data/relics.js` exit 0（AC-059 本体判据）
-- [ ] `node --test tests/doctrines.test.mjs` exit 0
-- [ ] `node --test tests/snapshot.test.mjs` exit 0
-- [ ] `grep -q 'doctrines' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
+- [x] `grep -q 'doctrine' public/js/shared/data/relics.js` exit 0（AC-059 本体判据）
+- [x] `node --test tests/doctrines.test.mjs` exit 0
+- [x] `node --test tests/snapshot.test.mjs` exit 0
+- [x] `grep -q 'doctrines' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
 - [ ] `npm test` exit 0
 
 ## DoD
@@ -60,8 +60,13 @@ AC-059（教义：五条塔专精通过首领核心选择且不可逆）已由 g
 - `public/js/shared/i18n/en-US.js`
 - `public/js/app/run.js`
 - `tests/doctrines.test.mjs` (new)
+- `tests/sim-systems.test.mjs`
 - `scripts/test-changed.mjs`
 - `tasks/gap-ac-059-doctrines.md`
+- `public/js/sim.js`
+- `public/js/shared/snapshot.js`
+- `public/js/app/combat.js`
+- `public/js/sim/relic-system.js`
 
 ## Notes
 
