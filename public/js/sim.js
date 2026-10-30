@@ -1,6 +1,8 @@
 // 纯战斗模拟：状态根与系统编排；不依赖 DOM / Canvas / 音频，浏览器与 Node 平衡模拟共用。
 // 具体职责下沉到 public/js/sim/ 下的系统对象，本类只保留状态字段与薄委派。
 import { MAX_WAVE, normalizeRelicStates, relicModsAtLevel } from './shared/data.js';
+import { normalizeTalent, talentMods } from './shared/data/meta.js';
+import { applyEffect, clampMods } from './shared/effects.js';
 import {
   chainsFromHistory,
   normalizeChains,
@@ -49,6 +51,8 @@ export class Simulation {
     this.clearPending = false;
     this.kills = opts.kills || 0;
     this.relics = normalizeRelicStates(opts.relics || []);
+    // 账号天赋被动：读档时由服务端从 player_kv 注入 opts.talent；零投入得到空 mods，不改变确定性。
+    this.talentMods = talentMods(normalizeTalent(opts.talent));
     // 事件历史：旧存档没有该字段时按“无事件”处理；事件波规则随模式变化。
     this.events = normalizeEventHistory(opts.events || [], this.mode);
     // 连锁排期：快照里的记录只是冗余，历史才是事实来源，二者合并去重。
@@ -138,11 +142,11 @@ export class Simulation {
     this.snapshotMapper = new SnapshotMapper(this);
 
     this.buildPath();
-    this.relicSystem.recomputeMods();
+    this.recomputeMods();
     // 初始化顺序：基础 mods → onRunInit → 重算塔属性。读档时状态已包含开局效果，不重放。
     if (!opts.restored && this.hexRuntime.active) {
       this.hexCall('onRunInit', this.hexCtx);
-      this.relicSystem.recomputeMods();
+      this.recomputeMods();
     }
     this.skillSystem.initSkill(opts);
     // 事件阶段：续玩时由已清波次 + 事件历史推导，已结算过的不再重复弹出。
@@ -533,7 +537,16 @@ export class Simulation {
   getRelicLevel(id) { return this.relicSystem.getRelicLevel(id); }
   addRelic(relicOrOffer) { return this.relicSystem.addRelic(relicOrOffer); }
   applyOffer(offer) { return this.relicSystem.applyOffer(offer); }
-  recomputeMods() { return this.relicSystem.recomputeMods(); }
+  recomputeMods() {
+    // 天赋被动与遗物/套装/海克斯同源聚合，仍受注册表单件/全局封顶约束；零投入为空操作。
+    this.relicSystem.recomputeMods();
+    for (const [key, value] of Object.entries(this.talentMods)) {
+      applyEffect(this.mods, key, value);
+    }
+    clampMods(this.mods);
+    this.recomputeTowerStats();
+    return this.mods;
+  }
   computeTowerStats(tower) { return this.towerSystem.computeTowerStats(tower); }
   refreshTowerStats(tower) { return this.towerSystem.refreshTowerStats(tower); }
   recomputeTowerStats() { return this.towerSystem.recomputeTowerStats(); }
