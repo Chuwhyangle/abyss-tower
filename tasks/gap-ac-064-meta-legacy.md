@@ -1,7 +1,7 @@
 ---
 id: gap-ac-064-meta-legacy
 title: 跨局传承：结算产出传承材料、与星核/成就/通行证/悬赏分层无重复（AC-064）
-status: ready
+status: done
 labels:
   - gap
 parent: null
