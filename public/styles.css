@@ -706,7 +706,7 @@ button {
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
   color: #b9c8d3;
-  font-size: 10.5px;
+  font-size: var(--text-min);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -727,7 +727,7 @@ button {
 
 .next-wave-panel .relic-title span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--text-min);
 }
 
 .next-wave-panel .relic-title span.boss {
@@ -745,7 +745,7 @@ button {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10.5px;
+  font-size: var(--text-min);
   color: #b9c8d3;
 }
 
@@ -1177,7 +1177,7 @@ button {
 .relic-level {
   color: var(--gold);
   font-style: normal;
-  font-size: 9.5px;
+  font-size: var(--text-min);
   letter-spacing: 0.06em;
 }
 
