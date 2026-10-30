@@ -23,16 +23,16 @@ AC-019（打击感改造后性能预算不回归）criterion `npm run perf:budge
 
 ## AC
 
-- [ ] `npm run perf:budget` exit 0（AC-019 本体判据）
-- [ ] `grep -nE 'starter-select|btn-confirm-starter' tests/harness.mjs` exit 0（harness 已处理信物三选一）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（harness 公共改动不回归既有浏览器验收）
-- [ ] `npm test` exit 0
+- [x] `npm run perf:budget` exit 0（AC-019 本体判据）
+- [x] `grep -nE 'starter-select|btn-confirm-starter' tests/harness.mjs` exit 0（harness 已处理信物三选一）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run smoke` exit 0（harness 公共改动不回归既有浏览器验收）
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] `npm run perf:budget` 真实跑通到战斗测量（不再停在开局弹窗），按 `docs/perf-budget.json` 判定 exit 0
-- [ ] `chooseOpeningHex` 在旧服务端无信物/海克斯字段时仍能跳过并继续（不因新增步骤破坏降级路径）
-- [ ] 只改 `tests/harness.mjs` 的测试编排，不碰 `public/js/**`、`server/**`、`docs/**`；不触碰 sim/RNG/计分/数值/存档
+- [x] `npm run perf:budget` 真实跑通到战斗测量（不再停在开局弹窗），按 `docs/perf-budget.json` 判定 exit 0
+- [x] `chooseOpeningHex` 在旧服务端无信物/海克斯字段时仍能跳过并继续（不因新增步骤破坏降级路径）
+- [x] 只改 `tests/harness.mjs` 的测试编排，不碰 `public/js/**`、`server/**`、`docs/**`；不触碰 sim/RNG/计分/数值/存档
 
 ## Touches
 
