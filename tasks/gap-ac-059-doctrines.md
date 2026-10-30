@@ -60,6 +60,7 @@ AC-059（教义：五条塔专精通过首领核心选择且不可逆）已由 g
 - `public/js/shared/i18n/en-US.js`
 - `public/js/app/run.js`
 - `tests/doctrines.test.mjs` (new)
+- `tests/sim-systems.test.mjs`
 - `scripts/test-changed.mjs`
 - `tasks/gap-ac-059-doctrines.md`
 - `public/js/sim.js`
