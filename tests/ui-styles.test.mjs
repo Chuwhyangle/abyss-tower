@@ -216,6 +216,11 @@ test('可见正文字号不低于 12px 下限（含移动 HUD 与技能卡覆盖
     '.relic-title',
     '.relic-empty',
     '.shop-hint',
+    // 遗物侧栏带等级条目与下一波情报（AC-025 曾漏采的 <12px 样本）
+    '.relic-level',
+    '.relic-chip',
+    '.next-wave-panel .relic-title span',
+    '.next-wave-row',
     // 难度弹窗技能条（移动端）
     '.skill-chip',
     '.skill-chip .chip-glyph',
