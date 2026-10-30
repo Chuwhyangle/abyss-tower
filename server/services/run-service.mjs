@@ -30,6 +30,7 @@ import {
 } from '../../public/js/shared/data.js';
 import { composeWaveModifier } from '../../public/js/shared/mutations.js';
 import { HEX_POOL_VERSION, validateHexChoice } from '../../public/js/shared/hexes.js';
+import { applyBossCore, isBossCoreWave, rollBossCoreOffers } from '../../public/js/shared/boss-core.js';
 import {
   RELIC_OFFER_COUNT,
   RELIC_REROLL_COST,
@@ -57,6 +58,21 @@ export class RunError extends Error {
     this.status = status;
     this.code = code;
   }
+}
+
+// 首领核心（§4）：offers JSON 的 core:<wave> 槽位与 event:<wave> 同幂等模型；已选教义数与补给刷新加码都从已选槽位派生。
+function coreDoctrineCount(run) {
+  return Object.entries(run.offers || {}).filter(
+    ([key, slot]) => key.startsWith('core:') && slot?.picked && slot.kind === 'doctrine'
+  ).length;
+}
+
+function coreRerollBonus(run) {
+  return Object.entries(run.offers || {})
+    .filter(([key]) => key.startsWith('core:'))
+    .reduce((sum, [, slot]) => sum + (slot?.picked && slot.kind === 'supply' && slot.option?.type === 'reroll'
+      ? Math.max(0, Math.floor(Number(slot.option.amount) || 0))
+      : 0), 0);
 }
 
 export class RunService {
@@ -91,7 +107,7 @@ export class RunService {
     if (withVictory) payload.victory = !!run.victory;
     // 刷新次数：基础（固定规则模式恒为 1）算清后交给主海克斯加码（遗物吞噬者 +2 / 赌徒之骰 +1）。
     const baseMaxRerolls = isFixedRulesMode(run.mode) ? 1 : maxRerollsFor(profile);
-    payload.maxRerolls = hexRuntimeFor(run).relicRerollBonus(baseMaxRerolls);
+    payload.maxRerolls = hexRuntimeFor(run).relicRerollBonus(baseMaxRerolls) + coreRerollBonus(run);
     payload.rerollsUsed = run.rerollsUsed;
     payload.towersUnlocked = isFixedRulesMode(run.mode)
       ? [...TOWER_ORDER]
@@ -275,7 +291,7 @@ export class RunService {
     const key = String(run.clearedWaves);
     // 遗物数量/刷新费用/刷新次数上限/抽取模式经由共享 hex 定义（遗物吞噬者、赌徒之骰）。
     const hexRuntime = hexRuntimeFor(run);
-    const maxRerolls = hexRuntime.relicRerollBonus(maxRerollsFor(profile));
+    const maxRerolls = hexRuntime.relicRerollBonus(maxRerollsFor(profile)) + coreRerollBonus(run);
     const offerCount = hexRuntime.relicOfferCount(RELIC_OFFER_COUNT);
     const rerollCost = hexRuntime.relicRerollCost(RELIC_REROLL_COST, run.rerollsUsed);
     // 赌徒之骰：跳过稀有度权重，走完全随机池（与 run.mode 分离，无尽模式同样生效）。
@@ -436,6 +452,92 @@ export class RunService {
     return {
       wave,
       applied: { kind: 'event', eventId: event.id, optionId: option.id, optionIndex },
+      picked: true,
+    };
+  }
+
+  // 首领核心节点（§4.1）：清波后、遗物三选一前发放；候选由服务端从种子确定性派生。
+  bossCoreNode(run) {
+    if (run.clearedWaves !== run.wavesServed) {
+      throw new RunError(409, '当前波次尚未结算完成');
+    }
+    const wave = run.clearedWaves;
+    if (!isBossCoreWave(wave)) throw new RunError(409, '当前波次没有首领核心');
+    const offers = run.offers || {};
+    const key = `core:${wave}`;
+    let slot = offers[key];
+    if (!slot || !Array.isArray(slot.offers)) {
+      slot = {
+        offers: rollBossCoreOffers(run.seed, wave, normalizeRelicStates(run.relics), {
+          doctrineTaken: coreDoctrineCount(run),
+        }),
+        picked: false,
+      };
+      offers[key] = slot;
+      setOffers(run.id, JSON.stringify(offers));
+    }
+    return {
+      wave,
+      offers: slot.offers,
+      picked: !!slot.picked,
+      choice: slot.picked
+        ? { kindIndex: slot.kindIndex, optionIndex: slot.optionIndex, kind: slot.kind, option: slot.option }
+        : null,
+    };
+  }
+
+  pickBossCore(run, { index, optionIndex } = {}) {
+    if (run.clearedWaves !== run.wavesServed) {
+      throw new RunError(409, '当前波次尚未结算完成');
+    }
+    const wave = run.clearedWaves;
+    if (!isBossCoreWave(wave)) throw new RunError(400, '当前波次没有首领核心');
+    const offers = run.offers || {};
+    const key = `core:${wave}`;
+    const slot = offers[key];
+    if (!slot || !Array.isArray(slot.offers)) throw new RunError(400, '本次首领核心选项不存在');
+    if (slot.picked) throw new RunError(409, '本次首领核心已经选择');
+
+    const kindIndex = Number(index);
+    const parsedOption = Number(optionIndex);
+    if (!Number.isInteger(kindIndex) || kindIndex < 0 || kindIndex >= slot.offers.length) {
+      throw new RunError(400, '首领核心编号不合法');
+    }
+    const kindOffer = slot.offers[kindIndex];
+    const option = Array.isArray(kindOffer.options)
+      ? kindOffer.options[parsedOption]
+      : null;
+    if (!Number.isInteger(parsedOption) || parsedOption < 0 || !option) {
+      throw new RunError(400, '选择不在本次首领核心选项中');
+    }
+
+    const beforeRelics = normalizeRelicStates(run.relics);
+    const delta = applyBossCore({ kind: kindOffer.kind, option }, beforeRelics);
+    // 遗物等级是服务端权威：升阶/搜寻即时落库；金币/生命/刷新等客户端模拟资源随 delta 回传。
+    if (JSON.stringify(delta.relics) !== JSON.stringify(beforeRelics)) {
+      setRelics(run.id, JSON.stringify(delta.relics));
+    }
+    offers[key] = {
+      offers: slot.offers,
+      picked: true,
+      kindIndex,
+      optionIndex: parsedOption,
+      kind: kindOffer.kind,
+      option,
+    };
+    setOffers(run.id, JSON.stringify(offers));
+    return {
+      wave,
+      applied: { kind: kindOffer.kind, option, kindIndex, optionIndex: parsedOption },
+      delta: {
+        gold: delta.gold,
+        baseHp: delta.baseHp,
+        maxBaseHp: delta.maxBaseHp,
+        rerolls: delta.rerolls,
+        doctrines: delta.doctrines,
+        awakenings: delta.awakenings,
+      },
+      relics: delta.relics,
       picked: true,
     };
   }

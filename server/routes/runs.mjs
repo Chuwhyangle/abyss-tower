@@ -3,7 +3,7 @@ import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-
 import { RunError, RunService } from '../services/run-service.mjs';
 import { dailyAttemptsLeft, weeklyAttemptsLeft } from '../services/run-rules.mjs';
 
-const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|starter|relics|relic|events|event|finish|abandon))?$/;
+const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|starter|relics|relic|events|event|bosscore|finish|abandon))?$/;
 
 export class RunRoutes {
   constructor(service = new RunService()) {
@@ -71,6 +71,7 @@ export class RunRoutes {
     if (action === 'relic') return this.relic(ctx, run);
     if (action === 'events') return this.events(ctx, run);
     if (action === 'event') return this.event(ctx, run);
+    if (action === 'bosscore') return this.bosscore(ctx, run);
     if (action === 'finish') return this.finish(ctx, run);
     return false;
   }
@@ -124,9 +125,13 @@ export class RunRoutes {
 
   async event(ctx, run) {
     const body = await ctx.readJson();
-    return this.respond(ctx, () =>
-      ctx.json(200, this.service.pickEvent(run, { index: body.index, optionId: body.optionId }))
-    );
+    return this.respond(ctx, () => ctx.json(200, this.service.pickEvent(run, { index: body.index, optionId: body.optionId })));
+  }
+
+  async bosscore(ctx, run) {
+    const body = await ctx.readJson();
+    const pick = body.index == null ? null : { index: body.index, optionIndex: body.optionIndex };
+    return this.respond(ctx, () => ctx.json(200, pick ? this.service.pickBossCore(run, pick) : this.service.bossCoreNode(run)));
   }
 
   async finish(ctx, run) {

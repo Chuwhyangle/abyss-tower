@@ -20,6 +20,7 @@ export class RunController {
     onRequestError,
     onBindCanvas,
     onPendingEvent,
+    onPendingBossCore,
     onAttempts,
     onGoHome,
   }) {
@@ -32,6 +33,7 @@ export class RunController {
     this.onRequestError = onRequestError;
     this.onBindCanvas = onBindCanvas;
     this.onPendingEvent = onPendingEvent;
+    this.onPendingBossCore = onPendingBossCore;
     this.onAttempts = onAttempts;
     this.onGoHome = onGoHome;
   }
@@ -446,6 +448,10 @@ export class RunController {
       this.beginGame(data, snap);
       // 未结算的事件节点优先恢复（快照里只存事件历史，待办事件由波次推导）。
       if (this.state.sim?.pendingEvent) await this.onPendingEvent?.();
+      // 首领核心选择未完时先于遗物三选一恢复；已选则 resolveBossCore 内部按幂等跳过。
+      if (snap.pendingDraft && run.clearedWaves === run.wavesServed) {
+        await this.onPendingBossCore?.();
+      }
       if (snap.pendingDraft && run.clearedWaves === run.wavesServed) {
         await this.restorePendingDraft();
       } else if (run.clearedWaves < run.wavesServed) {

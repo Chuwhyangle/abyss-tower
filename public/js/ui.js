@@ -9,6 +9,7 @@ import { shopMethods } from './ui/shop.js';
 import { modalMethods } from './ui/modals.js';
 import { hexSelectMethods } from './ui/hex-select.js';
 import { starterSelectMethods } from './ui/starter-select.js';
+import { bossCoreMethods } from './ui/boss-core.js';
 import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
@@ -288,6 +289,7 @@ Object.assign(
   modalMethods,
   hexSelectMethods,
   starterSelectMethods,
+  bossCoreMethods,
   resultMethods,
   settingsMethodsWithMenu,
   panelMethods

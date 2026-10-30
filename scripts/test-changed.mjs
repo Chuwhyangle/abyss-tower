@@ -98,6 +98,7 @@ export const TEST_MAP = [
     'tests/icon-system.test.mjs',
     'tests/panels-visual.test.mjs',
   ] },
+  { match: 'public/js/shared/boss-core.js', tests: ['tests/boss-core.test.mjs'] },
   { match: 'public/js/ui.js', tests: [
     'tests/a11y-color.test.mjs',
     'tests/i18n.test.mjs',

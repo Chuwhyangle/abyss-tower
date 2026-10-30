@@ -265,3 +265,7 @@ export function rollStarterOffers(seedKey, mode = 'normal') {
     return { kind: 'relic', id: relic.id, fromLevel: 0, toLevel: 1 };
   });
 }
+
+// 首领核心（bossCore，§4）：五类候选与即时效果实现位于 shared/boss-core.js（§8.1 的 cores 模块），
+// 本模块不新增导出面（data-split 断言 relics 单一职责）；「搜寻」候选与上方信物三选一同池，
+// 只从五个非中立派系中抽取，不包含 neutral。

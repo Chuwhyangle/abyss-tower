@@ -1,5 +1,6 @@
 // 战斗流程：开波与清波同步、遗物三选一/刷新、结算上报。
 import { rollRelicOffers } from '../shared/data.js';
+import { isBossCoreWave } from '../shared/boss-core.js';
 import { t } from '../i18n.js';
 import { RelicOffers } from './offers.js';
 
@@ -87,6 +88,10 @@ export class CombatController {
 
     // 每 5 波的事件节点先于遗物三选一结算。
     await this.resolvePendingEvent(wave);
+    if (!state.sim || state.sim.phase === 'over') return;
+
+    // 首领核心（5/10/15/20/25 波）在事件之后、遗物三选一之前发放。
+    await this.resolveBossCore(wave);
     if (!state.sim || state.sim.phase === 'over') return;
 
     let data;
@@ -269,6 +274,96 @@ export class CombatController {
       present();
     });
     return true;
+  }
+
+  // 首领核心（§4）：服务端确定性给候选并记录选择，效果在此按共享口径本地结算。
+  // 升阶/搜寻复用遗物 offer 的 addRelic 路径（含生命加成的即时补发）；补给改金币/生命/刷新。
+  async resolveBossCore(wave = null) {
+    const { state } = this;
+    const sim = state.sim;
+    const targetWave = wave ?? sim?.clearedWave;
+    if (!sim || !isBossCoreWave(targetWave)) return false;
+
+    let data;
+    try {
+      data = await this.api.getBossCore(state.run.id);
+    } catch (error) {
+      console.warn('[boss core]', error);
+      return false;
+    }
+    if (!data?.offers?.length || data.picked) return false;
+    if (!state.sim || state.sim.phase === 'over') return false;
+
+    state.app?.setPaused(true);
+    await new Promise((resolve) => {
+      this.ui.showBossCore({
+        wave: targetWave,
+        offers: data.offers,
+        onChoose: async (kindIndex, optionIndex) => {
+          const kindOffer = data.offers[kindIndex];
+          const option = kindOffer?.options?.[optionIndex];
+          if (!option || !state.sim) return;
+
+          let applied = { kind: kindOffer?.kind, option };
+          try {
+            const result = await this.api.pickBossCore(state.run.id, {
+              index: kindIndex,
+              optionIndex,
+            });
+            applied = result.applied || applied;
+            this.ui.closeModal();
+            this.applyBossCoreLocally(applied);
+            resolve(true);
+          } catch (error) {
+            if (error.status === 409) {
+              // 重复提交（另一标签页已选）：按服务端记录的选择结算。
+              try {
+                const info = await this.api.getBossCore(state.run.id);
+                if (info?.choice) {
+                  applied = { kind: info.choice.kind, option: info.choice.option };
+                  this.ui.closeModal();
+                  this.applyBossCoreLocally(applied);
+                  resolve(true);
+                  return;
+                }
+              } catch {
+                /* 网络失败时保留本地选择 */
+              }
+            } else {
+              console.warn('[boss core pick]', error);
+            }
+            this.ui.toast(error.message, 2800);
+          }
+        },
+      });
+    });
+    return true;
+  }
+
+  // 首领核心即时效果：只改客户端可模拟资源，不触碰敌人/波次（§4.3 红线）。
+  applyBossCoreLocally(applied) {
+    const { state } = this;
+    const sim = state.sim;
+    if (!sim) return;
+    const kind = applied?.kind;
+    const option = applied?.option;
+    if (kind === 'upgrade' || kind === 'search') {
+      if (option?.id) sim.applyOffer({ kind: 'relic', id: option.id, toLevel: option.toLevel });
+    } else if (kind === 'supply') {
+      const amount = Math.max(0, Math.floor(Number(option?.amount) || 0));
+      if (option?.type === 'gold') sim.applyOffer({ kind: 'gold', amount });
+      else if (option?.type === 'maxHp') {
+        sim.maxBaseHp = Math.max(1, sim.maxBaseHp + amount);
+        sim.baseHp = Math.min(sim.maxBaseHp, sim.baseHp + amount);
+        sim.save();
+      } else if (option?.type === 'reroll') {
+        state.run.maxRerolls += amount;
+      }
+    }
+    // 觉醒/教义：本任务只持久化不可逆引用，词条/觉醒效果由 AC-059/AC-060 落地。
+    this.ui.renderRelics();
+    this.ui.updateShopState();
+    state.app?.emitHud(true);
   }
 
   async handleGameOver(stats) {

@@ -67,6 +67,7 @@ export class GameController {
       onRequestError: (error, options) => this.handleKeyRequestError(error, options),
       onBindCanvas: (canvas) => this.input.bindCanvas(canvas),
       onPendingEvent: () => this.combat.resolvePendingEvent(),
+      onPendingBossCore: () => this.combat.resolveBossCore(),
       onAttempts: (data) => this.session.applyAttempts(data),
       onGoHome: () => this.goHome(),
     });

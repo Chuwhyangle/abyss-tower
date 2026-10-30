@@ -352,6 +352,15 @@ export function createApi({
         body: typeof selection === 'number' ? { index: selection } : selection,
       });
     },
+    getBossCore(id) {
+      return request(`/api/runs/${encodeURIComponent(id)}/bosscore`, { method: 'POST', body: {} });
+    },
+    pickBossCore(id, selection) {
+      return request(`/api/runs/${encodeURIComponent(id)}/bosscore`, {
+        method: 'POST',
+        body: typeof selection === 'number' ? { index: selection } : selection,
+      });
+    },
     finishRun(id, payload) {
       return request(`/api/runs/${encodeURIComponent(id)}/finish`, {
         method: 'POST',
