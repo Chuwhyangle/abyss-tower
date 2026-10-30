@@ -23,16 +23,16 @@ AC-050（敌人总数 ≥14 且新敌人行为有区分度并进波次）已激�
 1. `public/js/shared/data/enemies.js` 加 wraith/golem 定义（hp/speed/armor/gold/dmg + 行为字段），`MAX_WAVE` 与计数口径不变。
 2. `public/js/shared/waves.js` 加权重（weight/countMult/minWave/interval），保证两敌人随波次出现且能被打断。
 3. `public/js/sim/enemy-system.js` 落行为：wraith 周期性闪烁（位置瞬移不改变路径/lane）、golem 死亡分裂小石卫；保持 RNG 调用序确定。
-4. `public/js/render/enemy-renderer.js` + `enemy-data.js` 加渲染/精灵分派（缺资源回退程序化绘制，不崩）。
+4. `public/js/render/enemy-body.js` + `enemy-data.js` 加渲染/精灵分派（缺资源回退程序化绘制，不崩）。
 5. i18n 中英成对加键（`data.enemy.wraith.name` / `data.enemy.golem.name` 等）。
 6. 扩展 `tests/enemies-depth.test.mjs`：2 新敌人的行为（闪烁/分裂）、波次接入、渲染分派、确定性哈希。
 
 ## AC
 
-- [ ] `grep -q 'wraith' public/js/shared/data/enemies.js && grep -q 'golem' public/js/shared/data/enemies.js` exit 0（AC-050 本体判据）
-- [ ] `node --test tests/enemies-depth.test.mjs` exit 0
-- [ ] `node --test tests/i18n-coverage.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `grep -q 'wraith' public/js/shared/data/enemies.js && grep -q 'golem' public/js/shared/data/enemies.js` exit 0（AC-050 本体判据）
+- [x] `node --test tests/enemies-depth.test.mjs` exit 0
+- [x] `node --test tests/i18n-coverage.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
@@ -45,9 +45,19 @@ AC-050（敌人总数 ≥14 且新敌人行为有区分度并进波次）已激�
 - `public/js/shared/data/enemies.js`
 - `public/js/shared/waves.js`
 - `public/js/sim/enemy-system.js`
-- `public/js/render/enemy-renderer.js`
+- `public/js/render/enemy-body.js`
 - `public/js/render/enemy-data.js`
+- `public/js/render/art-tokens.js`
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/enemies-depth.test.mjs`
+- `tests/data-split.test.mjs`
+- `tests/sprite-coverage.test.mjs`
+- `scripts/build-entity-sprites.mjs`
+- `public/assets/sprites/entities/entity-atlas.json`
+- `public/assets/sprites/entities/entity-atlas@1x.png`
+- `public/assets/sprites/entities/entity-atlas@2x.png`
+- `public/assets/sprites/manifest.json`
+- `docs/reviews/entity-sprite-coverage-contact-sheet.png`
+- `docs/reviews/entity-sprite-states-contact-sheet.png`
 - `tasks/gap-ac-050-enemies-expand.md`
