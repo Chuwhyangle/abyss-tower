@@ -1,7 +1,7 @@
 ---
 id: gap-ac-056-starter-relic-upgrade-guarantee
 title: 开局信物三选一与第 3 波起保底升级卡在五模式确定性可复现（AC-056）
-status: todo
+status: ready
 labels:
   - gap
 parent: null

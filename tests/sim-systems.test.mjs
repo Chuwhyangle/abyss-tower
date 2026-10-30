@@ -47,7 +47,7 @@ const EXPORT_SURFACE = [
   'getRelicLevel', 'hexCall', 'hitEnemy', 'impact', 'inRange', 'inheritTowerOverdrive', 'initSkill',
   'isSkillReady', 'isStasisActive', 'killEnemy', 'laneProgressNear', 'leak', 'makeTower',
   'nearestSkillTarget', 'nextWavePreview', 'onSkillKill', 'pickBossSkill', 'pickMeteorPoints', 'placeTower',
-  'playSound', 'posAt', 'previewStats', 'queueMeteor', 'recomputeMods', 'recomputeTowerStats',
+  'playSound', 'posAt', 'previewStats', 'queueMeteor', 'recomputeFactions', 'recomputeMods', 'recomputeTowerStats',
   'refreshTowerStats', 'removeTower', 'resolveMeteor', 'resolveThaw', 'save', 'savePreWave', 'sellTower',
   'sellValue', 'setVisualQuality', 'skillDamage', 'skillField', 'skillPctDamage', 'skillTargets',
   'spawnAlly', 'spawnDestructibleSwarm', 'spawnDue', 'spawnEnemy', 'spawnEnemyAt', 'statsFor',

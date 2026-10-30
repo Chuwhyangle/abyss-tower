@@ -57,10 +57,8 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 
 ## Blocker
 
-**2026-10-30T11:22:35.823Z — worker 未落地（exited-not-landed）**
+**2026-10-30T12:13:36.159Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (420e8801) — it is 6 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
-  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-063-meta-talent-tree's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
-  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- 未落地原因：step=suite: name: 'AssertionError'
 - run_id：wk-prod-anchor
-- session_id：986a3af8-85cf-4406-b7f6-ad9d54dbe297
+- session_id：e6c6bc02-960d-4db4-9a47-4af240edf9cb

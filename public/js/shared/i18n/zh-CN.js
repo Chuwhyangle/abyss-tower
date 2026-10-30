@@ -302,6 +302,7 @@ export default {
   'draft.repairEffect': '恢复 {n} 点基地生命（不超过上限）',
   'draft.fallbackFlavor': '遗物池耗尽时的通用补位，保证选择流程继续。',
   'draft.pick': '选择',
+  'draft.faction': '派系',
 
   'settings.eyebrow': 'SETTINGS',
   'settings.title': '设置',
@@ -420,6 +421,17 @@ export default {
   'relicsModal.nextWave': 'NEXT WAVE',
   'relicsModal.enemies': '{n} 敌',
   'relicsModal.title': '遗物',
+  'relicsModal.factions': '派系',
+  'relicsModal.factionPoints': '{n} 点',
+  'relicsModal.factionNext': '下一档 {n}',
+  'relicsModal.factionMax': '满档',
+
+  'faction.fire.name': '火力',
+  'faction.frost.name': '霜缚',
+  'faction.venom.name': '蚀毒',
+  'faction.storm.name': '雷暴',
+  'faction.warden.name': '守护',
+  'faction.neutral.name': '中立',
 
   'help.eyebrow': '作战手册',
   'help.title': '玩法说明',

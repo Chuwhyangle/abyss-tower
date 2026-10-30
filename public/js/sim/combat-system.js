@@ -30,6 +30,7 @@ export class CombatSystem {
   // base 必须来自 statsFor()（已包含塔专属与全局增伤），这里只应用条件增伤与暴击。
   // 面板显示 statsFor().dmg，对零护甲、无暴击、无条件增伤的目标应完全一致。
   computeHit(base, towerType, enemy, opts = {}) {
+    const setMods = this.sim.factions?.setMods || {};
     let dmg = base;
     // 条件增伤由注册表按声明顺序给出，乘法顺序与重构前一致。
     // 条件上下文只读本局状态快照，不调用随机数，也不改变暴击的 RNG 顺序。
@@ -37,7 +38,8 @@ export class CombatSystem {
     for (const bonus of hitBonuses(this.sim, enemy, context)) dmg *= 1 + bonus;
     let crit = false;
     if (!opts.noCrit && this.sim.mods.crit > 0 && this.sim.combatRng.float() < this.sim.mods.crit) {
-      dmg *= 2;
+      // 火力 T2：暴击额外倍率（默认 0；暴击总倍率 2.0 + 值）。
+      dmg *= 2 + (setMods.critDamage || 0);
       crit = true;
     }
     return { dmg, crit };
@@ -47,7 +49,9 @@ export class CombatSystem {
     if (enemy.dead) return 0;
     // 事件保留入参原值：护甲前、未含易伤乘区的「原始伤害」。
     const rawAmount = amount;
-    let final = amount;
+    const setMods = this.sim.factions?.setMods || {};
+    // 火力 T1：独立增伤乘区（伤害入口），与遗物增伤相乘、不写 mods；0 点时值为 0，行为不变。
+    let final = amount * (1 + (setMods.allDamage || 0));
     // 护甲减免与护盾吸收都记录到事件里：事后仍可还原这次命中的构成。
     let armorAbsorbed = 0;
     if (!opts.ignoreArmor) {
@@ -62,6 +66,10 @@ export class CombatSystem {
     // 首领停顿/蓄力时是破绽窗口，鼓励集火。
     if (enemy.boss && this.sim.time < (enemy.vulnUntil || 0)) {
       final *= BALANCE.bossVulnMul;
+    }
+    // 蚀毒 T2：中毒目标受到的所有伤害 +值（复用中毒单槽语义：有 DPS 且未到期）。
+    if (setMods.poisonVulnerable && enemy.poisonDps > 0 && this.sim.time < (enemy.poisonUntil || 0)) {
+      final *= 1 + setMods.poisonVulnerable;
     }
     // 技能易伤：冻结易伤（霜月）与星痕易伤（时之终章），统一用模拟时间判断。
     if (this.sim.time < (enemy.freezeVulnUntil || 0) && enemy.freezeVuln > 0) {
@@ -109,17 +117,19 @@ export class CombatSystem {
       crit: opts.crit === true,
       lethal,
     });
-    if (lethal) this.sim.killEnemy(enemy);
+    if (lethal) this.sim.killEnemy(enemy, final, { noExplosion: opts.noExplosion });
     return final;
   }
 
   hitEnemy(enemy, proj) {
     if (enemy.dead) return;
+    const setMods = this.sim.factions?.setMods || {};
     this.sim.dealDamage(enemy, proj.dmg, proj.towerType, { ignoreArmor: proj.ignoreArmor, tower: proj.tower || null });
 
     if (proj.slow > 0) {
       const amount = Math.min(0.85, proj.slow + (this.sim.mods.slow || 0));
-      const duration = (proj.slowDur || 1.5) * (1 + (this.sim.mods.slowDur || 0));
+      // 霜缚 T1：减速时长倍率加成（独立于遗物 slowDur，0 点时乘 1 不变）。
+      const duration = (proj.slowDur || 1.5) * (1 + (this.sim.mods.slowDur || 0)) * (1 + (setMods.slowDuration || 0));
       enemy.slowAmt = Math.max(enemy.slowAmt, amount);
       enemy.slowUntil = Math.max(enemy.slowUntil, this.sim.time + duration);
     }
@@ -134,10 +144,18 @@ export class CombatSystem {
       // 击退只回退路径进度，位置在下个模拟步由 posAt 重新求得，不引入额外随机数。
       enemy.progress = Math.max(0, enemy.progress - proj.knockback);
     }
+    // 霜缚 T2：每 N 次霜塔命中冻结 duration 秒（复用 freezeUntil，解冻统一走 resolveThaw）。
+    if (setMods.frostFreeze && proj.towerType === 'frost') {
+      enemy.frostHits = (enemy.frostHits || 0) + 1;
+      if (enemy.frostHits >= setMods.frostFreeze.hits) {
+        enemy.freezeUntil = this.sim.time + setMods.frostFreeze.duration;
+        enemy.frostHits = 0;
+      }
+    }
   }
 
   // ---------- 伤害 ----------
-  killEnemy(enemy) {
+  killEnemy(enemy, killingDamage = 0, opts = {}) {
     if (enemy.dead) return;
     enemy.dead = true;
     if (enemy.splits) {
@@ -180,6 +198,52 @@ export class CombatSystem {
     // 里程碑击杀钩子（极光终章 / 终章延时）
     this.sim.hexCall('onEnemyKilled', enemy, this.sim.hexCtx);
     this.sim.onSkillKill(enemy);
+    // 派系击杀钩子（§3.2）：火力 T3 击杀爆炸 / 蚀毒 T3 中毒传播。
+    this.applyKillSetMods(enemy, killingDamage, opts);
+  }
+
+  // 击杀派生效果（独立于技能与海克斯钩子，结算在击杀尾部）。
+  // noExplosion 防递归：爆炸/传播引起的二次击杀不再触发同类钩子，避免连锁失控。
+  applyKillSetMods(enemy, killingDamage, opts = {}) {
+    const setMods = this.sim.factions?.setMods || {};
+    if (opts.noExplosion) return;
+
+    // 火力 T3：对半径内敌人造成 ratio × 本次伤害（走常规伤害入口，护甲/易伤照常结算）。
+    if (setMods.killExplosion && killingDamage > 0) {
+      const dmg = killingDamage * setMods.killExplosion.ratio;
+      const radius = setMods.killExplosion.radius;
+      for (const other of this.sim.enemies) {
+        if (other.dead || other === enemy) continue;
+        if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= radius) {
+          this.sim.damage(other, dmg, { noExplosion: true, weapon: 'killExplosion', source: 'setmod' });
+        }
+      }
+    }
+
+    // 蚀毒 T3：中毒死亡向半径内 targets 个敌人传播（单槽模型：取更高 DPS，传播源剩余的层时长）。
+    if (
+      setMods.poisonSpread &&
+      enemy.poisonDps > 0 &&
+      this.sim.time < (enemy.poisonUntil || 0)
+    ) {
+      const candidates = [];
+      for (const other of this.sim.enemies) {
+        if (other.dead || other === enemy) continue;
+        if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= setMods.poisonSpread.radius) {
+          candidates.push(other);
+        }
+      }
+      for (let i = 0; i < Math.min(setMods.poisonSpread.targets, candidates.length); i++) {
+        const other = candidates[i];
+        if (enemy.poisonDps >= other.poisonDps || this.sim.time > other.poisonUntil) {
+          other.poisonDps = Math.max(
+            enemy.poisonDps,
+            this.sim.time > other.poisonUntil ? 0 : other.poisonDps
+          );
+          other.poisonUntil = Math.max(other.poisonUntil, enemy.poisonUntil);
+        }
+      }
+    }
   }
 
   // 本帧所有伤害结算完成后再生成分裂子怪：顺序固定，同种子结果一致。
