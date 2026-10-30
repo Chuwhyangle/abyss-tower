@@ -119,6 +119,12 @@ export class SkillSystem {
     enemy.freezeSlow = 0;
     enemy.freezeSlowDur = 0;
     enemy.freezeShatter = 0;
+    // 霜缚 T3：解冻后 duration 秒内受伤 +mult（复用 freezeVuln/freezeVulnUntil 的易伤语义）。
+    const freezeVulnMod = this.sim.factions?.setMods?.freezeVulnerable;
+    if (freezeVulnMod) {
+      enemy.freezeVuln = freezeVulnMod.mult;
+      enemy.freezeVulnUntil = now + freezeVulnMod.duration;
+    }
 
     const amount = this.sim.skillPctDamage(enemy, shatter, bossFactor);
     if (amount > 0) {
@@ -501,7 +507,7 @@ export class SkillSystem {
       crit: false,
       lethal,
     });
-    if (lethal) this.sim.killEnemy(enemy);
+    if (lethal) this.sim.killEnemy(enemy, amount);
     return amount;
   }
 

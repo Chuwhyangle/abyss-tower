@@ -1,6 +1,8 @@
 // 纯战斗模拟：状态根与系统编排；不依赖 DOM / Canvas / 音频，浏览器与 Node 平衡模拟共用。
 // 具体职责下沉到 public/js/sim/ 下的系统对象，本类只保留状态字段与薄委派。
 import { MAX_WAVE, normalizeRelicStates, relicModsAtLevel } from './shared/data.js';
+import { normalizeTalent, talentMods } from './shared/data/meta.js';
+import { applyEffect, clampMods } from './shared/effects.js';
 import {
   chainsFromHistory,
   normalizeChains,
@@ -11,6 +13,7 @@ import {
 import { createFloater, floaterVisible, pushFloater } from './shared/floaters.js';
 import { RNG } from './shared/rng.js';
 import { computeOutcome } from './shared/scoring.js';
+import { FACTION_ORDER, factionPoints, factionSetMods } from './shared/factions.js';
 import { HexRuntime } from './shared/hexes/runtime.js';
 import { CombatSystem } from './sim/combat-system.js';
 import {
@@ -49,6 +52,12 @@ export class Simulation {
     this.clearPending = false;
     this.kills = opts.kills || 0;
     this.relics = normalizeRelicStates(opts.relics || []);
+    // 账号天赋被动：读档时由服务端从 player_kv 注入 opts.talent；零投入得到空 mods，不改变确定性。
+    this.talentMods = talentMods(normalizeTalent(opts.talent));
+    // 派系层（§8.2）：points/tiers/setMods 由 recomputeFactions 重算；bonusPoints 仅契约写入。
+    this.factions = { points: {}, bonusPoints: {}, tiers: {}, setMods: {} };
+    // 守护 T3 setWaveHeal 的每局已回复量（运行时计数，不进快照）。
+    this.factionWaveHealUsed = 0;
     // 事件历史：旧存档没有该字段时按“无事件”处理；事件波规则随模式变化。
     this.events = normalizeEventHistory(opts.events || [], this.mode);
     // 连锁排期：快照里的记录只是冗余，历史才是事实来源，二者合并去重。
@@ -138,11 +147,11 @@ export class Simulation {
     this.snapshotMapper = new SnapshotMapper(this);
 
     this.buildPath();
-    this.relicSystem.recomputeMods();
+    this.recomputeMods();
     // 初始化顺序：基础 mods → onRunInit → 重算塔属性。读档时状态已包含开局效果，不重放。
     if (!opts.restored && this.hexRuntime.active) {
       this.hexCall('onRunInit', this.hexCtx);
-      this.relicSystem.recomputeMods();
+      this.recomputeMods();
     }
     this.skillSystem.initSkill(opts);
     // 事件阶段：续玩时由已清波次 + 事件历史推导，已结算过的不再重复弹出。
@@ -177,6 +186,24 @@ export class Simulation {
     this.towerSystem.recomputeTowerStats();
 
     this.combatRng = new RNG(`${this.seed}:combat:0`);
+  }
+
+  // 派系层重算（§8.2 不变式 1）：遗物/契约/核心变化后统一调用，模拟步内不重建对象。
+  // setMods 是独立乘区，绝不经过 clampMods / GLOBAL_MOD_CAPS；0 档时为空对象，行为与无 2.0 一致。
+  recomputeFactions() {
+    const points = factionPoints(this.relics);
+    const bonusPoints = this.factions?.bonusPoints || {};
+    const tiers = {};
+    for (const faction of FACTION_ORDER) {
+      const bonus = Math.max(0, Math.min(3, Math.floor(Number(bonusPoints[faction]) || 0)));
+      const total = points[faction] + bonus;
+      let tier = 0;
+      if (total >= 12) tier = 3;
+      else if (total >= 8) tier = 2;
+      else if (total >= 4) tier = 1;
+      tiers[faction] = tier;
+    }
+    this.factions = { points, bonusPoints: { ...bonusPoints }, tiers, setMods: factionSetMods(tiers) };
   }
 
   // ---------- 主更新 ----------
@@ -499,7 +526,7 @@ export class Simulation {
   dealDamage(enemy, base, towerType, opts = {}) { return this.combatSystem.dealDamage(enemy, base, towerType, opts); }
   computeHit(base, towerType, enemy, opts = {}) { return this.combatSystem.computeHit(base, towerType, enemy, opts); }
   damage(enemy, amount, opts = {}) { return this.combatSystem.damage(enemy, amount, opts); }
-  killEnemy(enemy) { return this.combatSystem.killEnemy(enemy); }
+  killEnemy(enemy, killingDamage = 0, opts) { return this.combatSystem.killEnemy(enemy, killingDamage, opts); }
   flushSplits() { return this.combatSystem.flushSplits(); }
   cleanup() { return this.combatSystem.cleanup(); }
   get towerDamageMul() { return this.destructibleSystem.towerDamageMul; }
@@ -533,7 +560,16 @@ export class Simulation {
   getRelicLevel(id) { return this.relicSystem.getRelicLevel(id); }
   addRelic(relicOrOffer) { return this.relicSystem.addRelic(relicOrOffer); }
   applyOffer(offer) { return this.relicSystem.applyOffer(offer); }
-  recomputeMods() { return this.relicSystem.recomputeMods(); }
+  recomputeMods() {
+    // 天赋被动与遗物/套装/海克斯同源聚合，仍受注册表单件/全局封顶约束；零投入为空操作。
+    this.relicSystem.recomputeMods();
+    for (const [key, value] of Object.entries(this.talentMods)) {
+      applyEffect(this.mods, key, value);
+    }
+    clampMods(this.mods);
+    this.recomputeTowerStats();
+    return this.mods;
+  }
   computeTowerStats(tower) { return this.towerSystem.computeTowerStats(tower); }
   refreshTowerStats(tower) { return this.towerSystem.refreshTowerStats(tower); }
   recomputeTowerStats() { return this.towerSystem.recomputeTowerStats(); }

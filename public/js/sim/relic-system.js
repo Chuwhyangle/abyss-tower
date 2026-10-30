@@ -108,6 +108,8 @@ export class RelicSystem {
     clampMods(mods);
 
     this.sim.mods = mods;
+    // 派系层独立重算：setMods 不走 clampMods，0 点时为空对象。
+    this.sim.recomputeFactions();
     // 遗物变化时统一刷新塔的稳定属性，模拟步内不再重算。
     this.sim.recomputeTowerStats();
   }

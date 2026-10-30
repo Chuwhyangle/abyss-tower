@@ -168,6 +168,24 @@ test('normal-1x-low 的 p95 预算必须容忍共享宿主 33.4ms 负载帧节�
   );
 });
 
+test('normal 场景必须携带站场敌人保证（防再次空场）', () => {
+  // wave 12 滴灌出生：1.2s 快照点只有最早几只出生，8 塔入口瞬间清空 → m.entities.enemies=0
+  // 触发「没有存活敌人」空场误红。normal 场景须通过 extraEnemies 注入通道（首只固定 tank）
+  // 携带站场敌人，且只有 1 只、不把 normal 改造成 stress。
+  const source = fs.readFileSync(
+    path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'dynamic-perf.mjs'),
+    'utf8'
+  );
+  for (const name of ['normal-1x-low', 'normal-1x-high']) {
+    const match = source.match(new RegExp(`scenario\\('${name}', \\{[^}]*extraEnemies: (\\d+)`));
+    assert.ok(match, `${name} 场景缺少 extraEnemies 字段`);
+    assert.ok(
+      Number(match[1]) >= 1,
+      `${name}.extraEnemies=${match[1]} 必须 ≥ 1（站场敌人保证，防 1.2s 快照空场）`
+    );
+  }
+});
+
 function writeTemp(dir, name, value) {
   const file = path.join(dir, name);
   fs.writeFileSync(file, JSON.stringify(value));

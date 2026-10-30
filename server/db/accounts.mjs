@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { db } from './index.mjs';
 import { revokeAccountSessions } from './sessions.mjs';
+import { normalizeTalent } from '../../public/js/shared/data/meta.js';
 
 // 删除后的冷却期：期间会话失效、登录被拒，但账号尚未真正清除，可凭密码取消。
 export const DELETION_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
@@ -295,6 +296,29 @@ export function writePlayerKv(accountId, namespace, key, valueJson, updatedAt = 
        value_json = excluded.value_json,
        updated_at = excluded.updated_at`
   ).run(accountId, namespace, key, valueJson, updatedAt);
+}
+
+// ---------- 天赋状态 ----------
+// 独立于 cores/achievements/pass/bounties，存 player_kv('meta','talent')。
+// 解析失败或缺省一律回落到零投入状态，绝不抛错。
+
+function readTalentJson(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+export function readTalent(accountId) {
+  const row = readPlayerKv(accountId, 'meta', 'talent');
+  return normalizeTalent(row ? readTalentJson(row.value_json) : null);
+}
+
+export function writeTalent(accountId, talent) {
+  const state = normalizeTalent(talent);
+  writePlayerKv(accountId, 'meta', 'talent', JSON.stringify(state));
+  return state;
 }
 
 export function listPlayerProgress(accountId, type = null) {
