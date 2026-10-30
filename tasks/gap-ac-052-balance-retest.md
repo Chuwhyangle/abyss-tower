@@ -75,3 +75,11 @@ AC-052（GOAL-010 退出条件 3）已激活，criterion `! grep -qE '低于目�
 - `docs/BALANCE.md`
 - `docs/BALANCE.json` (new)
 - `tasks/gap-ac-052-balance-retest.md`
+
+## Blocker
+
+**2026-10-30T13:55:37.894Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 3/7，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：e45a7139-e8f4-4fd6-9d38-e8c05995c6cd
