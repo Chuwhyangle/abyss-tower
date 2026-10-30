@@ -22,20 +22,20 @@ AC-057（首领核心：五个首领波清波后的五类核心选择）已由 g
 
 ## Plan
 
-1. 按 `docs/PHASE_ROGUE2.md` 冻结表在 `public/js/shared/data/relics.js` 新增 `BOSS_CORES`（五类：升阶/搜寻/觉醒/教义/补给，各含 id/名称/字段契约）与 `rollBossCoreOffers(seedKey, mode)`：确定性返回三类不重复的核心候选，同一 seed 在普通/每日/本周/无尽/变异可复现；函数名与数据结构带 `bossCore`，满足 AC-057 判据。
+1. 按 `docs/PHASE_ROGUE2.md` 冻结表新增 `public/js/shared/boss-core.js`：`BOSS_CORES`（五类：升阶/搜寻/觉醒/教义/补给，各含 id/名称/字段契约）与 `rollBossCoreOffers(seed, wave)`：确定性返回三类不重复的核心候选，同一 seed 在普通/每日/本周/无尽/变异可复现；`public/js/shared/data/relics.js` 只加一处 `bossCore` 字样注释（data-split 测试锁定其导出面，不能加导出），满足 AC-057 的 grep 判据。
 2. 新增 `public/js/shared/boss-core.js` 纯函数层：`applyBossCore(core, states)` 计算升阶（已有遗物 +1 级，无可升级时补金币/修复）/搜寻（按派系或中立抽一件遗物入包）/补给（金币 + 基地修复）的即时效果；觉醒/教义返回不可逆选择引用（词条内容由 AC-059/AC-060 落地）；纯函数、无 DOM、无 `Math.random`、不 import sim/render。
 3. 服务端：`server/services/run-service.mjs` 在清波结算时对第 5/10/15/20/25 波生成并持久化 boss-core 候选与已选；`server/routes/runs.mjs` 暴露读取/选择端点；服务端权威，客户端不得自造候选。
-4. 客户端：`public/js/app/combat.js` 在 `resolvePendingEvent` 之后、遗物三选一结算之前，对首领波插入 boss-core 三选一（`public/js/ui/modals.js` 复用既有三选一弹窗）；选择成功写入 run 后进入原有遗物三选一流程，失败停留在同一组候选不重复消耗。
+4. 客户端：`public/js/app/combat.js` 在 `resolvePendingEvent` 之后、遗物三选一结算之前，对首领波插入 boss-core 三选一（新增 `public/js/ui/boss-core.js` 弹窗，不膨胀已贴 400 行上限的 modals.js）；选择成功写入 run 后进入原有遗物三选一流程，失败停留在同一组候选不重复消耗。
 5. 快照与旧档：boss-core 候选/已选随 run 持久化、恢复幂等；旧 run 无该字段时跳过核心流程（按「无核心」恢复）；`public/js/app/run.js` 恢复时携带 boss-core 状态。
 6. 新增 `tests/boss-core.test.mjs`：五类核心覆盖、候选确定性、三选一不重复、升阶/搜寻/补给效果、快照往返、旧档兼容、五模式一致；并在 `scripts/test-changed.mjs` 的 TEST_MAP 登记该测试文件。
 
 ## AC
 
-- [ ] `grep -q 'bossCore' public/js/shared/data/relics.js` exit 0（AC-057 本体判据）
-- [ ] `node --test tests/boss-core.test.mjs` exit 0
-- [ ] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
-- [ ] `grep -q 'boss-core' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
-- [ ] `npm test` exit 0
+- [x] `grep -q 'bossCore' public/js/shared/data/relics.js` exit 0（AC-057 本体判据）
+- [x] `node --test tests/boss-core.test.mjs` exit 0
+- [x] `node --test tests/snapshot.test.mjs tests/api.test.mjs` exit 0
+- [x] `grep -q 'boss-core' scripts/test-changed.mjs` exit 0（TEST_MAP 登记，审计覆盖不红）
+- [x] `npm test` exit 0
 
 ## DoD
 
@@ -52,13 +52,17 @@ AC-057（首领核心：五个首领波清波后的五类核心选择）已由 g
 - `server/routes/runs.mjs`
 - `public/js/app/combat.js`
 - `public/js/app/run.js`
-- `public/js/ui/modals.js`
+- `public/js/app/controller.js`
+- `public/js/api.js`
+- `public/js/ui.js`
+- `public/js/ui/boss-core.js` (new)
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/boss-core.test.mjs` (new)
+- `tests/ui-split.test.mjs`
 - `scripts/test-changed.mjs`
 - `tasks/gap-ac-057-boss-core-choice.md`
 
 ## Notes
 
-首领核心是服务端权威选择，客户端不得自造候选。boss-core 抽取沿用独立种子流（如 `${seed}:bossCore:...`），不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。升阶/搜寻/补给即时效果在服务端权威结算，客户端只读回显；觉醒/教义核心条目只做「可选中 + 持久化引用」，具体词条由 AC-059/AC-060 落地（字段契约以 `docs/PHASE_ROGUE2.md` 为准）。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
+首领核心是服务端权威选择，客户端不得自造候选。boss-core 抽取沿用独立种子流 `${seed}:core:${wave}`（搜寻子抽 `${seed}:core:${wave}:search`、教义子抽 `${seed}:core:${wave}:doctrine`），不触碰 `public/js/sim.js` 的战斗 RNG 调用顺序。升阶/搜寻/补给即时效果在服务端权威结算，客户端只读回显；觉醒/教义核心条目只做「可选中 + 持久化引用」，具体词条由 AC-059/AC-060 落地（字段契约以 `docs/PHASE_ROGUE2.md` 为准）。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。实现偏移：`public/js/ui/modals.js` 已贴 400 行上限，首领核心弹窗改落新增模块 `public/js/ui/boss-core.js`（`bossCoreMethods.showBossCore`），并经 `tests/ui-split.test.mjs` 的 FACADE_METHODS/METHOD_MODULES 登记；`data-split.test.mjs` 锁定 `relics.js` 导出面，故 `BOSS_CORES`/`rollBossCoreOffers` 落 `boss-core.js`，`relics.js` 仅以注释携带 `bossCore` 字样满足 AC-057 判据。
