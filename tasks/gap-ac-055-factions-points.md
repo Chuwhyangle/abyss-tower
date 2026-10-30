@@ -1,7 +1,7 @@
 ---
 id: gap-ac-055-factions-points
 title: 五派系点数：遗物派系标注、4/8/12 阈值与独立 setMods 层在模拟/快照/UI 一致生效（AC-055）
-status: ready
+status: done
 labels:
   - gap
 parent: null
