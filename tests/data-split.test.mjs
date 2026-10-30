@@ -24,7 +24,7 @@ const EXPECTED_EXPORTS = [
   'MAX_WAVE', 'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
   'TILE', 'TOWERS', 'TOWER_ORDER', 'UNLOCKS', 'UNLOCK_BY_ID', 'fallbackOffers', 'getDifficulty',
   'normalizeRelicState', 'normalizeRelicStates', 'relicEffectText', 'relicLevelOf',
-  'relicModsAtLevel', 'rollRelicOffers', 'towerLevelStats', 'towerUpgradeCost', 'unlockedTowerIds',
+  'relicModsAtLevel', 'rollRelicOffers', 'rollStarterOffers', 'towerLevelStats', 'towerUpgradeCost', 'unlockedTowerIds',
   'SKILL_LEVEL_COSTS', 'SKILLS', 'SKILL_ORDER', 'isSkillUnlocked', 'skillStats', 'skillUnlockText', 'skillUpgradeCost',
 ];
 
@@ -39,7 +39,7 @@ const EXPECTED_EXPORTS = [
 // V50-003：遗物扩容到 70 件并新增回合型效果，内容快照随之更新。
 // AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
-const BASELINE_HASH = '2317c2aa0f5f6cf5a30719221f6305c29d10df7900216d3b2c3e2b43b8713ab4';
+const BASELINE_HASH = '0e1089e751eb7e318dd454dbd1d99d717e100f8aec2c7ecfba9fb4daa238a1a9';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -83,6 +83,7 @@ function snapshotPayload(d) {
         d.rollRelicOffers('seed-a', [], 3, 1),
         d.rollRelicOffers('seed-b', [{ id: 'sharp', level: 2 }], 3, 5),
       ],
+      rollStarterOffers: d.rollStarterOffers('seed-starter', 'normal'),
       unlockedTowerIds: [d.unlockedTowerIds([]), d.unlockedTowerIds(d.UNLOCKS.map((u) => u.id))],
       towerLevelStats: [
         d.towerLevelStats('arrow', 0),
@@ -119,6 +120,7 @@ test('data.js 只做再导出：绑定与各主题模块同一引用', () => {
   assert.equal(data.RELICS, relics.RELICS);
   assert.equal(data.RELIC_BY_ID, relics.RELIC_BY_ID);
   assert.equal(data.rollRelicOffers, relics.rollRelicOffers);
+  assert.equal(data.rollStarterOffers, relics.rollStarterOffers);
   assert.equal(data.UNLOCKS, unlocks.UNLOCKS);
   assert.equal(data.UNLOCK_BY_ID, unlocks.UNLOCK_BY_ID);
   assert.equal(data.unlockedTowerIds, unlocks.unlockedTowerIds);
@@ -145,7 +147,7 @@ test('各主题模块的导出面保持单一职责', () => {
   assert.deepEqual(Object.keys(relics).sort(), [
     'MODE_RARITY_WEIGHTS', 'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
     'fallbackOffers', 'normalizeRelicState', 'normalizeRelicStates', 'rarityWeightForMode',
-    'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers',
+    'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers', 'rollStarterOffers',
   ]);
 });
 

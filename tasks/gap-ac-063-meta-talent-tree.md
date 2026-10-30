@@ -44,6 +44,7 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 - `normalizeTalent`/`investTalent`/`talentEffect`/`talentMods` 纯函数；`talentMods` 只汇总 `EFFECT_REGISTRY` 已声明键（`skillCd`/`skillPower` 未注册，留给技能层，sim 不折叠）。
 - sim 在 `recomputeMods()` 内折叠天赋被动（零投入为空操作，逐字节一致）；持久化走 `player_kv('meta','talent')`，与星核/成就/通行证/悬赏分离；`toSnapshot` 不写天赋字段。
 - DOM 加点面板不在本任务 Touches（无 ui 文件），本次只落地数据/持久化/sim/i18n 四层；i18n 中英已成对（`talent.*` 与 `data.talent.*`）。
+- sim.js 由 595 → 608 行越过 600 行运行时预算，登记结构债务 `scripts/structure-budget.allow.d/gap-ac-063-meta-talent-tree.json`（maxLines 650）；同时删除 R6 收口遗留的空壳 `scripts/structure-budget.allow.d/refactor-closeout.json`（债务登记非空后空壳文件非法，见 `tests/structure-budget.test.mjs`）。
 
 ## Touches
 
@@ -53,14 +54,14 @@ AC-063（天赋树与永久强化在模拟、快照与 UI 一致生效）已激�
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tests/meta-tree.test.mjs`
+- `scripts/structure-budget.allow.d/gap-ac-063-meta-talent-tree.json`
+- `scripts/structure-budget.allow.d/refactor-closeout.json`
 - `tasks/gap-ac-063-meta-talent-tree.md`
 
 ## Blocker
 
-**2026-10-30T11:22:35.823Z — worker 未落地（exited-not-landed）**
+**2026-10-30T12:13:36.159Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (420e8801) — it is 6 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
-  The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-063-meta-talent-tree's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
-  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- 未落地原因：step=suite: name: 'AssertionError'
 - run_id：wk-prod-anchor
-- session_id：986a3af8-85cf-4406-b7f6-ad9d54dbe297
+- session_id：e6c6bc02-960d-4db4-9a47-4af240edf9cb

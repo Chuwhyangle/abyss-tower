@@ -20,7 +20,7 @@ import {
   DIFFICULTIES,
   SKILLS,
   TOWER_ORDER,
-  rollRelicOffers,
+  rollStarterOffers,
   unlockedTowerIds,
 } from '../../public/js/shared/data.js';
 import {
@@ -199,6 +199,14 @@ export function hexRuntimeFor(run) {
   return new HexRuntime(hexFor(run)?.id || null);
 }
 
+// 信物三选一状态：候选 id 与已选 id 都持久化在 ruleset.rogue2.starter（§8.2/§8.4）。
+// 旧 run 无该字段时返回 null，客户端据此跳过信物流程。
+export function starterFor(run) {
+  const starter = run?.ruleset?.rogue2?.starter;
+  if (!starter || !Array.isArray(starter.offers) || starter.offers.length === 0) return null;
+  return { offers: [...starter.offers], picked: starter.picked ?? null };
+}
+
 // ---------- 开局规则计算 ----------
 
 // 建局前的全部规则推导：模式/难度/技能/开局资源/规则集/固定图/变异与开局响应字段。
@@ -311,11 +319,10 @@ export function planRunStart({ token, profile, body, testSeed }) {
   if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
   if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
   if (mutationInfo) ruleset.mutations = mutationInfo;
-  const startRelics = unlocks.includes('start_relic')
-    ? rollRelicOffers(`${seed}:start:${token}`, [], 1, 1, mode)
-        .filter((offer) => offer.kind === 'relic')
-        .map((offer) => ({ id: offer.id, level: offer.toLevel }))
-    : [];
+  // 信物三选一（§9）：候选由服务端按 ${seed}:starter:${mode} 派生并持久化到 ruleset，
+  // 客户端不得自造候选。取代既有的 start_relic 随机送 1 件。
+  const starterOffers = rollStarterOffers(`${seed}:starter:${mode}`, mode).map((offer) => offer.id);
+  ruleset.rogue2 = { starter: { offers: starterOffers, picked: null } };
   // 固定地图池：所有模式（普通/每日/本周/无尽/变异）都是同一组三张图与固定 trait。
   const candidates = generateMapCandidates(seed, FIXED_MAP_COUNT);
   // 词缀即固定地图的 trait（无 trait 的 canyon 不参与）；不再做随机词缀一致性校验。
@@ -356,7 +363,7 @@ export function planRunStart({ token, profile, body, testSeed }) {
       day,
       boardKey: boardKeyFor(mode, day),
       contentVersion: CONTENT_VERSION,
-      relics: startRelics,
+      relics: [],
       ruleset,
     },
     response: {
@@ -372,7 +379,9 @@ export function planRunStart({ token, profile, body, testSeed }) {
       hexPoolVersion: HEX_POOL_VERSION,
       startingGold,
       baseHp,
-      relics: startRelics,
+      relics: [],
+      // 信物三选一：candidate 由服务端派生；选中前 picked 为 null，选中后由选择动作写入。
+      starter: { offers: starterOffers, picked: null },
       // 每日/本周挑战开放全部塔，保证同一规则集下的榜单公平；变异会收窄可用塔。
       towersUnlocked,
       skill: ruleset.skill,
