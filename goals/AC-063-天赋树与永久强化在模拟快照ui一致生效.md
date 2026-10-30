@@ -1,7 +1,7 @@
 ---
 id: AC-063
 title: 天赋树与永久强化在模拟、快照与 UI 一致生效
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-012
 criterion: test -s public/js/shared/data/meta.js && grep -q 'talent'
@@ -15,6 +15,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-10-30T13:58:22.959Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"
