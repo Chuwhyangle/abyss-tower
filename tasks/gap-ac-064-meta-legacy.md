@@ -56,10 +56,10 @@ AC-064（跨局传承与星核/成就/通行证/悬赏分层清晰无重复）�
 
 ## Blocker
 
-**2026-10-30T11:41:04.348Z — worker 未落地（exited-not-landed）**
+**2026-10-30T11:45:52.035Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (8d0566aa) — it is 8 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (bdba2e68) is NOT a continuation of the project's default branch 'main' (6e669ed6) — it is 9 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
   The develop...HEAD diff is therefore the mainline's divergence, NOT task gap-ac-064-meta-legacy's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
   Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：fc2e8345-ac7a-4db2-b1d9-9a52028f8c19
+- session_id：cc484fb0-f4ba-497b-b549-eddc4cca9c60
