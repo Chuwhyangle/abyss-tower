@@ -1,7 +1,7 @@
 ---
 id: GOAL-010
 title: 敌人扩充与固定三图平衡校准
-status: achieved
+status: active
 kind: goal
 origin: 人 2026-10-30：敌人已 12 类且进波次，但固定三图平衡崩盘（29%/1%/0%）；决定再扩 2–4 类敌人并统一重平衡
 activatedAt: 2026-10-30T06:54:26.000Z
@@ -16,6 +16,11 @@ statusLog:
     to: achieved
     actor: goal-driver
     reason: "I2: all ACs achieved + sufficiency covered"
+  - at: 2026-10-30T08:28:27.000Z
+    from: achieved
+    to: active
+    actor: goal-cli
+    reason: "人 2026-10-30 重开：3 个 AC 卡 draft 被误判 achieved"
 ---
 ## 背景
 
