@@ -1,7 +1,7 @@
 ---
 id: gap-goal-012-meta-legacy-consistency-ac
 title: GOAL-012 充分性缺口：退出条件 2『传承…在模拟、快照、UI 一致生效』无在域 AC（提案新增可执行 AC）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
