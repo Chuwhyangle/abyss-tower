@@ -52,8 +52,8 @@ AC-065（GOAL-012 退出条件 4：meta 增益纳入后三档仍在目标区间�
 - `tests/meta-tree.test.mjs`
 - `scripts/test-changed.mjs`
 - `public/js/shared/data/meta.js`
-- `public/js/shared/i18n/en-US.js`
-- `public/js/shared/i18n/zh-CN.js`
+- `public/js/shared/i18n/en-US.meta.js`
+- `public/js/shared/i18n/zh-CN.meta.js`
 - `docs/BALANCE.md`
 - `docs/BALANCE_META.json` (new)
 - `docs/PHASE_META.md`
@@ -63,4 +63,4 @@ AC-065（GOAL-012 退出条件 4：meta 增益纳入后三档仍在目标区间�
 
 平衡改动只碰 meta 增益幅度与平衡模拟接入，不碰波次生成、经济计分、敌人入口与战斗 RNG 调用顺序（`public/js/sim.js` 确定性不得回归）。`docs/BALANCE.md` 的目标区间来自 `BALANCE_TARGETS`（`public/js/shared/config.js`），不得自行放宽；目标若需调整必须由人拍板并在 Notes 记录。注意 `tests/balance-sim.mjs` 既有参数名 `meta` 是「全解锁机器人」布尔口径，与 GOAL-012 的 meta 增益无关，接入时用新参数名避免混淆。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
 
-2026-11-02 复测落地：满 meta（全节点满投入）首测把远征顶到 52%、深渊顶到 23%（零 meta 基线 37% / 12%），先压 1/10 仍越上限（远征 45%、深渊 13%）；按 DoD「若满 meta 越上限只砍 meta.js 增益幅度」最终压到表示精度下限、约原值 1/40（`dmgAll 0.001` / `range 0.01` / `costMul -0.001` / `goldMul 0.001` / `interest 0.001` / `killGold 0.02`；`skillCd` / `skillPower` 未注册折叠，仅 UI 可见），并同步 docs/PHASE_META.md §4.1 冻结值与 zh-CN/en-US i18n 描述、`tests/meta-tree.test.mjs` 硬断言。40 种子复测两端点三档均达标：零 meta 漫游 77% / 远征 37% / 深渊 12%，满 meta 漫游 78% / 远征 36% / 深渊 12%。取舍记录：深渊零 meta 基线已贴 12% 上界，剩余头寸不足 0.4pp，满 meta 幅度近乎象征性；若后续要把天赋做得更「可感知」，须由人重排零 meta 基线或放宽深渊目标区间，本任务未自行调整目标区间。
+2026-11-02 复测落地：满 meta（全节点满投入）首测把远征顶到 52%、深渊顶到 23%（零 meta 基线 37% / 12%），先压 1/10 仍越上限（远征 45%、深渊 13%）；按 DoD「若满 meta 越上限只砍 meta.js 增益幅度」最终压到表示精度下限、约原值 1/40（`dmgAll 0.001` / `range 0.01` / `costMul -0.001` / `goldMul 0.001` / `interest 0.001` / `killGold 0.02`；`skillCd` / `skillPower` 未注册折叠，仅 UI 可见），并同步 docs/PHASE_META.md §4.1 冻结值与 i18n 描述、`tests/meta-tree.test.mjs` 硬断言。合并 develop 后，i18n 域拆分（`gap-i18n-split-per-domain`）已把 talent 描述落位到 `en-US.meta.js` / `zh-CN.meta.js`，本任务的 i18n 同步随之改在这两个文件；合并后 per-map `hpMul`（`gap-map-difficulty-spread-compensation`）已入 `tests/balance-sim.mjs`，本任务复测在其上叠加 meta 端点。40 种子复测两端点三档均达标：零 meta 漫游 77% / 远征 30% / 深渊 9%，满 meta 漫游 78% / 远征 32% / 深渊 10%。取舍记录：深渊零 meta 基线已贴 12% 上界，剩余头寸不足 0.4pp，满 meta 幅度近乎象征性；若后续要把天赋做得更「可感知」，须由人重排零 meta 基线或放宽深渊目标区间，本任务未自行调整目标区间。
