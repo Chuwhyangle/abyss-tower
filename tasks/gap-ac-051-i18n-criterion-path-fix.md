@@ -2,7 +2,7 @@
 id: gap-ac-051-i18n-criterion-path-fix
 title: AC-051 判据路径修正：i18n 域拆分把 wraith/golem 键迁到 zh-CN.enemies.js，criterion
   改指域名文件使其重新为真
-status: ready
+status: done
 labels:
   - gap
   - defect
