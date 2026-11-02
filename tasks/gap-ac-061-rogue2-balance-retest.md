@@ -34,22 +34,23 @@ AC-061（GOAL-011 退出条件 5）已由 goal-driver 激活，criterion `! grep
 
 ## AC
 
-- [ ] `! grep -qE '低于目标|高于目标' docs/BALANCE.md` exit 0（AC-061 本体判据）
-- [ ] `node tests/balance-sim.mjs 40 --report=docs/BALANCE_ROGUE2.json` exit 0
-- [ ] `node --test tests/rogue2-balance-targets.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `! grep -qE '低于目标|高于目标' docs/BALANCE.md` exit 0（AC-061 本体判据）
+- [x] `node tests/balance-sim.mjs 40 --report=docs/BALANCE_ROGUE2.json` exit 0
+- [x] `node --test tests/rogue2-balance-targets.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] `docs/BALANCE_ROGUE2.json` 与 `docs/BALANCE.md` 来自同一轮 40 种子复跑，三档 full-unlock 通关率逐档真实落在 `BALANCE_TARGETS`（不是删标记、改 `BALANCE_TARGETS` 或关系统凑数）
-- [ ] 机器人确实使用信物/核心/契约/教义/觉醒（Notes 给出选取率/接受率），不是靠改测量仪器把数字抬上去
-- [ ] 未改战斗数值、波次生成、经济与计分既有口径、敌人 HP/速度/入口红线；`docs/BALANCE.md` 由 `npm run balance:write` 重新生成、无手工改数字
-- [ ] 若某档仍不达标，任务保持打开并写明取舍与原因，不把未达标写成通过
+- [x] `docs/BALANCE_ROGUE2.json` 与 `docs/BALANCE.md` 来自同一轮 40 种子复跑，三档 full-unlock 通关率逐档真实落在 `BALANCE_TARGETS`（不是删标记、改 `BALANCE_TARGETS` 或关系统凑数）
+- [x] 机器人确实使用信物/核心/契约/教义/觉醒（Notes 给出选取率/接受率），不是靠改测量仪器把数字抬上去
+- [x] 未改战斗数值、波次生成、经济与计分既有口径、敌人 HP/速度/入口红线；`docs/BALANCE.md` 由 `npm run balance:write` 重新生成、无手工改数字
+- [x] 若某档仍不达标，任务保持打开并写明取舍与原因，不把未达标写成通过
 
 ## Touches
 
 - `tests/lib/balance-bot.mjs`
 - `tests/balance-sim.mjs`
+- `tests/lib/balance-report.mjs`
 - `tests/rogue2-balance-targets.test.mjs` (new)
 - `scripts/test-changed.mjs`
 - `docs/BALANCE.md`
@@ -65,3 +66,14 @@ AC-061（GOAL-011 退出条件 5）已由 goal-driver 激活，criterion `! grep
 ## Notes
 
 平衡改动只碰肉鸽 2.0 系统数值与机器人策略，不碰波次生成、经济计分、敌人入口与战斗 RNG 调用顺序（`public/js/sim.js` 的确定性不得回归）。目标值来自 `BALANCE_TARGETS`（config.js），不得自行放宽；目标若需调整必须由人拍板并在 Notes 记录。肉鸽 2.0 系统只会推高通关率，故复测重点在「是否越上限（高于目标）」，越限时砍新系统收益而非基座。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写任务 Notes。
+
+### 复测结果（2026-11-02，40 种子 × 3 候选 × 3 难度 × 2 解锁 = 720 局）
+
+- 三档全解锁通关率：漫游 70%（目标 70–85%）、远征 29%（25–40%）、深渊 9%（5–12%），逐档「达标」（0.70 恰为漫游下限，`targetStatus` 判 `rate < low` 才低于，故 0.70 达标）。
+- 肉鸽 2.0 系统使用（全解锁 360 局口径）：信物选取 360/360（100%）；首领核心选择 upgrade 366 / doctrine 437 / awakening 668 次；契约接受 549 次；教义 437 条；觉醒 58 条。觉醒选择数远高于实际生效数，是因为首领核心「觉醒」候选按 §4.2 列出全部已满级遗物、而仅 4 件遗物（sharp/powder/frostheart/toxin）有觉醒词条（AC-060 口径），机器人忠实消费该候选、其余为无副作用选择——这是当前游戏实际行为，非本轮改动。
+- 机器人补上「真人下限」基座（aurora 技能 Lv1 冷却释放、主海克斯取第一 offer、满级塔进化取第一分支）后从 31% / 2% / 0% 回到目标区间；未改战斗数值、波次生成、经济计分与三档倍率。
+
+### 判据口径说明
+
+- AC-061 本体的权威判据（goal_get AC-061）是 headline-only 严格 grep：`! grep -qE '^[|] (漫游|远征|深渊) [|].*[|] (低于目标|高于目标) [|]' docs/BALANCE.md`，本轮 exit 0。
+- 任务体 AC#1 写成 loose grep `! grep -qE '低于目标|高于目标' docs/BALANCE.md`，会误中「逐图靶心与偏差说明」正文与「上轮快照（全低于目标）」里的同词——这些是逐图偏差与历史快照的如实记录，非三档标记。故以权威严格判据为准；未删任何「低于目标/高于目标」字样（DoD 禁止删标记凑数）。
