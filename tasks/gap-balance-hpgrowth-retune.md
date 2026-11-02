@@ -1,7 +1,7 @@
 ---
 id: gap-balance-hpgrowth-retune
 title: 平衡重调：降 hpGrowth 使三档通关率回目标区间（AC-052/061/065 共根因）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
