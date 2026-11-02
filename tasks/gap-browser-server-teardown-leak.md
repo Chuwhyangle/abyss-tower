@@ -1,7 +1,7 @@
 ---
 id: gap-browser-server-teardown-leak
 title: 浏览器测试 server 泄漏：崩溃路径不回收 server/index.mjs，补 teardown 兜底
-status: todo
+status: ready
 labels:
   - gap
 parent: null
