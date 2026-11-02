@@ -79,13 +79,15 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
     Math.pow(BALANCE.hpGrowth, hpIndex - 1) *
     diff.hpMul *
     (isFinal ? BALANCE.finalBossMul : 1) *
-    (modifier?.hpMul || 1);
+    (modifier?.hpMul || 1) *
+    (mapMeta.hpMul || 1);
   // 首领使用独立血量曲线：普通敌人的 1.165 曲线到第 30 波会让首领血量失控。
   const bossHpMul = round3(
     Math.pow(BALANCE.bossHpGrowth, bossHpIndex - 1) *
       diff.hpMul *
       (isFinal ? BALANCE.bossFinalMul : 1) *
-      (modifier?.hpMul || 1)
+      (modifier?.hpMul || 1) *
+      (mapMeta.hpMul || 1)
   );
   const rawSpeedMul =
     (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1);

@@ -1,6 +1,6 @@
 // 固定地图 2/3 · 双牙桥（twin）
 // 两入口在中段汇流后共赴基地，汇流点是黄金火力点。
-// 固定 trait：商路（击杀金币 +10%，敌人生命 +8%），计分倍率 1.00。
+// 固定 trait：商路（击杀金币 +10%，敌人生命 +8%），计分倍率 1.00，敌人生命倍率 0.9（难图降难度补偿）。
 const TRADE_TRAIT = {
   id: 'trade',
   name: '商路',
@@ -23,6 +23,7 @@ export const TWIN_SPEC = {
   cols: 22,
   rows: 12,
   scoreMul: 1,
+  hpMul: 0.9,
   trait: TRADE_TRAIT,
   lanes: [
     {

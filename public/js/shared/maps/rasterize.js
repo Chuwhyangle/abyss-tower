@@ -12,6 +12,11 @@ const MIN_PATH_CELLS = 9;
 const SCORE_MUL_MIN = 0.9;
 const SCORE_MUL_MAX = 1.25;
 
+// 逐图敌人生命补偿倍率：难图 <1（降 HP）、易图 >1（升 HP），用于收敛逐图通关率。
+// 只作用在敌人血量上，不参与计分；与固定 trait 的 hpMul 相乘后生效。
+const HP_MUL_MIN = 0.8;
+const HP_MUL_MAX = 1.2;
+
 export class MapSpecError extends Error {
   constructor(reason, detail = {}) {
     super(`固定地图数据非法：${reason}${detail.detail ? `（${detail.detail}）` : ''}`);
@@ -122,6 +127,7 @@ export function buildFixedMap(spec) {
   }
 
   const scoreMul = roundScoreMul(spec.scoreMul, id);
+  const hpMul = roundHpMul(spec.hpMul, id);
   const baseWaypoint = spec.base;
   if (!isCellInBounds(baseWaypoint, cols, rows)) {
     throw new MapSpecError('base-out-of-bounds', { id, detail: JSON.stringify(baseWaypoint) });
@@ -226,6 +232,7 @@ export function buildFixedMap(spec) {
     portalCount: spawns.length,
     modifier: trait ? cloneMapData(trait) : null,
     scoreMul,
+    hpMul,
     merge,
   };
 
@@ -393,6 +400,19 @@ function roundScoreMul(value, id) {
   const rounded = Math.round(scoreMul * 100) / 100;
   if (rounded < SCORE_MUL_MIN || rounded > SCORE_MUL_MAX) {
     throw new MapSpecError('scoreMul-out-of-range', { id, detail: String(scoreMul) });
+  }
+  return rounded;
+}
+
+function roundHpMul(value, id) {
+  // 缺省视为 1（不补偿），旧 spec / 合成地图无需声明 hpMul。
+  const hpMul = value == null ? 1 : Number(value);
+  if (!Number.isFinite(hpMul)) {
+    throw new MapSpecError('hpMul-invalid', { id, detail: String(value) });
+  }
+  const rounded = Math.round(hpMul * 100) / 100;
+  if (rounded < HP_MUL_MIN || rounded > HP_MUL_MAX) {
+    throw new MapSpecError('hpMul-out-of-range', { id, detail: String(hpMul) });
   }
   return rounded;
 }
