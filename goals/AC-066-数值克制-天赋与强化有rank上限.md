@@ -1,7 +1,7 @@
 ---
 id: AC-066
 title: 数值克制：天赋与强化有 rank 上限，可感知但不碾压
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-012
 criterion: test -s public/js/shared/data/meta.js && grep -q 'maxRank'
@@ -15,6 +15,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-11-02T09:52:56.332Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"
