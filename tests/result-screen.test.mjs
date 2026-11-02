@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import zhCN from '../public/js/shared/i18n/zh-CN.js';
+import enUS from '../public/js/shared/i18n/en-US.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
@@ -26,8 +28,6 @@ const UI_MODULES = [
 ];
 const UI = UI_MODULES.map(read).join('\n');
 const CSS = read('public/styles.css');
-const ZH = read('public/js/shared/i18n/zh-CN.js');
-const EN = read('public/js/shared/i18n/en-US.js');
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -113,8 +113,8 @@ test('新增文案在中英字典中都存在，且不引入第三方依赖', ()
     'result.share',
     'result.shareUnavailable',
   ]) {
-    assert.match(ZH, new RegExp(`'${key.replaceAll('.', '\\.')}'`), `中文缺少 ${key}`);
-    assert.match(EN, new RegExp(`'${key.replaceAll('.', '\\.')}'`), `英文缺少 ${key}`);
+    assert.ok(Object.prototype.hasOwnProperty.call(zhCN, key), `中文缺少 ${key}`);
+    assert.ok(Object.prototype.hasOwnProperty.call(enUS, key), `英文缺少 ${key}`);
   }
   assert.doesNotMatch(UI, /from\s+['"](?!\.)/, 'ui.js 不得引入第三方/裸模块');
 });

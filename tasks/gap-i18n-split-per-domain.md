@@ -1,7 +1,7 @@
 ---
 id: gap-i18n-split-per-domain
 title: i18n 词典按域拆分：解除内容任务串行热点
-status: ready
+status: done
 labels:
   - gap
 parent: null
