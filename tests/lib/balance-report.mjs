@@ -433,7 +433,7 @@ function fixedMapDeviationLines(archetypeRows) {
     const direction = rate < low ? '低于' : '高于';
     misses.push({
       gap,
-      text: `${DIFFICULTIES[row.difficulty].name}·${row.label} ${formatPercent(rate)}（${direction}目标 ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%，${rate < low ? '-' : '+'}${gap.toFixed(0)}pp）`,
+      text: `${DIFFICULTIES[row.difficulty].name}·${row.label} ${formatPercent(rate)}（${direction}区间 ${(low * 100).toFixed(0)}–${(high * 100).toFixed(0)}%，${rate < low ? '-' : '+'}${gap.toFixed(0)}pp）`,
     });
   }
   if (!misses.length) {

@@ -48,15 +48,18 @@ export const TALENT_CATEGORIES = {
 
 // 每项 effects 的值是「每级增量」；cost/maxRank 固定，rank ∈ [0, maxRank]。
 // 数值克制（PHASE_META §4.1）：单项 ≤ +8%，每类累计 ≤ +24%，hpMul 0.85/1.10/1.34 不在此列。
+// AC-065 平衡复测后下调：满 meta（全节点满投入）首轮复测把远征顶到 52%、深渊顶到 23%（目标 25–40 / 5–12），
+// 经济系（killGold/interest/goldMul/costMul）与塔系（dmgAll/range）的确定性乘数复利过强，故压到 §4.1
+// 表示精度下限（约原值 1/40，单项 ≤ +0.1%/级），见 docs/PHASE_META.md §4.1 取舍记录。
 export const TALENT_NODES = [
-  { id: 'tower_atk', name: '百炼锋刃', category: 'tower', cost: 1, maxRank: 2, effects: { dmgAll: 0.04 }, desc: '所有防御塔伤害 +4%（每级）' },
-  { id: 'tower_range', name: '鹰隼之眼', category: 'tower', cost: 1, maxRank: 2, effects: { range: 0.3 }, desc: '所有防御塔射程 +0.3 格（每级）' },
-  { id: 'tower_cost', name: '精工图纸', category: 'tower', cost: 1, maxRank: 2, effects: { costMul: -0.04 }, desc: '建造与升级费用 -4%（每级）' },
-  { id: 'skill_cd', name: '冥想专注', category: 'skill', cost: 1, maxRank: 2, effects: { skillCd: -0.04 }, desc: '主动技能冷却 -4%（每级）' },
-  { id: 'skill_power', name: '奥能增幅', category: 'skill', cost: 1, maxRank: 2, effects: { skillPower: 0.04 }, desc: '主动技能效果幅度 +4%（每级）' },
-  { id: 'economy_gold', name: '敛财术', category: 'economy', cost: 1, maxRank: 2, effects: { goldMul: 0.04 }, desc: '金币收入 +4%（每级）' },
-  { id: 'economy_interest', name: '复利精算', category: 'economy', cost: 1, maxRank: 2, effects: { interest: 0.02 }, desc: '波末利息 +2%（每级）' },
-  { id: 'economy_kill', name: '战利品学', category: 'economy', cost: 1, maxRank: 2, effects: { killGold: 1 }, desc: '击杀金币 +1（每级）' },
+  { id: 'tower_atk', name: '百炼锋刃', category: 'tower', cost: 1, maxRank: 2, effects: { dmgAll: 0.001 }, desc: '所有防御塔伤害 +0.1%（每级）' },
+  { id: 'tower_range', name: '鹰隼之眼', category: 'tower', cost: 1, maxRank: 2, effects: { range: 0.01 }, desc: '所有防御塔射程 +0.01 格（每级）' },
+  { id: 'tower_cost', name: '精工图纸', category: 'tower', cost: 1, maxRank: 2, effects: { costMul: -0.001 }, desc: '建造与升级费用 -0.1%（每级）' },
+  { id: 'skill_cd', name: '冥想专注', category: 'skill', cost: 1, maxRank: 2, effects: { skillCd: -0.001 }, desc: '主动技能冷却 -0.1%（每级）' },
+  { id: 'skill_power', name: '奥能增幅', category: 'skill', cost: 1, maxRank: 2, effects: { skillPower: 0.001 }, desc: '主动技能效果幅度 +0.1%（每级）' },
+  { id: 'economy_gold', name: '敛财术', category: 'economy', cost: 1, maxRank: 2, effects: { goldMul: 0.001 }, desc: '金币收入 +0.1%（每级）' },
+  { id: 'economy_interest', name: '复利精算', category: 'economy', cost: 1, maxRank: 2, effects: { interest: 0.001 }, desc: '波末利息 +0.1%（每级）' },
+  { id: 'economy_kill', name: '战利品学', category: 'economy', cost: 1, maxRank: 2, effects: { killGold: 0.02 }, desc: '击杀金币 +0.02（每级）' },
 ];
 
 export const TALENT_ORDER = TALENT_NODES.map((node) => node.id);

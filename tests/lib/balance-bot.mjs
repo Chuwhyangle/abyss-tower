@@ -6,6 +6,7 @@ import { DESTRUCTIBLE_BY_ID } from '../../public/js/shared/destructibles.js';
 import { offerHexes } from '../../public/js/shared/hexes/index.js';
 import { rollBossCoreOffers } from '../../public/js/shared/boss-core.js';
 import { isContractWave, rollContractOffer } from '../../public/js/shared/contracts.js';
+import { TALENT_NODES } from '../../public/js/shared/data/meta.js';
 
 function numericArg(flag, fallback) {
   const raw = process.argv.find((arg) => arg.startsWith(`--${flag}=`));
@@ -292,6 +293,24 @@ function evolveReadyTowers(sim) {
     const options = sim.evolutionOptions(tower);
     if (options[0]) sim.evolveTower(tower, options[0].id);
   }
+}
+
+// ---------- GOAL-012 账号级 meta 增益端点 ----------
+
+// 平衡复测的两个端点：'zero' = 账号无任何天赋/传承投入；'full' = 全部天赋节点满投入。
+// 只返回账号天赋状态（{ points, nodes }），由 sim.js 在开局一次性折叠进 mods（deterministic），
+// 机器人不额外加钱/加伤，仍走既有的固定策略——天赋带来的 costMul/goldMul/interest/killGold
+// 通过 sim.towerCost / sim.upgradeCost / sim.gold 等状态真实进入机器人决策，dmgAll/range 在
+// 战斗里真实生效，不靠作弊凑数（PHASE_META §4.1/§4.2）。
+export function accountTalent(endpoint) {
+  if (endpoint !== 'full') return { points: 0, nodes: {} };
+  const nodes = {};
+  let spent = 0;
+  for (const node of TALENT_NODES) {
+    nodes[node.id] = node.maxRank;
+    spent += node.maxRank;
+  }
+  return { points: spent, nodes };
 }
 
 export {

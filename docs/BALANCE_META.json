@@ -1,0 +1,234 @@
+{
+  "meta": {
+    "seeds": 40,
+    "candidates": 3,
+    "totalRuns": 720,
+    "method": "真实 Simulation + 固定机器人策略（无渲染）",
+    "difficultyOrder": [
+      "roam",
+      "standard",
+      "abyss"
+    ],
+    "targets": {
+      "roam": [
+        0.7,
+        0.85
+      ],
+      "standard": [
+        0.25,
+        0.4
+      ],
+      "abyss": [
+        0.05,
+        0.12
+      ]
+    },
+    "difficulties": {
+      "roam": {
+        "name": "漫游",
+        "hpMul": 0.85,
+        "countMul": 0.87,
+        "speedMul": 0.96,
+        "goldBonus": 60,
+        "hpBonus": 5
+      },
+      "standard": {
+        "name": "远征",
+        "hpMul": 1.1,
+        "countMul": 1.04,
+        "speedMul": 1.01,
+        "goldBonus": 0,
+        "hpBonus": 0
+      },
+      "abyss": {
+        "name": "深渊",
+        "hpMul": 1.34,
+        "countMul": 1.12,
+        "speedMul": 1.05,
+        "goldBonus": -20,
+        "hpBonus": -3
+      }
+    },
+    "endpoints": [
+      "zero",
+      "full"
+    ]
+  },
+  "endpoints": {
+    "zero": {
+      "label": "零 meta",
+      "talent": {
+        "points": 0,
+        "nodes": {}
+      },
+      "summary": [
+        {
+          "difficulty": "roam",
+          "meta": "full",
+          "runs": 120,
+          "wins": 92,
+          "winRate": 0.7666666666666667,
+          "avgWave": 28.475,
+          "medianWave": 30,
+          "maxWave": 30,
+          "avgScore": 42864,
+          "avgTowers": "18.0",
+          "avgHp": "18.9",
+          "avgGold": 4429,
+          "avgSeconds": 709,
+          "avgPortals": "1.67",
+          "stuck": 0
+        },
+        {
+          "difficulty": "standard",
+          "meta": "full",
+          "runs": 120,
+          "wins": 44,
+          "winRate": 0.36666666666666664,
+          "avgWave": 24.783333333333335,
+          "medianWave": 29,
+          "maxWave": 30,
+          "avgScore": 42505,
+          "avgTowers": "17.7",
+          "avgHp": "6.5",
+          "avgGold": 3939,
+          "avgSeconds": 675,
+          "avgPortals": "1.67",
+          "stuck": 0
+        },
+        {
+          "difficulty": "abyss",
+          "meta": "full",
+          "runs": 120,
+          "wins": 14,
+          "winRate": 0.11666666666666667,
+          "avgWave": 19,
+          "medianWave": 19,
+          "maxWave": 30,
+          "avgScore": 44213,
+          "avgTowers": "16.3",
+          "avgHp": "1.8",
+          "avgGold": 2663,
+          "avgSeconds": 536,
+          "avgPortals": "1.67",
+          "stuck": 0
+        }
+      ],
+      "targets": [
+        {
+          "difficulty": "roam",
+          "low": 0.7,
+          "high": 0.85,
+          "winRate": 0.7667,
+          "status": "达标"
+        },
+        {
+          "difficulty": "standard",
+          "low": 0.25,
+          "high": 0.4,
+          "winRate": 0.3667,
+          "status": "达标"
+        },
+        {
+          "difficulty": "abyss",
+          "low": 0.05,
+          "high": 0.12,
+          "winRate": 0.1167,
+          "status": "达标"
+        }
+      ]
+    },
+    "full": {
+      "label": "满 meta",
+      "talent": {
+        "points": 16,
+        "nodes": {
+          "tower_atk": 2,
+          "tower_range": 2,
+          "tower_cost": 2,
+          "skill_cd": 2,
+          "skill_power": 2,
+          "economy_gold": 2,
+          "economy_interest": 2,
+          "economy_kill": 2
+        }
+      },
+      "summary": [
+        {
+          "difficulty": "roam",
+          "meta": "full",
+          "runs": 120,
+          "wins": 93,
+          "winRate": 0.775,
+          "avgWave": 28.6,
+          "medianWave": 30,
+          "maxWave": 30,
+          "avgScore": 43256,
+          "avgTowers": "18.0",
+          "avgHp": "19.3",
+          "avgGold": 4530,
+          "avgSeconds": 709,
+          "avgPortals": "1.67",
+          "stuck": 0
+        },
+        {
+          "difficulty": "standard",
+          "meta": "full",
+          "runs": 120,
+          "wins": 43,
+          "winRate": 0.35833333333333334,
+          "avgWave": 24.858333333333334,
+          "medianWave": 29,
+          "maxWave": 30,
+          "avgScore": 42556,
+          "avgTowers": "17.7",
+          "avgHp": "6.2",
+          "avgGold": 3975,
+          "avgSeconds": 673,
+          "avgPortals": "1.67",
+          "stuck": 0
+        },
+        {
+          "difficulty": "abyss",
+          "meta": "full",
+          "runs": 120,
+          "wins": 14,
+          "winRate": 0.11666666666666667,
+          "avgWave": 18.808333333333334,
+          "medianWave": 17,
+          "maxWave": 30,
+          "avgScore": 43905,
+          "avgTowers": "16.2",
+          "avgHp": "1.8",
+          "avgGold": 2667,
+          "avgSeconds": 527,
+          "avgPortals": "1.67",
+          "stuck": 0
+        }
+      ],
+      "targets": [
+        {
+          "difficulty": "roam",
+          "low": 0.7,
+          "high": 0.85,
+          "winRate": 0.775,
+          "status": "达标"
+        },
+        {
+          "difficulty": "standard",
+          "low": 0.25,
+          "high": 0.4,
+          "winRate": 0.3583,
+          "status": "达标"
+        },
+        {
+          "difficulty": "abyss",
+          "low": 0.05,
+          "high": 0.12,
+          "winRate": 0.1167,
+          "status": "达标"
+        }
+      ]
+    }
+  }
+}

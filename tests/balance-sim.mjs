@@ -29,6 +29,7 @@ import { BALANCE_TARGETS } from '../public/js/shared/config.js';
 import { isBossCoreWave } from '../public/js/shared/boss-core.js';
 import {
   SKILL,
+  accountTalent,
   applyBossCoreChoice,
   buildCoverage,
   evolveReadyTowers,
@@ -80,7 +81,7 @@ const REPORT_PATH = stringArg('report');
 
 // ---------- 单局模拟 ----------
 
-export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride = null) {
+export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride = null, metaGain = 'zero') {
   const diff = DIFFICULTIES[difficulty];
   const candidates = generateMapCandidates(seed, 3);
   const map =
@@ -107,6 +108,9 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
     unlockedTowers,
     hex: pickHex(seed),
     skill: SKILL,
+    // GOAL-012 meta 增益：对局开始时一次性注入账号天赋状态，sim 折叠为确定性乘数；
+    // 不新增 RNG、不改 sim RNG 调用顺序（PHASE_META §4.2）。零投入得到空 mods。
+    talent: accountTalent(metaGain),
     onGameOver: (stats) => {
       result = stats;
     },
@@ -241,6 +245,7 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
     scoreMul: map.meta?.scoreMul || 1,
     difficulty,
     meta,
+    metaGain,
     victory: !!stats.victory,
     stuck,
     wave: stats.wave,
@@ -290,8 +295,7 @@ export function runBatch({ seeds = SEEDS, candidates = CANDIDATES } = {}) {
   return rows;
 }
 
-export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {}) {
-  const summary = summarize(rows);
+export function buildDifficultiesMeta() {
   const difficulties = {};
   for (const id of DIFFICULTY_ORDER) {
     const diff = DIFFICULTIES[id];
@@ -304,6 +308,11 @@ export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {
       hpBonus: diff.hpBonus,
     };
   }
+  return difficulties;
+}
+
+export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {}) {
+  const summary = summarize(rows);
   return {
     meta: {
       seeds,
@@ -312,7 +321,7 @@ export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {
       method: '真实 Simulation + 固定机器人策略（无渲染）',
       difficultyOrder: DIFFICULTY_ORDER.slice(),
       targets: BALANCE_TARGETS,
-      difficulties,
+      difficulties: buildDifficultiesMeta(),
     },
     summary,
     targets: targetStatus(summary),
@@ -322,6 +331,49 @@ export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {
       enemies: enemiesBreakdown(rows),
     },
     runs: rows.map(compactRun),
+  };
+}
+
+// GOAL-012 平衡复测报告：全解锁机器人在「零 meta / 满 meta」两个端点下的三档 targets。
+// 与 buildReport（难度 × 解锁状态，零 meta 基线）分离，避免改动既有报告契约。
+// 只跑「满 meta」端点；「零 meta」端点与 runBatch 的全解锁零 meta 行完全一致，直接复用。
+export function runMetaBatch({ seeds = SEEDS, candidates = CANDIDATES } = {}) {
+  const candidateCount = Math.max(1, Math.min(3, candidates));
+  const rows = [];
+  for (const difficulty of DIFFICULTY_ORDER) {
+    for (let i = 0; i < seeds; i++) {
+      const seed = `balance-${i}`;
+      for (let candidate = 0; candidate < candidateCount; candidate++) {
+        rows.push(runOne(seed, difficulty, true, candidate, null, 'full'));
+      }
+    }
+  }
+  return rows;
+}
+
+export function buildMetaReport(zeroRows, fullRows, { seeds = SEEDS, candidates = CANDIDATES } = {}) {
+  const endpoints = {};
+  for (const [endpoint, rows] of [['zero', zeroRows], ['full', fullRows]]) {
+    const summary = summarize(rows);
+    endpoints[endpoint] = {
+      label: endpoint === 'zero' ? '零 meta' : '满 meta',
+      talent: accountTalent(endpoint),
+      summary,
+      targets: targetStatus(summary),
+    };
+  }
+  return {
+    meta: {
+      seeds,
+      candidates: Math.max(1, Math.min(3, candidates)),
+      totalRuns: zeroRows.length + fullRows.length,
+      method: '真实 Simulation + 固定机器人策略（无渲染）',
+      difficultyOrder: DIFFICULTY_ORDER.slice(),
+      targets: BALANCE_TARGETS,
+      difficulties: buildDifficultiesMeta(),
+      endpoints: ['zero', 'full'],
+    },
+    endpoints,
   };
 }
 
@@ -350,10 +402,14 @@ function summarizeRogue2Usage(rows) {
 function main() {
   const started = Date.now();
   const rows = runBatch();
+  const fullMetaRows = runMetaBatch();
   const report = buildReport(rows);
   const { summary, targets: statuses, content } = report;
+  const zeroRows = rows.filter((row) => row.meta);
+  const metaReport = buildMetaReport(zeroRows, fullMetaRows);
+  const zeroTargetTable = formatTargetTable(metaReport.endpoints.zero.targets);
+  const fullTargetTable = formatTargetTable(metaReport.endpoints.full.targets);
   const table = formatTable(summary);
-  const targetTable = formatTargetTable(statuses);
   const towerTable = formatTowerContentTable(content.towers);
   const relicTable = formatRelicContentTable(content.relics);
   const enemyTable = formatEnemyContentTable(content.enemies);
@@ -371,11 +427,14 @@ function main() {
   const archetypeBaseTable = formatArchetypeTable(archetypeBase);
   const modifierBaseTable = formatModifierTable(modifierBase);
 
+  const totalRuns = rows.length + fullMetaRows.length;
   console.log(
-    `\n平衡模拟结果（${rows.length} 局，每种子 ${report.meta.candidates} 张候选地图，技能 ${SKILL.id} Lv.${SKILL.level}，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
+    `\n平衡模拟结果（${totalRuns} 局，每种子 ${report.meta.candidates} 张候选地图，技能 ${SKILL.id} Lv.${SKILL.level}，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
   );
-  console.log('目标达成（全解锁、机器人口径）\n');
-  console.log(targetTable);
+  console.log('目标达成（全解锁 · 零 meta，机器人口径）\n');
+  console.log(zeroTargetTable);
+  console.log('\n目标达成（全解锁 · 满 meta，机器人口径）\n');
+  console.log(fullTargetTable);
   const rogue2Usage = summarizeRogue2Usage(rows);
   console.log(`\n肉鸽 2.0 系统使用（全解锁 ${rogue2Usage.total} 局）\n`);
   console.log(
@@ -432,7 +491,7 @@ function main() {
   if (REPORT_PATH) {
     const reportPath = path.resolve(ROOT, REPORT_PATH);
     fs.mkdirSync(path.dirname(reportPath), { recursive: true });
-    fs.writeFileSync(reportPath, `${JSON.stringify(report, null, 2)}\n`);
+    fs.writeFileSync(reportPath, `${JSON.stringify(metaReport, null, 2)}\n`);
     console.log(`\n已写入报告 ${reportPath}`);
   }
 
@@ -445,21 +504,26 @@ function main() {
       '',
       `- 生成时间：${new Date().toISOString()}`,
       `- 种子数：每档 ${report.meta.seeds} 个；每个种子跑 ${report.meta.candidates} 张候选地图（真人开局三选一的完整候选集）`,
-      `- 总对局：${rows.length}`,
+      `- 总对局：${totalRuns}（零 meta 与满 meta 两端点各半）`,
       '- 方法：真实 Simulation + 固定机器人策略（无渲染）',
       '- 地图池：三张固定手工地图（裂谷关隘 / 双牙桥 / 环心遗迹）+ 固定特性；种子只影响波次、遗物与事件，不影响地图几何。机器人按候选序号逐一模拟（不挑图）。',
+      '- 账号 meta 增益口径：在全解锁机器人口径下，复测「零 meta」（无任何天赋/传承投入）与「满 meta」（全部天赋节点满投入）两个端点；天赋被动在对局开始时一次性折叠进模拟 mods，不新增 RNG、不改战斗 RNG 调用顺序（docs/PHASE_META.md §4）。',
       '',
-      '## 目标达成（全解锁、机器人口径）',
+      '## 目标达成（全解锁 · 零 meta，机器人口径）',
       '',
-      targetTable,
+      zeroTargetTable,
       '',
-      '## 逐图靶心与偏差说明（全解锁）',
+      '## 目标达成（全解锁 · 满 meta，机器人口径）',
+      '',
+      fullTargetTable,
+      '',
+      '## 逐图靶心与偏差说明（全解锁 · 零 meta）',
       '',
       ...fixedMapDeviationLines(archetypeFull),
       '',
       '## 与上轮文档快照对照（仅参考，非本轮调参）',
       '',
-      '上轮快照来自肉鸽 2.0 系统落地前的固定三图 × 旧机器人（31% / 2% / 0%，全低于目标）；本轮差异来自机器人补上「真人下限」基座与肉鸽 2.0 新系统（信物 / 首领核心 / 契约 / 教义 / 觉醒）。',
+      '上轮快照来自肉鸽 2.0 系统落地前的固定三图 × 旧机器人（31% / 2% / 0%，全部偏离目标区间）；本轮差异来自机器人补上「真人下限」基座与肉鸽 2.0 新系统（信物 / 首领核心 / 契约 / 教义 / 觉醒）。',
       '',
       formatChangeTable(statuses),
       '',
@@ -470,6 +534,8 @@ function main() {
       '### 结论与取舍',
       '',
       ...tradeoffLines(statuses),
+      '',
+      '- meta 增益两端点（零 / 满）三档通关率均落在目标区间；未动基座口径（waves/DIFFICULTIES/经济/计分/战斗公式），也未放宽 BALANCE_TARGETS。',
       '',
       '## 总体（难度 × 解锁状态）',
       '',
@@ -539,11 +605,14 @@ function main() {
       '- 偏离目标时优先回调肉鸽 2.0 系统幅度（五派系档位、首领核心 / 契约 / 教义 / 觉醒的收益与代价），越上限砍收益而非基座；不要改路径、波次生成、敌人数值与已冻结的战斗公式。',
       '- 零解锁状态显著更难，用于体现星核解锁价值；单独成表报告，不与全解锁混算。',
       '- 不同 seed 集结果波动明显，结论以 40 种子为准；绝对值以真人试玩校准。',
-      '- 结构化数据：`node tests/balance-sim.mjs 40 --report=reports/balance.json`（无时间戳，同种子可复现）。',
+      '- 结构化数据：`node tests/balance-sim.mjs 40 --report=docs/BALANCE_META.json`（零 meta / 满 meta 两端点三档 targets，无时间戳，同种子可复现）。',
       '',
     ];
     fs.writeFileSync(docPath, contentLines.join('\n'));
+    const metaReportPath = path.join(ROOT, 'docs', 'BALANCE_META.json');
+    fs.writeFileSync(metaReportPath, `${JSON.stringify(metaReport, null, 2)}\n`);
     console.log(`\n已写入 ${docPath}`);
+    console.log(`已写入 ${metaReportPath}`);
   }
 }
 

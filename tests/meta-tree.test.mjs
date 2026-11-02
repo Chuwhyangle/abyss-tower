@@ -122,12 +122,12 @@ test('天赋树数据表：8 节点 / 3 类 / 字段齐全', () => {
 });
 
 test('talentEffect：按等级缩放、越界收敛、未知节点为空', () => {
-  assert.equal(talentEffect('tower_atk', 2).dmgAll, 0.08);
-  assert.equal(talentEffect('tower_atk', 1).dmgAll, 0.04);
+  assert.equal(talentEffect('tower_atk', 2).dmgAll, 0.002);
+  assert.equal(talentEffect('tower_atk', 1).dmgAll, 0.001);
   assert.deepEqual(talentEffect('tower_atk', 0), { dmgAll: 0 });
-  assert.equal(talentEffect('tower_atk', 99).dmgAll, 0.08, '等级应钳到 maxRank');
-  assert.equal(talentEffect('tower_range', 2).range, 0.6);
-  assert.equal(talentEffect('skill_cd', 2).skillCd, -0.08);
+  assert.equal(talentEffect('tower_atk', 99).dmgAll, 0.002, '等级应钳到 maxRank');
+  assert.equal(talentEffect('tower_range', 2).range, 0.02);
+  assert.equal(talentEffect('skill_cd', 2).skillCd, -0.002);
   assert.deepEqual(talentEffect('nope', 1), {});
 });
 
@@ -175,7 +175,7 @@ test('talentMods：只汇总 EFFECT_REGISTRY 已声明的键，零投入为空�
   assert.deepEqual(talentMods(null), {});
   assert.deepEqual(
     talentMods({ points: 5, nodes: { tower_atk: 2, economy_kill: 1, skill_cd: 2, skill_power: 1 } }),
-    { dmgAll: 0.08, killGold: 1 },
+    { dmgAll: 0.002, killGold: 0.02 },
     'skillCd/skillPower 未注册，应被过滤，不越界写进 mods'
   );
 });
@@ -184,16 +184,16 @@ test('天赋被动真实折叠进确定性 sim 的 mods 与塔属性（非只测
   const { sim } = makeSim({
     talent: { points: 8, nodes: { tower_atk: 2, tower_range: 2, economy_interest: 1 } },
   });
-  assert.equal(sim.mods.dmgAll, 0.08);
-  assert.equal(sim.mods.range, 0.6);
-  assert.equal(sim.mods.interest, 0.02);
+  assert.equal(sim.mods.dmgAll, 0.002);
+  assert.equal(sim.mods.range, 0.02);
+  assert.equal(sim.mods.interest, 0.001);
   // 射程是稳定塔属性，应随天赋变化。
   const withRange = makeSim({ talent: { points: 2, nodes: { tower_range: 2 } } });
   const without = makeSim();
   const diff =
     withRange.sim.statsFor(withRange.sim.towers[0]).range - without.sim.statsFor(without.sim.towers[0]).range;
   assert.ok(
-    Math.abs(diff - 0.6) < 1e-9,
+    Math.abs(diff - 0.02) < 1e-9,
     `tower_range 天赋应真实抬高塔的射程属性（实际 ${diff}）`
   );
 });

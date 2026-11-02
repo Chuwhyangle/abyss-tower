@@ -88,6 +88,7 @@ export const TEST_MAP = [
   { match: 'docs/PHASE_ROGUE2.md', tests: ['tests/rogue2-design.test.mjs'] },
   // 平衡复测产物（非源文件）：改动后跑其见证测试，反查三档全解锁胜率是否仍在目标区间。
   { match: 'docs/BALANCE_ROGUE2.json', tests: ['tests/rogue2-balance-targets.test.mjs'] },
+  { match: 'docs/BALANCE_META.json', tests: ['tests/meta-balance-targets.test.mjs'] },
   { match: 'public/js/replay-ui.js', tests: ['tests/replays.test.mjs'] },
   { match: 'public/js/season-ui.js', tests: [
     'tests/i18n.test.mjs',
