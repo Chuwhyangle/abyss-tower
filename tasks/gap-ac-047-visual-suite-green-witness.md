@@ -68,3 +68,11 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 ### 03:12 fail 归因
 
 evidence 的 fail 是 `waitBoot` 在 `tests/harness.mjs:140` 抛「等待超时：页面启动」——页面 JS 在 bootTimeout 内未把 `document.body.dataset.boot` 置为 `'ok'`。同机、同代码、当天稍后两臂与 smoke 均绿，说明是共享宿主负载下的 Chrome 启动/页面加载抖动，而非确定性回归。若后续该超时反复出现，可另立任务把 `bootTimeoutMs` 或 harness 的启动重试策略做成健壮性修复（本任务不做）。
+
+## Blocker
+
+**2026-11-02T08:22:43.671Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 2/8，剩余未勾 6）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：6cdb03c9-01f8-45d8-8ad0-1cf8ba16671f
