@@ -1,7 +1,7 @@
 ---
 id: gap-goal-012-meta-restraint-ac
 title: GOAL-012 充分性缺口：退出条件 2『数值克制（可感知但不碾压）』无在域 AC（提案新增可执行 AC）
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
