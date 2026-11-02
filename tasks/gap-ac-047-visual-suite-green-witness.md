@@ -29,17 +29,17 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 ## AC
 
-- [ ] `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写；parity 臂现红，见 Notes「worker 复验读数」）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` exit 0（parity 臂现红：combat-impact 确定性漂移，见 Notes「worker 复验读数」）
+- [x] `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写；两臂分别 exit 0，见 Notes「worker 复验读数（第三轮）」）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` exit 0（parity 臂转绿：hpGrowth 回 1.17 后 combat-impact 漂移消失，见 Notes「worker 复验读数（第三轮）」）
 - [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（feel/art/ui/mobile 四套件全 PASS）
 - [x] `npm test` exit 0（全量无回归，佐证页面与代码当前健康）
 
 ## DoD
 
-- [ ] 只读见证，0 源代码/脚本/基线改动：落地合并 diff 仅含 `tasks/gap-ac-047-visual-suite-green-witness.md`
-- [ ] Notes 记录两侧复验的时间戳与关键读数（parity 帧数与 exit code、visual-check 四套件 PASS 行）
-- [ ] 说明 03:12 fail 的性质：`waitBoot` 等待 `dataset.boot='ok'` 超时是环境/负载抖动，非渲染回归，前置 done 任务的修复仍 hold
-- [ ] 不 `--write` 基线、不改视觉阈值/脚本、不改 `public/js/**`、`server/**`、`docs/**`
+- [x] 只读见证，0 源代码/脚本/基线改动：落地合并 diff 仅含 `tasks/gap-ac-047-visual-suite-green-witness.md`
+- [x] Notes 记录两侧复验的时间戳与关键读数（parity 帧数与 exit code、visual-check 四套件 PASS 行）
+- [x] 说明 03:12 fail 的性质：`waitBoot` 等待 `dataset.boot='ok'` 超时是环境/负载抖动，非渲染回归，前置 done 任务的修复仍 hold
+- [x] 不 `--write` 基线、不改视觉阈值/脚本、不改 `public/js/**`、`server/**`、`docs/**`
 
 ## Touches
 
@@ -79,10 +79,14 @@ evidence 的 fail 是 `waitBoot` 在 `tests/harness.mjs:140` 抛「等待超时�
 
 **结论不变**：AC1/AC2（parity 臂）仍因 AC-060 觉醒视觉使基线过期而红，本 witness 不改代码、不 `--write` 基线，无法诚实勾绿；需另立「AC-060 落地后复采 refactor 基线」任务。另注：AC-047 的 goal evidence 现为 `not-evaluated (timeout, 60000ms killed)`——criterion 连写 parity + visual-check 实测 >60s，goal-driver 需提高该 AC 的 `timeoutMs` 才能重判为红并立案复采任务。
 
-## Blocker
+### worker 复验读数（2026-11-02 第三轮，develop f71b5c0）
 
-**2026-11-02T08:22:43.671Z — worker 未落地（exited-not-landed）**
+**parity 臂转绿**：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` → **EXIT=0**（182 帧；逐像素一致 88，渲染变体 94）。前两轮标红的唯一漂移帧 `combat@desktop/combat-impact` 现为**容差内渲染变体**（网格最大差 0.297 / 平均差 0.005，容差 1 / 0.25），不再是 maxCell 1.742 的漂移。
 
-- 未落地原因：AC 未全勾（checked 2/8，剩余未勾 6）——续做只需验证并勾选 AC
-- run_id：wk-prod-anchor
-- session_id：6cdb03c9-01f8-45d8-8ad0-1cf8ba16671f
+**漂移归因修正**：前两轮把该漂移归因于 AC-060（`e8a50a7` 觉醒 frostBurst 环形视觉）是误判。真正成因是 `e143677`（2026-11-02 15:58，`balance(hpGrowth): 1.17→1.15`）把 `public/js/shared/config.js` 的 `hpGrowth` 从 1.17 调到 1.15，战斗 HP 数值随之改变、`combat-impact` 帧出现确定性漂移；`53e5bce`（2026-11-02 16:31，`revert(balance): hpGrowth 回 1.17`）回退 hpGrowth 后漂移消失。佐证：AC-060 的 `frostBurst`/`poisonSpread` 仍在 `public/js/render/effect-renderer.js`（`e8a50a7` 仍是 develop 祖先），而 parity 已绿，说明觉醒环形视觉并未造成逐帧漂移。
+
+**视觉套件臂（AC3）**：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` → **EXIT=0**，feel/art/ui/mobile 四套件全 PASS、`结论：通过`（ui 最小可见字号 12 · stat-label 达标）。
+
+**全量测试（AC4）**：`npm test` → **EXIT=0**（1868/1868 pass，0 fail）。
+
+**结论**：witness 立案时的「parity + 视觉套件全绿」前提现重新成立。03:12 的 `waitBoot` 超时确为环境/负载抖动（页面 boot 正常、parity/visual-check/npm test 三臂均绿）；中间两轮的 parity 红是 hpGrowth 1.15 的临时平衡误调所致，已被 `53e5bce` 回退消除。AC1/AC2/AC3/AC4 四条 AC 全部诚实勾绿；本 witness 不改任何代码、不 `--write` 基线，把 criterion 交还 goal-driver 下一轮独立重判。注：AC-047 goal evidence 仍为 `not-evaluated (timeout, 60000ms killed)`——criterion 连写 >60s，goal-driver 需提高该 AC 的 `timeoutMs` 才能完成独立重判（属 goal-driver 侧配置，与本 witness 的 AC 勾选无关）。
