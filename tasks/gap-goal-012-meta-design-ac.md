@@ -1,7 +1,7 @@
 ---
 id: gap-goal-012-meta-design-ac
 title: GOAL-012 充分性缺口：退出条件 1（设计定稿）无在域 AC，4 条草稿 AC 因引用已删脚本无法激活（提案新增可执行 AC）
-status: needs-human
+status: superseded
 labels:
   - gap
 parent: null
