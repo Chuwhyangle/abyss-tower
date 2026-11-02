@@ -29,10 +29,10 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 ## AC
 
-- [ ] `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写，当前绿）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` exit 0（parity 臂单独绿）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（feel/art/ui/mobile 四套件全 PASS）
-- [ ] `npm test` exit 0（全量无回归，佐证页面与代码当前健康）
+- [ ] `node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写；parity 臂现红，见 Notes「worker 复验读数」）
+- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` exit 0（parity 臂现红：combat-impact 确定性漂移，见 Notes「worker 复验读数」）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（feel/art/ui/mobile 四套件全 PASS）
+- [x] `npm test` exit 0（全量无回归，佐证页面与代码当前健康）
 
 ## DoD
 
@@ -46,6 +46,18 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 - `tasks/gap-ac-047-visual-suite-green-witness.md`
 
 ## Notes
+
+### worker 复验读数（2026-11-02 续做，worktree HEAD bcdf332 = develop）
+
+**parity 臂已转红**：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` → **EXIT=1**（三次复跑同帧同值，确定性）。唯一漂移帧 `combat@desktop/combat-impact`：luma-grid 最大差 **1.742** / 平均差 **0.078**，统计 `{"meanLuma":[31.845,31.846],"stdLuma":[24.08,23.988],"levels":[32,32]}`——超过精确级容差（maxCell ≤1），但平均差仍在 0.25 内、画面统计几乎不动，是局部单格的确定性视觉增量，非浏览器亚像素抖动。
+
+**漂移归因**：立案基线复采于 `0f532a0`（2026-10-30）。AC-060 `feat(rogue2): 觉醒 P0 四条三级遗物行为词条`（commit `e8a50a7`，2026-10-31）在立案后（立案时主检出 HEAD `9fcc19f`，parity 仍 exit 0）经 fan-in 落地 develop：`public/js/render/effect-renderer.js` 新增 `frostBurst`/`poisonSpread` 复用 `drawRing`、`public/js/sim/combat-system.js` 新增觉醒击杀钩子（霜爆/毒传/炮台引燃）——战斗「命中」帧出现新的确定性环形视觉，使 refactor 基线过期。这是确定性渲染增量（feature 落地），不是渲染回归。
+
+**视觉套件臂（AC3）**：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` → **EXIT=0**，feel/art/ui/mobile 四套件全 PASS，`结论：通过`（ui 最小可见字号 12 · stat-label 达标）。
+
+**全量测试（AC4）**：`npm test` → **EXIT=0**（1868/1868 pass，0 fail）。
+
+**结论**：本 witness 立案时的「parity 全绿」前提已随 AC-060 落地失效。03:12 的 `waitBoot` 超时归因仍成立（页面 boot 正常、visual-check/npm test 全绿），但 parity 臂现因 AC-060 觉醒视觉使基线过期而红；本 witness 的 DoD 禁止 `--write` 基线、不改任何代码，故 AC1/AC2 无法诚实勾绿。需另立「AC-060 觉醒视觉落地后复采 refactor 基线」任务（`--write` 复采 + 逐帧归因），由 goal-driver 后续独立重判 AC-047。
 
 ### 复验读数（2026-11-02，主检出 HEAD 9fcc19f）
 
