@@ -29,15 +29,15 @@ goal_ac: AC-052
 
 ## AC
 
-- [ ] `grep -qE 'sniper|banner' tests/lib/balance-bot.mjs` exit 0（塔组含狙击/战旗）
-- [ ] `! grep -q '\-\-baseline' tests/balance-sim.mjs` exit 0（旧 v1.31 对照已删）
-- [ ] `! grep -qE '^[|] (漫游|远征|深渊) [|].*[|] (低于目标|高于目标) [|]' docs/BALANCE.md` exit 0
-- [ ] `npm test` exit 0
+- [x] `grep -qE 'sniper|banner' tests/lib/balance-bot.mjs` exit 0（塔组含狙击/战旗）
+- [x] `! grep -q '\-\-baseline' tests/balance-sim.mjs` exit 0（旧 v1.31 对照已删）
+- [x] `! grep -qE '^[|] (漫游|远征|深渊) [|].*[|] (低于目标|高于目标) [|]' docs/BALANCE.md` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 机器人唯一口径为真人下限（技能/海克斯/进化/狙击/战旗默认生效），旧 `--skill=none` 与 v1.31 对照已删除；配比与论证写入 Notes
-- [ ] 40 种子复跑三档落进 70–85 / 25–40 / 5–12，docs/BALANCE.md 由同一轮生成、无 v1.31 对照、无手工改数字
+- [x] 机器人唯一口径为真人下限（技能/海克斯/进化/狙击/战旗默认生效），旧 `--skill=none` 与 v1.31 对照已删除；配比与论证写入 Notes
+- [x] 40 种子复跑三档落进 70–85 / 25–40 / 5–12，docs/BALANCE.md 由同一轮生成、无 v1.31 对照、无手工改数字
 
 ## Touches
 
@@ -46,3 +46,10 @@ goal_ac: AC-052
 - `public/js/shared/config.js`
 - `docs/BALANCE.md`
 - `tasks/gap-balance-bot-boss-counter.md`
+
+## Notes
+
+- 口径：机器人唯一口径为「真人下限」——技能 aurora 默认生效（冷却好就放）、开局选主海克斯（第一 offer）、满级塔进化（第一分支）、固定塔组含狙击/战旗；`--skill` 仅保留 `aurora|meteor|chrono` 显式覆盖，旧 `--skill=none` 与 `--baseline` v1.31 随机图对照已删除。
+- 塔组配比（固定顺序、绝对计数，不随总塔数缩放）：前 2 座弩塔 → 大炮补到 ≥⌈total×30%⌉（wave≥2）→ 冰霜补到 ≥⌈total×18%⌉（wave≥3）→ 战旗固定 1 座（wave≥4，光环增伤/攻速）→ 狙击固定 1 座（wave≥9，第 25/30 波首领单体对策）→ 毒素 ≥⌈total×20%⌉（wave≥8）→ 弧光 ≥⌈total×20%⌉（wave≥6）→ 余下弩塔；上限 18 座，不卖塔、不换塔、不卡技能时机。
+- 真人下限论证：首领是第 25/30 波的主要威胁，真人在「下限」约束下也会配 1 座单体高伤塔（狙击）+ 1 座光环辅助（战旗）；补这两座属于「决策固定、不卖塔、不卡时机」口径内的自然配塔，不是作弊，也不等于故意配烂塔。绝对通关率仍系统性低于真人，目标区间按此口径解读。
+- 40 种子复跑：漫游 77%（70–85）、远征 37%（25–40）、深渊 12%（5–12）全部达标；docs/BALANCE.md 由同一轮 `node tests/balance-sim.mjs 40 --write` 生成，无 v1.31 对照、无手工改数字。
