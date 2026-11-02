@@ -1,7 +1,7 @@
 ---
 id: gap-ac-060-awakenings-p0
 title: 觉醒 P0：四条三级遗物行为词条（AC-060）
-status: ready
+status: done
 labels:
   - gap
 parent: null

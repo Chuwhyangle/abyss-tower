@@ -1676,4 +1676,13 @@ export default {
   'doctrine.arc.desc': '电弧塔连锁目标 +1、连锁范围 +0.8 格。',
   'doctrine.poison.name': '疫病',
   'doctrine.poison.desc': '毒雾塔命中时向 0.8 格内最多 2 个敌人扩散 60% 毒伤。',
+  // ---- Awakenings (gap-ac-060) ----
+  'awakening.sharp-pierce.name': '锐穿',
+  'awakening.sharp-pierce.desc': '弩塔每第 6 发穿透 2 个目标，穿透目标承受 60% 伤害。',
+  'awakening.powder-ignite.name': '引燃',
+  'awakening.powder-ignite.desc': '炮台命中同一目标 5 次后，落点燃烧 2s，每秒造成 20% 攻击力。',
+  'awakening.frostheart-shatter.name': '霜爆',
+  'awakening.frostheart-shatter.desc': '被减速目标死亡时，1.2 格内敌人霜爆冻结 0.4s。',
+  'awakening.toxin-spread.name': '催化',
+  'awakening.toxin-spread.desc': '中毒死亡传播 1 层，最多 3 跳。',
 };
