@@ -1,7 +1,7 @@
 ---
 id: gap-balance-bot-boss-counter
 title: 平衡口径对齐：机器人真人下限（补狙击/战旗 + 技能/海克斯/进化），删旧口径，重跑三档校准（AC-052）
-status: ready
+status: done
 labels:
   - gap
 parent: null
