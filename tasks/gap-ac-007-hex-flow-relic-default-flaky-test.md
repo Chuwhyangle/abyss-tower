@@ -33,9 +33,9 @@ failureType: 'testCodeFailure'
 
 ## AC
 
-- [ ] `node --test tests/hex-flow.test.mjs` exit 0，用例 627 通过
-- [ ] `grep -q "ALLOW_TEST_SEED" tests/hex-flow.test.mjs && grep -q "x-test-seed" tests/hex-flow.test.mjs`（固定种子通道已接线）
-- [ ] `node scripts/check-stability.mjs` 连续 3 轮 exit 0（AC-007 criterion 原文）
+- [x] `node --test tests/hex-flow.test.mjs` exit 0，用例 627 通过
+- [x] `grep -q "ALLOW_TEST_SEED" tests/hex-flow.test.mjs && grep -q "x-test-seed" tests/hex-flow.test.mjs`（固定种子通道已接线）
+- [x] `node scripts/check-stability.mjs` 连续 3 轮 exit 0（AC-007 criterion 原文）
 
 ## DoD
 
