@@ -69,6 +69,16 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 evidence 的 fail 是 `waitBoot` 在 `tests/harness.mjs:140` 抛「等待超时：页面启动」——页面 JS 在 bootTimeout 内未把 `document.body.dataset.boot` 置为 `'ok'`。同机、同代码、当天稍后两臂与 smoke 均绿，说明是共享宿主负载下的 Chrome 启动/页面加载抖动，而非确定性回归。若后续该超时反复出现，可另立任务把 `bootTimeoutMs` 或 harness 的启动重试策略做成健壮性修复（本任务不做）。
 
+### worker 复验读数（2026-11-02 第二轮，develop 4cc93c1）
+
+**parity 臂仍红（确定性，与上轮同帧同值）**：`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` → **EXIT=1**。唯一漂移帧仍为 `combat@desktop/combat-impact`，luma-grid 最大差 **1.742** / 平均差 **0.078**，统计 `{"meanLuma":[31.845,31.846],"stdLuma":[24.08,23.988],"levels":[32,32]}`——develop 由 `bcdf332` 推进到 `4cc93c1` 后读数逐位不变。
+
+**视觉套件臂（AC3）**：首跑命中 `waitBoot`「等待超时：页面启动」（`tests/harness.mjs:140`）EXIT=2，立即重跑 → **EXIT=0**，feel/art/ui/mobile 四套件全 PASS、`结论：通过`（ui 最小可见字号 12 · stat-label 达标）。首跑超时→重跑即绿，是 03:12 fail「环境/负载抖动、非渲染回归」的直接同机佐证。
+
+**全量测试（AC4）**：`npm test` → **EXIT=0**（1868/1868 pass，0 fail）。
+
+**结论不变**：AC1/AC2（parity 臂）仍因 AC-060 觉醒视觉使基线过期而红，本 witness 不改代码、不 `--write` 基线，无法诚实勾绿；需另立「AC-060 落地后复采 refactor 基线」任务。另注：AC-047 的 goal evidence 现为 `not-evaluated (timeout, 60000ms killed)`——criterion 连写 parity + visual-check 实测 >60s，goal-driver 需提高该 AC 的 `timeoutMs` 才能重判为红并立案复采任务。
+
 ## Blocker
 
 **2026-11-02T08:22:43.671Z — worker 未落地（exited-not-landed）**
