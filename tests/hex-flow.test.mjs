@@ -30,12 +30,13 @@ const STYLES = read('public/styles.css');
 
 let server = null;
 
-async function api(pathname, { method = 'GET', token = TOKEN, body } = {}) {
+async function api(pathname, { method = 'GET', token = TOKEN, body, headers } = {}) {
   const response = await fetch(`${BASE}${pathname}`, {
     method,
     headers: {
       'x-player-token': token,
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+      ...(headers || {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
@@ -43,8 +44,13 @@ async function api(pathname, { method = 'GET', token = TOKEN, body } = {}) {
   return { status: response.status, data };
 }
 
-function createRun(token = TOKEN, mode = 'normal', difficulty = 'roam') {
-  return api('/api/runs', { method: 'POST', body: { mode, difficulty }, token });
+function createRun(token = TOKEN, mode = 'normal', difficulty = 'roam', seed) {
+  return api('/api/runs', {
+    method: 'POST',
+    body: { mode, difficulty },
+    token,
+    headers: seed !== undefined ? { 'x-test-seed': seed } : undefined,
+  });
 }
 
 // 走完开局：选海克斯（可选）→ 选第 1 张图 → 放行并清掉第 1 波。
@@ -80,7 +86,7 @@ before(async () => {
   server = await startServer({
     cwd: ROOT,
     dbPath: DB,
-    env: { AUTH_ENABLED: '0' },
+    env: { AUTH_ENABLED: '0', ALLOW_TEST_SEED: '1' },
   });
   PORT = server.port;
   BASE = server.base;
@@ -207,7 +213,7 @@ test('刷新恢复：不重复消耗、不换 offers，波次回传同一海克�
 });
 
 test('遗物候选与刷新费用走共享海克斯钩子（默认值 3 / 25）', async () => {
-  const created = await createRun(TOKEN);
+  const created = await createRun(TOKEN, 'normal', 'roam', 'relic-default');
   const { runId, hexOffers: offers } = created.data;
   // 本用例只验证「不改遗物参数的海克斯」走默认值 3 / 25 / 1：
   // 黄金律法（HEX-007）刷新半价、遗物吞噬者（HEX-008）改候选数/刷新费/次数，
