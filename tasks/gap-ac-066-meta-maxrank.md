@@ -27,14 +27,14 @@ GOAL-012 退出条件 2 的「数值克制（可感知但不碾压）」此前�
 
 ## AC
 
-- [ ] `test -s public/js/shared/data/meta.js && grep -q 'maxRank' public/js/shared/data/meta.js` exit 0（AC-066 本体判据）
-- [ ] `node --test tests/meta-tree.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `test -s public/js/shared/data/meta.js && grep -q 'maxRank' public/js/shared/data/meta.js` exit 0（AC-066 本体判据）
+- [x] `node --test tests/meta-tree.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 天赋投入达到 maxRank 后无法再升，sim 折叠的 talentMods 有界、不越界写进 mods；0 投入时与改动前逐字节一致
-- [ ] 上限值写入 `docs/PHASE_META.md` 冻结表（若该表已有 rank 口径则对齐）
+- [x] 天赋投入达到 maxRank 后无法再升，sim 折叠的 talentMods 有界、不越界写进 mods；0 投入时与改动前逐字节一致
+- [x] 上限值写入 `docs/PHASE_META.md` 冻结表（若该表已有 rank 口径则对齐）
 
 ## Touches
 
@@ -43,3 +43,7 @@ GOAL-012 退出条件 2 的「数值克制（可感知但不碾压）」此前�
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
 - `tasks/gap-ac-066-meta-maxrank.md`
+
+## Notes
+
+AC-066 判据与机制已随 AC-063 天赋树落地（`7655b8e`）先行就位：`TALENT_NODES` 每节点带 `maxRank: 2`，`talentEffect`/`normalizeTalent` 把 rank 钳到 `[0, maxRank]`，`investTalent` 满级返回 `maxed`，`talentMods` 只折叠 EFFECT_REGISTRY 声明的键。本任务无新增代码，逐条复验全绿：AC 判据 exit 0、`node --test tests/meta-tree.test.mjs` 9/9、`npm test` 1871/1871；`docs/PHASE_META.md` §4.1 已有「单项 ≤ +8%」口径、§5.2 已声明 `maxRank` 字段，代码与之对齐，无需再写。
