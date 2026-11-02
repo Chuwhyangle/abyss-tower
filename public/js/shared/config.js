@@ -38,7 +38,7 @@ export const BALANCE = {
   maxCount: 80,            // 单波敌人数量上限
 };
 
-// 三档目标通关率（全解锁、机器人 40 种子 × 3 候选口径）。
+// 三档目标通关率（全解锁、机器人「真人下限」口径：技能/主海克斯/塔进化/狙击/战旗默认生效）。
 // 平衡报告据此判定达标；调整目标时同步 docs/BALANCE.md 的结论。
 export const BALANCE_TARGETS = {
   roam: [0.70, 0.85],

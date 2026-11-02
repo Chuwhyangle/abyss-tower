@@ -27,11 +27,12 @@ function stringArg(flag, fallback = null) {
 
 const SKILL_ID = stringArg('skill', 'aurora');
 const SKILL_LEVEL = Math.max(1, Math.min(10, numericArg('skill-level', 1)));
-if (SKILL_ID !== 'none' && !SKILLS[SKILL_ID]) {
-  console.error(`未知技能：${SKILL_ID}（可选 none / ${Object.keys(SKILLS).join(' / ')}）`);
+if (!SKILLS[SKILL_ID]) {
+  console.error(`未知技能：${SKILL_ID}（可选 ${Object.keys(SKILLS).join(' / ')}）`);
   process.exit(1);
 }
-const SKILL = SKILL_ID === 'none' ? null : { id: SKILL_ID, level: SKILL_LEVEL };
+// 机器人唯一口径为真人下限：技能默认生效（冷却好就放），不支持 --skill=none 关技能。
+const SKILL = { id: SKILL_ID, level: SKILL_LEVEL };
 
 // ---------- 机器人策略 ----------
 

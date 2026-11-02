@@ -2,9 +2,9 @@
 // 结果用于三档难度的相对比较与回归，不代替真人试玩。
 // 用法：node tests/balance-sim.mjs [seeds] [--write] [--detail] [--candidates=N]
 //       [--report=<path>]
-//       [--baseline]（额外跑 v1.31 随机 carve 对照，不进入固定图汇总）
-//       [--skill=none|aurora|meteor|chrono] [--skill-level=1|10]
-// 机器人技能策略固定为“冷却好就用”，默认 --skill=aurora（真人下限：默认技能冷却好就放）。
+//       [--skill=aurora|meteor|chrono] [--skill-level=1|10]
+// 机器人唯一口径为「真人下限」：技能默认冷却好就放（--skill 仅可显式覆盖 aurora|meteor|chrono），
+// 开局选主海克斯、满级塔进化、固定塔组含狙击/战旗；不卖塔、不卡时机。
 //
 // 每个种子默认跑 3 张候选地图（与真人开局三选一一致），并按地图原型/词缀/候选序号
 // 分别统计，避免只看 candidate 0 造成的抽样偏差。另按塔 / 遗物 / 敌人类型分解
@@ -17,7 +17,6 @@ import { Simulation } from '../public/js/sim.js';
 import {
   ARCHETYPES,
   generateMapCandidates,
-  legacyGenerateMap,
 } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import {
@@ -50,7 +49,6 @@ import {
   enemiesBreakdown,
   fixedMapDeviationLines,
   formatArchetypeTable,
-  formatBaselineTable,
   formatCandidateTable,
   formatChangeTable,
   formatEnemyContentTable,
@@ -78,8 +76,6 @@ const SEEDS = Math.max(1, Number(process.argv[2]) || 6);
 const CANDIDATES = Math.min(3, numericArg('candidates', 3));
 const WRITE_DOC = process.argv.includes('--write');
 const DETAIL = process.argv.includes('--detail');
-// --baseline：额外跑一遍 v1.31 随机 carve 地图（同机器人），用于固定图对照。
-const BASELINE = process.argv.includes('--baseline');
 const REPORT_PATH = stringArg('report');
 
 // ---------- 单局模拟 ----------
@@ -294,21 +290,6 @@ export function runBatch({ seeds = SEEDS, candidates = CANDIDATES } = {}) {
   return rows;
 }
 
-// v1.31 随机 carve 基线：每个种子抽一张 legacy 随机图，机器人与固定图完全同策略。
-// 只用于「固定图 vs 随机图」对照，不进入固定图汇总（避免污染逐图/逐词缀统计）。
-export function runLegacyBaseline({ seeds = SEEDS } = {}) {
-  const rows = [];
-  for (const difficulty of DIFFICULTY_ORDER) {
-    for (const meta of [false, true]) {
-      for (let i = 0; i < seeds; i++) {
-        const seed = `balance-${i}`;
-        rows.push(runOne(seed, difficulty, meta, 0, legacyGenerateMap(seed)));
-      }
-    }
-  }
-  return rows;
-}
-
 export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {}) {
   const summary = summarize(rows);
   const difficulties = {};
@@ -390,16 +371,8 @@ function main() {
   const archetypeBaseTable = formatArchetypeTable(archetypeBase);
   const modifierBaseTable = formatModifierTable(modifierBase);
 
-  // v1.31 随机 carve 对照（可选）：同一机器人、同一 seed 集，每 seed 一张 legacy 随机图。
-  const baselineRows = BASELINE ? runLegacyBaseline({ seeds: report.meta.seeds }) : null;
-  const baselineTable = baselineRows
-    ? formatBaselineTable(summary, summarize(baselineRows))
-    : null;
-
   console.log(
-    `\n平衡模拟结果（${rows.length} 局，每种子 ${report.meta.candidates} 张候选地图，技能 ${
-      SKILL ? `${SKILL.id} Lv.${SKILL.level}` : '无'
-    }，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
+    `\n平衡模拟结果（${rows.length} 局，每种子 ${report.meta.candidates} 张候选地图，技能 ${SKILL.id} Lv.${SKILL.level}，耗时 ${((Date.now() - started) / 1000).toFixed(1)}s）\n`
   );
   console.log('目标达成（全解锁、机器人口径）\n');
   console.log(targetTable);
@@ -411,10 +384,6 @@ function main() {
   console.log(
     `首领核心：${Object.entries(rogue2Usage.coreKinds).map(([kind, n]) => `${kind} ${n}`).join('，') || '无'}`
   );
-  if (baselineTable) {
-    console.log('\n固定三图 vs v1.31 随机 carve 基线（全解锁、同一机器人）\n');
-    console.log(baselineTable);
-  }
   console.log('');
   console.log(table);
   console.log('\n逐塔（选取率 / 胜率贡献）\n');
@@ -472,7 +441,7 @@ function main() {
     const contentLines = [
       '# 平衡模拟记录',
       '',
-      '> 本文件由 `node tests/balance-sim.mjs 40 --write --baseline` 生成，请勿手工改数字。',
+      '> 本文件由 `node tests/balance-sim.mjs 40 --write` 生成，请勿手工改数字。',
       '',
       `- 生成时间：${new Date().toISOString()}`,
       `- 种子数：每档 ${report.meta.seeds} 个；每个种子跑 ${report.meta.candidates} 张候选地图（真人开局三选一的完整候选集）`,
@@ -484,16 +453,6 @@ function main() {
       '',
       targetTable,
       '',
-      ...(baselineTable
-        ? [
-            '## 固定三图 vs v1.31 随机 carve 基线',
-            '',
-            '同一机器人、同一种子集：v1.31 基线每个种子抽一张 `legacyGenerateMap` 随机图，固定图固定跑三张候选。',
-            '',
-            baselineTable,
-            '',
-          ]
-        : []),
       '## 逐图靶心与偏差说明（全解锁）',
       '',
       ...fixedMapDeviationLines(archetypeFull),
@@ -581,7 +540,6 @@ function main() {
       '- 零解锁状态显著更难，用于体现星核解锁价值；单独成表报告，不与全解锁混算。',
       '- 不同 seed 集结果波动明显，结论以 40 种子为准；绝对值以真人试玩校准。',
       '- 结构化数据：`node tests/balance-sim.mjs 40 --report=reports/balance.json`（无时间戳，同种子可复现）。',
-      '- 固定图 vs 随机图对照：`node tests/balance-sim.mjs 40 --baseline`（额外跑 v1.31 `legacyGenerateMap` 随机图，不写入固定图汇总）。',
       '',
     ];
     fs.writeFileSync(docPath, contentLines.join('\n'));
