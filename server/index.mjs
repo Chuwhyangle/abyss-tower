@@ -74,7 +74,10 @@ server.listen(PORT, HOST, () => {
   console.log(`[渊塔守卫] http://${HOST}:${PORT}`);
 });
 
+let shuttingDown = false;
 function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
   console.log(`\n[渊塔守卫] 收到 ${signal}，正在关闭...`);
   server.close(() => process.exit(0));
   setTimeout(() => process.exit(0), 3000).unref();
@@ -82,3 +85,13 @@ function shutdown(signal) {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// 浏览器测试的断言失败/超时/崩溃路径可能走不到 server.stop()，server 子进程会变成孤儿。
+// 父进程死亡时内核立刻把本进程重新挂到 PID 1（或 subreaper）下，ppid 因此改变；据此自回收，
+// 一处修复覆盖所有退出路径。生产（systemd）下父进程长期存活、前台 shell 存活期间 ppid 不变，
+// 均不会误触发；轮询句柄 unref 以免拖住正常退出。
+const initialPpid = process.ppid;
+const parentWatchdog = setInterval(() => {
+  if (process.ppid !== initialPpid) shutdown('parent-exit');
+}, 1000);
+parentWatchdog.unref();
