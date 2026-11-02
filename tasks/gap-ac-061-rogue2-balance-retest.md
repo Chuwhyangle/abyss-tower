@@ -1,7 +1,7 @@
 ---
 id: gap-ac-061-rogue2-balance-retest
 title: 肉鸽 2.0 平衡复测：五派系/信物/核心/契约/教义/觉醒落地后三档通关率回到目标区间（AC-061）
-status: ready
+status: done
 labels:
   - gap
 parent: null
