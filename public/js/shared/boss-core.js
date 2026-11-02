@@ -88,9 +88,11 @@ function awakeningOffer(states) {
 }
 
 // 教义候选：从 3 条未选教义中选 1（§4.2）；词条内容由 AC-059 落地（§6）。
+// taken 为已选教义 id 数组（候选去重）；空数组/非数组表示无已选，仅作数量判断。
 function doctrineOffer(seed, wave, taken) {
   const rng = new RNG(`${bossCoreSeed(seed, wave)}:doctrine`);
-  const pool = DOCTRINE_IDS.filter((id) => !(taken || []).includes(id));
+  const takenIds = Array.isArray(taken) ? taken : [];
+  const pool = DOCTRINE_IDS.filter((id) => !takenIds.includes(id));
   const options = rng
     .shuffle(pool.length ? pool : DOCTRINE_IDS)
     .slice(0, 3)
@@ -120,7 +122,13 @@ export function rollBossCoreOffers(seed, wave, relicStates = [], opts = {}) {
   const w = Number(wave);
   const states = normalizeRelicStates(relicStates);
   const hasTier3 = states.some((state) => state.level >= RELIC_MAX_LEVEL);
-  const doctrineTaken = Math.max(0, Number(opts.doctrineTaken) || 0);
+  // doctrineTaken：接受已选教义 id 数组（候选去重）或数量（服务端口径）；两者都兼容。
+  const doctrineRaw = opts.doctrineTaken ?? opts.doctrines ?? 0;
+  const doctrineIds = Array.isArray(doctrineRaw) ? doctrineRaw : [];
+  const doctrineTaken = Math.max(
+    0,
+    Array.isArray(doctrineRaw) ? doctrineIds.length : Number(doctrineRaw) || 0
+  );
 
   const extraPool = ['search'];
   if (w >= 10) {
@@ -136,7 +144,7 @@ export function rollBossCoreOffers(seed, wave, relicStates = [], opts = {}) {
   while (picked.length < 2) picked.push('supply');
 
   return ['upgrade', ...picked].map((kind) =>
-    buildBossCoreOffer(kind, { seed, wave: w, states, doctrineTaken })
+    buildBossCoreOffer(kind, { seed, wave: w, states, doctrineTaken: doctrineIds })
   );
 }
 

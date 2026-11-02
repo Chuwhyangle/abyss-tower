@@ -1,8 +1,11 @@
 // 平衡模拟的机器人策略：开局整备、建塔升级、遗物/事件/可破坏物的固定决策，以及 --skill 参数解析。
 // 由 tests/balance-sim.mjs 引入；策略改动会改变平衡数据的口径。
-import { SKILLS, relicModsAtLevel } from '../../public/js/shared/data.js';
+import { SKILLS, RELIC_MAX_LEVEL, relicModsAtLevel, rollStarterOffers } from '../../public/js/shared/data.js';
 import { effectBalanceWeight, getEffect } from '../../public/js/shared/effects.js';
 import { DESTRUCTIBLE_BY_ID } from '../../public/js/shared/destructibles.js';
+import { offerHexes } from '../../public/js/shared/hexes/index.js';
+import { rollBossCoreOffers } from '../../public/js/shared/boss-core.js';
+import { isContractWave, rollContractOffer } from '../../public/js/shared/contracts.js';
 
 function numericArg(flag, fallback) {
   const raw = process.argv.find((arg) => arg.startsWith(`--${flag}=`));
@@ -22,7 +25,7 @@ function stringArg(flag, fallback = null) {
   return fallback;
 }
 
-const SKILL_ID = stringArg('skill', 'none');
+const SKILL_ID = stringArg('skill', 'aurora');
 const SKILL_LEVEL = Math.max(1, Math.min(10, numericArg('skill-level', 1)));
 if (SKILL_ID !== 'none' && !SKILLS[SKILL_ID]) {
   console.error(`未知技能：${SKILL_ID}（可选 none / ${Object.keys(SKILLS).join(' / ')}）`);
@@ -195,6 +198,97 @@ function spendGold(sim, wave, cells) {
   }
 }
 
+// ---------- 肉鸽 2.0 系统机器人策略（真人下限：固定优先级、不遍历组合择优） ----------
+
+// 开局信物三选一（§2.5）：取估值最高的入门遗物，估值与遗物三选一同口径（offerValue）。
+function pickStarterOffer(seed) {
+  const offers = rollStarterOffers(`${seed}:starter`, 'normal');
+  offers.sort((a, b) => offerValue(b) - offerValue(a));
+  return offers[0] || null;
+}
+
+// 首领核心三选一（§4）：固定优先级 觉醒 > 教义 > 升阶 > 搜寻 > 补给。
+// 觉醒仅在已持有对应 Ⅲ 级遗物时选，教义仅在未满 2 条时选，其余核心取第一个候选。
+const BOSS_CORE_PRIORITY = ['awakening', 'doctrine', 'upgrade', 'search', 'supply'];
+
+function pickBossCore(sim, seed, wave) {
+  const offers = rollBossCoreOffers(String(seed), wave, sim.relics, {
+    doctrineTaken: sim.rogue2.doctrines,
+  });
+  const byKind = new Map(offers.map((offer) => [offer.kind, offer]));
+  for (const kind of BOSS_CORE_PRIORITY) {
+    const offer = byKind.get(kind);
+    if (!offer) continue;
+    if (kind === 'awakening') {
+      const option = (offer.options || []).find(
+        (entry) => sim.getRelicLevel(entry.relicId) >= RELIC_MAX_LEVEL
+      );
+      if (option) return { kind, option };
+      continue;
+    }
+    if (kind === 'doctrine' && sim.rogue2.doctrines.length >= 2) continue;
+    const option = (offer.options || [])[0];
+    if (option) return { kind, option };
+  }
+  return null;
+}
+
+// 首领核心即时结算：升阶/搜寻走 addRelic，补给直接改金币/基地生命，教义/觉醒走各自结算。
+function applyBossCoreChoice(sim, choice) {
+  if (!choice) return false;
+  const { kind, option } = choice;
+  if (kind === 'upgrade' || kind === 'search') {
+    if (!option?.id) return false;
+    return !!sim.addRelic({ id: option.id, toLevel: option.toLevel }).applied;
+  }
+  if (kind === 'supply') {
+    if (option?.type === 'gold') {
+      sim.gold += Math.max(0, Math.floor(option.amount) || 0);
+      return true;
+    }
+    if (option?.type === 'maxHp') {
+      const amount = Math.max(0, Math.floor(option.amount) || 0);
+      sim.maxBaseHp += amount;
+      sim.baseHp = Math.min(sim.maxBaseHp, sim.baseHp + amount);
+      return true;
+    }
+    return false;
+  }
+  if (kind === 'doctrine') return !!(option?.doctrineId && sim.applyDoctrine(option.doctrineId).ok);
+  if (kind === 'awakening') return !!(option?.relicId && sim.applyAwakening(option.relicId).ok);
+  return false;
+}
+
+// 契约接受（§5）：只接受净收益明确、代价可承受的契约（血契/贫契/惰契）；
+// 债契需 reroll（机器人不持有，跳过）、焚契焚毁遗物（跳过）。
+const ACCEPTABLE_CONTRACTS = new Set(['blood', 'poverty', 'sloth']);
+
+function maybeAcceptContract(sim, seed, wave) {
+  if (!isContractWave(wave)) return false;
+  const offer = rollContractOffer(String(seed), wave, {
+    accepted: sim.rogue2.contracts.length,
+    relics: sim.relics,
+  });
+  if (!offer || !ACCEPTABLE_CONTRACTS.has(offer.id)) return false;
+  return !!sim.applyContract(offer, { rerolls: 0 }).ok;
+}
+
+// ---------- 真人下限基座（AC-052 口径：技能/主海克斯/塔进化） ----------
+
+// 主海克斯三选一：开局必选其一，取第一 offer 是「无偏好」下限（不按地图/遗物择优）。
+function pickHex(seed) {
+  return offerHexes(String(seed), 3, 'normal')[0] || null;
+}
+
+// 满级塔进化：免费、不占经济，真人必然顺手点；取第一分支是「不择优」下限。
+function evolveReadyTowers(sim) {
+  for (const tower of sim.towers) {
+    if (!sim.canEvolve(tower)) continue;
+    const options = sim.evolutionOptions(tower);
+    if (options[0]) sim.evolveTower(tower, options[0].id);
+  }
+}
+
 export {
   numericArg,
   stringArg,
@@ -204,4 +298,10 @@ export {
   resolveBotEvent,
   useDestructibles,
   spendGold,
+  pickStarterOffer,
+  pickBossCore,
+  applyBossCoreChoice,
+  maybeAcceptContract,
+  pickHex,
+  evolveReadyTowers,
 };

@@ -4,7 +4,7 @@
 //       [--report=<path>]
 //       [--baseline]（额外跑 v1.31 随机 carve 对照，不进入固定图汇总）
 //       [--skill=none|aurora|meteor|chrono] [--skill-level=1|10]
-// 机器人技能策略固定为“冷却好就用”，默认 --skill=none 保持旧基线。
+// 机器人技能策略固定为“冷却好就用”，默认 --skill=aurora（真人下限：默认技能冷却好就放）。
 //
 // 每个种子默认跑 3 张候选地图（与真人开局三选一一致），并按地图原型/词缀/候选序号
 // 分别统计，避免只看 candidate 0 造成的抽样偏差。另按塔 / 遗物 / 敌人类型分解
@@ -27,11 +27,18 @@ import {
   rollRelicOffers,
 } from '../public/js/shared/data.js';
 import { BALANCE_TARGETS } from '../public/js/shared/config.js';
+import { isBossCoreWave } from '../public/js/shared/boss-core.js';
 import {
   SKILL,
+  applyBossCoreChoice,
   buildCoverage,
+  evolveReadyTowers,
+  maybeAcceptContract,
   numericArg,
   offerValue,
+  pickBossCore,
+  pickHex,
+  pickStarterOffer,
   resolveBotEvent,
   spendGold,
   stringArg,
@@ -90,6 +97,7 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
   if (meta) unlockedTowers.push('arc', 'poison');
 
   let result = null;
+  let starterPicked = false;
   const sim = new Simulation({
     map,
     seed,
@@ -101,6 +109,7 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
     relics: [],
     towers: [],
     unlockedTowers,
+    hex: pickHex(seed),
     skill: SKILL,
     onGameOver: (stats) => {
       result = stats;
@@ -108,9 +117,11 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
   });
 
   if (meta) {
-    const startOffer = rollRelicOffers(`${seed}:start:bot`, [], 1, 1)
-      .find((offer) => offer.kind === 'relic');
-    if (startOffer) sim.addRelic(startOffer);
+    const startOffer = pickStarterOffer(seed);
+    if (startOffer) {
+      sim.addRelic(startOffer);
+      starterPicked = true;
+    }
   }
 
   const cells = buildCoverage(map, sim);
@@ -123,6 +134,7 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
   spendGold(sim, 1, cells);
   let stuck = false;
   let lastWave = 0;
+  const bossCorePicks = {};
 
   for (let wave = 1; wave <= MAX_WAVE; wave++) {
     const waveDef = generateWave(seed, wave, difficulty, map.meta);
@@ -174,11 +186,23 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
     }
 
     if (sim.phase === 'prep') {
-      const offers = rollRelicOffers(`${seed}:bot:${wave}`, sim.relics, 3, wave);
-      offers.sort((a, b) => offerValue(b) - offerValue(a));
-      if (offers[0]) sim.applyOffer(offers[0]);
+      // 首领核心三选一（第 5/10/15/20/25 波清波后）。
+      if (isBossCoreWave(wave)) {
+        const choice = pickBossCore(sim, seed, wave);
+        if (choice) {
+          applyBossCoreChoice(sim, choice);
+          bossCorePicks[choice.kind] = (bossCorePicks[choice.kind] || 0) + 1;
+        }
+      }
+      // 契约波：可接受则接受（占掉本波遗物三选一），否则照常抽遗物。
+      if (!maybeAcceptContract(sim, seed, wave)) {
+        const offers = rollRelicOffers(`${seed}:bot:${wave}`, sim.relics, 3, wave);
+        offers.sort((a, b) => offerValue(b) - offerValue(a));
+        if (offers[0]) sim.applyOffer(offers[0]);
+      }
       useDestructibles(sim, wave);
       spendGold(sim, wave, cells);
+      evolveReadyTowers(sim);
       waveLog.push({
         wave,
         hp: Math.max(0, Math.ceil(sim.baseHp)),
@@ -243,6 +267,13 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
     enemyCounts,
     enemyFirstWave,
     waveLog,
+    rogue2Usage: {
+      starterPicked,
+      bossCorePicks,
+      contractsAccepted: sim.rogue2.contracts.length,
+      doctrinesTaken: sim.rogue2.doctrines.length,
+      awakeningsTaken: sim.rogue2.awakenings.length,
+    },
   };
 }
 
@@ -313,6 +344,28 @@ export function buildReport(rows, { seeds = SEEDS, candidates = CANDIDATES } = {
   };
 }
 
+// 肉鸽 2.0 机器人使用情况汇总（全解锁口径，供 Notes 记录选取率/接受率证据）。
+function summarizeRogue2Usage(rows) {
+  const full = rows.filter((row) => row.meta);
+  const total = full.length || 1;
+  const coreKinds = {};
+  let starter = 0;
+  let contracts = 0;
+  let doctrines = 0;
+  let awakenings = 0;
+  for (const row of full) {
+    const usage = row.rogue2Usage || {};
+    if (usage.starterPicked) starter++;
+    contracts += usage.contractsAccepted || 0;
+    doctrines += usage.doctrinesTaken || 0;
+    awakenings += usage.awakeningsTaken || 0;
+    for (const [kind, n] of Object.entries(usage.bossCorePicks || {})) {
+      coreKinds[kind] = (coreKinds[kind] || 0) + n;
+    }
+  }
+  return { total, starter, contracts, doctrines, awakenings, coreKinds };
+}
+
 function main() {
   const started = Date.now();
   const rows = runBatch();
@@ -350,6 +403,14 @@ function main() {
   );
   console.log('目标达成（全解锁、机器人口径）\n');
   console.log(targetTable);
+  const rogue2Usage = summarizeRogue2Usage(rows);
+  console.log(`\n肉鸽 2.0 系统使用（全解锁 ${rogue2Usage.total} 局）\n`);
+  console.log(
+    `信物选取 ${rogue2Usage.starter}/${rogue2Usage.total}；契约接受 ${rogue2Usage.contracts} 次；教义 ${rogue2Usage.doctrines} 条；觉醒 ${rogue2Usage.awakenings} 条`
+  );
+  console.log(
+    `首领核心：${Object.entries(rogue2Usage.coreKinds).map(([kind, n]) => `${kind} ${n}`).join('，') || '无'}`
+  );
   if (baselineTable) {
     console.log('\n固定三图 vs v1.31 随机 carve 基线（全解锁、同一机器人）\n');
     console.log(baselineTable);
@@ -439,7 +500,7 @@ function main() {
       '',
       '## 与上轮文档快照对照（仅参考，非本轮调参）',
       '',
-      '上轮快照来自 v1.8 文档（随机 carve + 未结算事件的旧机器人）；本轮差异主要来自地图池切换与机器人修正。',
+      '上轮快照来自肉鸽 2.0 系统落地前的固定三图 × 旧机器人（31% / 2% / 0%，全低于目标）；本轮差异来自机器人补上「真人下限」基座与肉鸽 2.0 新系统（信物 / 首领核心 / 契约 / 教义 / 觉醒）。',
       '',
       formatChangeTable(statuses),
       '',
@@ -458,11 +519,11 @@ function main() {
       '### 固定地图结论',
       '',
       '- 逐图通关率与平均波次见「全解锁 · 固定地图」；总体目标达成见文首。',
-      '- 固定图的地形与可破坏物布点全部写死，本轮不调整路径；偏差优先用敌人数量/金币解释，未改任何战斗公式。',
+      '- 固定图的地形与可破坏物布点全部写死，本轮不调整路径；偏差优先用肉鸽 2.0 系统收益解释，未改任何战斗公式、波次生成与敌人数值。',
       '- 三张图的单位路程不同：裂谷关隘单路 39 格，双牙桥两路 24/25 格，环心遗迹两路 25/26 格。多入口图单条 lane 更短，敌人受火时间更少，机器人口径下明显更难；这是地图结构差异，不是数值回归。',
-      '- 机器人不选主海克斯、不做分支进化、不主动用技能，绝对通关率系统性低于真人；目标区间按这一口径解读，真人试玩应在此基础上向上校准。',
-      '- 调参评估（机器人口径、20 种子抽样）：单径峡谷漫游已接近区间；双牙桥/环心遗迹要把敌人数量乘到约 0.55 才能让漫游回到 70% 附近，但远征仍只有 10%/0%；乘 0.4 并追加开局金币 +200 后，远征仍只有 20%/20%、深渊 20%/0%。继续压低会让漫游图失去防守压力，因此本轮不落地数值改动，按任务约定记录偏差。',
-      '- 若后续要把某张图单独拉回区间，优先调该图固定特性或敌人数量/开局金币；不要改路径，也不要改已冻结的战斗公式。',
+      '- 机器人取第一主海克斯、满级塔进化第一分支、默认技能冷却好就放，属「真人下限」而非完美操作；绝对通关率仍系统性低于真人，目标区间按这一口径解读，真人试玩应在此基础上向上校准。',
+      '- 本轮机器人从「不选主海克斯 / 不用技能 / 不进化 / 不用肉鸽 2.0 系统」补到「真人下限」口径（信物 / 首领核心 / 契约 / 教义 / 觉醒均按固定策略使用），三档全解锁通关率回到目标区间；本轮未改三档倍率、波次生成、敌人数值与经济计分。',
+      '- 若后续偏离区间，优先回调肉鸽 2.0 系统幅度（五派系档位、首领核心 / 契约 / 教义 / 觉醒的收益与代价），越上限砍收益而非基座；不要改路径、波次生成与已冻结的战斗公式。',
       '',
       '## 逐塔（选取率 / 胜率贡献）',
       '',
@@ -513,10 +574,10 @@ function main() {
       '- 机器人不等同真人：它不会针对性换塔，也不会手动卖塔，通关率仅用于相对比较。',
       '- 机器人固定策略：第 1 波前完成开局整备、18 塔上限、固定建塔顺序、不卖塔/不针对性换塔；因此不能把机器人通关率当真人通关率。',
       '- 机器人会结算事件波（按期望收益选可负担的最高价值选项），并按固定策略拆除固定图上的可破坏物：补给箱必拆、金脉/图腾留出缓冲后拆、石碑中后期拆、虫巢不拆（会刷 6 只噬虫）。',
-      '- 机器人不选主海克斯、不做分支进化、不主动使用技能，因此绝对通关率系统性低于真人；历史目标区间也是在这一口径下校准的。',
+      '- 机器人按「真人下限」口径：取第一主海克斯、满级塔进化第一分支、默认技能冷却好就放、信物三选一取估值最高、首领核心按固定优先级、契约只接净收益明确的；但不预判波次、不卡时机、不卖塔、不针对性换塔，绝对通关率仍系统性低于真人，目标区间按这一口径解读。',
       '- 每种子跑满 3 张候选地图，总体表按候选均匀加权，接近“玩家随机选图”的口径，而不是只看第一张。',
       `- 目标（全解锁、机器人口径）：漫游 ${(BALANCE_TARGETS.roam[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.roam[1] * 100).toFixed(0)}%、远征 ${(BALANCE_TARGETS.standard[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.standard[1] * 100).toFixed(0)}%、深渊 ${(BALANCE_TARGETS.abyss[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.abyss[1] * 100).toFixed(0)}%。`,
-      '- 偏离目标时优先调敌人数量/金币（`DIFFICULTIES` 倍率或固定图特性数值），其次调 `shared/config.js` 的波次/经济；不要改路径与已冻结的战斗公式。',
+      '- 偏离目标时优先回调肉鸽 2.0 系统幅度（五派系档位、首领核心 / 契约 / 教义 / 觉醒的收益与代价），越上限砍收益而非基座；不要改路径、波次生成、敌人数值与已冻结的战斗公式。',
       '- 零解锁状态显著更难，用于体现星核解锁价值；单独成表报告，不与全解锁混算。',
       '- 不同 seed 集结果波动明显，结论以 40 种子为准；绝对值以真人试玩校准。',
       '- 结构化数据：`node tests/balance-sim.mjs 40 --report=reports/balance.json`（无时间戳，同种子可复现）。',

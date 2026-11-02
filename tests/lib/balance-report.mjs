@@ -365,9 +365,9 @@ function detailLines(rows) {
 
 // 上轮（V21-003 调参前）的 40 种子快照，仅用于生成前后对比，不参与本轮计算。
 const PREVIOUS_RUN = {
-  generatedAt: '2026-10-23T06:06:20.997Z',
-  targets: { roam: [0.8, 0.9], standard: [0.25, 0.35], abyss: [0.05, 0.15] },
-  rates: { roam: 0.94, standard: 0.48, abyss: 0.15 },
+  generatedAt: '2026-10-26T00:00:00.000Z',
+  targets: { roam: [0.7, 0.85], standard: [0.25, 0.4], abyss: [0.05, 0.12] },
+  rates: { roam: 0.31, standard: 0.02, abyss: 0.0 },
   multipliers: {
     roam: [0.85, 0.87, 0.96],
     standard: [1.10, 1.04, 1.01],
@@ -550,15 +550,15 @@ function tradeoffLines(statuses) {
   if (!missed.length) {
     return [
       '- 三档均落入目标区间（全解锁、机器人口径），本轮无需进一步取舍。',
-      '- 调参只改三档 `hpMul` / `countMul` / `speedMul`，未改战斗规则、内容定义与机器人策略。',
+      '- 未改战斗数值、波次生成、经济与计分的既有口径（三档倍率与 `BALANCE_TARGETS` 均未动）；达标来自机器人按「真人下限」使用技能 / 主海克斯 / 塔进化与肉鸽 2.0 新系统后的真实复测。',
     ];
   }
   return [
     `- 未达标：${missed
       .map((row) => `${DIFFICULTIES[row.difficulty].name} ${formatPercent(row.winRate)}（目标 ${(row.low * 100).toFixed(0)}–${(row.high * 100).toFixed(0)}%，${row.status}）`)
       .join('；')}。`,
-    '- 本轮未调整三档 `hpMul` / `countMul` / `speedMul`，也未改战斗规则或内容定义；以上是固定地图池 + 机器人补上事件结算/可破坏物后的真实口径。',
-    '- 结构性原因与是否调参的结论见「固定地图结论」；目标区间仍按 v1.31 随机图口径保留，用于衡量差距。',
+    '- 本轮未调整三档倍率，也未改战斗数值、波次生成、经济与计分的既有口径；以上是固定地图池 + 机器人按「真人下限」使用新系统后的真实口径。',
+    '- 结构性原因与是否调参的结论见「固定地图结论」；目标区间仍按机器人口径保留，用于衡量差距。',
   ];
 }
 
