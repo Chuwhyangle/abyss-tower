@@ -1,6 +1,6 @@
 // 固定地图 3/3 · 环心遗迹（ring）
 // 两入口各自绕行半环后汇流，路径最长、塔位被拉开。
-// 固定 trait：回响（塔射程 +8%，敌人移速 +6%），计分倍率 1.08。
+// 固定 trait：回响（塔射程 +8%，敌人移速 +6%），计分倍率 1.08，敌人生命倍率 0.95（难图降难度补偿）。
 const ECHO_TRAIT = {
   id: 'echo',
   name: '回响',
@@ -23,6 +23,7 @@ export const RING_SPEC = {
   cols: 22,
   rows: 12,
   scoreMul: 1.08,
+  hpMul: 0.95,
   trait: ECHO_TRAIT,
   lanes: [
     {

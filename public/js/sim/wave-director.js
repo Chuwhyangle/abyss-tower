@@ -225,7 +225,7 @@ export class WaveDirector {
       this.sim.seed,
       next,
       this.sim.difficulty,
-      { portalCount: meta.portalCount || 1, modifier: meta.modifier || null },
+      { portalCount: meta.portalCount || 1, modifier: meta.modifier || null, hpMul: meta.hpMul || 1 },
       { endless }
     );
     return def?.hpMul ?? 1;

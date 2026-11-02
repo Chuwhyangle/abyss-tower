@@ -1,6 +1,6 @@
 // 固定地图 1/3 · 裂谷关隘（canyon）
 // 单入口、长折返：一条主路切过裂谷，塔位沿路分布，是新手与稳健构筑的基线图。
-// 无固定 trait，计分倍率 0.95。
+// 无固定 trait，计分倍率 0.95，敌人生命倍率 1.2（易图上调难度以收敛逐图通关率）。
 export const CANYON_SPEC = {
   id: 'canyon',
   name: '裂谷关隘',
@@ -10,6 +10,7 @@ export const CANYON_SPEC = {
   cols: 22,
   rows: 12,
   scoreMul: 0.95,
+  hpMul: 1.2,
   trait: null,
   lanes: [
     {

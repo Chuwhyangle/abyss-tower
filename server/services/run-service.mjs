@@ -237,6 +237,7 @@ export class RunService {
     const waveOptions = {
       portalCount: mapMeta.portalCount || 1,
       modifier: composeWaveModifier(mapMeta.modifier || null, mutationIds),
+      hpMul: mapMeta.hpMul || 1,
     };
     const endless = run.mode === 'endless';
     // 未选海克斯的旧流程仍可进行；hex 只作为本局规则从 ruleset 回传。

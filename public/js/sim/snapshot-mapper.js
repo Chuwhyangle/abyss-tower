@@ -32,7 +32,7 @@ export class SnapshotMapper {
     const endless = this.sim.mode === 'endless';
     if (!endless && next > MAX_WAVE) return null;
     const meta = this.sim.map?.meta || {};
-    const key = `${next}|${this.sim.difficulty}|${meta.modifier?.id || ''}|${meta.portalCount || 1}|${this.sim.mode}`;
+    const key = `${next}|${this.sim.difficulty}|${meta.modifier?.id || ''}|${meta.portalCount || 1}|${meta.hpMul || 1}|${this.sim.mode}`;
     if (this.sim._previewCache?.key === key) return this.sim._previewCache.value;
     const def = generateWave(
       this.sim.seed,
@@ -41,6 +41,7 @@ export class SnapshotMapper {
       {
         portalCount: meta.portalCount || 1,
         modifier: meta.modifier || null,
+        hpMul: meta.hpMul || 1,
       },
       { endless }
     );
