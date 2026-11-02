@@ -94,7 +94,7 @@ export function runOne(seed, difficulty, meta, candidateIndex = 0, mapOverride =
   const baseHp = Math.max(8, 20 + (meta ? 3 : 0) + diff.hpBonus);
   const startGold = Math.max(100, 260 + (meta ? 40 : 0) + diff.goldBonus);
   const unlockedTowers = ['arrow', 'cannon', 'frost'];
-  if (meta) unlockedTowers.push('arc', 'poison');
+  if (meta) unlockedTowers.push('arc', 'poison', 'banner', 'sniper');
 
   let result = null;
   let starterPicked = false;
@@ -574,7 +574,7 @@ function main() {
       '- 机器人不等同真人：它不会针对性换塔，也不会手动卖塔，通关率仅用于相对比较。',
       '- 机器人固定策略：第 1 波前完成开局整备、18 塔上限、固定建塔顺序、不卖塔/不针对性换塔；因此不能把机器人通关率当真人通关率。',
       '- 机器人会结算事件波（按期望收益选可负担的最高价值选项），并按固定策略拆除固定图上的可破坏物：补给箱必拆、金脉/图腾留出缓冲后拆、石碑中后期拆、虫巢不拆（会刷 6 只噬虫）。',
-      '- 机器人按「真人下限」口径：取第一主海克斯、满级塔进化第一分支、默认技能冷却好就放、信物三选一取估值最高、首领核心按固定优先级、契约只接净收益明确的；但不预判波次、不卡时机、不卖塔、不针对性换塔，绝对通关率仍系统性低于真人，目标区间按这一口径解读。',
+      '- 机器人按「真人下限」口径：取第一主海克斯、满级塔进化第一分支、默认技能冷却好就放、信物三选一取估值最高、首领核心按固定优先级、契约只接净收益明确的、塔组固定含狙击/战旗（首领单体对策 + 光环辅助）；但不预判波次、不卡时机、不卖塔、不针对性换塔，绝对通关率仍系统性低于真人，目标区间按这一口径解读。',
       '- 每种子跑满 3 张候选地图，总体表按候选均匀加权，接近“玩家随机选图”的口径，而不是只看第一张。',
       `- 目标（全解锁、机器人口径）：漫游 ${(BALANCE_TARGETS.roam[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.roam[1] * 100).toFixed(0)}%、远征 ${(BALANCE_TARGETS.standard[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.standard[1] * 100).toFixed(0)}%、深渊 ${(BALANCE_TARGETS.abyss[0] * 100).toFixed(0)}–${(BALANCE_TARGETS.abyss[1] * 100).toFixed(0)}%。`,
       '- 偏离目标时优先回调肉鸽 2.0 系统幅度（五派系档位、首领核心 / 契约 / 教义 / 觉醒的收益与代价），越上限砍收益而非基座；不要改路径、波次生成、敌人数值与已冻结的战斗公式。',

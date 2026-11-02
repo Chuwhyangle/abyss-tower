@@ -163,6 +163,10 @@ function desiredType(sim, wave) {
   if (total < 2) return 'arrow';
   if (wave >= 2 && (counts.cannon || 0) < Math.ceil(total * 0.3)) return 'cannon';
   if (wave >= 3 && (counts.frost || 0) < Math.ceil(total * 0.18)) return 'frost';
+  // 战旗塔：不攻击，为光环内其他塔提供增伤/攻速。真人下限「配一座光环辅助」，固定 1 座。
+  if (wave >= 4 && unlocked.includes('banner') && (counts.banner || 0) < 1) return 'banner';
+  // 狙击塔：超远射程单体高伤，第 25/30 波首领的单体对策。真人下限「针对首领建单体塔」，固定 1 座。
+  if (wave >= 9 && unlocked.includes('sniper') && (counts.sniper || 0) < 1) return 'sniper';
   if (wave >= 8 && unlocked.includes('poison') && (counts.poison || 0) < Math.ceil(total * 0.2)) {
     return 'poison';
   }
