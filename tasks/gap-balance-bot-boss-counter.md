@@ -1,7 +1,7 @@
 ---
 id: gap-balance-bot-boss-counter
 title: 机器人塔组补狙击/战旗首领对策塔（真人下限）+ 重跑三档校准（AC-052）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
