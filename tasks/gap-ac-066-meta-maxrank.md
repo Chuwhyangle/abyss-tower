@@ -1,7 +1,7 @@
 ---
 id: gap-ac-066-meta-maxrank
 title: 数值克制：meta.js 落 maxRank 上限字段，天赋/强化有界（AC-066）
-status: todo
+status: ready
 labels:
   - gap
 parent: null
