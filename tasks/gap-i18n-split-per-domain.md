@@ -26,19 +26,28 @@ i18n 词典（`zh-CN.js`/`en-US.js`）是所有内容任务的串行热点：每
 
 ## AC
 
-- [ ] `ls public/js/shared/i18n/ | wc -l` ≥ 4（per-domain 词典已拆出）
-- [ ] `node --test tests/i18n-coverage.test.mjs` exit 0
-- [ ] `npm test` exit 0
+- [x] `ls public/js/shared/i18n/ | wc -l` ≥ 4（per-domain 词典已拆出）
+- [x] `node --test tests/i18n-coverage.test.mjs` exit 0
+- [x] `npm test` exit 0
 
 ## DoD
 
-- [ ] 词典按域拆分、加载器聚合、双语零缺译不回归；不同域内容任务不再共享同一词典文件
-- [ ] 拆分后文案与拆分前逐字节一致（无新增/删改键，只搬位置）
+- [x] 词典按域拆分、加载器聚合、双语零缺译不回归；不同域内容任务不再共享同一词典文件
+- [x] 拆分后文案与拆分前逐字节一致（无新增/删改键，只搬位置）
 
 ## Touches
 
 - `public/js/shared/i18n/zh-CN.js`
 - `public/js/shared/i18n/en-US.js`
+- `public/js/shared/i18n/zh-CN.enemies.js`
+- `public/js/shared/i18n/en-US.enemies.js`
+- `public/js/shared/i18n/zh-CN.relics.js`
+- `public/js/shared/i18n/en-US.relics.js`
+- `public/js/shared/i18n/zh-CN.meta.js`
+- `public/js/shared/i18n/en-US.meta.js`
+- `public/js/shared/i18n/zh-CN.ui.js`
+- `public/js/shared/i18n/en-US.ui.js`
 - `public/js/i18n.js`
 - `tests/i18n-coverage.test.mjs`
+- `tests/result-screen.test.mjs`
 - `tasks/gap-i18n-split-per-domain.md`
