@@ -1,7 +1,7 @@
 ---
 id: gap-ac-065-meta-balance-retest
 title: meta 增益平衡复测：天赋/传承纳入后三档通关率仍在目标区间、全量测试与确定性不回归（AC-065）
-status: ready
+status: done
 labels:
   - gap
 parent: null
