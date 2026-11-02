@@ -1,7 +1,7 @@
 ---
 id: gap-ac-047-visual-suite-green-witness
 title: 视觉像素逐帧一致：AC-047 只读复验见证——parity 与视觉套件当前全绿（03:12 fail 为页面启动超时抖动）
-status: ready
+status: done
 labels:
   - gap
   - refactor
