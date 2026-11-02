@@ -1,7 +1,7 @@
 ---
 id: gap-ac-052-balance-retest
 title: 三档平衡复测：通关率回到 70–85 / 25–40 / 5–12 并重写 docs/BALANCE.md（AC-052）
-status: superseded
+status: needs-human
 labels:
   - gap
 parent: null
