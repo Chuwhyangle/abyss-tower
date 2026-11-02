@@ -1,7 +1,7 @@
 ---
 id: gap-map-difficulty-spread-compensation
 title: 逐图难度补偿：三张固定图通关率收敛（难图加奖励或降难度）
-status: ready
+status: done
 labels:
   - gap
 parent: null
