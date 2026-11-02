@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-hex-flow-relic-default-flaky-test
 title: AC-007 复验：hex-flow 遗物默认值用例随机种子偶发三选一全为遗物钩子海克斯，固定种子消除 flake
-status: ready
+status: done
 labels:
   - gap
   - defect
