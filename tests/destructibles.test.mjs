@@ -18,11 +18,11 @@ import { generateMap, generateMapCandidates } from '../public/js/shared/mapgen.j
 
 const EXPECTED_IDS = ['vein', 'obelisk', 'cache', 'nest', 'totem'];
 
-// 任务书里的每张图数量与类型分布。
+// 任务书里的每张图数量与类型分布。resourceVein（可攻击资源矿脉）不进五类注册表，单独计数。
 const EXPECTED_DISTRIBUTION = {
-  canyon: { total: 6, vein: 2, obelisk: 1, cache: 1, nest: 1, totem: 1 },
-  twin: { total: 7, vein: 2, obelisk: 2, cache: 1, nest: 1, totem: 1 },
-  ring: { total: 9, vein: 3, obelisk: 2, cache: 2, nest: 1, totem: 1 },
+  canyon: { total: 9, vein: 2, obelisk: 1, cache: 1, nest: 1, totem: 1, resourceVein: 3 },
+  twin: { total: 10, vein: 2, obelisk: 2, cache: 1, nest: 1, totem: 1, resourceVein: 3 },
+  ring: { total: 12, vein: 3, obelisk: 2, cache: 2, nest: 1, totem: 1, resourceVein: 3 },
 };
 
 const TYPE_FIELDS = ['id', 'name', 'glyph', 'color', 'desc', 'cost', 'effect'];
@@ -126,9 +126,15 @@ test('可破坏物：三张固定地图的布点数量与类型分布符合要�
       const count = map.destructibles.filter((item) => item.type === typeId).length;
       assert.equal(count, expected[typeId], `${map.id} ${typeId} 数量`);
     }
+    // 可攻击资源矿脉单独计数（不进 DESTRUCTIBLE_TYPES 五类注册表）。
+    assert.equal(
+      map.destructibles.filter((item) => item.type === 'resourceVein').length,
+      expected.resourceVein,
+      `${map.id} resourceVein 数量`
+    );
     for (const item of map.destructibles) {
       assert.deepEqual(Object.keys(item).sort(), ['c', 'id', 'r', 'type'], `${item.id} 字段`);
-      assert.ok(DESTRUCTIBLE_BY_ID[item.type], `${item.id} 类型未知`);
+      assert.ok(destructibleTypeOf(item), `${item.id} 类型未知`);
     }
   }
 });

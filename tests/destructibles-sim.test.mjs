@@ -7,6 +7,7 @@ import { ENEMIES } from '../public/js/shared/data.js';
 import {
   DESTRUCTIBLE_BY_ID,
   RESOURCE_VEIN_TYPE,
+  destructibleTypeOf,
   isAttackableType,
   resourceVeinGold,
 } from '../public/js/shared/destructibles.js';
@@ -75,12 +76,19 @@ test('运行时状态：由 map.destructibles 深拷贝，含 destroyed/cost/eff
     assert.equal(sim.destructibles.length, map.destructibles.length, `${map.id} 布点数量`);
     for (const item of sim.destructibles) {
       const placed = map.destructibles.find((obj) => obj.id === item.id);
-      const type = DESTRUCTIBLE_BY_ID[placed.type];
+      const type = destructibleTypeOf(placed);
       assert.equal(item.type, placed.type);
       assert.equal(item.c, placed.c);
       assert.equal(item.r, placed.r);
-      assert.equal(item.cost, type.cost, `${item.id} 拆除费用取自注册表`);
-      assert.deepEqual(item.effect, type.effect, `${item.id} 效果取自注册表`);
+      if (isAttackableType(type)) {
+        // 可攻击地块：不可花金币拆除（cost=null），无声明式效果，血量取自注册表。
+        assert.equal(item.cost, null, `${item.id} 可攻击地块不可拆除`);
+        assert.equal(item.effect, null, `${item.id} 可攻击地块无声明式效果`);
+        assert.equal(item.hp, type.hp, `${item.id} 血量取自注册表`);
+      } else {
+        assert.equal(item.cost, type.cost, `${item.id} 拆除费用取自注册表`);
+        assert.deepEqual(item.effect, type.effect, `${item.id} 效果取自注册表`);
+      }
       assert.equal(item.destroyed, false, `${item.id} 初始存活`);
       // 未拆除的布点占格，不可建造。
       assert.equal(sim.canBuild(placed.c, placed.r), false, `${item.id} 初始占格`);

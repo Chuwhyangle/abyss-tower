@@ -73,6 +73,11 @@ export const RING_SPEC = {
     { id: 'ring-cache-2', type: 'cache', c: 19, r: 2 },
     { id: 'ring-nest-1', type: 'nest', c: 6, r: 5 },
     { id: 'ring-totem-1', type: 'totem', c: 19, r: 9 },
+    // 可攻击资源矿脉（feat-attackable-tiles）：塔在无敌人时自动攻击，破坏后按 seed+波次掉落金币。
+    // 3 个固定矿脉，避开路径/岩石/贴路塔位/既有可破坏物，均距出生点/基地 ≥2 格。
+    { id: 'ring-resource-vein-1', type: 'resourceVein', c: 4, r: 2 },
+    { id: 'ring-resource-vein-2', type: 'resourceVein', c: 15, r: 7 },
+    { id: 'ring-resource-vein-3', type: 'resourceVein', c: 8, r: 9 },
   ],
   // 手写塔位掩码：25 格固定贴路塔位，取代「全图可建」。
   // 全部为路径 1 格邻接，且避开岩石与可破坏物占格；按 (r,c) 升序。

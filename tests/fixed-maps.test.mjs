@@ -23,6 +23,11 @@ import {
 } from '../public/js/shared/maps/rasterize.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { Simulation } from '../public/js/sim.js';
+import {
+  RESOURCE_VEIN_TYPE,
+  resourceVeinGold,
+  validateDestructibles,
+} from '../public/js/shared/destructibles.js';
 import { biomeScene, decorExclusion } from '../public/js/render/background-data.js';
 import { modifierIdOf, weatherFor } from '../public/js/render/background-renderer.js';
 
@@ -214,6 +219,88 @@ test('固定地图：路径格不与 blocked/buildable 冲突，塔位掩码偏�
     // 可破坏物仍落在可建造格（拆除后由模拟层恢复该格可建）。
     for (const item of map.destructibles) {
       assert.equal(map.buildable[item.r][item.c], true, `${map.id} ${item.id} 必须落在可建造格`);
+    }
+  }
+});
+
+test('固定地图：资源矿脉落图——每图 2~4 个，不落路径/不占塔位/不撞可破坏物，掉落确定性', () => {
+  for (const map of FIXED_MAPS) {
+    const veins = map.destructibles.filter((item) => item.type === 'resourceVein');
+    assert.ok(veins.length >= 2 && veins.length <= 4, `${map.id} 矿脉数 ${veins.length} 不在 2~4`);
+
+    const pathKeys = new Set(map.pathCells.map((cell) => `${cell.c},${cell.r}`));
+    const destructibleKeys = new Set(map.destructibles.map((item) => `${item.c},${item.r}`));
+    // 纯塔位 = 可建造格去掉可破坏物占格（即手写 buildableMask）。
+    const towerSpots = new Set();
+    for (let r = 0; r < map.rows; r++) {
+      for (let c = 0; c < map.cols; c++) {
+        if (map.buildable[r][c] && !destructibleKeys.has(`${c},${r}`)) towerSpots.add(`${c},${r}`);
+      }
+    }
+    const spawnKeys = new Set(map.spawns.map((spawn) => `${spawn.c},${spawn.r}`));
+    const dist = (a, b) => Math.max(Math.abs(a.c - b.c), Math.abs(a.r - b.r));
+
+    const veinIds = new Set();
+    const veinKeys = new Set();
+    for (const vein of veins) {
+      const key = `${vein.c},${vein.r}`;
+      assert.equal(veinIds.has(vein.id), false, `${map.id} 矿脉 id 重复 ${vein.id}`);
+      assert.equal(veinKeys.has(key), false, `${map.id} 矿脉格子重复 ${key}`);
+      veinIds.add(vein.id);
+      veinKeys.add(key);
+      assert.ok(!pathKeys.has(key), `${map.id} ${vein.id} 落在路径`);
+      assert.equal(map.blocked[vein.r][vein.c], false, `${map.id} ${vein.id} 压在岩石/阻挡`);
+      assert.ok(!towerSpots.has(key), `${map.id} ${vein.id} 占用贴路塔位`);
+      assert.equal(
+        map.destructibles.some(
+          (item) => item.type !== 'resourceVein' && item.c === vein.c && item.r === vein.r
+        ),
+        false,
+        `${map.id} ${vein.id} 与既有可破坏物撞格`
+      );
+      assert.ok(!spawnKeys.has(key), `${map.id} ${vein.id} 落在出生点`);
+      assert.notEqual(key, `${map.base.c},${map.base.r}`, `${map.id} ${vein.id} 落在基地`);
+      for (const spawn of map.spawns) {
+        assert.ok(dist(vein, spawn) >= 2, `${map.id} ${vein.id} 距出生点不足 2 格`);
+      }
+      assert.ok(dist(vein, map.base) >= 2, `${map.id} ${vein.id} 距基地不足 2 格`);
+      assert.equal(map.buildable[vein.r][vein.c], true, `${map.id} ${vein.id} 未落可建造格`);
+      // 掉落复用 feat-attackable-tiles 的 seed+波次派生，落在声明区间内。
+      const gold = resourceVeinGold(map.seed, 1, vein.id);
+      assert.ok(
+        gold >= RESOURCE_VEIN_TYPE.goldMin && gold <= RESOURCE_VEIN_TYPE.goldMax,
+        `${map.id} ${vein.id} 掉落 ${gold} 不在区间`
+      );
+    }
+
+    // 确定性：候选副本里的矿脉逐字一致。
+    const copy = fixedMapCandidates('x').find((candidate) => candidate.id === map.id);
+    const copyVeins = copy.destructibles.filter((item) => item.type === 'resourceVein');
+    assert.deepEqual(copyVeins, veins, `${map.id} 矿脉必须逐字一致`);
+
+    // 整图自洽（含矿脉）。
+    assert.equal(validateDestructibles(map).ok, true, `${map.id} 可破坏物自洽校验失败`);
+  }
+});
+
+test('固定地图：资源矿脉在 sim 中占格（存活挡建塔，破坏后恢复），且带正确血量', () => {
+  for (const map of FIXED_MAPS) {
+    const veins = map.destructibles.filter((item) => item.type === 'resourceVein');
+    const sim = new Simulation({
+      map,
+      seed: map.seed,
+      difficulty: 'standard',
+      gold: 500,
+      baseHp: 20,
+      maxBaseHp: 20,
+      relics: [],
+      towers: [],
+    });
+    const entries = sim.destructibles.filter((item) => item.type === 'resourceVein');
+    assert.equal(entries.length, veins.length, `${map.id} 运行时矿脉条目数`);
+    for (const entry of entries) {
+      assert.equal(entry.hp, RESOURCE_VEIN_TYPE.hp, `${map.id} ${entry.id} 血量`);
+      assert.equal(sim.canBuild(entry.c, entry.r), false, `${map.id} ${entry.id} 存活时挡建塔`);
     }
   }
 });

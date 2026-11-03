@@ -3,7 +3,7 @@
 // 本模块不引用模拟层：DestructibleRenderer 只读 game.destructibles / game.hover，
 // 展示模型（effect/warning/cost/failure）供 ui/modals.js 组装确认面板文案。
 import { TILE } from '../shared/data.js';
-import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
+import { destructibleTypeOf } from '../shared/destructibles.js';
 import { Palette } from './palette.js';
 import { destructibleSpriteId } from './sprite-coverage.js';
 
@@ -36,7 +36,8 @@ export function destructibleShape(typeId) {
 }
 
 // 运行状态 → 视觉状态（纯函数）：alive 画图标，destroyed 画废墟残迹。
-export function destructibleVisual(item, type = DESTRUCTIBLE_BY_ID[item?.type]) {
+// 类型同时查五类固定物件与可攻击地块（资源矿脉），未知类型返回 null。
+export function destructibleVisual(item, type = destructibleTypeOf(item)) {
   if (!item || !type) return null;
   const c = Number(item.c);
   const r = Number(item.r);
@@ -163,7 +164,7 @@ export class DestructibleRenderer {
     const hover = this.game?.hover || null;
     let drawn = 0;
     for (const item of this.items()) {
-      const type = DESTRUCTIBLE_BY_ID[item?.type];
+      const type = destructibleTypeOf(item);
       if (!type) continue;
       const cx = (item.c + 0.5) * T;
       const cy = (item.r + 0.5) * T;
@@ -225,6 +226,9 @@ function drawAlive(g, cx, cy, type, color, profile, t) {
       break;
     case 'totem':
       drawTotem(g, color, profile);
+      break;
+    case 'resourceVein':
+      drawResourceVein(g, color, profile);
       break;
     default:
       g.beginPath();
@@ -337,6 +341,28 @@ function drawTotem(g, color, profile) {
   g.beginPath();
   g.arc(0, 0, 4, 0, Math.PI * 2);
   g.fill();
+}
+
+function drawResourceVein(g, color, profile) {
+  // 资源矿脉：金币堆（大圆 + 两颗小圆叠放），与金脉的菱形符号区分。
+  g.beginPath();
+  g.arc(0, 0, 12, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+  g.fillStyle = Palette.hexToRgba(color, 0.85);
+  g.beginPath();
+  g.arc(-4, -4, 5, 0, Math.PI * 2);
+  g.fill();
+  g.beginPath();
+  g.arc(4, 4, 4, 0, Math.PI * 2);
+  g.fill();
+  if (profile.detail) {
+    g.strokeStyle = Palette.hexToRgba('#ffffff', 0.5);
+    g.lineWidth = 1.2;
+    g.beginPath();
+    g.arc(-4, -4, 2, 0, Math.PI * 2);
+    g.stroke();
+  }
 }
 
 function drawHover(g, cx, cy, color) {

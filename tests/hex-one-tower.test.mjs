@@ -402,6 +402,9 @@ test('冻结中的飞行怪可被炮台锁定与命中，未冻结的飞行怪�
   // 冻结中：地面塔可锁定、开火并命中。
   flyer.freezeUntil = sim.time + 1;
   const hpBefore = flyer.hp;
+  // 未冻结阶段炮台可能顺手攻击射程内的资源矿脉（feat-attackable-tiles），冷却被占用；
+  // 这里清零冷却，隔离出「冻结索敌开火」这一判定本身。
+  tower.cd = 0;
   sim.updateTowers(1 / 60);
   assert.equal(sim.findTarget(tower, range), flyer, '冻结飞行怪可被炮台锁定');
   assert.equal(sim.projectiles.length, 1, '炮台对冻结飞行怪开火');
