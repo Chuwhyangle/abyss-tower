@@ -39,3 +39,11 @@ TODO-12「爬塔模式」的三路综合设计草案已定稿在 `docs/TODO.md`�
 立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-12（爬塔设计草案）。爬塔实现依赖本冻结表落地后再拆任务（阶段 0 共享契约 → 阶段 1 并行 → 阶段 2 集成）。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为阶段冻结表文档，把已定稿设计落文档，L_D/L_G/L_S 无需量化。
+
+## Blocker
+
+**2026-11-03T11:55:58.500Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 4/8，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：944974b9-232a-4d0e-968c-09923f09ce25
