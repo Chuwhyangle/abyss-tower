@@ -3,6 +3,7 @@
 // 动画/进化/皮肤预算表在 tower-data.js，进化与停摆绘制在 tower-draw.js，八种塔体造型在 tower-body.js
 // （方法集合挂回本类原型，对外仍是同一个 TowerRenderer、同一套方法签名）。
 import { TILE, TOWERS } from '../shared/data.js';
+import { MIRROR_STAT_MUL } from '../shared/hexes/mirror-engineering.js';
 import { DOCTRINES } from '../shared/doctrines.js';
 import { Palette } from './palette.js';
 import {
@@ -329,6 +330,62 @@ export class TowerRenderer {
       0,
       glowOn,
       skinColorFor(activeSkin('tower'), Palette.towerColor(game.placementType, settings))
+    );
+    g.restore();
+    g.globalAlpha = 1;
+    g.restore();
+  }
+
+  // 镜像落位幽灵预览：本体建成后待落位镜像槽的落点提示（0 造价、60% 属性，浅蓝染色）。
+  renderMirrorPlacement(g, time, glowOn, settings) {
+    const game = this.game;
+    const hover = game.hover;
+    if (!game.mirrorPlacing || !hover) return;
+    const body = typeof game.pendingMirrorBody === 'function' ? game.pendingMirrorBody() : null;
+    const type = body ? body.type : null;
+    if (!type) return;
+    const { c, r } = hover;
+    const inBounds = r >= 0 && r < game.map.rows && c >= 0 && c < game.map.cols;
+    if (!inBounds) return;
+
+    // 镜像 0 造价：只判可建，不判金币。
+    const ok = game.canBuild(c, r);
+    const x = (c + 0.5) * T;
+    const y = (r + 0.5) * T;
+    const stats = game.previewStats(type, body.level);
+    const range = stats.range * MIRROR_STAT_MUL;
+
+    g.save();
+    g.globalAlpha = 0.9;
+    g.fillStyle = ok ? 'rgba(56, 189, 248, 0.12)' : 'rgba(239, 95, 95, 0.14)';
+    g.fillRect(c * T + 2, r * T + 2, T - 4, T - 4);
+    g.strokeStyle = ok ? '#38bdf8' : '#ef5f5f';
+    g.lineWidth = 2;
+    g.strokeRect(c * T + 2, r * T + 2, T - 4, T - 4);
+
+    g.beginPath();
+    g.arc(x, y, range * T, 0, Math.PI * 2);
+    g.fillStyle = 'rgba(255, 255, 255, 0.04)';
+    g.fill();
+    g.setLineDash([5, 5]);
+    g.strokeStyle = ok ? 'rgba(56, 189, 248, 0.5)' : 'rgba(239, 95, 95, 0.5)';
+    g.lineWidth = 1.4;
+    g.stroke();
+    g.setLineDash([]);
+
+    g.globalAlpha = 0.55;
+    g.save();
+    g.translate(x, y);
+    g.rotate(-Math.PI / 2);
+    this.drawTowerShape(
+      g,
+      time,
+      type,
+      body.level,
+      1,
+      0,
+      glowOn,
+      skinColorFor(activeSkin('tower'), Palette.towerColor(type, settings))
     );
     g.restore();
     g.globalAlpha = 1;
