@@ -1,7 +1,7 @@
 ---
 id: feat-tower-stage1-server
 title: 爬塔·阶段1服务端：chooseNode/nodes/merchant + 节点分流 + tower mode
-status: ready
+status: done
 labels:
   - feat
 parent: null
