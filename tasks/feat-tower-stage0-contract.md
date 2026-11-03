@@ -1,7 +1,7 @@
 ---
 id: feat-tower-stage0-contract
 title: 爬塔·阶段0 共享契约：tower.js 节点图 + route 接进 events/snapshot/scoring/replay
-status: todo
+status: ready
 labels:
   - feat
 parent: null
