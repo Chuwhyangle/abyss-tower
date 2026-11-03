@@ -59,7 +59,10 @@ const NPM_ALIASES = new Set(['test', 'start', 'stop', 'restart']);
 const pathPrefix = `(?:${REPO_DIRS.map((dir) => dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`;
 // 以顶层目录开头、由常见路径字符组成的 token；遇到空白、引号、括号即结束。
 // 通配符 * 也纳入 token，好在 normalizeCodePath 里整段判为 glob 后跳过。
-const REPO_PATH_RE = new RegExp(`(?:^|[\\s\`'"(（\\[=])(${pathPrefix}/[A-Za-z0-9._/*-]*)`, 'g');
+// 非 ASCII 路径字符（CJK 统一表意文字：基本区 U+4E00–U+9FFF + 扩展 A U+3400–U+4DBF）也纳入 token，
+// 否则含中文的路径（如 docs/PHASE_爬塔.md）会在首个汉字处截断成 docs/PHASE_，存在与否都判错。
+const CJK_PATH_CHARS = String.raw`一-鿿㐀-䶿`;
+const REPO_PATH_RE = new RegExp(`(?:^|[\\s\`'"(（\\[=])(${pathPrefix}/[A-Za-z0-9._/*${CJK_PATH_CHARS}-]*)`, 'g');
 const TRAILING_PUNCTUATION = /[.,;:!?，。；：、）)\]}>]+$/;
 const UNSAFE_PATH_CHARS = /[<>*{}$:?#|]/;
 
