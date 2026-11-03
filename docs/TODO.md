@@ -44,7 +44,7 @@
 
 - **查证**：**强制横屏**——竖屏直接盖 rotate-hint，游戏本体竖屏不可玩（`styles.css:2636-2687`）。紧凑屏把遗物面板/下一波情报整体 `display:none`（`styles.css:2350-2352`），HUD 靠隐藏信息压缩（≤720px 隐藏第 4 项 stat 等），触控层薄（只有画布 + 技能钮），browser-mobile 测试未覆盖塔面板/结算/offer 弹窗。
 - **方案（已定 A，用户 2026-11-03 拍板）**：维持横屏，只优化信息可达性——紧凑屏信息改「可收起抽屉」而非隐藏、触控目标放大、扩 browser-mobile 覆盖（塔面板/结算/offer 弹窗）。
-- **状态**：[ ] 方向已定，待实现
+- **状态**：[x] 已实现中——`feat-mobile-drawer` + `feat-mobile-info-accessibility`（ready，待派；两任务 Touches 重叠，串行跑）
 
 ## 改进需求（design）
 
@@ -106,14 +106,14 @@
 - **查证**：现有可破坏物是「花金币手动拆除」（金脉/石碑/补给箱/虫巢/诅咒图腾，`destructibles.js`、`destructible-system.js`），没有「塔攻击获取物品」机制。
 - **方案**：新增「可被塔攻击的资源地块」：有 HP，被塔攻击破坏后掉金币/物品（现有商店购买保留）。复用 destructible 占格框架，把「金币拆除」改成「塔打掉血」。设计要点：是否自动索敌攻击、掉落内容、与贴路建塔位联动（地块占格）。
 - **文件**：`public/js/shared/destructibles.js`、`public/js/sim/destructible-system.js`、`public/js/sim/tower-system.js`。
-- **状态**：[ ] 未开始
+- **状态**：[x] 机制已落地（`feat-attackable-tiles` done：资源矿脉 hp140/金60~120 全链路）；落图待派（`feat-resource-vein-placement` ready：canyon 2 脉 / twin+ring 3 脉，落图后 `npm run balance` 复测，越线先加血 140→200 再砍金）
 
 ### TODO-11 开局建塔位：每图固定、偏少、贴路
 
-- **查证**：三张固定图 buildable 高达 207~215 格（近乎全图可建），且贴路格也可建（`rasterize.js:186-188` 只排除路径/岩石，不排除贴路格）。与「开局塔位偏少、固定、贴路」的目标相反。
-- **方案**：重做三张图的 buildable 掩码——每图固定点位、偏少、贴路 1~2 格内；在 rasterize 增加「塔位掩码」概念（取代全图可建）。配合 balance 模拟验证难度。
-- **文件**：`public/js/shared/maps/canyon.js|twin.js|ring.js`、`public/js/shared/maps/rasterize.js`。
-- **状态**：[ ] 未开始
+- **查证**：已落地——`feat-buildable-mask`（done，commit 25ecd9b）：三图各 25 格手写 `buildableMask`，`rasterize.js` 支持掩码，回归测试卡死「纯塔位 15~25 格、贴路 ≥80%」。平衡实证：21~22 格远征崩到 23%，25 格三档达标。
+- **方案（可选细化）**：峡谷 25→24（单入口易图、深渊 13% 偏上限），双牙桥/环心 25→26（双入口短 lane、深渊 8% 靠下限）。
+- **文件**：`public/js/shared/maps/canyon.js|twin.js|ring.js`、`public/js/shared/maps/rasterize.js`、`docs/MAP_DESIGN.md`（旧表 215/209/207 待同步）。
+- **状态**：[x] 已落地（25 格/图）；24/26 细化为可选项，非必须
 
 ### TODO-12 局内金币/经验 + 爬塔模式
 
