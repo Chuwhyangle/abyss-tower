@@ -1,7 +1,7 @@
 ---
 id: fix-mirror-engineering-placement
 title: 镜像工程重做：对称自动镜像改玩家自选落位（手放连体镜像）
-status: todo
+status: ready
 labels:
   - fix
 parent: null
