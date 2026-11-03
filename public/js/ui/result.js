@@ -93,18 +93,16 @@ export const resultMethods = {
     const modal = this.openModal(
       `
         <div class="result ${victory ? 'victory' : 'defeat'}" data-result="${victory ? 'victory' : 'defeat'}">
-          <div class="scene-sprites" aria-hidden="true"
-            style="display:flex;justify-content:center;margin:0 0 10px;">
-            <div class="scene-sprite" data-sprite-id="${SCENE_SPRITE_IDS.resultPanel}" style="opacity:.85;"></div>
+          <div class="result-panel" data-sprite-id="${SCENE_SPRITE_IDS.resultPanel}" data-result-panel>
+            <header class="result-hero">
+              <p class="eyebrow">${t(victory ? 'result.victoryTag' : 'result.overTag')}</p>
+              <h2>${victory ? t('result.victoryTitle') : t('result.reached', { wave: stats.wave })}</h2>
+            </header>
           </div>
-          <header class="result-hero">
-            <p class="eyebrow">${t(victory ? 'result.victoryTag' : 'result.overTag')}</p>
-            <h2>${victory ? t('result.victoryTitle') : t('result.reached', { wave: stats.wave })}</h2>
-            <p class="diff-tag" style="color:${diff.color}">${diffTag}</p>
-          </header>
           <section class="result-score">
             <div class="score-big" data-score-target="${score}">${formatResultScore(score)}</div>
             <p class="muted">${t('result.finalScore')}</p>
+            <p class="diff-tag" style="color:${diff.color}">${diffTag}</p>
             ${personalBest ? `<p class="result-record" data-result-record>${iconSvg('victory', 'icon-inline')}${t('result.newRecord')}</p>` : ''}
           </section>
           <section class="result-cores" data-result-cores>

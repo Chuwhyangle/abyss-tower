@@ -1256,10 +1256,42 @@ button {
 }
 
 .diff-tag {
-  margin: 0 0 var(--space-2);
+  margin: 0;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   letter-spacing: 0.14em;
+}
+
+/* 结算面板精灵宿主：金边晶体边框承载结局标题（徽记 + 标题），不再是空占位框。
+   就绪时精灵管线写入 240×120 内联尺寸；缺资源回退时沿用同一张紧凑卡片的外观。 */
+.result-panel {
+  position: relative;
+  box-sizing: border-box;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: var(--space-2);
+  width: 240px;
+  min-height: 120px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.result-panel[data-sprite-fallback='1'] {
+  border: 1px solid var(--line-strong);
+  background: var(--surface-faint);
+}
+
+.result-panel .result-hero {
+  gap: var(--space-1);
+}
+
+.result-panel h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  letter-spacing: 0.02em;
 }
 
 .result-score {
@@ -1316,16 +1348,16 @@ button {
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-4);
-  border: 1px solid color-mix(in srgb, var(--result-accent) 35%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent);
   border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--result-accent) 8%, transparent);
+  background: color-mix(in srgb, var(--gold) 8%, transparent);
   animation: result-rise var(--duration-slow) var(--ease-standard) 120ms both;
 }
 
 .result-cores-icon .icon {
   width: 26px;
   height: 26px;
-  color: var(--result-accent);
+  color: var(--gold);
 }
 
 .result-cores div {
@@ -1343,7 +1375,7 @@ button {
 .result-cores b {
   font-family: var(--font-mono);
   font-size: var(--text-xl);
-  color: var(--result-accent);
+  color: var(--gold);
 }
 
 .result-unlocks {
@@ -2514,6 +2546,81 @@ body.is-touch .speed-btn {
 
   .modal {
     padding: 16px;
+  }
+}
+
+/* 结算页短视口（横屏矮屏，如 844×390）：压缩结算面板与数据区，并把操作区提前到战绩表之前，
+   保证首屏可见「最终得分」标签、至少首行战绩与分享按钮；桌面层级不受影响。 */
+@media (max-height: 520px) {
+  .result {
+    gap: 2px;
+  }
+
+  .result-score {
+    gap: 2px;
+  }
+
+  .result-score .muted,
+  .result-score .diff-tag {
+    line-height: 1.25;
+  }
+
+  .score-big {
+    font-size: 30px;
+    margin-top: 0;
+  }
+
+  .result-cores {
+    gap: var(--space-2);
+    padding: 4px 12px;
+  }
+
+  .result-cores-icon .icon {
+    width: 18px;
+    height: 18px;
+  }
+
+  .result-cores b {
+    font-size: var(--text-lg);
+    line-height: 1.1;
+  }
+
+  .result-cores span {
+    line-height: 1.2;
+  }
+
+  /* 操作区提前到战绩表前：分享/再来一局按钮进入首屏。 */
+  .result .modal-actions {
+    order: 4;
+    margin-top: var(--space-2);
+  }
+
+  .result-grid {
+    order: 5;
+    margin: 0;
+  }
+
+  .result-grid div {
+    padding: 4px var(--space-2);
+    gap: 2px;
+  }
+
+  .result-grid span {
+    font-size: 9.5px;
+    line-height: 1.2;
+  }
+
+  .result-grid b {
+    font-size: 13px;
+    line-height: 1.2;
+  }
+
+  /* 回放与分享详情是次级面板，让位于操作区与战绩表首行，进入首屏之下。 */
+  .result-unlocks,
+  .replay-panel,
+  .share-result-panel,
+  .result > .muted {
+    order: 6;
   }
 }
 
