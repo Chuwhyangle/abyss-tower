@@ -33,6 +33,7 @@ const CANONICAL = {
   ...RUN,
   events: [RUN.events[1], RUN.events[0]],
   hexId: null,
+  route: null,
 };
 
 function fnv1a(text) {
@@ -64,7 +65,7 @@ function craft(payload) {
 
 test('往返：编码后可完整解码，且重复编码结果一致', () => {
   const code = encodeRun(RUN);
-  assert.match(code, /^RTD2\./);
+  assert.match(code, /^RTD3\./);
   assert.match(code.split('.')[1], /^[A-Za-z0-9_-]+$/);
   assert.ok(code.length < MAX_REPLAY_CODE_LENGTH);
 
@@ -86,6 +87,7 @@ test('最小对局：缺省遗物与事件解码为空数组', () => {
     relics: [],
     events: [],
     hexId: null,
+    route: null,
   });
   // 字符串形式的遗物与数组形式的事件同样接受。
   const loose = validateRun({
@@ -144,11 +146,11 @@ test('任意损坏输入都不抛异常，而是返回明确错误码', () => {
 
 test('版本不兼容：前缀版本或 payload 版本不符都被拒绝', () => {
   const valid = encodeRun(RUN);
-  const nextPrefix = valid.replace(/^RTD2\./, 'RTD3.');
+  const nextPrefix = valid.replace(/^RTD3\./, 'RTD4.');
   assert.equal(decodeRun(nextPrefix).code, 'REPLAY_UNSUPPORTED_VERSION');
 
   const payload = {
-    v: 3,
+    v: 4,
     s: RUN.seed,
     m: RUN.mapChoice,
     d: RUN.difficulty,
@@ -184,6 +186,59 @@ test('旧版码（v1）仍可导入：hexId 规范化为 null，且不接受 v2 
   const rejected = decodeRun(`RTD1.${withHexBody}.${checksum(withHexBody)}`);
   assert.equal(rejected.code, 'REPLAY_UNKNOWN_FIELD');
   assert.equal(rejected.detail, 'h');
+});
+
+test('爬塔选路往返：route 只在 tower 模式编码，游标由 path 末位推导', () => {
+  const route = { path: ['1:0', '2:0', '3:1'] };
+  const towerRun = {
+    seed: 'tower-seed',
+    mapChoice: 0,
+    difficulty: 'standard',
+    mode: 'tower',
+    relics: [],
+    events: [{ wave: 3, eventId: 'altar', optionId: 'leave' }],
+    route,
+  };
+  const code = encodeRun(towerRun);
+  assert.match(code, /^RTD3\./);
+  const decoded = decodeRun(code);
+  assert.equal(decoded.ok, true);
+  assert.deepEqual(decoded.run, {
+    ...towerRun,
+    hexId: null,
+    route: { path: ['1:0', '2:0', '3:1'], node: '3:1' },
+  });
+  assert.equal(encodeRun(decoded.run), code);
+
+  // 非 tower 模式携带 route 视为跨模式误读。
+  assert.throws(
+    () => encodeRun({ ...RUN, route }),
+    (error) => error instanceof ReplayError && error.code === 'REPLAY_INVALID_ROUTE'
+  );
+});
+
+test('v2 无 t 字段：旧码导入 route 为 null，且 v2 带 t 被拒绝', () => {
+  const v2Payload = {
+    v: 2,
+    s: RUN.seed,
+    m: RUN.mapChoice,
+    d: RUN.difficulty,
+    o: RUN.mode,
+    r: [],
+    e: [],
+  };
+  const v2Body = bytesToB64Url(new TextEncoder().encode(JSON.stringify(v2Payload)));
+  const legacy = decodeRun(`RTD2.${v2Body}.${checksum(v2Body)}`);
+  assert.equal(legacy.ok, true);
+  assert.equal(legacy.run.route, null);
+  assert.equal(legacy.run.hexId, null);
+
+  const withRouteBody = bytesToB64Url(
+    new TextEncoder().encode(JSON.stringify({ ...v2Payload, t: ['1:0'] }))
+  );
+  const withRoute = decodeRun(`RTD2.${withRouteBody}.${checksum(withRouteBody)}`);
+  assert.equal(withRoute.code, 'REPLAY_UNKNOWN_FIELD');
+  assert.equal(withRoute.detail, 't');
 });
 
 test('未知字段被拒绝，避免跨版本误读', () => {

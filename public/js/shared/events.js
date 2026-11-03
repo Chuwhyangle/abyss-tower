@@ -1,6 +1,7 @@
 // 局内事件节点：每 5 波一次的事件。纯数据 + 纯函数，服务端与浏览器共用。
 // 事件类型与选项只在这里定义；前端只展示，效果结算也走这里的纯函数。
 import { RNG } from './rng.js';
+import { MAX_WAVE } from './data/constants.js';
 
 // 触发波次：第 5/10/15/20/25 波清除后进入事件阶段。
 export const EVENT_WAVES = Object.freeze([5, 10, 15, 20, 25]);
@@ -422,23 +423,29 @@ for (const wave of EVENT_WAVES) {
   for (const chain of EVENT_CHAINS) CHAIN_WAVES.add(Number(wave) + chain.delayWaves);
 }
 
-// 事件波规则只由模式决定：普通模式沿用固定表，无尽模式按间隔无限延续。
+// 事件波规则只由模式决定：普通模式沿用固定表，无尽模式按间隔无限延续，
+// 爬塔模式任意节点层（1..MAX_WAVE）都可解析事件（§6.2 红线 2：normalizeEventHistory 放行爬塔事件）。
 export function isEventWave(wave, mode = 'normal') {
   const target = Number(wave);
   if (!Number.isInteger(target) || target <= 0) return false;
   if (mode === 'endless') {
     return target % ENDLESS_EVENT_INTERVAL_WAVES === 0;
   }
+  if (mode === 'tower') {
+    return target <= MAX_WAVE;
+  }
   return EVENT_WAVES.includes(target);
 }
 
 // 连锁的后续事件落在非事件波（事件波 + 延迟），同样可以进入事件阶段。
 // 无尽模式的连锁触发波本身就是无限的，因此按“任意事件波 + 延迟”反推。
+// 爬塔模式的连锁重排到节点（阶段 1 落地），本层不引入波次延迟连锁。
 export function isChainWave(wave, mode = 'normal') {
   const target = Number(wave);
   if (!Number.isInteger(target) || target <= 0) return false;
-  if (mode !== 'endless') return CHAIN_WAVES.has(target);
-  return EVENT_CHAINS.some((chain) => isEventWave(target - chain.delayWaves, mode));
+  if (mode === 'endless') return EVENT_CHAINS.some((chain) => isEventWave(target - chain.delayWaves, mode));
+  if (mode === 'tower') return false;
+  return CHAIN_WAVES.has(target);
 }
 
 function isEventResolvableWave(wave, mode = 'normal') {

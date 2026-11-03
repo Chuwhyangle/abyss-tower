@@ -312,7 +312,7 @@ test('快照 v7：已拆除 id 与石碑层数随存档往返，恢复后状态�
 
   const snapshot = sim.toSnapshot();
   assert.equal(snapshot.version, SAVE_VERSION);
-  assert.equal(SAVE_VERSION, 7);
+  assert.equal(SAVE_VERSION, 8);
   assert.deepEqual(snapshot.destructibles, {
     destroyed: [vein.id, obelisk.id, totem.id],
     obeliskStacks: 1,

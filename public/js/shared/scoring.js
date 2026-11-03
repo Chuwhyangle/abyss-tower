@@ -22,6 +22,12 @@ export function isVictory(waveReached, wavesServed = waveReached) {
   return waveReached >= MAX_WAVE && wavesServed >= MAX_WAVE;
 }
 
+// 爬塔通关口径（§5 难度映射占位为「楼层=波次」，balance 待验）：登顶 30 层即通关。
+// 与普通模式分离成独立符号，阶段 1 若改映射（波次等价）只改此处，不动普通口径。
+export function isTowerVictory(layerReached, layersServed = layerReached) {
+  return layerReached >= MAX_WAVE && layersServed >= MAX_WAVE;
+}
+
 // 主海克斯的分数倍率：未知/缺失（旧 run 没有 hex）一律按 1.0，结算与客户端预览共用。
 export function hexScoreMul(hexId) {
   const definition = typeof hexId === 'string' ? HEX_BY_ID[hexId] : null;
@@ -52,7 +58,13 @@ export function computeOutcome({
   const diff = getDifficulty(difficulty);
   const endless = mode === 'endless';
   // 无尽模式没有通关结算：第 30 波后继续挑战，直到基地被摧毁。
-  const victory = endless ? false : isVictory(waveReached, wavesServed);
+  // 爬塔模式有终点（登顶 30 层），通关口径独立于普通模式。
+  const victory =
+    mode === 'tower'
+      ? isTowerVictory(waveReached, wavesServed)
+      : endless
+        ? false
+        : isVictory(waveReached, wavesServed);
   const rawScore = computeRawScore({ waveReached, kills, goldLeft, baseHp, victory });
   const score = Math.round(
     rawScore * diff.scoreMul * scoreMul * (endless ? ENDLESS_SCORE_MUL : 1)
