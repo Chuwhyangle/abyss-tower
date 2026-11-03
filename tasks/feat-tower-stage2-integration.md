@@ -1,7 +1,7 @@
 ---
 id: feat-tower-stage2-integration
 title: 爬塔·阶段2集成：端到端串通 + 难度映射定夺 + 全量/浏览器验收
-status: ready
+status: done
 labels:
   - feat
 parent: null
