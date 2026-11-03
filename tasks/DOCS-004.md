@@ -23,10 +23,10 @@ TODO-12「爬塔模式」的三路综合设计草案已定稿在 `docs/TODO.md`�
 
 ## DoD
 
-- [ ] `docs/PHASE_TOWER.md` 落地，设计增量与 TODO.md 草案逐条对应
-- [ ] 若 docs-phase-sync 需覆盖新 PHASE 文档，同步更新其检查（不破坏既有 PHASE_FEEL_ART 断言）
-- [ ] `npm test` 全绿
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] `docs/PHASE_TOWER.md` 落地，设计增量与 TODO.md 草案逐条对应
+- [x] 若 docs-phase-sync 需覆盖新 PHASE 文档，同步更新其检查（不破坏既有 PHASE_FEEL_ART 断言）
+- [x] `npm test` 全绿
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -39,3 +39,13 @@ TODO-12「爬塔模式」的三路综合设计草案已定稿在 `docs/TODO.md`�
 立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-12（爬塔设计草案）。爬塔实现依赖本冻结表落地后再拆任务（阶段 0 共享契约 → 阶段 1 并行 → 阶段 2 集成）。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为阶段冻结表文档，把已定稿设计落文档，L_D/L_G/L_S 无需量化。
+
+续做轮（2026-11-03）：复验 `node --test tests/docs-phase-sync.test.mjs tests/docs-consistency.test.mjs` 27/27 通过、`npm test` 1928/1928 全绿，`docs/PHASE_TOWER.md` 六节与 TODO-12 草案逐条对应，勾选 DoD 四项。
+
+## Blocker
+
+**2026-11-03T11:55:58.500Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 4/8，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：944974b9-232a-4d0e-968c-09923f09ce25
