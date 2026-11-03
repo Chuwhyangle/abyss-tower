@@ -1,7 +1,7 @@
 ---
 id: feat-one-tower-ultimates
 title: 独塔重做·七塔大招：弩/霜/电弧/毒/战旗/震荡/狙击的 10 级独属大招
-status: ready
+status: done
 labels:
   - feat
 parent: null
