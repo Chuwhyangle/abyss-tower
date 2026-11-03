@@ -1,7 +1,7 @@
 ---
 id: feat-talent-tree-wiring
 title: 天赋树接线：spendLegacy 路由 + meta 树 UI + 对局注入 talent，让局外养成真正生效
-status: todo
+status: ready
 labels:
   - feat
 parent: null
