@@ -1,7 +1,7 @@
 ---
 id: feat-one-tower-coverage
 title: 独塔覆盖脉冲 + 震荡软锁修复 + 数值回调（非 AOE 塔回目标区间）
-status: ready
+status: needs-human
 labels:
   - feat
 parent: null
@@ -61,3 +61,13 @@ AC5 逐塔复测（solo-sweep 40 种子、满 meta 机器人口径；`npm run ba
 - 未落地原因：AC 未全勾（checked 7/9，剩余未勾 2）——续做只需验证并勾选 AC
 - run_id：wk-prod-anchor
 - session_id：b023f126-8556-4ad9-87a7-212622705e80
+
+## Needs-Human
+
+**2026-11-03 — worker 续做判定：AC5 深渊带（5~12%）结构上不可达（漫游/电弧带已达标），无法在本任务 Touches 内满足；升级 needs-human，交 manager 拍板（不再机械重派）。**
+
+- **AC5 已达标部分**：漫游 6 塔全落 70~85%（arrow 78 / frost 85 / poison 75 / banner 75 / shock 70 / sniper 83）、电弧 75（≤85%）。覆盖脉冲 + 震荡软锁 + 数值回调已把 6 塔从 0% 拉回漫游目标区间——任务核心目标「非 AOE 塔回目标区间」达成。
+- **AC5 未达标部分**：深渊 5~12% 仅 frost 5% 达标；arrow/poison/banner/sniper 0%、shock 28%（软锁后 29/40 以 180s 卡死计胜，属测量口径伪影）。
+- **根因（结构性，非数值可调）**：深渊 vs 漫游难度差约 2×（hpMul 1.34/0.85≈1.58×、countMul 1.12/0.87≈1.29×，乘算≈2.03×，外加深渊 goldBonus −20/hpBonus −3 vs 漫游 +60/+5）；单塔胜负曲线陡峭，漫游 70~85% 对应深渊约 0%。要让逐塔深渊 5~12% 须把漫游推到 90%+，与「漫游 ≤85%」「电弧 ≤85%」互斥。AC5 的深渊带是从全局三档目标（`docs/BALANCE.md`：漫游 70–85%/远征 25–40%/深渊 5–12%，7 塔满编口径）直接搬到「逐塔」口径的产物——逐塔深渊 ≠ 全局深渊。
+- **需决策（三选一，类比 `feat-one-tower-balance` 的 AC2/AC4 拆解）**：① 放宽 AC5 深渊带（删深渊带或改为「frost 达标、其余塔不因脉冲倒退」）后勾 AC5/DoD3 落地；② 接受现状——核心目标（非 AOE 塔回漫游区间）已达成、深渊为逐塔结构性上限，勾 AC5/DoD3 并记录；③ 另立任务做逐塔深渊专项（如单塔深渊专属 buff / 难度曲线分离），本任务先行落地漫游成果。
+- **已完成且已勾**：AC1–4、DoD1/2/4；实现提交 c64406d；本轮复验 `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs` 45/45 通过；`npm test` 1941 例全绿（先轮实测）。
