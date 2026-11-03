@@ -101,6 +101,14 @@ function normalizeTowers(towers) {
     // 进化分支：evolutions 数组 / 单条 evolution 归一化成数组；旧档缺字段按未进化处理。
     const evolutions = normalizeEvolutionIds(tower.evolutions ?? tower.evolution);
     if (evolutions.length) state.evolutions = evolutions;
+    // 镜像身份：presence-gated 可选字段，存本体格坐标（读档时模拟层映射回重建后的本体 id）。
+    const mirrorOf = isRecord(tower.mirrorOf) ? tower.mirrorOf : null;
+    if (mirrorOf) {
+      state.mirrorOf = {
+        c: boundedInt(mirrorOf.c, 0, MAP_COLS - 1, 0),
+        r: boundedInt(mirrorOf.r, 0, MAP_ROWS - 1, 0),
+      };
+    }
     // 塔生命只在有上限（海克斯赋予）时保留；旧档没有该字段时按无敌恢复。
     const maxHp = finiteNumber(tower.maxHp);
     if (maxHp !== null && maxHp > 0) {
@@ -265,11 +273,17 @@ export function toSnapshot(state) {
 }
 
 // 塔生命只在有上限（海克斯赋予）时写入；进化分支只在真的选过时写入，
+// 镜像身份只在塔是镜像时写入（本体格坐标，presence-gated），
 // 未受海克斯/未进化的塔保持旧字节结构（旧档缺字段按未进化处理）。
-function serializeTower(tower) {
+function serializeTower(tower, index, towers) {
   const state = { type: tower.type, c: tower.c, r: tower.r, level: tower.level, invested: tower.invested };
   const evolutions = normalizeEvolutionIds(tower.evolutions ?? tower.evolution);
   if (evolutions.length) state.evolutions = evolutions;
+  // 镜像身份：写本体格坐标（塔位唯一，比旧 id 稳定——读档会重新分配 id）。
+  if (tower.mirrorOf != null && Array.isArray(towers)) {
+    const body = towers.find((item) => item && item.id === tower.mirrorOf && item !== tower);
+    if (body && body.mirrorOf == null) state.mirrorOf = { c: body.c, r: body.r };
+  }
   const maxHp = finiteNumber(tower.maxHp);
   if (maxHp === null || maxHp <= 0) return state;
   state.maxHp = Math.max(1, Math.floor(maxHp));

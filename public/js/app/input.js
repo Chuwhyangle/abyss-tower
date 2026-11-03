@@ -210,9 +210,20 @@ export class InputController {
     );
     const tower = sim.towerAt(tile.c, tile.r);
 
+    // 镜像落位模式（本体塔建成后的待落位镜像槽）：点空位落镜像，点已有塔保持不变。
+    if (sim.mirrorPlacing) {
+      if (!tower && sim.placeMirror(tile.c, tile.r)) {
+        this.ui.updateShopState();
+        this.state.app.emitHud(true);
+      }
+      return;
+    }
+
     if (sim.placementType && !tower) {
       if (sim.placeTower(sim.placementType, tile.c, tile.r)) {
-        if (sim.gold < sim.towerCost(sim.placementType)) sim.placementType = null;
+        // 建本体后进入镜像落位模式：清掉连建选择，让下一次点击落镜像。
+        if (sim.mirrorPlacing) sim.placementType = null;
+        else if (sim.gold < sim.towerCost(sim.placementType)) sim.placementType = null;
         this.ui.updateShopState();
         this.state.app.emitHud(true);
       }
@@ -228,6 +239,7 @@ export class InputController {
     if (!sim.unlockedTowers.includes(type)) return this.ui.toast(t('input.towerLocked'));
     sim.placementType = sim.placementType === type ? null : type;
     sim.selectedTower = null;
+    if (typeof sim.cancelMirrorPlacement === 'function') sim.cancelMirrorPlacement();
     this.ui.hideTowerPanel();
     this.ui.updateShopState();
   }
@@ -239,6 +251,10 @@ export class InputController {
     if (tower) {
       sim.placementType = null;
       this.ui.showTowerPanel(tower);
+      // 本体塔还有未落位的镜像槽：显示面板的同时重新进入镜像落位模式（点空位落镜像）。
+      if (sim.pendingMirror === tower && typeof sim.resumeMirrorPlacement === 'function') {
+        sim.resumeMirrorPlacement();
+      }
     } else {
       this.ui.hideTowerPanel();
     }
@@ -250,6 +266,8 @@ export class InputController {
     if (!sim) return;
     sim.placementType = null;
     sim.selectedTower = null;
+    // 退出镜像落位模式但保留待落位槽（暂存不丢弃）。
+    if (typeof sim.cancelMirrorPlacement === 'function') sim.cancelMirrorPlacement();
     this.ui.hideTowerPanel();
     this.ui.updateShopState();
   }

@@ -1,5 +1,6 @@
-// 主海克斯「镜像工程」：对称格生成/顺时针找位、60% 属性、等级与移除同步、造价 135%、不递归、读档修复。
-// 全部走 HEX-002 的公开接口（Simulation + 钩子），不 mock 模拟层内部步骤。
+// 主海克斯「镜像工程」：本体建成后玩家自选位置落一座连体镜像（同类型同等级、0 造价、
+// 60% 属性含次要属性、随本体升级/消失、不可单独升级、单独出售 0 金消失、造价 ×1.45）。
+// 全部走公开接口（Simulation + 钩子），不 mock 模拟层内部步骤。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../public/js/sim.js';
@@ -12,20 +13,8 @@ const SEED = 'hex-mirror-seed';
 const HEX = 'mirror_engineering';
 const TOWER_TYPE = 'arrow';
 const MIRROR_MUL = 0.6;
-const COST_MUL = 1.35;
+const COST_MUL = 1.45;
 const UNLOCKED = ['arrow', 'cannon', 'frost', 'arc', 'poison', 'banner', 'shock', 'sniper'];
-
-// 与实现同序的顺时针一圈（上 → 右上 → 右 → 右下 → 下 → 左下 → 左 → 左上），用于构造/校验用例。
-const CLOCKWISE = [
-  [0, -1],
-  [1, -1],
-  [1, 0],
-  [1, 1],
-  [0, 1],
-  [-1, 1],
-  [-1, 0],
-  [-1, -1],
-];
 
 function makeSim(opts = {}) {
   const { map = makeMap(), hex = HEX, ...rest } = opts;
@@ -45,8 +34,8 @@ function makeSim(opts = {}) {
   });
 }
 
-// 镜像工程需要可对称建造的格子对；固定峡谷改为贴路塔位掩码后不再全图可建，
-// 对称格不复存在，因此用「非路径且非阻挡」的开放地形作为镜像测试基座。
+// 镜像工程只需「一个本体格 + 一个空可建格」，不再要求对称地形；用非路径且非阻挡的
+// 开放地形作为镜像测试基座。
 function makeMap() {
   const map = generateMap(SEED);
   const path = new Set(map.pathCells.map((p) => `${p.c},${p.r}`));
@@ -58,49 +47,26 @@ function makeMap() {
   return map;
 }
 
-function approx(actual, expected, message) {
-  assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} != ${expected}`);
-}
-
-// 找一对「本体格 + 对称格」都可建的格子；需要时额外要求顺时针第一个邻格（正上方）可建，
-// 或整个 8 邻环都是可建地形且本体不占环（用于「全满不生成」）。
-function findPair(sim, { requireFirstNeighbor = false, requireFullRing = false } = {}) {
-  const { cols, rows } = sim.map;
-  for (let r = 0; r < rows; r += 1) {
-    for (let c = 0; c < cols; c += 1) {
-      if (!sim.canBuild(c, r)) continue;
-      const sc = cols - 1 - c;
-      const sr = rows - 1 - r;
-      if (sc === c && sr === r) continue;
-      if (!sim.canBuild(sc, sr)) continue;
-      if (requireFirstNeighbor) {
-        const nc = sc;
-        const nr = sr - 1;
-        if (nc === c && nr === r) continue;
-        if (!sim.canBuild(nc, nr)) continue;
-      }
-      if (requireFullRing) {
-        const inBounds = CLOCKWISE.every(([dc, dr]) => {
-          const x = sc + dc;
-          const y = sr + dr;
-          return x >= 0 && y >= 0 && x < cols && y < rows;
-        });
-        if (!inBounds) continue;
-        // 本体不能落在环上：测试要保留本体格可建。
-        if (CLOCKWISE.some(([dc, dr]) => sc + dc === c && sr + dr === r)) continue;
-        if (!CLOCKWISE.every(([dc, dr]) => sim.map.buildable[sr + dr][sc + dc])) continue;
-      }
-      return { c, r, sc, sr };
+// 找 count 个互不相同的空可建格。
+function findCells(sim, count) {
+  const cells = [];
+  for (let r = 0; r < sim.map.rows && cells.length < count; r++) {
+    for (let c = 0; c < sim.map.cols && cells.length < count; c++) {
+      if (sim.canBuild(c, r)) cells.push({ c, r });
     }
   }
-  return null;
+  return cells;
 }
 
-function placeBody(sim, pair) {
-  assert.equal(sim.placeTower(TOWER_TYPE, pair.c, pair.r), true, `建造本体 (${pair.c},${pair.r})`);
-  const body = sim.towerAt(pair.c, pair.r);
+function placeBody(sim, type, cell) {
+  assert.equal(sim.placeTower(type, cell.c, cell.r), true, `建造本体 ${type} (${cell.c},${cell.r})`);
+  const body = sim.towerAt(cell.c, cell.r);
   assert.ok(body, '本体应已落成');
   return body;
+}
+
+function approx(actual, expected, message) {
+  assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} != ${expected}`);
 }
 
 test('定义：implemented、scoreMul 与镜像工程钩子齐备', () => {
@@ -111,6 +77,7 @@ test('定义：implemented、scoreMul 与镜像工程钩子齐备', () => {
   for (const name of [
     'buildCost',
     'onTowerBuilt',
+    'createMirror',
     'onTowerUpgraded',
     'onTowerRemoved',
     'upgradeCost',
@@ -120,28 +87,59 @@ test('定义：implemented、scoreMul 与镜像工程钩子齐备', () => {
   }
 });
 
-test('对称格生成镜像：同类型同等级、0 投资、mirrorOf 指向本体', () => {
+test('建本体后进入镜像落位模式：不自动生成镜像，待玩家点空位', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  assert.ok(pair, '峡谷地图应存在可对称建造的格子对');
-  const body = placeBody(sim, pair);
-  const mirror = sim.towerAt(pair.sc, pair.sr);
-  assert.ok(mirror, `对称格 (${pair.sc},${pair.sr}) 应生成镜像`);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.mirrorPlacing, true, '建本体后进入落位模式');
+  assert.equal(sim.pendingMirror, body, '本体写进待落位槽');
+  assert.equal(sim.mirrorPlacementType, TOWER_TYPE, '幽灵预览取本体类型');
+  assert.equal(sim.towers.length, 1, '只生成本体，镜像待玩家落位');
+  assert.equal(sim.towerAt(mirrorCell.c, mirrorCell.r), null);
+});
+
+test('点空位落镜像：同类型同等级、0 投资、mirrorOf 指向本体', () => {
+  const sim = makeSim();
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  const goldAfterBody = sim.gold;
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
+  const mirror = sim.towerAt(mirrorCell.c, mirrorCell.r);
+  assert.ok(mirror, '空位应落成镜像');
   assert.equal(mirror.type, body.type);
   assert.equal(mirror.level, body.level);
   assert.equal(mirror.invested, 0, '镜像不消耗金币');
   assert.equal(mirror.mirrorOf, body.id);
-  assert.equal(sim.towers.length, 2, '只有本体与一座镜像（不递归）');
-  // 建造只扣本体造价：镜像 0 投资，金币差额等于本体造价。
-  assert.equal(body.invested, sim.towerCost(TOWER_TYPE));
-  assert.equal(sim.gold, 100000 - sim.towerCost(TOWER_TYPE));
+  assert.equal(sim.towers.length, 2, '只有本体与一座镜像');
+  assert.equal(sim.gold, goldAfterBody, '落镜像不扣金币');
+  assert.equal(sim.mirrorPlacing, false, '落位后退出镜像落位模式');
+  assert.equal(sim.pendingMirror, null, '落位后清空待落位槽');
+});
+
+test('占格/不可建格不落镜像，待落位槽保留', () => {
+  const sim = makeSim();
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(bodyCell.c, bodyCell.r), false, '本体格已占用，不落');
+  const pathCell = sim.map.pathCells[0];
+  assert.equal(sim.placeMirror(pathCell.c, pathCell.r), false, '路径格不可建，不落');
+  assert.equal(sim.pendingMirror, body, '失败后待落位槽保留');
+  assert.equal(sim.mirrorPlacing, true);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true, '空可建格仍可落');
+});
+
+test('不在镜像落位模式时 placeMirror 失败', () => {
+  const sim = makeSim();
+  const [mirrorCell] = findCells(sim, 1);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), false);
 });
 
 test('镜像伤害/攻速/射程 ×0.60，本体保持 100%', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
-  const mirror = sim.towerAt(pair.sc, pair.sr);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
+  const mirror = sim.towerAt(mirrorCell.c, mirrorCell.r);
   const base = sim.previewStats(TOWER_TYPE, 0);
   approx(body.stats.dmg, base.dmg, '本体伤害');
   approx(body.stats.rate, base.rate, '本体攻速');
@@ -151,97 +149,119 @@ test('镜像伤害/攻速/射程 ×0.60，本体保持 100%', () => {
   approx(mirror.stats.range, base.range * MIRROR_MUL, '镜像射程');
 });
 
-test('对称格不可建时顺时针找最近的空可建格', () => {
-  const map = makeMap();
-  const sim = makeSim({ map });
-  const pair = findPair(sim, { requireFirstNeighbor: true });
-  assert.ok(pair, '应存在「对称格可禁、正上方可建」的格子对');
-  map.buildable[pair.sr][pair.sc] = false;
-  assert.equal(sim.canBuild(pair.sc, pair.sr), false);
-  const body = placeBody(sim, pair);
-  const first = { c: pair.sc, r: pair.sr - 1 };
-  const mirror = sim.towerAt(first.c, first.r);
-  assert.ok(mirror, '应按顺时针顺序落在第一个空可建格（正上方）');
-  assert.equal(mirror.mirrorOf, body.id);
-  assert.equal(sim.towerAt(pair.sc, pair.sr), null, '不可建的对称格不生成');
-});
-
-test('对称格与 8 邻格全满时不生成镜像', () => {
-  const map = makeMap();
-  const sim = makeSim({ map });
-  const pair = findPair(sim, { requireFullRing: true });
-  assert.ok(pair, '应存在 8 邻环全可建的格子对');
-  map.buildable[pair.sr][pair.sc] = false;
-  for (const [dc, dr] of CLOCKWISE) map.buildable[pair.sr + dr][pair.sc + dc] = false;
-  const body = placeBody(sim, pair);
-  assert.equal(sim.towers.length, 1, '没有可用格位时只保留本体');
-  assert.equal(sim.towers[0], body);
-  assert.equal(body.mirrorOf, undefined);
+test('镜像次要属性（slow/dot/splash/chain/光环）×0.60', () => {
+  const cases = [
+    { type: 'frost', keys: ['slow', 'slowDur'] },
+    { type: 'poison', keys: ['dot', 'dotDur'] },
+    { type: 'arc', keys: ['chain'] },
+    { type: 'shock', keys: ['splash', 'slow', 'slowDur', 'knockback'] },
+    { type: 'banner', keys: ['buffDmg', 'buffRate'] },
+  ];
+  for (const { type, keys } of cases) {
+    const sim = makeSim();
+    const [bodyCell, mirrorCell] = findCells(sim, 2);
+    placeBody(sim, type, bodyCell);
+    assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true, `${type} 落镜像`);
+    const mirror = sim.towerAt(mirrorCell.c, mirrorCell.r);
+    const base = sim.previewStats(type, 0);
+    for (const key of keys) {
+      assert.ok(base[key] > 0, `${type} 基座 ${key} 非零`);
+      approx(mirror.stats[key], base[key] * MIRROR_MUL, `${type} 镜像 ${key}`);
+    }
+  }
 });
 
 test('本体升级时镜像同步等级并重算属性', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
-  const mirror = sim.towerAt(pair.sc, pair.sr);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
+  const mirror = sim.towerAt(mirrorCell.c, mirrorCell.r);
   assert.equal(sim.upgradeTower(body), true);
   assert.equal(body.level, 1);
   assert.equal(mirror.level, 1, '镜像等级随本体同步');
   const base = sim.previewStats(TOWER_TYPE, 1);
   approx(mirror.stats.dmg, base.dmg * MIRROR_MUL, '升级后镜像伤害');
-  approx(mirror.stats.rate, base.rate * MIRROR_MUL, '升级后镜像攻速');
   approx(mirror.stats.range, base.range * MIRROR_MUL, '升级后镜像射程');
 });
 
 test('镜像不能单独升级', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
-  const mirror = sim.towerAt(pair.sc, pair.sr);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
+  const mirror = sim.towerAt(mirrorCell.c, mirrorCell.r);
   assert.equal(sim.upgradeCost(mirror), null);
   assert.equal(sim.upgradeTower(mirror), false);
   assert.equal(mirror.level, body.level, '镜像等级不变');
 });
 
-test('镜像不能单独出售：不出金币且原位回位', () => {
+test('镜像单独出售：0 金消失，本体保留', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
-  const mirror = sim.towerAt(pair.sc, pair.sr);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
+  const mirror = sim.towerAt(mirrorCell.c, mirrorCell.r);
   const goldBefore = sim.gold;
   assert.equal(sim.sellValue(mirror), 0, '镜像 0 投资，出售价 0');
   assert.equal(sim.sellTower(mirror), 0);
   assert.equal(sim.gold, goldBefore, '出售镜像不产生金币');
-  const restored = sim.towerAt(pair.sc, pair.sr);
-  assert.ok(restored, '镜像应回到原位');
-  assert.equal(restored.mirrorOf, body.id);
-  assert.equal(sim.towers.length, 2, '本体与镜像都还在');
-  const base = sim.previewStats(TOWER_TYPE, 0);
-  approx(restored.stats.dmg, base.dmg * MIRROR_MUL, '回位后仍是 60% 属性');
+  assert.equal(sim.towerAt(mirrorCell.c, mirrorCell.r), null, '镜像消失');
+  assert.equal(sim.towerAt(bodyCell.c, bodyCell.r), body, '本体保留');
+  assert.equal(sim.towers.length, 1);
 });
 
 test('本体出售时镜像一起消失', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
-  assert.ok(sim.towerAt(pair.sc, pair.sr));
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
   const expected = sim.sellValue(body);
   assert.equal(sim.sellTower(body), expected, '只结算本体的投资');
-  assert.equal(sim.towerAt(pair.c, pair.r), null);
-  assert.equal(sim.towerAt(pair.sc, pair.sr), null, '镜像随本体消失');
+  assert.equal(sim.towerAt(bodyCell.c, bodyCell.r), null);
+  assert.equal(sim.towerAt(mirrorCell.c, mirrorCell.r), null, '镜像随本体消失');
   assert.equal(sim.towers.length, 0);
 });
 
 test('本体被摧毁时镜像一起消失', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
   assert.equal(sim.removeTower(body, 'destroyed'), true);
-  assert.equal(sim.towerAt(pair.sc, pair.sr), null, '镜像随本体消失');
+  assert.equal(sim.towerAt(mirrorCell.c, mirrorCell.r), null, '镜像随本体消失');
   assert.equal(sim.towers.length, 0);
 });
 
-test('所有塔造价 ×1.35', () => {
+test('Esc 暂存不丢弃：cancelMirrorPlacement 保留槽，resumeMirrorPlacement 恢复落位', () => {
+  const sim = makeSim();
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.mirrorPlacing, true);
+  assert.equal(sim.cancelMirrorPlacement(), true);
+  assert.equal(sim.mirrorPlacing, false, 'Esc 退出落位模式');
+  assert.equal(sim.pendingMirror, body, '待落位槽暂存不丢弃');
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), false, '退出落位模式后不能直接落');
+  assert.equal(sim.resumeMirrorPlacement(), true);
+  assert.equal(sim.mirrorPlacing, true);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true, '恢复后可落镜像');
+  assert.ok(sim.towerAt(mirrorCell.c, mirrorCell.r));
+});
+
+test('待落位槽一次一个：新本体覆盖旧槽', () => {
+  const sim = makeSim();
+  const [c1, c2, c3] = findCells(sim, 3);
+  const bodyA = placeBody(sim, TOWER_TYPE, c1);
+  assert.equal(sim.pendingMirror, bodyA);
+  const bodyB = placeBody(sim, TOWER_TYPE, c2);
+  assert.equal(sim.pendingMirror, bodyB, '建新本体覆盖旧槽');
+  assert.equal(sim.placeMirror(c3.c, c3.r), true);
+  assert.equal(sim.towerAt(c3.c, c3.r).mirrorOf, bodyB.id, '只给最新的本体落镜像');
+  assert.equal(sim.towers.length, 3, '本体A、本体B、B 的镜像');
+  assert.equal(sim.towers.filter((t) => t.mirrorOf === bodyA.id).length, 0, '本体A 无镜像');
+});
+
+test('所有塔造价 ×1.45', () => {
   const sim = makeSim();
   for (const type of ['arrow', 'cannon', 'frost']) {
     assert.equal(sim.towerCost(type), Math.max(20, Math.round(TOWERS[type].cost * COST_MUL)), `${type} 造价`);
@@ -252,33 +272,38 @@ test('所有塔造价 ×1.35', () => {
   }
 });
 
-test('无海克斯时行为不变：不生成镜像、属性与造价照旧', () => {
+test('无海克斯时行为不变：不进入落位模式、不生成镜像、属性与造价照旧', () => {
   const sim = makeSim({ hex: null });
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  const body = placeBody(sim, TOWER_TYPE, bodyCell);
   assert.equal(sim.towers.length, 1);
-  assert.equal(sim.towerAt(pair.sc, pair.sr), null);
+  assert.equal(sim.mirrorPlacing, false, '无海克斯不进入落位模式');
+  assert.equal(sim.pendingMirror, null);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), false, '无海克斯不落镜像');
+  assert.equal(sim.towers.length, 1);
   assert.equal(body.mirrorOf, undefined);
   const base = sim.previewStats(TOWER_TYPE, 0);
   approx(body.stats.dmg, base.dmg, '无海克斯伤害');
   assert.equal(sim.towerCost(TOWER_TYPE), Math.max(20, Math.round(TOWERS[TOWER_TYPE].cost)));
 });
 
-test('读档后按镜像格记录补回镜像身份与 60% 属性', () => {
+test('读档后按 mirrorOf 格坐标补回镜像身份与 60% 属性', () => {
   const sim = makeSim();
-  const pair = findPair(sim);
-  const body = placeBody(sim, pair);
-  const before = sim.towerAt(pair.sc, pair.sr);
-  assert.ok(before);
+  const [bodyCell, mirrorCell] = findCells(sim, 2);
+  placeBody(sim, TOWER_TYPE, bodyCell);
+  assert.equal(sim.placeMirror(mirrorCell.c, mirrorCell.r), true);
   const snap = sim.toSnapshot();
   assert.equal(snap.hexId, HEX);
-  assert.ok(Array.isArray(snap.hexState?.mirrorSites), '镜像格写进 hexState');
   assert.equal(snap.towers.length, 2);
-  // 快照本身不含 mirrorOf：模拟层的塔序列化只保留 type/c/r/level/invested。
-  assert.ok(snap.towers.every((tower) => tower.mirrorOf === undefined));
+  // 快照里的 mirrorOf 存本体格坐标；本体自身不带 mirrorOf。
+  const snapMirror = snap.towers.find((t) => t.c === mirrorCell.c && t.r === mirrorCell.r);
+  const snapBody = snap.towers.find((t) => t.c === bodyCell.c && t.r === bodyCell.r);
+  assert.ok(snapMirror && snapBody);
+  assert.deepEqual(snapMirror.mirrorOf, { c: bodyCell.c, r: bodyCell.r });
+  assert.equal(snapBody.mirrorOf, undefined);
 
   const restored = new Simulation({
-    map: generateMap(SEED),
+    map: makeMap(),
     seed: SEED,
     difficulty: 'standard',
     gold: snap.gold,
@@ -292,8 +317,8 @@ test('读档后按镜像格记录补回镜像身份与 60% 属性', () => {
     unlockedTowers: UNLOCKED,
     onToast: () => {},
   });
-  const restoredBody = restored.towerAt(pair.c, pair.r);
-  const restoredMirror = restored.towerAt(pair.sc, pair.sr);
+  const restoredBody = restored.towerAt(bodyCell.c, bodyCell.r);
+  const restoredMirror = restored.towerAt(mirrorCell.c, mirrorCell.r);
   assert.ok(restoredBody);
   assert.ok(restoredMirror);
   assert.equal(restoredMirror.mirrorOf, restoredBody.id, '镜像身份补回');

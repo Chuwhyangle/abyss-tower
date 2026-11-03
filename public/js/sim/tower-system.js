@@ -243,6 +243,91 @@ export class TowerSystem {
     return true;
   }
 
+  // ---------- 镜像工程：待落位镜像槽 ----------
+  // 建本体塔后由海克斯写入待落位镜像槽：一次一个，新本体覆盖旧的未落位槽。
+  // 状态不序列化（未落位镜像槽是瞬态 UI 状态）；只由 mirror_engineering 使用。
+  setPendingMirror(tower) {
+    if (!tower) return false;
+    this.sim.pendingMirror = tower;
+    this.sim.mirrorPlacing = true;
+    return true;
+  }
+
+  // 取消待落位镜像槽；传入 tower 时只清除该本体的槽。
+  clearPendingMirror(tower = null) {
+    if (tower != null && this.sim.pendingMirror !== tower) return false;
+    this.sim.pendingMirror = null;
+    this.sim.mirrorPlacing = false;
+    return true;
+  }
+
+  // 本体引用：本体可能已出售/摧毁，此时返回 null（槽失效）。
+  pendingMirrorBody() {
+    const body = this.sim.pendingMirror;
+    if (!body || !this.sim.towers.includes(body)) return null;
+    return body;
+  }
+
+  // 镜像落位类型（供渲染幽灵预览）：本体还在时返回其类型，否则 null。
+  get mirrorPlacementType() {
+    const body = this.pendingMirrorBody();
+    return body ? body.type : null;
+  }
+
+  // Esc：退出镜像落位模式，但保留待落位槽（暂存不丢弃）。
+  cancelMirrorPlacement() {
+    if (!this.pendingMirrorBody()) {
+      this.clearPendingMirror();
+      return false;
+    }
+    this.sim.mirrorPlacing = false;
+    return true;
+  }
+
+  // 重新进入镜像落位模式（有暂存槽时）。
+  resumeMirrorPlacement() {
+    if (!this.pendingMirrorBody()) {
+      this.clearPendingMirror();
+      return false;
+    }
+    this.sim.mirrorPlacing = true;
+    return true;
+  }
+
+  // 读档回填：快照里的 mirrorOf 存本体格坐标（{c,r}），映射回重建后的本体 id；
+  // 本体缺失或指向镜像自身时丢弃镜像身份（该塔按普通塔恢复）。
+  restoreMirrorIdentities(savedTowers) {
+    for (let i = 0; i < this.sim.towers.length; i++) {
+      const tower = this.sim.towers[i];
+      const ref = savedTowers?.[i]?.mirrorOf;
+      if (!ref || typeof ref !== 'object') continue;
+      const body = this.sim.towers.find(
+        (item) => item !== tower && item.mirrorOf == null && item.c === ref.c && item.r === ref.r
+      );
+      if (body) tower.mirrorOf = body.id;
+    }
+  }
+
+  // 镜像工程：把待落位镜像槽落到 (c, r)。只接受空可建格，成功后清空待落位槽。
+  // 镜像塔本体由海克斯的 createMirror 钩子组装（同类型、0 造价、mirrorOf = 本体 id）。
+  placeMirror(c, r) {
+    if (!this.sim.mirrorPlacing) return false;
+    const body = this.pendingMirrorBody();
+    if (!body) {
+      this.clearPendingMirror();
+      return false;
+    }
+    if (!this.sim.canBuild(c, r)) return false;
+    const mirror = this.sim.hexCall('createMirror', body, { c, r }, this.sim.hexCtx);
+    if (!mirror) return false;
+    this.clearPendingMirror();
+    this.sim.recomputeTowerStats();
+    this.sim.addEffect({ kind: 'place', x: c + 0.5, y: r + 0.5, ttl: 0.45, color: TOWERS[body.type].color });
+    this.sim.playSound('place');
+    this.sim.save();
+    return true;
+  }
+
   upgradeTower(tower) {
     const cost = this.sim.upgradeCost(tower);
     if (cost == null) return false;

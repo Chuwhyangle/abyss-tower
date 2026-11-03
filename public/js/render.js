@@ -222,6 +222,7 @@ export class Renderer {
     this.skillRenderer.renderL2(g, this.time, this.settings);
     this.floaters.render(g);
     this.towers.renderPlacement(g, this.time, this.settings.glow, this.settings);
+    this.towers.renderMirrorPlacement(g, this.time, this.settings.glow, this.settings);
 
     g.restore();
 

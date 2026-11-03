@@ -107,6 +107,8 @@ export class Simulation {
     this.placementType = null;
     this.selectedTower = null;
     this.hover = null;
+    this.pendingMirror = null;
+    this.mirrorPlacing = false;
     this.waveDef = null;
 
     this.time = 0;
@@ -208,6 +210,7 @@ export class Simulation {
         )
       );
     }
+    this.towerSystem.restoreMirrorIdentities(opts.towers);
     this.towerSystem.recomputeTowerStats();
 
     this.combatRng = new RNG(`${this.seed}:combat:0`);
@@ -620,6 +623,13 @@ export class Simulation {
   evolutionOptions(tower) { return this.towerSystem.evolutionOptions(tower); }
   evolveTower(tower, evolutionIds) { return this.towerSystem.evolveTower(tower, evolutionIds); }
   sellTower(tower) { return this.towerSystem.sellTower(tower); }
+  setPendingMirror(tower) { return this.towerSystem.setPendingMirror(tower); }
+  clearPendingMirror(tower = null) { return this.towerSystem.clearPendingMirror(tower); }
+  pendingMirrorBody() { return this.towerSystem.pendingMirrorBody(); }
+  get mirrorPlacementType() { return this.towerSystem.mirrorPlacementType; }
+  cancelMirrorPlacement() { return this.towerSystem.cancelMirrorPlacement(); }
+  resumeMirrorPlacement() { return this.towerSystem.resumeMirrorPlacement(); }
+  placeMirror(c, r) { return this.towerSystem.placeMirror(c, r); }
   getRelicLevel(id) { return this.relicSystem.getRelicLevel(id); }
   addRelic(relicOrOffer) { return this.relicSystem.addRelic(relicOrOffer); }
   applyOffer(offer) { return this.relicSystem.applyOffer(offer); }
