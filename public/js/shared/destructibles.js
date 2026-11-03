@@ -4,6 +4,11 @@
 //   - MAP-004 从 map.destructibles 深拷贝运行时状态，按 type 取这里的 effect；
 //   - MAP-005 用 name/glyph/color/desc 做渲染与确认面板。
 // 一局内以布点 id 为唯一键：所有固定布点 id 全局唯一，重复拆除同一 id 不产生第二次效果。
+//
+// 资源矿脉（feat-attackable-tiles）是第二条路径「塔攻击掉血」的可攻击地块：有 HP、不可花金币
+// 拆除、破坏后按 seed+波次确定性掉落金币。它与五种固定物件分属不同注册表（不进 DESTRUCTIBLE_TYPES，
+// 避免波及 UI/精灵/文案按五类遍历的既有测试），但共用同一套占格/拆除状态框架。
+import { hashString } from './rng.js';
 
 // 布点与出生点/基地的最小距离（切比雪夫距离：斜向相邻也算 1 格）。
 export const MIN_SPAWN_DISTANCE = 2;
@@ -62,16 +67,47 @@ export const DESTRUCTIBLE_BY_ID = Object.freeze(
   Object.fromEntries(DESTRUCTIBLE_TYPES.map((type) => [type.id, type]))
 );
 
-// 布点 → 类型定义；未知类型返回 null（调用方自行决定如何报错）。
+// 资源矿脉：可被塔攻击的资源地块（第二条路径）。无 cost = 不可花金币拆除；hp 为被塔攻击的血量。
+// goldMin/goldMax 是掉落区间的纯数据（实际金额由 resourceVeinGold 按 seed+波次确定性派生）。
+export const RESOURCE_VEIN_TYPE = Object.freeze({
+  id: 'resourceVein',
+  name: '资源矿脉',
+  glyph: '💰',
+  color: '#fbbf24',
+  desc: '富含金币的矿脉，塔在无敌人时会自动攻击，破坏后掉落金币。',
+  hp: 140,
+  goldMin: 60,
+  goldMax: 120,
+});
+
+// 可攻击地块注册表：type id → 类型定义（与 DESTRUCTIBLE_BY_ID 同构，只是不含五类固定物件）。
+export const ATTACKABLE_BY_ID = Object.freeze({
+  [RESOURCE_VEIN_TYPE.id]: RESOURCE_VEIN_TYPE,
+});
+
+// 布点 → 类型定义（五类固定物件优先，其次可攻击地块）；未知类型返回 null。
 export function destructibleTypeOf(placement) {
   if (!placement || typeof placement !== 'object') return null;
-  return DESTRUCTIBLE_BY_ID[placement.type] ?? null;
+  return DESTRUCTIBLE_BY_ID[placement.type] ?? ATTACKABLE_BY_ID[placement.type] ?? null;
 }
 
 // 是否可免费拆除（补给箱/虫巢）；未知类型一律视为不可免费，避免免费白嫖未知物件。
 export function isFreeDestructible(placement) {
   const type = destructibleTypeOf(placement);
   return type != null && type.cost === 0;
+}
+
+// 类型定义是否可被塔攻击（有正数 hp）。
+export function isAttackableType(type) {
+  return type != null && Number.isFinite(type.hp) && type.hp > 0;
+}
+
+// 资源矿脉掉落金额：seed + 波次 + 矿脉 id 确定性派生（hashString 取模区间），不消耗 combatRng。
+export function resourceVeinGold(seed, wave, veinId) {
+  const min = RESOURCE_VEIN_TYPE.goldMin;
+  const span = RESOURCE_VEIN_TYPE.goldMax - min + 1;
+  const h = hashString(`${seed}:resourceVein:${wave}:${veinId}`)();
+  return min + (h % span);
 }
 
 // 纯函数：把一次拆除落到「已拆除 id 列表」上。
@@ -111,7 +147,7 @@ export function validateDestructible(obj, map) {
   const fail = (code, detail) => errors.push({ code, detail });
 
   if (typeof obj.id !== 'string' || obj.id === '') fail('id-invalid', String(obj.id));
-  if (!DESTRUCTIBLE_BY_ID[obj.type]) fail('type-unknown', String(obj.type));
+  if (!destructibleTypeOf(obj)) fail('type-unknown', String(obj.type));
 
   if (!Number.isInteger(obj.c) || !Number.isInteger(obj.r)) {
     fail('cell-invalid', `${obj.c},${obj.r}`);

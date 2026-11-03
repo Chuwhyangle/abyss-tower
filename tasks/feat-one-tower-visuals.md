@@ -1,14 +1,15 @@
 ---
 id: feat-one-tower-visuals
 title: 独塔重做·视觉特效：3/6/9/10 级外观逐级变炫酷 + 大招特效
-status: ready
+status: done
 labels:
   - feat
 parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/sprite-coverage.test.mjs tests/tower-evo-visuals.test.mjs tests/render-visuals.test.mjs
+  acceptance: node --test tests/sprite-coverage.test.mjs
+    tests/tower-evo-visuals.test.mjs tests/render-visuals.test.mjs
 ---
 ## Proposal
 
@@ -16,17 +17,17 @@ extra:
 
 ## AC
 
-- [ ] 3/6/9/10 级塔外观有逐级差异（至少 4 档可辨），大招触发时有对应特效
-- [ ] 8 塔大招特效全部有可视化（炮台余波 + 7 塔贯穿/冻结/连锁/毒爆/号令/震波/处决）
-- [ ] 新精灵/特效登记进 `sprite-coverage`，无缺失项；`render-budget`/`perf-budget` 门禁不红
-- [ ] `node --test tests/sprite-coverage.test.mjs tests/tower-evo-visuals.test.mjs tests/render-visuals.test.mjs` exit 0
+- [x] 3/6/9/10 级塔外观有逐级差异（至少 4 档可辨），大招触发时有对应特效
+- [x] 8 塔大招特效全部有可视化（炮台余波 + 7 塔贯穿/冻结/连锁/毒爆/号令/震波/处决）
+- [x] 新精灵/特效登记进 `sprite-coverage`，无缺失项；`render-budget`/`perf-budget` 门禁不红
+- [x] `node --test tests/sprite-coverage.test.mjs tests/tower-evo-visuals.test.mjs tests/render-visuals.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 render 层（`tower-draw.js`/`tower-renderer.js`/`effect-draw.js`/`sprite-coverage.js` 等），不引入第三方依赖
-- [ ] 回归测试：4 档外观 + 8 塔大招特效的 sprite/effect 登记
-- [ ] `npm test` 全绿；补跑 `node --test tests/sprite-coverage.test.mjs tests/tower-evo-visuals.test.mjs tests/render-visuals.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 render 层（`tower-draw.js`/`tower-renderer.js`/`effect-draw.js`/`sprite-coverage.js` 等），不引入第三方依赖
+- [x] 回归测试：4 档外观 + 8 塔大招特效的 sprite/effect 登记
+- [x] `npm test` 全绿；补跑 `node --test tests/sprite-coverage.test.mjs tests/tower-evo-visuals.test.mjs tests/render-visuals.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -42,3 +43,5 @@ extra:
 立案 2026-11-03，源自 `docs/TODO.md` TODO-3 第 4 点（外观/特效随 3/6/9/10 逐级变炫酷）。依赖 core/ultimates（done）的机制。若 worker 实际 Touches 有出入（如新增 effect-data/sprite-manifest、新测试文件），须 task_write 修正再 fan-in。语义验收交玩家，不做读图评审。
 
 该轴仍暗,理由:本任务为渲染/表现层，不引入新结构文档面，L_D/L_G/L_S 无需量化。
+
+**worker 落地记录（2026-11-03）**：实现已随先行提交 `ebb09eb`（feat(render): 独塔 3/6/9/10 级外观与特效逐级变炫酷，8 塔大招专属特效）落地 develop，早于本任务立案，属零增量复验。复验全绿：AC 命令 38/38、`npm test` 1920/1920、`check:structure` OK（effect-draw 615 行债务已登记 allow.d）。`projectile-system.js`/`render-visuals.test.mjs`/`scripts/structure-budget.allow.d/feat-one-tower-visuals.json` 均已在 ebb09eb 随行合入 develop，非本 worker 新增 diff；本 worker 仅 task_write 勾选 AC/DoD。

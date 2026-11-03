@@ -32,6 +32,8 @@ export class WaveDirector {
       this.sim.towerOverdrive = null;
       for (const tower of this.sim.towers) this.sim.clearTowerOverdrive(tower);
     }
+    // 资源矿脉血量是波内瞬态：开波回满，避免「内存残血 vs 刷新满血」的存档不一致（血量不落盘）。
+    this.sim.destructibleSystem.resetResourceVeinHp();
 
     for (const group of waveDef.groups) {
       const portal = Number.isInteger(group.portal) ? group.portal : 0;
