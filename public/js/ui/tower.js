@@ -72,6 +72,19 @@ export function merchantSellView(entry) {
 }
 
 export const towerMethods = {
+  // 标题页爬塔入口动态插入：排在无尽模式之后，保持标题页既有结构不变（放本模块避免 title.js 超行限）。
+  buildTowerEntry() {
+    if (this.el.tower || !this.el.endless) return;
+    const button = document.createElement('button');
+    button.id = 'btn-tower';
+    button.type = 'button';
+    button.className = 'btn ghost';
+    button.innerHTML = `<span data-i18n="title.tower">${t('title.tower')}</span> <span id="tower-label" class="muted" data-i18n="title.tower.tag">${t('title.tower.tag')}</span>`;
+    button.onclick = () => this.handlers.onTower?.();
+    this.el.endless.insertAdjacentElement('afterend', button);
+    this.el.tower = button;
+  },
+
   // 节点地图选择弹窗：逐层渲染 30 层 DAG，只露类型 + 词缀；点击可达后继触发选路。
   showNodeMap({ graph, currentNode, path = [], onChoose }) {
     if (!graph || !Array.isArray(graph.nodes)) return;

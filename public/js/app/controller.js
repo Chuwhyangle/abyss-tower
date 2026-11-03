@@ -137,6 +137,11 @@ export class GameController {
           skillState: this.state.skills,
           selectedSkill: this.state.selectedSkill,
         }),
+      onTower: () =>
+        this.ui.showDifficultySelect('tower', {
+          skillState: this.state.skills,
+          selectedSkill: this.state.selectedSkill,
+        }),
       onMutation: () =>
         this.ui.showMutationSelect({
           skillState: this.state.skills,

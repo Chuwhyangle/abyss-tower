@@ -256,33 +256,30 @@ export const titleMethods = {
 
     const endless = mode === 'endless';
     const weeklyMode = mode === 'weekly';
-    const title = weeklyMode
-      ? t('difficulty.weeklyTitle')
-      : mode === 'daily'
-        ? t('difficulty.dailyTitle')
-        : endless
-          ? t('difficulty.endlessTitle')
-          : t('difficulty.startTitle');
+    const towerMode = mode === 'tower';
+    const title = towerMode ? t('difficulty.towerTitle')
+      : weeklyMode ? t('difficulty.weeklyTitle')
+        : mode === 'daily' ? t('difficulty.dailyTitle')
+          : endless ? t('difficulty.endlessTitle') : t('difficulty.startTitle');
     const affixes = ((weeklyMode ? weekly?.modifiers : daily?.modifiers) || [])
       .map((modifier) => `<span style="color:${modifier.color}">${modifierName(modifier)}</span>`)
       .join(' · ');
     const streakNote = daily?.streak > 0 ? t('difficulty.streak', { n: daily.streak }) : '';
-    const note = weeklyMode
-      ? `<p class="muted">${t('difficulty.weeklyNote', { week: weekly?.week || weekKey() })}</p>
-         ${affixes ? `<p class="muted">${t('difficulty.weeklyAffixes', { affixes })}</p>` : ''}`
-      : mode === 'daily'
-        ? `<p class="muted">${t('difficulty.dailyNote', { n: dailyLeft ?? 0 })}</p>
-           ${affixes ? `<p class="muted">${t('difficulty.dailyAffixes', { affixes })}${streakNote}</p>` : ''}`
-        : endless
-          ? `<p class="muted">${t('difficulty.endlessNote')}</p>`
-          : `<p class="muted">${t('difficulty.note')}</p>`;
-    const eyebrow = weeklyMode
-      ? t('difficulty.eyebrowWeekly')
-      : mode === 'daily'
-        ? t('difficulty.eyebrowDaily')
-        : endless
-          ? t('difficulty.eyebrowEndless')
-          : t('difficulty.eyebrowNormal');
+    const note = towerMode
+      ? `<p class="muted">${t('difficulty.towerNote')}</p>`
+      : weeklyMode
+        ? `<p class="muted">${t('difficulty.weeklyNote', { week: weekly?.week || weekKey() })}</p>
+           ${affixes ? `<p class="muted">${t('difficulty.weeklyAffixes', { affixes })}</p>` : ''}`
+        : mode === 'daily'
+          ? `<p class="muted">${t('difficulty.dailyNote', { n: dailyLeft ?? 0 })}</p>
+             ${affixes ? `<p class="muted">${t('difficulty.dailyAffixes', { affixes })}${streakNote}</p>` : ''}`
+          : endless
+            ? `<p class="muted">${t('difficulty.endlessNote')}</p>`
+            : `<p class="muted">${t('difficulty.note')}</p>`;
+    const eyebrow = towerMode ? t('difficulty.eyebrowTower')
+      : weeklyMode ? t('difficulty.eyebrowWeekly')
+        : mode === 'daily' ? t('difficulty.eyebrowDaily')
+          : endless ? t('difficulty.eyebrowEndless') : t('difficulty.eyebrowNormal');
 
     const modal = this.openModal(
       `<div class="difficulty">

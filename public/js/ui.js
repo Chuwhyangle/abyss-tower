@@ -93,6 +93,7 @@ class UI {
     this.el.daily.onclick = () => this.handlers.onDaily?.();
     this.buildWeeklyEntry();
     this.buildMutationEntry();
+    this.buildTowerEntry();
     if (this.el.endless) this.el.endless.onclick = () => this.handlers.onEndless?.();
     this.el.resume.onclick = () => this.handlers.onResume?.();
     this.el.rename.onclick = () => this.handlers.onRename?.();

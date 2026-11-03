@@ -191,12 +191,12 @@ export class RunController {
       this.showHexSelectFlow(data, data.hexOffers);
       return;
     }
-    if (data.candidates?.length) {
+    if (data.candidates?.length && data.mode !== 'tower') {
       this.store.savePendingMap(data);
       this.showMapSelectFlow(data, data.candidates);
       return;
     }
-    // 兼容旧服务端：直接返回 map
+    // 爬塔无选图：开局即进节点地图（boardKey 固定为 tower，选路走 ruleset.tower.route）。
     this.beginGame(data, null);
   }
 
@@ -248,7 +248,8 @@ export class RunController {
             ruleset: { ...(data.ruleset || {}), hex: selection.hex },
           };
           const candidates = data.candidates || fixedMapCandidates(data.seed);
-          if (candidates.length) this.showMapSelectFlow(next, candidates);
+          // 爬塔无选图：海克斯确认后直接开局进节点地图。
+          if (candidates.length && data.mode !== 'tower') this.showMapSelectFlow(next, candidates);
           else this.beginGame(next, null);
         } catch (error) {
           submitting = false;
