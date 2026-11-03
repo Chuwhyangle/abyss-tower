@@ -1,7 +1,7 @@
 ---
 id: feat-bonus-summary-relic-collapse
 title: 加成数据一览面板 + 遗物栏可收起
-status: todo
+status: ready
 labels:
   - feat
 parent: null
