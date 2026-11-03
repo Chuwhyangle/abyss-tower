@@ -1,7 +1,7 @@
 ---
 id: feat-one-tower-balance
 title: 独塔重做 balance 验证：复测三档通关率并回调 7 塔大招数值
-status: needs-human
+status: done
 labels:
   - feat
 parent: null
