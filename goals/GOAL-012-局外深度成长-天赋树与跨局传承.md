@@ -1,7 +1,7 @@
 ---
 id: GOAL-012
 title: 局外深度成长：天赋树与跨局传承
-status: active
+status: achieved
 kind: goal
 origin: 人 2026-10-30：在现有星核解锁/成就/赛季通行证/悬赏/皮肤之上，加一层账号级深度成长
 activatedAt: 2026-10-30T06:54:26.000Z
@@ -10,7 +10,12 @@ statusLog:
     from: draft
     to: active
     actor: goal-cli
-    reason: "人 2026-10-30 立案激活"
+    reason: 人 2026-10-30 立案激活
+  - at: 2026-11-03T04:21:33.433Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: all ACs achieved + sufficiency covered"
 ---
 ## 背景
 
