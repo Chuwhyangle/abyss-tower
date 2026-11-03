@@ -42,3 +42,5 @@ extra:
 ## Notes
 
 立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-5 + TODO-2（同文件 `tower-system.js`，合并为一个任务避免文件冲突）。
+
+该轴仍暗,理由:本任务为 scoped 缺陷修复，不引入新结构、不改文档面，L_D/L_G/L_S 无需量化。
