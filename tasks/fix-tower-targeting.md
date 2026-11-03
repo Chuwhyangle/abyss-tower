@@ -1,7 +1,7 @@
 ---
 id: fix-tower-targeting
 title: 索敌开火时刻重选目标 + 冻结飞行怪可被地面塔攻击
-status: todo
+status: ready
 labels:
   - defect
 parent: null
