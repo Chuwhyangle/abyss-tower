@@ -49,3 +49,11 @@ extra:
 实现 2026-11-03：三张固定图各布 3 个 resourceVein（canyon (3,2)/(12,5)/(15,8)，twin (3,1)/(12,4)/(2,8)，ring (4,2)/(15,7)/(8,9)），均避开路径/岩石/贴路建塔位/既有可破坏物，距出生点/基地 ≥2 格（切比雪夫）。同步补齐 destructible-renderer 的 resourceVein 视觉（此前矿脉不可见）、destructibles 分布计数与 sim 运行时条目分支、effects-registry 全遗物结算基线哈希、hex-one-tower 冻结索敌用例隔离矿脉冷却副作用。
 
 ⚠️ balance 复测偏移：`npm run balance`（40 种子 × 3 候选 = 1080 局）实测资源矿脉掉金系统性抬升经济，与 Proposal「矿脉掉金不影响既有金币曲线」假设相悖——深渊全解锁通关率 9%→13%（目标 5–12%，超上限 +1pp）、远征 30%→38%（+8pp，仍在内）、漫游 77%→79%（噪声内）；平均余金 深渊 2681→2973。金值 60–120 与 seed+波次派生由 feat-attackable-tiles 冻结（AC2 要求复用），非本任务可调。故 DoD 第 3 条「balance 复测无偏移」保持未勾，需 manager 决策：接受偏移 / 回调矿脉金值 / 降矿脉数 / 立 balance 复调任务。
+
+## Blocker
+
+**2026-11-03T10:53:47.740Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 6/7，剩余未勾 1）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：de4b3572-ae65-454a-8942-67dddaccbd80
