@@ -1,7 +1,7 @@
 ---
 id: fix-tower-evolution-snapshot
 title: 塔进化状态写入单局快照：serializeTower/normalizeTowers 补 evolutions，修复存读档丢进化
-status: ready
+status: done
 labels:
   - defect
 parent: null
@@ -18,18 +18,18 @@ extra:
 
 ## AC
 
-- [ ] `serializeTower` 输出的塔状态含 `evolutions`（数组），`normalizeTowers` 读回并归一化到 `tower.evolutions`
-- [ ] 独塔满级塔 `toSnapshot` → 重建后 `evolutions` 与升满时一致、`canEvolve` 为 false、不再弹三选一
-- [ ] 普通塔满级单进化 `toSnapshot` → 重建后 `towerEvolution` 恢复、进化系数（含 splash/slow/chain 等非三键）不变
-- [ ] `node --test tests/tower-evolution.test.mjs tests/snapshot.test.mjs` exit 0
-- [ ] 旧档（无 evolution 字段）重建仍按未进化处理，行为与现测试约定一致
+- [x] `serializeTower` 输出的塔状态含 `evolutions`（数组），`normalizeTowers` 读回并归一化到 `tower.evolutions`
+- [x] 独塔满级塔 `toSnapshot` → 重建后 `evolutions` 与升满时一致、`canEvolve` 为 false、不再弹三选一
+- [x] 普通塔满级单进化 `toSnapshot` → 重建后 `towerEvolution` 恢复、进化系数（含 splash/slow/chain 等非三键）不变
+- [x] `node --test tests/tower-evolution.test.mjs tests/snapshot.test.mjs` exit 0
+- [x] 旧档（无 evolution 字段）重建仍按未进化处理，行为与现测试约定一致
 
 ## DoD
 
-- [ ] 修复落地于 `public/js/shared/snapshot.js`（序列化+反序列化），不引入新依赖
-- [ ] 新增回归测试：独塔满级进化跨存读档保持 + 不再弹三选一；普通塔单进化跨存读档保持
-- [ ] `npm test` 全绿；改到塔/快照时补跑 `node --test tests/tower-evolution.test.mjs tests/snapshot.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 修复落地于 `public/js/shared/snapshot.js`（序列化+反序列化），不引入新依赖
+- [x] 新增回归测试：独塔满级进化跨存读档保持 + 不再弹三选一；普通塔单进化跨存读档保持
+- [x] `npm test` 全绿；改到塔/快照时补跑 `node --test tests/tower-evolution.test.mjs tests/snapshot.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 

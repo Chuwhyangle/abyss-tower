@@ -1,7 +1,7 @@
 ---
 id: fix-tower-targeting
 title: 索敌开火时刻重选目标 + 冻结飞行怪可被地面塔攻击
-status: ready
+status: done
 labels:
   - defect
 parent: null
@@ -20,17 +20,17 @@ extra:
 
 ## AC
 
-- [ ] 塔开火时重选当前 progress 最大目标；出现更靠基地的敌人时下一发切换目标
-- [ ] 目标选择排序确定性：progress 降序 + id 升序
-- [ ] 冻结中的飞行怪可被 groundOnly 塔锁定与命中；未冻结的飞行怪仍不可被地面塔打
-- [ ] `node --test tests/hex-one-tower.test.mjs tests/tower-evolution.test.mjs tests/combat.test.mjs tests/towers-depth.test.mjs` exit 0
+- [x] 塔开火时重选当前 progress 最大目标；出现更靠基地的敌人时下一发切换目标
+- [x] 目标选择排序确定性：progress 降序 + id 升序
+- [x] 冻结中的飞行怪可被 groundOnly 塔锁定与命中；未冻结的飞行怪仍不可被地面塔打
+- [x] `node --test tests/hex-one-tower.test.mjs tests/tower-evolution.test.mjs tests/combat.test.mjs tests/towers-depth.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 修复落地于 `public/js/sim/tower-system.js`，不引入新依赖
-- [ ] 新增/扩展回归测试：锁目标切换、冻结飞行怪可被地面塔打
-- [ ] `npm test` 全绿；补跑 `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/towers-depth.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 修复落地于 `public/js/sim/tower-system.js`，不引入新依赖
+- [x] 新增/扩展回归测试：锁目标切换、冻结飞行怪可被地面塔打
+- [x] `npm test` 全绿；补跑 `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/towers-depth.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 

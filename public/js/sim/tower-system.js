@@ -30,8 +30,16 @@ export class TowerSystem {
         const desired = Math.atan2(target.y - tower.y, target.x - tower.x);
         tower.angle = lerpAngle(tower.angle, desired, Math.min(1, dt * 12));
         if (tower.cd <= 0) {
-          this.sim.fire(tower, stats, target);
-          tower.cd = 1 / stats.rate;
+          // 开火瞬间重选：锁定只用于瞄准，出手按 progress 最大（同 progress 按 id 升序）重新选，
+          // 让塔在正打肉盾时也能切去打更靠基地的快怪；只在开火时重选，瞄准不逐帧抖动。
+          const fireTarget = this.sim.findTarget(tower, stats.range);
+          if (!fireTarget) {
+            // 锁定目标此刻已不可打（如冻结刚结束的飞行怪），清锁让下一帧重新索敌。
+            tower.target = null;
+          } else {
+            this.sim.fire(tower, stats, fireTarget);
+            tower.cd = 1 / stats.rate;
+          }
         }
       }
     }
@@ -40,14 +48,20 @@ export class TowerSystem {
   findTarget(tower, range) {
     const def = TOWERS[tower.type];
     const range2 = range * range;
+    const now = this.sim.time;
     let best = null;
     for (const enemy of this.sim.enemies) {
       if (enemy.dead) continue;
-      if (def.groundOnly && enemy.flying) continue;
+      // 地面塔打不到飞行怪；飞行怪被冻结（坠地）时解除该限制（与 updateEnemies 的 frozen 判定一致）。
+      const frozen = now < (enemy.freezeUntil || 0);
+      if (def.groundOnly && enemy.flying && !frozen) continue;
       const dx = enemy.x - tower.x;
       const dy = enemy.y - tower.y;
       if (dx * dx + dy * dy > range2) continue;
-      if (!best || enemy.progress > best.progress) best = enemy;
+      // 确定性索敌：progress 降序，同 progress 按 id 升序（与 skillTargets 同一口径）。
+      if (!best || enemy.progress > best.progress || (enemy.progress === best.progress && enemy.id < best.id)) {
+        best = enemy;
+      }
     }
     return best;
   }
