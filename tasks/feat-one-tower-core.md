@@ -1,7 +1,7 @@
 ---
 id: feat-one-tower-core
 title: 独塔重做·核心：3/6/9 逐级选进化 + 10 级大招框架 + 炮台大招参考实现
-status: todo
+status: ready
 labels:
   - feat
 parent: null
