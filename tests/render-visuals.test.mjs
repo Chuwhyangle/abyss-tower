@@ -21,8 +21,11 @@ import {
 import { Palette, biomePalette } from '../public/js/render/palette.js';
 import { ENEMY_ANIM_VARIANTS, HIT_HIGHLIGHT } from '../public/js/render/enemy-data.js';
 import { drawHitHighlight, hitHighlightAlpha } from '../public/js/render/enemy-feedback.js';
-import { EFFECT_EVENTS, SHARP_HIT_STAR } from '../public/js/render/effect-data.js';
-import { drawSharpHitStar } from '../public/js/render/effect-draw.js';
+import { EFFECT_EVENTS, EFFECT_PROFILES, SHARP_HIT_STAR } from '../public/js/render/effect-data.js';
+import { drawSharpHitStar, effectDrawMethods } from '../public/js/render/effect-draw.js';
+import { EffectRenderer } from '../public/js/render/effect-renderer.js';
+import { TowerRenderer } from '../public/js/render/tower-renderer.js';
+import { ultimateVisual } from '../public/js/render/sprite-coverage.js';
 import { resolveMotionBudget } from '../public/js/render/camera-feedback.js';
 import { RgbaImage, fillRect } from '../scripts/lib/png.mjs';
 import {
@@ -697,5 +700,96 @@ test('命中星芒：六向锐利线 + 白色核，不随画质削减（识别�
   );
   assert.doesNotMatch(signature, /profile|tier|particleScale/, '星芒不得随画质档位削减');
   assert.match(source, /drawSharpHitStar\(g, x, y, p, fade, \{ color: variant\.accent \}\)/);
+});
+
+// ── 独塔视觉分层：大招爆发层、枪口焰层级、嵌套进化与大招光环 ──────────────────
+function ultimateFrame(type) {
+  const renderer = new EffectRenderer({ effects: [] }, { glow: null });
+  renderer.impactPool.reset(128);
+  const { ctx, image } = createRasterFrame(FRAME, FRAME, PATH_BG);
+  renderer.drawUltimate(ctx, {
+    effect: { weapon: type, ultimate: true },
+    p: 0.5,
+    fade: 0.8,
+    x: FRAME_CENTER,
+    y: FRAME_CENTER,
+    glow: true,
+    profile: EFFECT_PROFILES.high,
+  });
+  return image;
+}
+
+test('大招爆发层：白热核心 + 塔色外扩环，八塔形态像素可区分', () => {
+  const cannon = ultimateFrame('cannon');
+  const sniper = ultimateFrame('sniper');
+  const blank = createRasterFrame(FRAME, FRAME, PATH_BG).image;
+  assert.ok(differenceStats(cannon, blank, 8, frameRect()).changed > 80, '大招层必须实际落笔');
+  assert.notEqual(pixelHash(cannon), pixelHash(sniper), '炮台与狙击的大招形态必须不同');
+});
+
+function muzzleReach(level) {
+  let maxX = 0;
+  const ctx = {
+    save() {}, restore() {}, translate() {}, rotate() {}, beginPath() {}, closePath() {},
+    moveTo(x) { maxX = Math.max(maxX, x); },
+    lineTo(x) { maxX = Math.max(maxX, x); },
+    arc() {}, ellipse() {}, fill() {}, stroke() {}, setLineDash() {},
+  };
+  effectDrawMethods.drawMuzzle(ctx, {
+    effect: { angle: 0, towerLevel: level },
+    p: 0.5,
+    fade: 0.9,
+    x: 0,
+    y: 0,
+    color: '#f0a35e',
+    glow: false,
+  });
+  return maxX;
+}
+
+test('枪口焰随层级增强：普通塔不变，独塔 6/9/10 级逐级拉长', () => {
+  assert.equal(muzzleReach(0), 18, '基础枪口焰长度 18');
+  assert.equal(muzzleReach(1), 18, '档位 0/1 一致');
+  assert.equal(muzzleReach(2), 18, '普通塔满级（索引 2）不变');
+  assert.ok(muzzleReach(5) > 18, '6 级枪口焰拉长');
+  assert.ok(muzzleReach(9) > muzzleReach(5), '10 级比 6 级更长');
+});
+
+function towerCtx() {
+  const calls = { stroke: 0, fill: 0, arc: 0, scale: 0 };
+  return {
+    calls, globalAlpha: 1, lineWidth: 1, strokeStyle: '', fillStyle: '',
+    save() {}, restore() {}, translate() {}, rotate() {},
+    scale() { calls.scale++; },
+    beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, quadraticCurveTo() {},
+    arc() { calls.arc++; }, ellipse() {}, rect() {},
+    stroke() { calls.stroke++; }, fill() { calls.fill++; }, setLineDash() {},
+  };
+}
+
+test('独塔塔身：多条进化嵌套标识与 10 级大招光环逐级增强', () => {
+  const render = (evolutions) => {
+    const tower = {
+      type: 'cannon', x: 3.5, y: 3.5, level: 2, angle: 0, recoil: 0, disabledUntil: 0,
+      evolutions, evolution: null,
+    };
+    const game = { towers: [tower], time: 2, selectedTower: null, doctrineForTower: () => null };
+    const ctx = towerCtx();
+    new TowerRenderer(game, { glow: null }).render(ctx, 2, {
+      decorations: 'full', glow: false, highContrast: false, colorBlind: 'none',
+    });
+    return ctx.calls;
+  };
+  const one = render(['cannon-siege']);
+  const two = render(['cannon-siege', 'cannon-barrage']);
+  const three = render(['cannon-siege', 'cannon-barrage', 'cannon-mortar']);
+  assert.ok(two.stroke > one.stroke, '两条进化比一条多描轮廓');
+  assert.ok(three.stroke > two.stroke, '三条进化比两条多描轮廓');
+  assert.ok(two.scale > one.scale && three.scale > two.scale, '嵌套进化逐层缩放');
+
+  const auraCtx = towerCtx();
+  new TowerRenderer({ towers: [] }, { glow: null }).drawUltimateAura(auraCtx, 1.2, ultimateVisual('cannon'), '#f0a35e');
+  assert.equal(auraCtx.calls.arc, 3, '白热核心 + 塔色双环');
+  assert.ok(auraCtx.calls.fill >= 1 && auraCtx.calls.stroke >= 2, '大招光环至少 1 填 + 2 描');
 });
 
