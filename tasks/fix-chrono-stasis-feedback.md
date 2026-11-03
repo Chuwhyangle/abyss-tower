@@ -1,7 +1,7 @@
 ---
 id: fix-chrono-stasis-feedback
 title: 时之终章：去掉释放 hitstop 错觉、上调时停时长、文案讲清时停期间我方照常输出
-status: ready
+status: done
 labels:
   - defect
 parent: null
