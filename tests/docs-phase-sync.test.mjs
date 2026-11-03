@@ -24,6 +24,8 @@ const PHASE_DOC = 'docs/PHASE_FEEL_ART.md';
 const PHASE_DOCS = ['docs/PRD.md', 'docs/TECH_DESIGN.md'];
 const REQUIRED_SECTIONS = [/^##\s+1\.\s+背景/m, /^##\s+2\.\s+范围/m, /^##\s+3\.\s+命中反馈契约/m, /^##\s+4\.\s+精灵资源索引/m, /^##\s+5\.\s+AC 映射/m];
 const PHASE_AC = /^AC-0(?:1[1-9]|2\d|3[01])$/;
+const TOWER_DOC = 'docs/PHASE_TOWER.md';
+const TOWER_REQUIRED_SECTIONS = [/^##\s+1\.\s+背景/m, /^##\s+2\.\s+范围/m, /^##\s+3\.\s+节点图契约/m, /^##\s+4\.\s+三类节点经济契约/m, /^##\s+5\.\s+难度映射/m, /^##\s+6\.\s+实现拆分/m];
 const SCRIPT = path.join(ROOT, 'scripts/check-doc-ownership.mjs');
 
 function read(rel) {
@@ -53,6 +55,11 @@ function taskFile({ id, status, touches }) {
 test('PHASE_FEEL_ART 存在且含背景/范围/命中反馈契约/精灵资源索引/AC 映射五节', () => {
   const markdown = read(PHASE_DOC);
   for (const pattern of REQUIRED_SECTIONS) assert.match(markdown, pattern);
+});
+
+test('PHASE_TOWER 存在且含背景/范围/节点图契约/经济契约/难度映射/实现拆分六节', () => {
+  const markdown = read(TOWER_DOC);
+  for (const pattern of TOWER_REQUIRED_SECTIONS) assert.match(markdown, pattern);
 });
 
 test('PRD/TECH 都链接到 PHASE_FEEL_ART，且其引用的章节号真实存在', () => {
