@@ -75,3 +75,11 @@ extra:
 3. **震荡独塔卡死**（stuck=20/20）：击退让敌人被无限推离、既不漏也不死、波次不结束——CC 塔独塔无击杀能力的结构性矛盾。
 
 **AC 判定**：AC1 ✓（三档+专项已复测记录）；AC2 ✗（独塔未整体回区间：电弧漫游 90% 仍超 85%，其余 7 塔 0%，值调无效、根因在覆盖）；AC3 ✓（BALANCE.md 与 BALANCE_META.json 已由脚本重写）；AC4 ✗（hex-one-tower 26 例全过；meta-balance-targets 深渊 13.3% 高于目标硬断言失败，先验矿脉漂移）。
+
+## Blocker
+
+**2026-11-03T12:15:38.512Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 2/8，剩余未勾 6）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：91a68b74-1993-4949-a6e2-69186267aea5

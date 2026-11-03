@@ -1,7 +1,7 @@
 ---
 id: gap-ac-018-feel-window-sampling
 title: AC-018 复红：feel 门禁单瞬时采样撞上特效空窗（t=8s effects=0），改窗口峰值口径
-status: ready
+status: done
 labels:
   - gap
   - defect
@@ -41,18 +41,18 @@ AC-018（GOAL-005 退出条件「战斗场景机械指标：反馈覆盖、对�
 
 ## AC
 
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` 连续 2 次 exit 0，每次 8 项 ok 表写入 Notes（含 effects-active 峰值读数 ≥ 4、反馈覆盖 ≥ 0.002、命中特效覆盖 ≥ 0.0003、受击闪白覆盖 ≥ 0.0004）
-- [ ] `node --test tests/visual-check.test.mjs` exit 0；改动度量口径时同步更新/新增单测，且 `no-feedback`/`effects-invisible` 注入下 feel 仍判红（count 0、覆盖 0 必红）
-- [ ] `npm test` exit 0（全量 suite，含模拟确定性用例——度量口径改动不得改变 RNG 调用序列/模拟结果）
-- [ ] `git diff -- scripts/lib/visual-metrics.mjs` 中 `THRESHOLDS.feel` 8 项阈值均未下调（无 diff，或 Notes 给出「真实反馈回归」证据与依据）
-- [ ] Notes 记录因果归因：`git log --oneline f642eee..HEAD -- <相关文件>` 定位 5→0 的落地提交（`1f49461` 资源矿脉落图），写明 hash 与 `git show --stat` 摘要
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` 连续 2 次 exit 0，每次 8 项 ok 表写入 Notes（含 effects-active 峰值读数 ≥ 4、反馈覆盖 ≥ 0.002、命中特效覆盖 ≥ 0.0003、受击闪白覆盖 ≥ 0.0004）
+- [x] `node --test tests/visual-check.test.mjs` exit 0；改动度量口径时同步更新/新增单测，且 `no-feedback`/`effects-invisible` 注入下 feel 仍判红（count 0、覆盖 0 必红）
+- [x] `npm test` exit 0（全量 suite，含模拟确定性用例——度量口径改动不得改变 RNG 调用序列/模拟结果）
+- [x] `git diff -- scripts/lib/visual-metrics.mjs` 中 `THRESHOLDS.feel` 8 项阈值均未下调（无 diff，或 Notes 给出「真实反馈回归」证据与依据）
+- [x] Notes 记录因果归因：`git log --oneline f642eee..HEAD -- <相关文件>` 定位 5→0 的落地提交（`1f49461` 资源矿脉落图），写明 hash 与 `git show --stat` 摘要
 
 ## DoD
 
-- [ ] 真实浏览器连续 2 次 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` exit 0，每次 8 项 ok 表读数写入 Notes
-- [ ] 门禁语义未被放宽：`no-feedback`/`effects-invisible` 注入下 feel 必红；`THRESHOLDS.feel` 未下调；特效整体删除时峰值 count 0 < 4 必红
-- [ ] 落地 diff 只含 `## Touches` 声明文件，`git status --short` 无本任务相关未提交改动；零第三方依赖
-- [ ] 确定性保持：同 seed 模拟结果与 RNG 调用序列不变（`npm test` 确定性用例全绿），`checkFrameTimes` 无时间漂移红
+- [x] 真实浏览器连续 2 次 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` exit 0，每次 8 项 ok 表读数写入 Notes
+- [x] 门禁语义未被放宽：`no-feedback`/`effects-invisible` 注入下 feel 必红；`THRESHOLDS.feel` 未下调；特效整体删除时峰值 count 0 < 4 必红
+- [x] 落地 diff 只含 `## Touches` 声明文件，`git status --short` 无本任务相关未提交改动；零第三方依赖
+- [x] 确定性保持：同 seed 模拟结果与 RNG 调用序列不变（`npm test` 确定性用例全绿），`checkFrameTimes` 无时间漂移红
 
 ## Touches
 
@@ -61,3 +61,36 @@ AC-018（GOAL-005 退出条件「战斗场景机械指标：反馈覆盖、对�
 - `tests/lib/visual/session.mjs`
 - `tests/visual-check.test.mjs`
 - `tasks/gap-ac-018-feel-window-sampling.md`
+
+## Notes
+
+**修法落地**：`tests/lib/visual/session.mjs` 的 `__visual` 新增 `trace:{maxEffects,peakTick}` 与 `visibleEffects()`（只计 `spark`/`ring` 命中特效）、`sampleTrace()`（`Math.round(sim.time*60) < 120` 跳过 t<2s 开局爆发）、`traceSnapshot()`，`step()` 每帧采样；新增 `VisualSceneSession.resetCombat({injection})` 与 `combatTrace()`。`tests/visual-scenes.mjs` combat 分支读完 `trace` 后取 `peakEffects`/`peakTick`，二次 `resetCombat({injection})` 推进到 `peakTick/60` 采集 `feelFrame`/`feelReferences`/`feelPayload`（`effects=峰值`），原 `metricsFrame`/`references`/`payload` 保留在 t=8s 供 `checkFrameTimes` 与向后兼容。`tests/lib/visual/metrics.mjs` `feelMetrics` 优先 `feelFrame`/`feelReferences`/`feelPayload`，缺失回退旧字段。
+
+**窗口峰值读数（峰值 tick=275：spark+ring=4、flash=2、floaters=3、enemies=11）**——连续 2 次 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` exit 0，8 项一致：
+
+| 指标 | 读数 | 阈值 |
+|---|---|---|
+| 反馈覆盖（特效+飘字+受击闪白） | 0.0043 | ≥ 0.002 |
+| 命中特效覆盖 | 0.0018 | ≥ 0.0003 |
+| 受击闪白覆盖 | 0.0015 | ≥ 0.0004 |
+| 伤害飘字覆盖 | 0.0010 | ≥ 0.00008 |
+| 飘字条数 | 3 | ≥ 1 |
+| 同时存在的命中特效 | 4 | ≥ 4 |
+| 敌人与背景 ΔE | 21.56 | ≥ 10 |
+| 特效预算 | 4 | ≤ 320 |
+
+**门禁语义未被放宽**：`--inject no-feedback`、`--inject effects-invisible` 下 feel 均 FAIL——命中特效 0（<4）、反馈/命中特效/受击闪白覆盖均 0（峰值 count=0、覆盖=0 必红），特效预算 0 仍绿（只红该红的）。
+
+**单测与全量**：`node --test tests/visual-check.test.mjs` 40/40 通过（含注入反例断言）；`npm test` 1927/1927 通过——度量口径改动只落 `tests/**`，未动 `public/js/**`，RNG 调用序列/模拟结果不变。
+
+**阈值未下调**：`git diff develop..HEAD -- scripts/lib/visual-metrics.mjs` 为空，`THRESHOLDS.feel` 8 项原值未动（`minActiveEffects: 4` 保持）。
+
+**确定性（resetCombat 二次推进）**：复用同一 sim 对象须补复位——`sim.nextId=1`、运行时 `sim.destructibles` 逐个 `destroyed=false`（`canBuild`→`destructibleAt` 读运行时副本，而非定义层 `sim.map.destructibles`）、`sim.obeliskStacks=0`、`sim.pendingSplits=[]`、`sim.impactEvents=[]`、`sim.culminations=[]`、`sim.culminationSeq=0`。修后 fresh 与 reset 在 tick 275 的敌人 id / 受击闪白 / 暴击指纹逐位一致。
+
+**因果归因（AC-5）**：`git log --oneline f642eee..HEAD -- public/js/shared/maps/` 定位 5→0 落地提交为 `1f49461`：
+
+```
+1f49461 feat(maps): 资源矿脉落图——三张固定图各布 3 个可攻击矿脉，渲染与回归测试同步
+```
+
+`git show --stat 1f49461`：9 files changed, 159 insertions(+), 12 deletions(-)——`public/js/shared/maps/{canyon,ring,twin}.js` 各 +5（各布 3 个可攻击矿脉）、`public/js/render/destructible-renderer.js`（+32）、5 个测试文件（`fixed-maps.test.mjs` +87 等）。矿脉占据可建造格/可被攻击，改变塔开火节奏与目标分布，把 t=8.0s 采样相位推入空窗（effects 5→0）；合法玩法落图不可回滚，本任务改度量口径吸收该相位偏移。
