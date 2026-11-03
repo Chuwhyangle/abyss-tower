@@ -1,7 +1,7 @@
 ---
 id: fix-meta-balance-targets-tolerance
 title: meta 平衡目标测试落地 ±5pp 容忍：深渊 13.3%（矿脉先验漂移）不再硬断言失败
-status: ready
+status: done
 labels:
   - defect
 parent: null
@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] `tests/meta-balance-targets.test.mjs` 的达标判定落地 ±5pp 容忍（偏离 ≤5pp 仍判达标）
-- [ ] 深渊 13.3%（+1.3pp）在容忍内通过，不硬断言失败
-- [ ] 不改 `config.js` 的 BALANCE_TARGETS、不改矿脉金值
-- [ ] `node --test tests/meta-balance-targets.test.mjs` exit 0
+- [x] `tests/meta-balance-targets.test.mjs` 的达标判定落地 ±5pp 容忍（偏离 ≤5pp 仍判达标）
+- [x] 深渊 13.3%（+1.3pp）在容忍内通过，不硬断言失败
+- [x] 不改 `config.js` 的 BALANCE_TARGETS、不改矿脉金值
+- [x] `node --test tests/meta-balance-targets.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `tests/meta-balance-targets.test.mjs`，不引入第三方依赖
-- [ ] 回归测试覆盖容忍边界（正好 ±5pp 内/外）
-- [ ] `npm test` 全绿
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `tests/meta-balance-targets.test.mjs`，不引入第三方依赖
+- [x] 回归测试覆盖容忍边界（正好 ±5pp 内/外）
+- [x] `npm test` 全绿
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -36,5 +36,7 @@ extra:
 ## Notes
 
 立案 2026-11-03，源自 `feat-one-tower-balance` needs-human 的 AC4 决策。manager 裁定：接受矿脉先验漂移，落地 BALANCE.md 已约定的 5pp 容忍，不回调经济。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
+
+实现落地：`withinBalanceTolerance`（偏离 gap ≤ 5pp 判达标）+ 恰好 ±5pp 内/外边界回归 + 13.3% 先验漂移用例。实测当前 `docs/BALANCE_META.json` 深渊已回落 zero 9.17% / full 10%（均在 5–12% 区间），容忍口径为对 13.3% 漂移的防御性落地；`node --test tests/meta-balance-targets.test.mjs` 7/7、`npm test` 1943/1943 全绿。
 
 该轴仍暗,理由:本任务为测试容忍口径落地，无新文档面，L_D/L_G/L_S 无需量化。
