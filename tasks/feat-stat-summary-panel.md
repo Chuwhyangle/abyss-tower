@@ -1,7 +1,7 @@
 ---
 id: feat-stat-summary-panel
 title: 加成一览面板 + 遗物栏可收起
-status: ready
+status: superseded
 labels:
   - feat
 parent: null
@@ -39,6 +39,6 @@ extra:
 
 ## Notes
 
-立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-8。若 worker 实际 Touches 有出入（如 i18n 文件、stats-ui.js），须 task_write 修正再 fan-in。
+立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-8。**已被 `feat-bonus-summary-relic-collapse`（done）取代**：并发会话先落地了同一 TODO-8（加成一览 + 遗物收起，同一批文件同一份 AC），本任务为避免重复派发标记 superseded，不再实现。
 
 该轴仍暗,理由:本任务为 UI 信息呈现增强，不改玩法/数值/文档面，L_D/L_G/L_S 无需量化。
