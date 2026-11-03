@@ -1,7 +1,7 @@
 ---
 id: test-scenario-harness
 title: 无头模拟场景构造器 + 复用断言 + 不变量（测试体系地基）
-status: ready
+status: done
 labels:
   - feat
 parent: null
