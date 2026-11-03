@@ -1,6 +1,11 @@
 // 可破坏物：布点状态、诅咒光环、拆除结算与虫巢召唤。
 import { ENEMIES } from '../shared/data.js';
-import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
+import {
+  DESTRUCTIBLE_BY_ID,
+  destructibleTypeOf,
+  isAttackableType,
+  resourceVeinGold,
+} from '../shared/destructibles.js';
 
 // 虫巢噬虫沿车道依次错开的间距（格），避免 6 只叠在同一个点上。
 const NEST_SPAWN_SPACING = 0.2;
@@ -55,6 +60,11 @@ export class DestructibleSystem {
       this.sim.opts.onToast?.('这个物件已经拆除了');
       return { ok: false, reason: 'already-destroyed' };
     }
+    // 可攻击地块（cost 为 null）只能被塔攻击破坏，不可花金币手动拆除。
+    if (!Number.isFinite(item.cost)) {
+      this.sim.opts.onToast?.('这个地块无法手动拆除，只能被塔攻击破坏');
+      return { ok: false, reason: 'not-manually-removable' };
+    }
     if (this.sim.gold < item.cost) {
       this.sim.opts.onToast?.('金币不足，无法拆除');
       return { ok: false, reason: 'gold-insufficient' };
@@ -98,20 +108,85 @@ export class DestructibleSystem {
 
   // 召唤/拆除效果的「当前波次强度」：波内用本波 hpMul，整备期用下一波。
   // 波次生成是纯函数（种子派生、不消耗 combatRng），提前预测不会改变后续结算。
+
+  // 开波时把存活矿脉的血量回满：矿脉血量是波内瞬态（不落盘），回满保证
+  // 「内存残血」与「刷新后从快照恢复」一致——血量不进快照，满血即默认态。
+  resetResourceVeinHp() {
+    for (const item of this.sim.destructibles) {
+      if (!item.destroyed && Number.isFinite(item.maxHp)) item.hp = item.maxHp;
+    }
+  }
+
+  // 索敌：射程内最近的、可攻击的、未拆除地块（敌人永远优先，由 tower-system 保证）。
+  findAttackableDestructible(tower, range) {
+    const fullMap = tower?.stats?.fullMap === true;
+    const range2 = fullMap ? Infinity : range * range;
+    let best = null;
+    let bestDist = Infinity;
+    for (const item of this.sim.destructibles) {
+      if (item.destroyed || !Number.isFinite(item.hp) || item.hp <= 0) continue;
+      const dx = item.x - tower.x;
+      const dy = item.y - tower.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > range2) continue;
+      if (d2 < bestDist) {
+        bestDist = d2;
+        best = item;
+      }
+    }
+    return best;
+  }
+
+  // 塔攻击地块：扣血，归零则标记拆除并按 seed+波次结算金币掉落（不消耗 RNG、不改确定性）。
+  attackDestructible(item, damage, towerType = null) {
+    if (!item || item.destroyed || !Number.isFinite(item.hp) || item.hp <= 0) {
+      return { ok: false, reason: 'not-attackable' };
+    }
+    const raw = Number(damage);
+    if (!Number.isFinite(raw) || raw <= 0) return { ok: false, reason: 'damage-invalid' };
+    const amount = Math.max(1, Math.round(raw));
+    item.hp -= amount;
+    this.sim.addEffect({
+      kind: 'spark',
+      x: item.x,
+      y: item.y,
+      ttl: 0.15,
+      color: '#ffe4b0',
+      weapon: towerType || null,
+    });
+    if (item.hp > 0) return { ok: true, reason: 'damaged', hp: item.hp };
+
+    item.hp = 0;
+    item.destroyed = true;
+    const gold = resourceVeinGold(this.sim.seed, this.sim.wave, item.id);
+    this.sim.gold += gold;
+    this.sim.addFloater(item.x, item.y - 0.4, `+${gold}`, '#ffd36b', true);
+    this.sim.playSound('destructible');
+    // 与其它局内状态一致：整备阶段立即落盘，波中由波前快照负责回滚重放。
+    this.sim.save();
+    return { ok: true, reason: 'destroyed', gold };
+  }
 }
 
 export function createDestructibleEntries(placements, destroyedIds = []) {
   if (!Array.isArray(placements)) return [];
   const destroyed = new Set(Array.isArray(destroyedIds) ? destroyedIds : []);
   return placements.map((placement) => {
-    const type = DESTRUCTIBLE_BY_ID[placement?.type] || null;
+    const type = destructibleTypeOf(placement);
+    const attackable = isAttackableType(type);
     return {
       id: placement?.id,
       type: placement?.type,
       c: placement?.c,
       r: placement?.r,
-      cost: type?.cost ?? 0,
-      effect: cloneEffectData(type?.effect ?? null),
+      // 世界坐标：可攻击地块的索敌距离/瞄准角度用；五类固定物件同样带上，无副作用。
+      x: (placement?.c ?? 0) + 0.5,
+      y: (placement?.r ?? 0) + 0.5,
+      // 可攻击地块：不可花金币拆除（cost=null），血量取自注册表；效果在破坏时按 seed+波次结算。
+      cost: attackable ? null : (type?.cost ?? 0),
+      hp: attackable ? type.hp : null,
+      maxHp: attackable ? type.hp : null,
+      effect: attackable ? null : cloneEffectData(type?.effect ?? null),
       destroyed: destroyed.has(placement?.id),
     };
   });

@@ -51,6 +51,19 @@ export class TowerSystem {
             tower.cd = 1 / stats.rate;
           }
         }
+      } else {
+        // 空手时打地块（低优先级）：敌人永远优先——只有射程内没有可打敌人时才进这个分支。
+        // 直接对地块结算伤害，不走投射物/RNG 路径，不改变 combatRng 调用顺序。
+        const tile = this.sim.destructibleSystem.findAttackableDestructible(tower, stats.range);
+        if (tile) {
+          const desired = Math.atan2(tile.y - tower.y, tile.x - tower.x);
+          tower.angle = lerpAngle(tower.angle, desired, Math.min(1, dt * 12));
+          if (tower.cd <= 0) {
+            tower.recoil = 1;
+            this.sim.destructibleSystem.attackDestructible(tile, stats.dmg, tower.type);
+            tower.cd = 1 / stats.rate;
+          }
+        }
       }
     }
   }

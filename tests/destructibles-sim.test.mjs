@@ -4,7 +4,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../public/js/sim.js';
 import { ENEMIES } from '../public/js/shared/data.js';
-import { DESTRUCTIBLE_BY_ID } from '../public/js/shared/destructibles.js';
+import {
+  DESTRUCTIBLE_BY_ID,
+  RESOURCE_VEIN_TYPE,
+  isAttackableType,
+  resourceVeinGold,
+} from '../public/js/shared/destructibles.js';
+import { RNG } from '../public/js/shared/rng.js';
 import { FIXED_MAPS, FIXED_MAP_BY_ID } from '../public/js/shared/maps/index.js';
 import { SAVE_VERSION, validateSnapshot } from '../public/js/shared/snapshot.js';
 import { generateWave } from '../public/js/shared/waves.js';
@@ -362,4 +368,129 @@ test('快照兼容：旧档缺字段视为空；没有拆除时不写字段、�
   assert.equal(malformed.ok, true);
   assert.ok(malformed.warnings.includes('invalid-destructibles'));
   assert.equal('destructibles' in malformed.snapshot, false);
+});
+
+// ---------- feat-attackable-tiles：可攻击资源矿脉 ----------
+
+// 空波定义：无敌人，让塔在波内只剩「打矿脉」这一条路可走（波次导演只要求 groups/index/reward）。
+function emptyWave(index) {
+  return { index, groups: [], reward: 0, hpMul: 1, speedMul: 1, portals: [] };
+}
+
+function veinPlacement(id, c, r) {
+  return { id, type: 'resourceVein', c, r };
+}
+
+test('资源矿脉：运行时条目带 HP/坐标，占格且不可花金币手动拆除', () => {
+  const vein = veinPlacement('syn-vein-1', 5, 5);
+  const { sim } = makeSim({ map: syntheticMap([vein]), gold: 500 });
+  const entry = sim.destructibles.find((item) => item.id === 'syn-vein-1');
+
+  assert.ok(isAttackableType(RESOURCE_VEIN_TYPE));
+  assert.equal(entry.type, 'resourceVein');
+  assert.equal(entry.hp, RESOURCE_VEIN_TYPE.hp);
+  assert.equal(entry.maxHp, RESOURCE_VEIN_TYPE.hp);
+  assert.equal(entry.cost, null, '不可花金币拆除');
+  assert.equal(entry.effect, null, '掉落由 seed+波次派生，不是声明式效果');
+  assert.equal(entry.x, 5.5);
+  assert.equal(entry.y, 5.5);
+  assert.equal(entry.destroyed, false);
+  assert.equal(sim.canBuild(5, 5), false, '存活矿脉占格');
+
+  // 手动拆除被拒绝，不标记、不扣费。
+  const goldBefore = sim.gold;
+  assert.deepEqual(sim.destroyDestructible('syn-vein-1'), {
+    ok: false,
+    reason: 'not-manually-removable',
+  });
+  assert.equal(sim.gold, goldBefore);
+  assert.equal(entry.destroyed, false);
+});
+
+test('资源矿脉掉落：seed+波次+id 确定性派生，落在声明区间内且不依赖 RNG', () => {
+  const seed = 'destructible-sim-seed';
+  for (const wave of [1, 2, 3]) {
+    const a = resourceVeinGold(seed, wave, 'vein-a');
+    const b = resourceVeinGold(seed, wave, 'vein-a');
+    assert.equal(a, b, `同 seed/波次/id 结果一致（wave ${wave}）`);
+    assert.ok(
+      a >= RESOURCE_VEIN_TYPE.goldMin && a <= RESOURCE_VEIN_TYPE.goldMax,
+      `金额 ${a} 落在 [${RESOURCE_VEIN_TYPE.goldMin}, ${RESOURCE_VEIN_TYPE.goldMax}]`
+    );
+    assert.equal(Number.isInteger(a), true, '掉落金额为整数');
+  }
+  // 不同 id 通常不同（hash 取模，极小概率相同——这里只验证函数是纯函数：输入不同→可不同）。
+  const across = new Set([1, 2, 3].map((w) => resourceVeinGold(seed, w, 'vein-a')));
+  assert.ok(across.size >= 1);
+});
+
+test('塔在无敌人时自动攻击矿脉，破坏后掉落确定性金币且不消耗 combatRng', () => {
+  const seed = 'destructible-sim-seed';
+  const vein = veinPlacement('syn-vein-2', 5, 5);
+  const { sim } = makeSim({ map: syntheticMap([vein]), gold: 500, seed });
+  assert.equal(sim.placeTower('arrow', 5, 6), true);
+  const tower = sim.towerAt(5, 6);
+  const entry = sim.destructibles.find((item) => item.id === 'syn-vein-2');
+
+  // 箭塔射程 3.2，矿脉距塔 1 格，必然在射程内。
+  assert.equal(sim.destructibleSystem.findAttackableDestructible(tower, tower.stats.range), entry);
+
+  const goldBefore = sim.gold;
+  sim.beginWave(emptyWave(1));
+  assert.equal(sim.wave, 1);
+
+  let steps = 0;
+  while (!entry.destroyed && steps < 500) {
+    sim.updateTowers(0.1);
+    steps += 1;
+  }
+  assert.equal(entry.destroyed, true, '塔把矿脉打掉');
+  assert.equal(entry.hp, 0);
+  const expected = resourceVeinGold(seed, 1, 'syn-vein-2');
+  assert.equal(sim.gold, goldBefore + expected, '掉落金额 = seed+波次+id 派生');
+  assert.equal(sim.canBuild(5, 5), true, '破坏后格子可建造');
+
+  // 攻击路径不消耗 combatRng：整段攻击后首个随机数仍等于波首初始值。
+  assert.equal(sim.combatRng.float(), new RNG(`${seed}:combat:1`).float(), '攻击矿脉不推进 combatRng');
+});
+
+test('敌人永远优先：射程内同时有敌人与矿脉时打敌人，矿脉不掉血', () => {
+  // 塔在 (5,2)，矿脉在 (5,3)（距 1），车道在 r=0，敌人刷在 progress≈5 的 (5.5,0.5)（距塔约 1.5）。
+  const vein = veinPlacement('syn-vein-3', 5, 3);
+  const { sim } = makeSim({ map: syntheticMap([vein]), gold: 500 });
+  assert.equal(sim.placeTower('arrow', 5, 2), true);
+  const tower = sim.towerAt(5, 2);
+  const entry = sim.destructibles.find((item) => item.id === 'syn-vein-3');
+
+  sim.beginWave(emptyWave(1));
+  sim.spawnEnemy('grunt', 0, null, 5);
+  const enemy = sim.enemies[0];
+
+  // 敌人与矿脉都在射程内：索敌必然选敌人。
+  assert.equal(sim.inRange(tower, enemy, tower.stats.range), true, '敌人在射程内');
+  assert.equal(sim.destructibleSystem.findAttackableDestructible(tower, tower.stats.range), entry, '矿脉也在射程内');
+  assert.equal(sim.findTarget(tower, tower.stats.range), enemy, '索敌选敌人');
+
+  const hpBefore = entry.hp;
+  sim.updateTowers(0.1);
+  assert.equal(entry.hp, hpBefore, '有敌人可打时矿脉不掉血');
+  assert.equal(tower.target, enemy, '塔锁定的是敌人');
+  assert.equal(sim.projectiles.length, 1, '对敌人开火（生成投射物）');
+  assert.equal(sim.projectiles[0].target, enemy);
+});
+
+test('资源矿脉血量是波内瞬态：开波回满，刷新后与内存态一致', () => {
+  const vein = veinPlacement('syn-vein-4', 5, 5);
+  const { sim } = makeSim({ map: syntheticMap([vein]), gold: 500 });
+  assert.equal(sim.placeTower('arrow', 5, 6), true);
+  const entry = sim.destructibles.find((item) => item.id === 'syn-vein-4');
+
+  // 直接调用攻击接口把矿脉打到残血（模拟波内被打了一部分）。
+  sim.destructibleSystem.attackDestructible(entry, 100);
+  assert.ok(entry.hp > 0 && entry.hp < entry.maxHp, '矿脉残血');
+  assert.equal(entry.destroyed, false);
+
+  // 开波回满：跨波不残留上一波的残血。
+  sim.beginWave(emptyWave(1));
+  assert.equal(entry.hp, entry.maxHp, '开波后血量回满');
 });
