@@ -139,3 +139,39 @@ test('面板与实际伤害在多种塔型/等级下一致（零护甲、无暴�
     }
   }
 });
+
+test('索敌排序确定：progress 降序、同 progress 按 id 升序', () => {
+  const sim = makeSim();
+  const tower = addTower(sim, 'arrow');
+  const range = sim.statsFor(tower).range;
+
+  // 同 progress：id 更小者优先（先 spawn 的敌人 id 更小）。
+  const first = addEnemy(sim, { x: tower.x + 1, y: tower.y, progress: 2 });
+  const second = addEnemy(sim, { x: tower.x + 1, y: tower.y, progress: 2 });
+  assert.ok(first.id < second.id, '先 spawn 的敌人 id 应更小');
+  assert.equal(sim.findTarget(tower, range), first, '同 progress 选 id 更小者');
+
+  // progress 更大者优先。
+  second.progress = 9;
+  assert.equal(sim.findTarget(tower, range), second, 'progress 更大者优先');
+});
+
+test('塔开火时重选当前 progress 最大目标：锁定肉盾后切去打更靠基地的快怪', () => {
+  const sim = makeSim();
+  const tower = addTower(sim, 'arrow');
+  tower.cd = 0;
+
+  // 先只有进度低的肉盾：锁定并开火。
+  const shield = addEnemy(sim, { x: tower.x + 1, y: tower.y, progress: 1 });
+  sim.updateTowers(1 / 60);
+  assert.equal(tower.target, shield, '先锁定唯一的肉盾');
+  assert.equal(sim.projectiles.length, 1, '第一发开火');
+  assert.equal(sim.projectiles[0].target, shield, '第一发打在肉盾上');
+
+  // 更靠基地的快怪出现，下一发开火时重选并切换目标。
+  const fast = addEnemy(sim, { x: tower.x + 1, y: tower.y, progress: 9 });
+  tower.cd = 0;
+  sim.updateTowers(1 / 60);
+  assert.equal(sim.projectiles.length, 2, '第二发开火');
+  assert.equal(sim.projectiles[1].target, fast, '第二发切换到更靠基地的快怪');
+});

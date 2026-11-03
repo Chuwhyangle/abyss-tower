@@ -73,6 +73,17 @@ function clampWave(value, mode = DEFAULT_MODE) {
   return boundedInt(value, 0, max, 0);
 }
 
+// 进化分支统一成去重后的 id 数组：兼容单条进化字符串与多进化数组，旧档缺字段按未进化处理。
+function normalizeEvolutionIds(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : [];
+  const ids = [];
+  for (const item of list) {
+    const id = typeof item === 'string' ? item : item?.id;
+    if (typeof id === 'string' && id && !ids.includes(id)) ids.push(id);
+  }
+  return ids;
+}
+
 function normalizeTowers(towers) {
   if (!Array.isArray(towers)) return [];
   const states = [];
@@ -85,6 +96,9 @@ function normalizeTowers(towers) {
       level: boundedInt(tower.level, 0, Number.MAX_SAFE_INTEGER, 0),
       invested: boundedInt(tower.invested, 0, Number.MAX_SAFE_INTEGER, 0),
     };
+    // 进化分支：evolutions 数组 / 单条 evolution 归一化成数组；旧档缺字段按未进化处理。
+    const evolutions = normalizeEvolutionIds(tower.evolutions ?? tower.evolution);
+    if (evolutions.length) state.evolutions = evolutions;
     // 塔生命只在有上限（海克斯赋予）时保留；旧档没有该字段时按无敌恢复。
     const maxHp = finiteNumber(tower.maxHp);
     if (maxHp !== null && maxHp > 0) {
@@ -244,9 +258,12 @@ export function toSnapshot(state) {
   return snapshot;
 }
 
-// 塔生命只在有上限（海克斯赋予）时写入，未受海克斯影响的塔保持旧字节结构。
+// 塔生命只在有上限（海克斯赋予）时写入；进化分支只在真的选过时写入，
+// 未受海克斯/未进化的塔保持旧字节结构（旧档缺字段按未进化处理）。
 function serializeTower(tower) {
   const state = { type: tower.type, c: tower.c, r: tower.r, level: tower.level, invested: tower.invested };
+  const evolutions = normalizeEvolutionIds(tower.evolutions ?? tower.evolution);
+  if (evolutions.length) state.evolutions = evolutions;
   const maxHp = finiteNumber(tower.maxHp);
   if (maxHp === null || maxHp <= 0) return state;
   state.maxHp = Math.max(1, Math.floor(maxHp));
