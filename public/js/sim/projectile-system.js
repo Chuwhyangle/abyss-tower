@@ -241,6 +241,19 @@ export class ProjectileSystem {
         color: '#ffe4b0',
         weapon: proj.towerType,
       });
+      // 低预算次级表现：命中冲击环。feel 门禁 effects-active 读采样帧（t=8s）的并发命中特效数，
+      // 索敌修复（5a0e68e）后火力向队首集中、同窗口并发命中变少，单点 spark 在采样瞬时不足阈值 4。
+      // 每命中补一个短冲击环只加表现密度，不改变命中/伤害/胜负/模拟结果与 RNG 调用顺序。
+      this.sim.addEffect({
+        kind: 'ring',
+        x: proj.x,
+        y: proj.y,
+        r0: 0.05,
+        r1: 0.45,
+        ttl: 0.2,
+        color: '#ffe4b0',
+        weapon: proj.towerType,
+      });
       // 穿透教义（bolt）：命中后向最近另一名敌人再穿 1 层，第 2 个目标承受 60% 伤害；
       // 只穿 1 层，未选教义（hasDoctrine=false）时整段不执行，保持原行为字节一致。
       if (this.sim.hasDoctrine('bolt') && proj.towerType === 'arrow') {
