@@ -1,7 +1,7 @@
 ---
 id: feat-resource-vein-placement
 title: 资源矿脉落图：把可攻击矿脉布点写进三张固定图（避开贴路建塔位）
-status: ready
+status: done
 labels:
   - feat
 parent: null
