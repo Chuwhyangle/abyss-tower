@@ -41,23 +41,23 @@ AC-029 的语义评审（2026-10-27，全新上下文 subagent `ac76e326a17add0f
 
 ## AC
 
-- [ ] `node tests/browser-result-scene.mjs` exit 0（两视口 × 空框 / 首屏 / 难度标签 / 奖励色四类断言）
-- [ ] `node --test tests/result-scene-layout.test.mjs` exit 0
-- [ ] 844×390 首屏包含「最终得分」标签、至少一行数据格与分享按钮（`getBoundingClientRect()` 在视口内）
-- [ ] `data-sprite-id="ui/scene-result-panel"` 宿主内部有可见内容，或该宿主已被移除；不再出现空金框
-- [ ] `.diff-tag` 与难度值成对出现，两种视口都没有孤立「远征难度」标签
-- [ ] 星核奖励徽记取金色 `role.reward` 令牌，与 `docs/ART_DIRECTION.md` 一致
-- [ ] 复采证据存档：`docs/reviews/result-scene-fix/contact-sheet.png` 与 `manifest.json` 入库（存档证据；验收以浏览器断言为准，不驱动读图评审）
-- [ ] `npm test` exit 0；`node scripts/visual-check.mjs --suite ui`、`node scripts/visual-check.mjs --suite mobile` exit 0
+- [x] `node tests/browser-result-scene.mjs` exit 0（两视口 × 空框 / 首屏 / 难度标签 / 奖励色四类断言）
+- [x] `node --test tests/result-scene-layout.test.mjs` exit 0
+- [x] 844×390 首屏包含「最终得分」标签、至少一行数据格与分享按钮（`getBoundingClientRect()` 在视口内）
+- [x] `data-sprite-id="ui/scene-result-panel"` 宿主内部有可见内容，或该宿主已被移除；不再出现空金框
+- [x] `.diff-tag` 与难度值成对出现，两种视口都没有孤立「远征难度」标签
+- [x] 星核奖励徽记取金色 `role.reward` 令牌，与 `docs/ART_DIRECTION.md` 一致
+- [x] 复采证据存档：`docs/reviews/result-scene-fix/contact-sheet.png` 与 `manifest.json` 入库（存档证据；验收以浏览器断言为准，不驱动读图评审）
+- [x] `npm test` exit 0；`node scripts/visual-check.mjs --suite ui`、`node scripts/visual-check.mjs --suite mobile` exit 0
 
 ## DoD
 
-- [ ] 真实浏览器两视口实跑并截图；844×390 首屏截图人眼可见「最终得分」标签与数据格
-- [ ] 空金框问题从画面上消失（填入内容或移除），不是用遮罩/同色块掩盖
-- [ ] 奖励语义色与 `docs/ART_DIRECTION.md` 的金色体系一致
-- [ ] 复采结果落盘，桌面端布局无回归（与修复前截图对照）
-- [ ] 不触碰 sim/RNG/计分/存档；`docs/ART_DIRECTION.md` 的增量与实现一致
-- [ ] 结算场景修复以浏览器断言验收：`tests/browser-result-scene.mjs` 与 `tests/result-scene-layout.test.mjs` exit 0（读图评审已退役，不再由 gap-art-review-record 复评）
+- [x] 真实浏览器两视口实跑并截图；844×390 首屏截图人眼可见「最终得分」标签与数据格
+- [x] 空金框问题从画面上消失（填入内容或移除），不是用遮罩/同色块掩盖
+- [x] 奖励语义色与 `docs/ART_DIRECTION.md` 的金色体系一致
+- [x] 复采结果落盘，桌面端布局无回归（与修复前截图对照）
+- [x] 不触碰 sim/RNG/计分/存档；`docs/ART_DIRECTION.md` 的增量与实现一致
+- [x] 结算场景修复以浏览器断言验收：`tests/browser-result-scene.mjs` 与 `tests/result-scene-layout.test.mjs` exit 0（读图评审已退役，不再由 gap-art-review-record 复评）
 
 ## Touches
 
@@ -73,6 +73,8 @@ AC-029 的语义评审（2026-10-27，全新上下文 subagent `ac76e326a17add0f
 ## Notes
 
 来源：`gap-art-review-record` 的全新上下文评审（subagent `ac76e326a17add0ff`，2026-10-27）对结算场景判 5.0/10 未通过，扣分 -2.3 空金框 / -1.4 移动横屏首屏出屏 / -0.6 孤立难度标签 / -0.4 奖励色 / -0.3 桌面下缘留白。原始输出已存入 `gap-art-review-record` 的 Notes，本任务只承接修复，不改写评审结论；修复后由 `gap-art-review-record` 重新评审。
+
+实现落地（2026-11-03，commit `bcad443`）：resultPanel 精灵宿主改为承载 `.result-hero`（眉题 + 标题）的 240×120 标题卡，不再输出空占位框；新增 `@media (max-height: 520px)` 短视口压缩，`.modal-actions`/`.result-grid`/回放/分享面板按 order 重排，保证 844×390 首屏可见「最终得分」、首行数据格与分享按钮；`.diff-tag` 移入 `.result-score` 与难度值成对；星核徽章改 `--gold` 奖励语义。浏览器验收 `tests/browser-result-scene.mjs`（1440×900 + 844×390）与源码级 `tests/result-scene-layout.test.mjs` 全绿；复采证据入库 `docs/reviews/result-scene-fix/`（contact-sheet.png + manifest.json，manifest commit `bcad443`）。
 
 ## Needs-Human
 
