@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] 「加成一览」面板汇总 `sim.mods` 最终加成（伤害/攻速/射程/金币/减速/暴击等，含塔类型维度），并列出来源 item（遗物/海克斯/契约/教义/天赋）
-- [ ] 遗物栏桌面可折叠收起/展开；移动端以抽屉形式可开合
-- [ ] 面板数据与 `sim.mods`/遗物列表一致（不新造数值），i18n 键 zh/en 对称
-- [ ] `node --test tests/ui-modules.test.mjs tests/panels-visual.test.mjs` exit 0
+- [x] 「加成一览」面板汇总 `sim.mods` 最终加成（伤害/攻速/射程/金币/减速/暴击等，含塔类型维度），并列出来源 item（遗物/海克斯/契约/教义/天赋）
+- [x] 遗物栏桌面可折叠收起/展开；移动端以抽屉形式可开合
+- [x] 面板数据与 `sim.mods`/遗物列表一致（不新造数值），i18n 键 zh/en 对称
+- [x] `node --test tests/ui-modules.test.mjs tests/panels-visual.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/js/ui/hud.js`、`public/js/ui/shop.js`、`public/index.html`、`public/styles.css`，不引入第三方依赖
-- [ ] 新增/扩展回归测试：加成一览数据正确、遗物栏折叠状态
-- [ ] `npm test` 全绿；补跑 `node --test tests/ui-modules.test.mjs tests/panels-visual.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `public/js/ui/hud.js`、`public/js/ui/shop.js`、`public/index.html`、`public/styles.css`，不引入第三方依赖
+- [x] 新增/扩展回归测试：加成一览数据正确、遗物栏折叠状态
+- [x] `npm test` 全绿；补跑 `node --test tests/ui-modules.test.mjs tests/panels-visual.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -35,6 +35,11 @@ extra:
 - `public/index.html`
 - `public/styles.css`
 - `tests/ui-modules.test.mjs`
+- `tests/ui-split.test.mjs`
+- `tests/panels-visual.test.mjs`
+- `tests/browser-mobile.mjs`
+- `public/js/shared/i18n/zh-CN.ui.js`
+- `public/js/shared/i18n/en-US.ui.js`
 - `tasks/feat-bonus-summary-relic-collapse.md`
 
 ## Notes
