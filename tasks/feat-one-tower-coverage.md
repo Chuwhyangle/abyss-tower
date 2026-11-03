@@ -53,3 +53,11 @@ extra:
 实现落地（2026-11-03）：6 塔脉冲全图 top-K（progress 降序/id 升序，非 RNG）接入；电弧/炮台不接脉冲（电弧 dmg ×0.8 轻回调、炮台恢复全图身份）；射程成长 0.04→0.07、溅射成长 (1+0.06)^extraTiers、战旗 selfAttack 65×1.12^tiers/1.2×1.06^tiers；震荡击退软锁（质量衰减 boss/golem ×0.15、tank/shielder ×0.4、0.4s 冷却、3 格深度封顶、净前进）。`npm test` 1941 例全绿；hex-one-tower.test.mjs 867 行超 800 预算，已登记行数债务。
 
 AC5 逐塔复测（solo-sweep 40 种子、满 meta 机器人口径；`npm run balance` 测全 meta 局而非逐塔 one_tower，故以 solo-sweep 为逐塔口径）：漫游 arrow 78 / frost 85 / poison 75 / banner 75 / shock 70 / sniper 83（6 塔全落 70~85%）、电弧 75（≤85%）；深渊 frost 5（达标）、shock 28（软锁后仍以 180s 卡死计胜、29/40 卡死，属测量口径伪影）、其余 4 塔 0。深渊 5~12% 因 roam↔abyss 难度差约 2.2× 且胜负曲线陡峭（roam 70~85% 对应深渊约 0%）仅 frost 达标，留待 manager 决策是否再回调或放宽深渊带。
+
+## Blocker
+
+**2026-11-03T14:40:59.517Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 7/9，剩余未勾 2）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：b023f126-8556-4ad9-87a7-212622705e80
