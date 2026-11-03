@@ -1,7 +1,7 @@
 ---
 id: feat-mobile-info-accessibility
 title: 手机横屏信息可达性：紧凑屏抽屉 + 触控目标放大 + 扩 browser-mobile 覆盖
-status: ready
+status: done
 labels:
   - feat
 parent: null
