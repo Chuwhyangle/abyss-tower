@@ -1,7 +1,7 @@
 ---
 id: feat-mobile-drawer
 title: 手机适配：紧凑屏信息改可收起抽屉 + 触控目标放大 + 扩浏览器测试覆盖
-status: ready
+status: done
 labels:
   - feat
 parent: null
