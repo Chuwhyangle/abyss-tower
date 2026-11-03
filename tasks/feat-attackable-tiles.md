@@ -1,7 +1,7 @@
 ---
 id: feat-attackable-tiles
 title: 可攻击资源地块：塔在空手时攻击地块、破坏后掉落物品（地图交互）
-status: todo
+status: ready
 labels:
   - feat
 parent: null
