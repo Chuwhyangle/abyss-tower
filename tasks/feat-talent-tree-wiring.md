@@ -16,31 +16,37 @@ extra:
 
 ## AC
 
-- [ ] 服务端新增 talent 读写 + 传承材料消耗路由，复用 `readTalent`/`writeTalent`/`spendLegacyInTx`，材料口径与 `run-settlement` 结算一致
-- [ ] meta 树 UI：三系 8 节点可视、花传承之核加点、已点节点持久化（存 `player_kv('meta','talent')`）
-- [ ] `run.js` 构造 `Simulation` 传 `talent`（读账号 talent），`talentMods` 生效进对局
-- [ ] `node --test tests/meta-tree.test.mjs tests/meta-legacy.test.mjs` exit 0
+- [x] 服务端新增 talent 读写 + 传承材料消耗路由，复用 `readTalent`/`writeTalent`/`spendLegacyInTx`，材料口径与 `run-settlement` 结算一致
+- [x] meta 树 UI：三系 8 节点可视、花传承之核加点、已点节点持久化（存 `player_kv('meta','talent')`）
+- [x] `run.js` 构造 `Simulation` 传 `talent`（读账号 talent），`talentMods` 生效进对局
+- [x] `node --test tests/meta-tree.test.mjs tests/meta-legacy.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 三处接线落地，不引入第三方依赖
-- [ ] 新增/扩展回归测试：路由读写/消耗、UI 数据模型、run.js 注入后 `talentMods` 生效
-- [ ] `npm test` 全绿；补跑 `node --test tests/meta-tree.test.mjs tests/meta-legacy.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 三处接线落地，不引入第三方依赖
+- [x] 新增/扩展回归测试：路由读写/消耗、UI 数据模型、run.js 注入后 `talentMods` 生效
+- [x] `npm test` 全绿；补跑 `node --test tests/meta-tree.test.mjs tests/meta-legacy.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
 - `server/routes/talent.mjs` (new)
 - `server/routes/index.mjs`
+- `server/services/run-rules.mjs`
+- `server/services/run-service.mjs`
 - `public/js/app/run.js`
 - `public/js/ui/meta-tree.js` (new)
 - `public/index.html`
 - `public/styles.css`
+- `public/js/shared/i18n/zh-CN.ui.js`
+- `public/js/shared/i18n/en-US.ui.js`
 - `tests/meta-tree.test.mjs`
 - `tasks/feat-talent-tree-wiring.md`
 
 ## Notes
 
 立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-9。深和宽：把半成品的最后三处接线补全，而不是另起炉灶。若 worker 实际落地的文件与 Touches 有出入，须同步 task_write 修正 Touches 再 fan-in。
+
+实现落地（2026-11-03）：① 新增 `server/routes/talent.mjs` 薄路由（`GET /api/talent` + `POST /api/talent/invest`），复用 `readTalent`/`writeTalent`/`spendLegacyInTx`，材料口径共用 `legacy.mjs`，与 `run-settlement` 结算一致；注册进 `server/routes/index.mjs`。② meta 树 UI `public/js/ui/meta-tree.js` + `public/index.html` 入口 + `public/styles.css` 少量节点样式。③ 天赋注入链：`run-rules.mjs`（开局 `planRunStart` 读 talent）+ `run-service.mjs`（`serialize` 读 talent）+ `run.js`（`beginGame`/`resumeRun` 传 talent）。i18n 新增 `shell.closeMetaTree` 键（zh-CN/en-US）。测试：`tests/meta-tree.test.mjs` 扩展路由读写/消耗/持久化用例；全量 `npm test` 1893 全绿。
 
 该轴仍暗,理由:本任务为功能接线，不引入新结构文档面，L_D/L_G/L_S 无需量化。
