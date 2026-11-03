@@ -2,7 +2,8 @@
 // 战斗模拟与存档加载都走这里，版本号只在本文件定义一次。
 // v2 只有遗物 ID，v3 使用 {id, level}，v4 增加 skill:{id, level, cooldown}，
 // v5 增加事件连锁排期 chains:[{chainId, wave}]，v6 增加主海克斯 hexId/hexState 与塔生命，
-// v7 增加可破坏物拆除状态 destructibles:{destroyed, obeliskStacks}；
+// v7 增加可破坏物拆除状态 destructibles:{destroyed, obeliskStacks}，
+// v8 增加爬塔选路状态 tower:{route:{path, node}}（presence-gated，无爬塔状态不写字段）；
 // 旧档一律按 Ⅰ 级 / 无连锁 / 无海克斯 / 无敌塔 / 可破坏物全存活恢复。
 // 损坏输入统一由 validateSnapshot 判定：不抛异常，返回 { ok:false, reason } 交给调用方决定重开。
 // 字段级异常（类型错误、越界数值、非法难度/地图）属于可恢复损坏，会收敛到安全默认值。
@@ -23,8 +24,9 @@ import { ENDLESS } from './waves.js';
 import { normalizeBonusPoints, normalizeContractRecords } from './contracts.js';
 import { normalizeDoctrineIds } from './doctrines.js';
 import { normalizeAwakenings } from './awakenings.js';
+import { normalizeTowerState } from './tower.js';
 
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 export const MIN_SAVE_VERSION = 2;
 // 没有连锁/海克斯时沿用旧版本号，避免旧客户端/旧测试误读：
 // 有技能写 v4，无技能仍写 v3；有连锁写 v6（含 v5 的 chains 字段）。
@@ -34,7 +36,7 @@ export const BASE_SAVE_VERSION = 3;
 const DEFAULT_DIFFICULTY = 'standard';
 const DEFAULT_ARCHETYPE = 'canyon';
 const DEFAULT_MODE = 'normal';
-const MODES = new Set(['normal', 'daily', 'endless']);
+const MODES = new Set(['normal', 'daily', 'endless', 'tower']);
 
 function isRecord(value) {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
@@ -190,6 +192,7 @@ function collectWarnings(snap) {
   if ('events' in snap && !Array.isArray(snap.events)) warnings.push('invalid-events');
   if ('chains' in snap && !Array.isArray(snap.chains)) warnings.push('invalid-chains');
   if ('rogue2' in snap && !isRecord(snap.rogue2)) warnings.push('invalid-rogue2');
+  if ('tower' in snap && !isRecord(snap.tower)) warnings.push('invalid-tower');
   if ('destructibles' in snap && !isRecord(snap.destructibles)) {
     warnings.push('invalid-destructibles');
   }
@@ -216,10 +219,11 @@ export function toSnapshot(state) {
   // 模拟层作为快照视图暴露拆除结果；纯状态对象没有该字段时按「全部存活」处理。
   const destructibles = normalizeDestructibleState(state.destructibleState);
   const rogue2 = normalizeRogue2Save(state);
+  const tower = normalizeTowerState(state);
   const snapshot = {
-    // 有海克斯/连锁/可破坏物/契约状态都写当前版本；否则沿用 v4/v3 的旧版本号。
+    // 有海克斯/连锁/可破坏物/契约/爬塔状态都写当前版本；否则沿用 v4/v3 的旧版本号。
     version:
-      hex.id || chains.length || hasDestructibleState(destructibles) || hasRogue2State(rogue2)
+      hex.id || chains.length || hasDestructibleState(destructibles) || hasRogue2State(rogue2) || tower
         ? SAVE_VERSION
         : skill
           ? SKILL_SAVE_VERSION
@@ -255,6 +259,8 @@ export function toSnapshot(state) {
   if (hasDestructibleState(destructibles)) snapshot.destructibles = destructibles;
   // 契约同理：没接受过契约时不写 rogue2 块，旧对局字节结构不变。
   if (hasRogue2State(rogue2)) snapshot.rogue2 = rogue2;
+  // 爬塔同理：没进入爬塔 / 无选路时不写 tower 块，旧对局字节结构不变。
+  if (tower) snapshot.tower = tower;
   return snapshot;
 }
 
@@ -335,6 +341,12 @@ export function migrateSnapshot(snap) {
     const rogue2 = normalizeRogue2Save(snap);
     if (hasRogue2State(rogue2)) out.rogue2 = rogue2;
     else delete out.rogue2;
+  }
+  // 爬塔选路状态：旧档缺字段视为「无爬塔」；选路非法时丢弃不写空字段。
+  if ('tower' in snap) {
+    const tower = normalizeTowerState(snap);
+    if (tower) out.tower = tower;
+    else delete out.tower;
   }
   if ('preWave' in snap) out.preWave = snap.preWave === true;
 

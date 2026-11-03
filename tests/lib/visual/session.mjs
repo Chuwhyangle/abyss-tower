@@ -143,6 +143,9 @@ const COMBAT_SETUP_SCRIPT = `
   sim.waveDef = null;
   sim.spawnQueue = [];
   sim.spawnIndex = 0;
+  // 实体 id 计数器：resetCombat 复用同一个 sim 对象，nextId 已在上一遍走过头，
+  // 不复位会让第二遍的敌人/弹道 id 不同，进而改变以 id 决胜的目标选择 → 画面不再逐步一致。
+  sim.nextId = 1;
   sim.enemies.length = 0;
   sim.projectiles.length = 0;
   sim.effects.length = 0;
@@ -155,7 +158,14 @@ const COMBAT_SETUP_SCRIPT = `
   sim.skill = null;
   sim.skillCastCount = 0;
   sim.unlockedTowers = Object.keys(TOWERS);
-  sim.map.destructibles?.forEach?.((entry) => { entry.destroyed = false; });
+  // 可破坏物复位要落到「运行时」副本：canBuild 经 destructibleAt 读 sim.destructibles，
+  // 上一遍被打掉的矿脉若不复位会占回塔位、改变建塔位置（第二遍画面就不再逐步一致）。
+  sim.destructibles?.forEach?.((entry) => { entry.destroyed = false; });
+  sim.obeliskStacks = 0;
+  sim.pendingSplits = [];
+  sim.impactEvents = [];
+  sim.culminations = [];
+  sim.culminationSeq = 0;
 
   // 塔位：离路径最近的空地，按「距离→行→列」稳定排序，并保证彼此至少相隔一格。
   const cells = [];
@@ -244,6 +254,33 @@ const COMBAT_SETUP_SCRIPT = `
     app,
     tile: TILE_VALUE,
     injection: null,
+    // 战斗窗口逐步累计的峰值轨迹：命中特效是短命爆发信号（spark 0.15s / ring 0.2s），
+    // 单瞬时采样会恰撞空窗；这里每 tick 采样一次，记录窗口内命中特效的峰值与所在 tick。
+    trace: { maxEffects: 0, peakTick: null },
+    // 可见命中特效数：只数每次命中产生的 spark + ring，不数布置/矿脉开火/出生等非命中特效——
+    // 否则峰值会落在开局建塔爆发（t≈0，敌人尚未进场），命中/闪白/飘字/敌人都没有。
+    // 注入把特效删掉（no-feedback）或涂成背景色（effects-invisible）时可见数为 0，
+    // 窗口峰值口径据此在「特效被整体删除」时仍判红。
+    visibleEffects() {
+      if (this.injection === 'no-feedback' || this.injection === 'effects-invisible') return 0;
+      return sim.effects.reduce(
+        (count, effect) => count + (effect.kind === 'spark' || effect.kind === 'ring' ? 1 : 0),
+        0
+      );
+    },
+    sampleTrace() {
+      // 战斗窗口从首个时间线帧（t=2s 接触战，120 tick）起算：之前的建塔/矿脉开火爆发属整备阶段，
+      // 命中特效虽已出现（塔打矿脉也算 spark）但尚无敌人命中，不计入密度峰值。
+      if (Math.round(sim.time * 60) < 120) return;
+      const n = this.visibleEffects();
+      if (n > this.trace.maxEffects) {
+        this.trace.maxEffects = n;
+        this.trace.peakTick = Math.round(sim.time * 60);
+      }
+    },
+    traceSnapshot() {
+      return { ...this.trace };
+    },
     // 回归注入：模拟"特效被删掉/被涂成背景色"，用于验证 visual-check 真的能红。
     setInjection(name) {
       this.injection = name || null;
@@ -293,6 +330,7 @@ const COMBAT_SETUP_SCRIPT = `
       for (let i = 0; i < count; i++) {
         sim.update(1 / 60);
         sim.updateVisuals(1 / 60);
+        this.sampleTrace();
       }
       return this.snapshot();
     },
@@ -589,6 +627,22 @@ export class VisualSceneSession {
       return setup;
     }
     return null;
+  }
+
+  // 战斗复位：不重新导航，只重跑接管脚本，把战场拉回同一确定性起点（同 seed 同随机序列）。
+  // 用于「峰值瞬时」的二次采集：第一遍逐步推进定位峰值 tick，复位后推进到该 tick 采集。
+  async resetCombat({ injection = null } = {}) {
+    await this.browser.evaluate(COMBAT_SETUP_SCRIPT);
+    this.simTicks = 0;
+    if (injection) {
+      await this.browser.evaluate(`window.__visual.setInjection(${JSON.stringify(injection)})`);
+    }
+    return true;
+  }
+
+  // 战斗窗口的逐步累计峰值（可见特效峰值与所在 tick）。
+  async combatTrace() {
+    return this.browser.evaluate('window.__visual.traceSnapshot()');
   }
 
   async stepUntil(predicate, { maxSteps = 3600, chunk = 6 } = {}) {

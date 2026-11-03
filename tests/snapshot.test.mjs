@@ -153,6 +153,40 @@ test('缺失字段按安全默认值回退，可玩字段不凭空补值', () =>
   assert.equal('towers' in snap, false);
 });
 
+test('爬塔选路 presence-gated：有选路写 tower 块（v8），无选路保持旧字节', () => {
+  const withTower = withFixedNow(1700000000123, () =>
+    toSnapshot({ ...FIXED_STATE, mode: 'tower', tower: { route: { path: ['1:0', '2:1', '3:1'] } } })
+  );
+  assert.equal(withTower.version, SAVE_VERSION);
+  assert.deepEqual(withTower.tower, { route: { path: ['1:0', '2:1', '3:1'], node: '3:1' } });
+  assert.equal(validateSnapshot(withTower).ok, true);
+
+  // 无 tower 状态：字节结构与旧档一致（不写 tower 字段）。
+  const withoutTower = withFixedNow(1700000000123, () => toSnapshot(FIXED_STATE));
+  assert.equal('tower' in withoutTower, false);
+});
+
+test('爬塔选路迁移：旧档无 tower 字段按无爬塔处理，非法选路丢弃', () => {
+  const migrated = normalizeSnapshot({
+    version: 8,
+    seed: 'tower-seed',
+    tower: { route: { path: ['1:0', '2:0', '3:1'] } },
+  });
+  assert.deepEqual(migrated.tower, { route: { path: ['1:0', '2:0', '3:1'], node: '3:1' } });
+
+  // 旧档没有 tower 字段：不凭空补值。
+  const legacy = normalizeSnapshot({ version: 3, wave: 4 });
+  assert.equal('tower' in legacy, false);
+
+  // 非法选路（列差 >1）丢弃，不写空字段。
+  const invalid = normalizeSnapshot({
+    version: 8,
+    seed: 'tower-seed',
+    tower: { route: { path: ['1:0', '2:2'] } },
+  });
+  assert.equal('tower' in invalid, false);
+});
+
 test('非法字段收敛：难度/地图/词缀/数值越界', () => {
   const result = validateSnapshot({
     version: 3,
@@ -182,6 +216,6 @@ test('版本入口保持单一：save.js 与 snapshot.js 共享同一常量与�
   assert.equal(SNAPSHOT_VERSION, SAVE_VERSION);
   assert.equal(MIN_SNAPSHOT_VERSION, MIN_SAVE_VERSION);
   assert.equal(validateSave, validateSnapshot);
-  assert.equal(SAVE_VERSION, 7);
+  assert.equal(SAVE_VERSION, 8);
   assert.equal(MIN_SAVE_VERSION, 2);
 });

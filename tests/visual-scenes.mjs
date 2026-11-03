@@ -130,28 +130,54 @@ async function captureScene(session, scene, options = {}) {
 
   const impactFrame = frames.find((frame) => frame.id === 'combat-impact');
   const payload = await session.combatPayload();
-  const references = {};
-  for (const [key, options] of Object.entries({
-    all: { effects: true, floaters: true, flash: true },
-    effects: { effects: true, floaters: false, flash: false },
-    floaters: { effects: false, floaters: true, flash: false },
-    flash: { effects: false, floaters: false, flash: true },
-  })) {
-    await session.hideFeedback(options);
-    await session.renderFrame(0);
-    references[key] = await session.screenshot();
-    await session.restoreFeedback();
-  }
+  // 战斗窗口峰值口径：命中特效是短命爆发（spark 0.15s / ring 0.2s），t=8s 单瞬时可能恰撞空窗；
+  // 用窗口内可见特效的峰值替代瞬时计数，并把指标帧/参照帧改在峰值瞬时采集。
+  const trace = await session.combatTrace();
+  const peakEffects = trace.maxEffects || 0;
+  const peakTick = Number.isFinite(trace.peakTick) ? trace.peakTick : 0;
+
+  // 隐藏表现层的 4 张参照帧：all / effects / floaters / flash（与当前帧做像素差）。
+  const captureReferences = async () => {
+    const references = {};
+    for (const [key, options] of Object.entries({
+      all: { effects: true, floaters: true, flash: true },
+      effects: { effects: true, floaters: false, flash: false },
+      floaters: { effects: false, floaters: true, flash: false },
+      flash: { effects: false, floaters: false, flash: true },
+    })) {
+      await session.hideFeedback(options);
+      await session.renderFrame(0);
+      references[key] = await session.screenshot();
+      await session.restoreFeedback();
+    }
+    return references;
+  };
+  const references = await captureReferences();
   await session.renderFrame(0);
   const dom = await session.domMetrics();
+
+  // 峰值瞬时二次采集：复位到同一确定性起点，推进到峰值 tick，采集可见帧 + 参照帧 + payload。
+  // feel 用这组峰值证据；dom / references / payload（t=8s 基线）保持不动，art 套件不受影响。
+  await session.resetCombat({ injection: options.injection });
+  await session.setDecorations(options.decorations || 'full');
+  const peakStep = await session.stepToTime(peakTick / 60);
+  await session.renderFrame(1 / 60);
+  const feelFrame = { id: 'feel-peak', image: await session.screenshot(), snapshot: peakStep.snapshot };
+  const feelReferences = await captureReferences();
+  await session.renderFrame(0);
+  const feelPayload = await session.combatPayload();
+  feelPayload.effects = peakEffects;
 
   return {
     frames,
     metricsFrame: 'combat-impact',
     references,
     payload,
+    feelFrame,
+    feelReferences,
+    feelPayload,
     dom,
-    notes: `phase=${impactFrame?.snapshot?.phase} t=${impactFrame?.snapshot?.time}s enemies=${impactFrame?.snapshot?.enemies}`,
+    notes: `phase=${impactFrame?.snapshot?.phase} t=${impactFrame?.snapshot?.time}s enemies=${impactFrame?.snapshot?.enemies} peakEffects=${peakEffects}@tick${peakTick}`,
     elapsedMs: Date.now() - started,
   };
 }

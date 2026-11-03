@@ -1,7 +1,7 @@
 ---
 id: gap-ac-018-feel-window-sampling
 title: AC-018 复红：feel 门禁单瞬时采样撞上特效空窗（t=8s effects=0），改窗口峰值口径
-status: ready
+status: done
 labels:
   - gap
   - defect
