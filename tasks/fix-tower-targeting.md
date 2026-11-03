@@ -1,7 +1,7 @@
 ---
 id: fix-tower-targeting
 title: 索敌开火时刻重选目标 + 冻结飞行怪可被地面塔攻击
-status: done
+status: ready
 labels:
   - defect
 parent: null
@@ -12,6 +12,8 @@ extra:
     tests/tower-evolution.test.mjs tests/combat.test.mjs
     tests/towers-depth.test.mjs
 ---
+> **RETREATED / 搁置（误推进：promote 连跑 acceptance（现有绿测试）导致未实现即 done，退回 ready 待 worker 实现）**
+
 ## Proposal
 
 两个塔索敌问题一并修（同文件 `public/js/sim/tower-system.js`）：①「最靠基地优先」失效——`findTarget`（40-53 行）规则正确（射程内 progress 最大），但 `updateTowers`（24-27 行）锁死目标不重选，正打中等进度肉盾时不切换去打 90% 进度快怪；② 地面塔（炮台 `groundOnly`）打不到飞行怪（翼魔），「独塔为王」+炮台对飞行怪无解。修复：① 开火时刻（`cd<=0`）用 `findTarget` 重新选目标，排序口径 progress 降序 + id 升序（与 `skill-system.js` 的 `skillTargets` 一致，确定性可测），只在开火瞬间重选避免每帧抖动；② `findTarget` 地面塔判定改为 `groundOnly && flying && !frozen`（冻结中的飞行怪可被地面塔打，`enemy-system.js:30` 的 `freezeUntil` 判定复用），渲染浮空表现不变。
