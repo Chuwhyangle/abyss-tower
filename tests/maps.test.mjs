@@ -60,7 +60,8 @@ test('候选地图：入口数与原型/词缀匹配，路径可建造比例正�
         );
       }
       const buildable = candidate.buildable.flat().filter(Boolean).length;
-      assert.ok(buildable > candidate.cols * candidate.rows * 0.3, candidate.seed);
+      // 建塔位掩码：固定地图不再全图可建，可建造格（纯塔位 + 可破坏物占格）偏少但仍存在。
+      assert.ok(buildable > 0 && buildable < candidate.cols * candidate.rows * 0.25, candidate.seed);
     }
   }
 });
