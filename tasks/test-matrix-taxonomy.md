@@ -1,7 +1,7 @@
 ---
 id: test-matrix-taxonomy
 title: 轴/缝注册表 + 参数化测试 + 覆盖矩阵报告（M+N+Z 分类法）
-status: ready
+status: done
 labels:
   - feat
 parent: null
