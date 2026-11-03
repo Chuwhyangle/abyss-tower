@@ -1,7 +1,7 @@
 ---
 id: feat-buildable-mask
 title: 开局建塔位重做：三张固定图改用贴路塔位掩码，偏少、固定、贴路
-status: todo
+status: ready
 labels:
   - feat
 parent: null
