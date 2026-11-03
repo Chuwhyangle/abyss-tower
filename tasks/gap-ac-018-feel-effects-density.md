@@ -1,7 +1,7 @@
 ---
 id: gap-ac-018-feel-effects-density
 title: AC-018 复红：采样帧并发命中特效 5→3 跌破 feel 门禁，恢复 effects-active ≥4
-status: todo
+status: ready
 labels:
   - gap
   - defect
