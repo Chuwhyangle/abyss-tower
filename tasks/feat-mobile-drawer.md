@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] 紧凑屏遗物列表/下一波情报有可达入口（抽屉或按钮），不再整块 `display:none`
-- [ ] 塔面板升级/出售/进化、倍速、暂停等触控目标 ≥44px
-- [ ] `tests/browser-mobile.mjs` 新增塔面板操作、结算、offer 弹窗溢出断言
-- [ ] `node --test tests/ui-split.test.mjs tests/mobile-input.test.mjs` exit 0
+- [x] 紧凑屏遗物列表/下一波情报有可达入口（抽屉或按钮），不再整块 `display:none`
+- [x] 塔面板升级/出售/进化、倍速、暂停等触控目标 ≥44px
+- [x] `tests/browser-mobile.mjs` 新增塔面板操作、结算、offer 弹窗溢出断言
+- [x] `node --test tests/ui-split.test.mjs tests/mobile-input.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/styles.css`、`public/index.html`、`public/js/ui/hud.js`、`public/js/app/input.js`，不引入第三方依赖
-- [ ] 回归测试覆盖抽屉入口、触控尺寸、浏览器移动端溢出
-- [ ] `npm test` 全绿；`LANG=zh_CN.UTF-8` 补跑 `node tests/browser-mobile.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `public/styles.css`、`public/index.html`、`public/js/ui/hud.js`、`public/js/app/input.js`，不引入第三方依赖
+- [x] 回归测试覆盖抽屉入口、触控尺寸、浏览器移动端溢出
+- [x] `npm test` 全绿；`LANG=zh_CN.UTF-8` 补跑 `node tests/browser-mobile.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -42,3 +42,5 @@ extra:
 立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-7（方向 A 已定）。浏览器验收需 `LANG=zh_CN.UTF-8`（本机 Chrome 默认 en-US 会误报）。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为移动端可达性优化，无新文档面，L_D/L_G/L_S 无需量化。
+
+2026-11-03 worker 复验：本任务与 `feat-mobile-info-accessibility`（done）同源 TODO-7，机制已全部由前序任务落地并合入 develop，本任务零代码 delta，仅 tick AC/DoD。AC-1（遗物/下一波情报抽屉 + `#btn-relics-mobile` 入口）由 `feat-bonus-summary-relic-collapse` 落地；AC-2（塔面板升级/出售/进化、倍速/暂停 ≥44px 触控目标）由 `gap-mobile-visual-font-floor` 落地；AC-3（`tests/browser-mobile.mjs` 塔面板/结算/offer 覆盖，commit 49251b3）由 `feat-mobile-info-accessibility` 落地。AC-4 已复验：`node --test tests/ui-split.test.mjs tests/mobile-input.test.mjs` exit 0（12/12 绿）。
