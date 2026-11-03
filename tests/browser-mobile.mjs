@@ -160,13 +160,18 @@ async function main() {
 
     await browser.evaluate(`window.__rtd.state.sim.addRelic('sharp')`);
     await browser.evaluate(`document.querySelector('#btn-relics-mobile').click()`);
-    await browser.waitFor(`!!document.querySelector('.relics-modal')`, '遗物弹窗');
-    const relicText = await browser.evaluate(`document.querySelector('.relics-modal').textContent`);
+    await browser.waitFor(`document.querySelector('.relic-panel').classList.contains('open')`, '遗物抽屉');
+    const relicText = await browser.evaluate(`(() => {
+      const panel = document.querySelector('.relic-panel');
+      const tip = panel.querySelector('.relic-chip')?.dataset.tip || '';
+      return panel.textContent + ' ' + tip;
+    })()`);
     if (!relicText.includes('锐利箭簇') || !relicText.includes('25%')) {
-      throw new Error('移动端遗物列表内容错误');
+      throw new Error('移动端遗物抽屉内容错误');
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-04-relics.png`);
-    await browser.evaluate(`document.querySelector('#btn-close-relics').click()`);
+    await browser.evaluate(`document.querySelector('#btn-relic-collapse').click()`);
+    await browser.waitFor(`!document.querySelector('.relic-panel').classList.contains('open')`, '遗物抽屉关闭');
 
     const tap = async (x, y) => {
       await browser.send('Input.dispatchTouchEvent', {

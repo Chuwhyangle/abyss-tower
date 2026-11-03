@@ -159,13 +159,23 @@
           <canvas id="game-canvas" width="1056" height="576" aria-label="游戏战场" data-i18n-aria="shell.canvas"></canvas>
 
           <aside class="relic-panel" aria-label="遗物与下一波情报" data-i18n-aria="shell.relicPanel">
-            <div class="relic-title"><span data-i18n="hud.relics">遗物</span> <span id="relic-count">0</span></div>
-            <div id="relic-list" class="relic-list"></div>
-            <div id="next-wave-panel" class="next-wave-panel" hidden>
-              <div class="relic-title"><span data-i18n="hud.nextWave">下一波</span> <span id="next-wave-meta"></span></div>
-              <div id="next-wave-list" class="next-wave-list"></div>
+            <div class="relic-title">
+              <span data-i18n="hud.relics">遗物</span>
+              <span class="relic-title-right">
+                <span id="relic-count">0</span>
+                <button id="btn-relic-collapse" class="relic-collapse" type="button" title="收起/展开遗物栏" data-i18n-title="hud.relicCollapse" data-i18n-aria="hud.relicCollapse"><span class="relic-collapse-glyph" aria-hidden="true">«</span></button>
+              </span>
+            </div>
+            <div class="relic-body">
+              <div id="relic-list" class="relic-list"></div>
+              <div id="next-wave-panel" class="next-wave-panel" hidden>
+                <div class="relic-title"><span data-i18n="hud.nextWave">下一波</span> <span id="next-wave-meta"></span></div>
+                <div id="next-wave-list" class="next-wave-list"></div>
+              </div>
+              <button id="btn-bonus-summary" class="bonus-summary-btn" type="button" data-i18n="bonus.title">加成一览</button>
             </div>
           </aside>
+          <div id="relic-drawer-backdrop" class="relic-drawer-backdrop" hidden></div>
 
           <div id="tower-panel" class="tower-panel" role="region" aria-label="塔详情" data-i18n-aria="shell.towerPanel" hidden></div>
 

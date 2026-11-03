@@ -142,6 +142,7 @@ export const hudMethods = {
     this.updateNextWave(hud);
     this.updateContractChips();
     this.updateDoctrineChips();
+    this.ensureRelicPanelControls();
 
     if (hud.phase === 'wave') {
       audio.startMusic(hud.waveDef?.boss || hud.waveDef?.finalBoss ? 'boss' : 'battle');
@@ -364,5 +365,34 @@ export const hudMethods = {
         )}</i><span>${escapeHtml(t(def.nameKey))}</span></div>`;
       })
       .join('');
+  },
+
+  // 遗物栏折叠/移动端抽屉接线（TODO-8）：按钮在 index.html，但 ui.js 不在本任务
+  // Touches 内，故沿用 updateContractChips 的惰性接线，在 updateHud 首帧绑定一次。
+  ensureRelicPanelControls() {
+    if (this._relicControlsBound) return;
+    this._relicControlsBound = true;
+    const panel = this.el?.relicList?.closest('.relic-panel');
+    const collapse = document.getElementById('btn-relic-collapse');
+    const glyph = collapse?.querySelector('.relic-collapse-glyph');
+    if (collapse) {
+      collapse.onclick = () => {
+        if (panel?.classList.contains('open')) return this.toggleRelicDrawer(false);
+        const collapsed = panel?.classList.toggle('collapsed');
+        if (glyph) glyph.textContent = collapsed ? '»' : '«';
+      };
+    }
+    const bind = (id, handler) => { const btn = document.getElementById(id); if (btn) btn.onclick = handler; };
+    bind('btn-bonus-summary', () => this.showBonusSummary());
+    if (this.el?.relicsMobile) this.el.relicsMobile.onclick = () => this.toggleRelicDrawer(!panel?.classList.contains('open'));
+    bind('relic-drawer-backdrop', () => this.toggleRelicDrawer(false));
+  },
+
+  // 移动端遗物抽屉：开合时同步遮罩；打开前重绘一次，保证内容与 sim 状态一致。
+  toggleRelicDrawer(open) {
+    if (open) this.renderRelics();
+    this.el?.relicList?.closest('.relic-panel')?.classList.toggle('open', !!open);
+    const backdrop = document.getElementById('relic-drawer-backdrop');
+    if (backdrop) backdrop.hidden = !open;
   },
 };

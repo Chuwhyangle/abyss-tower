@@ -103,3 +103,12 @@ test('小屏布局不会横向溢出', () => {
   assert.match(css, /overflow-wrap:\s*anywhere/, '长文本未允许换行');
   assert.match(css, /min-width:\s*0/, '网格/卡片未解除最小内容宽度');
 });
+
+test('遗物栏提供折叠按钮、加成一览入口与移动端抽屉（源码级）', () => {
+  assert.match(INDEX_HTML, /id="btn-relic-collapse"/, 'index.html 缺少遗物栏折叠按钮');
+  assert.match(INDEX_HTML, /id="btn-bonus-summary"/, 'index.html 缺少加成一览入口');
+  assert.match(INDEX_HTML, /id="relic-drawer-backdrop"/, 'index.html 缺少移动端抽屉遮罩');
+  assert.match(STYLES, /\.relic-panel\.collapsed/, 'styles.css 缺少桌面折叠态选择器');
+  assert.match(STYLES, /\.relic-panel\.open/, 'styles.css 缺少移动端抽屉打开态');
+  assert.match(STYLES, /\.relic-drawer-backdrop/, 'styles.css 缺少抽屉遮罩样式');
+});

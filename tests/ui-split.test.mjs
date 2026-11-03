@@ -95,7 +95,7 @@ const METHOD_MODULES = {
 // 未声明的导出仍视为破坏模块边界。
 const PURE_EXPORTS = {
   'hud.js': ['skillButtonState'],
-  'shop.js': ['orderedShopTowers', 'shopCardAffordable', 'clampRelicLevel', 'relicChipView'],
+  'shop.js': ['orderedShopTowers', 'shopCardAffordable', 'clampRelicLevel', 'relicChipView', 'bonusSummaryRows', 'bonusSourceRows'],
   'modals.js': ['abandonConfirmCopy'],
   'draft.js': ['relicDraftLevels', 'supplyAmount'],
   'hex-select.js': [

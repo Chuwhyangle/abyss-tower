@@ -783,6 +783,139 @@ button {
   line-height: 1.5;
 }
 
+/* 遗物栏折叠（桌面）与加成一览入口 */
+
+.relic-title-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.relic-collapse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.relic-collapse:hover {
+  color: var(--gold);
+}
+
+.relic-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.bonus-summary-btn {
+  margin-top: 8px;
+  padding: 5px 6px;
+  border: 1px solid rgba(120, 160, 175, 0.22);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--gold);
+  font-size: var(--text-min);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.bonus-summary-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.relic-panel.collapsed {
+  width: 30px;
+  padding: 6px 4px;
+}
+
+.relic-panel.collapsed .relic-title {
+  padding: 0;
+  border-bottom: none;
+  justify-content: center;
+}
+
+.relic-panel.collapsed .relic-title > span:first-child,
+.relic-panel.collapsed #relic-count,
+.relic-panel.collapsed .relic-body {
+  display: none;
+}
+
+/* 加成一览弹窗 */
+
+.bonus-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 260px;
+  max-width: 420px;
+}
+
+.bonus-block h3 {
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: var(--text-min);
+  letter-spacing: 0.1em;
+}
+
+.bonus-rows,
+.bonus-source ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bonus-rows li {
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.bonus-source-label {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--gold);
+  font-size: var(--text-min);
+}
+
+.bonus-source li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.bonus-source li b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.bonus-source li span {
+  color: var(--muted);
+  font-size: var(--text-min);
+  line-height: 1.5;
+}
+
+.bonus-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
 /* 选中塔面板 */
 
 .tower-panel {
@@ -2354,6 +2487,38 @@ kbd {
   }
 
   .relic-panel {
+    display: none;
+  }
+
+  /* 移动端遗物抽屉：默认隐藏，.open 时以右侧抽屉展开（TODO-8）。 */
+  .relic-panel.open {
+    display: flex;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(280px, 86vw);
+    max-height: none;
+    padding: 12px;
+    border-radius: 10px 0 0 10px;
+    z-index: 101;
+    pointer-events: auto;
+  }
+
+  .relic-panel.open .relic-collapse {
+    width: 40px;
+    height: 40px;
+  }
+
+  .relic-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 8, 12, 0.5);
+    z-index: 100;
+    pointer-events: auto;
+  }
+
+  .relic-drawer-backdrop[hidden] {
     display: none;
   }
 

@@ -3,7 +3,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TOWER_ORDER, RELIC_LEVEL_LABELS } from '../public/js/shared/data.js';
-import { orderedShopTowers, shopCardAffordable, clampRelicLevel, relicChipView } from '../public/js/ui/shop.js';
+import { orderedShopTowers, shopCardAffordable, clampRelicLevel, relicChipView, bonusSummaryRows, bonusSourceRows } from '../public/js/ui/shop.js';
 import { relicDraftLevels, supplyAmount } from '../public/js/ui/draft.js';
 import { skillButtonState } from '../public/js/ui/hud.js';
 import { formatResultScore, resultBestWave } from '../public/js/ui/result.js';
@@ -54,6 +54,47 @@ test('遗物条目模型带出等级与稀有度', () => {
   assert.equal(epic.rarityName, '史诗');
 
   assert.equal(relicChipView({ id: 'missing' }), null, '未知遗物跳过渲染');
+});
+
+// ---------- 加成一览 ----------
+
+test('加成一览按效果注册表顺序汇总非零加成，含塔类型维度', () => {
+  const rows = bonusSummaryRows({ fireRate: 0.2, dmg: { arrow: 0.5, cannon: 0 }, crit: 0.1 });
+  assert.deepEqual(rows.map((row) => row.key), ['dmg:arrow', 'fireRate', 'crit'], '顺序应沿效果注册表');
+  assert.match(rows[0].text, /伤害 \+50%/, 'dmg 行应带塔类型伤害文案');
+  assert.match(rows[1].text, /攻击速度 \+20%/, 'fireRate 行应带攻速文案');
+  assert.match(rows[2].text, /暴击率 \+10%/, 'crit 行应带暴击文案');
+});
+
+test('加成一览零值与空聚合不产生展示行', () => {
+  assert.deepEqual(bonusSummaryRows({}), []);
+  assert.deepEqual(bonusSummaryRows({ dmg: {}, fireRate: 0 }), []);
+});
+
+test('加成一览来源分组：遗物/套装/海克斯/契约/教义/天赋', () => {
+  const sim = {
+    relics: [{ id: 'sharp', level: 1 }, { id: 'eagle', level: 1 }],
+    hex: { id: 'glass_cannon', name: '玻璃大炮', pitch: '全塔伤害 +70%' },
+    clearedWave: 3,
+    rogue2: {
+      contracts: [{ id: 'sloth', scope: 'wave', untilWave: 4 }],
+      doctrines: ['bolt'],
+    },
+    opts: { talent: { nodes: { tower_atk: 1 } } },
+  };
+  const groups = bonusSourceRows(sim);
+  assert.deepEqual(
+    groups.map((group) => group.id),
+    ['relic', 'set', 'hex', 'contract', 'doctrine', 'talent']
+  );
+  assert.match(groups[0].items[0].name, /锐利箭簇/);
+  assert.match(groups[0].items[0].effect, /25%/);
+  assert.match(groups[1].items[0].name, /猎手同盟/);
+  assert.match(groups[1].items[0].effect, /攻击速度/);
+  assert.equal(groups[2].items[0].name, '玻璃大炮');
+  assert.match(groups[3].items[0].name, /惰契/);
+  assert.match(groups[4].items[0].name, /穿透/);
+  assert.match(groups[5].items[0].name, /百炼锋刃/);
 });
 
 test('遗物草稿按等级分组：新遗物与升级组', () => {

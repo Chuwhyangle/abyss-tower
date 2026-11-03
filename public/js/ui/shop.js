@@ -7,7 +7,10 @@ import {
   RELIC_LEVEL_LABELS,
   relicEffectText,
 } from '../shared/data.js';
-import { t } from '../i18n.js';
+import { EFFECT_REGISTRY, effectText, RELIC_SET_BONUSES, relicSetBonusText } from '../shared/effects.js';
+import { DOCTRINES } from '../shared/doctrines.js';
+import { normalizeTalent } from '../shared/data/meta.js';
+import { t, tOr } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { towerName, evolutionEffectText, choiceLabel, escapeHtml } from './shared.js';
 
@@ -40,6 +43,81 @@ export function relicChipView(state) {
     rarityName: rarity.name,
     color: rarity.color,
   };
+}
+
+// 加成一览：把 sim.mods 的最终聚合加成按效果注册表顺序展开成展示行（纯函数）。
+// dmg 按塔类型拆行，零值不展示；文案复用效果注册表，不新造数值。
+export function bonusSummaryRows(mods = {}) {
+  const rows = [];
+  for (const [key, entry] of Object.entries(EFFECT_REGISTRY)) {
+    if (entry.nested) {
+      for (const [type, amount] of Object.entries(mods[key] || {})) {
+        if (!amount) continue;
+        rows.push({ key: `dmg:${type}`, text: effectText('dmg', amount, { towerName: towerName(TOWERS[type]) }) });
+      }
+    } else if (mods[key]) {
+      rows.push({ key, text: effectText(key, mods[key]) });
+    }
+  }
+  return rows;
+}
+
+// 加成一览的来源分组：遗物/套装/海克斯/契约/教义/天赋逐项效果（纯函数）。
+// 只读本局状态、不新造数值；契约沿用 HUD chip 的「run 常驻 / wave 未过期」口径。
+export function bonusSourceRows(sim = {}) {
+  const groups = [];
+  const relicStates = sim.relics || [];
+
+  const relics = relicStates
+    .filter((state) => RELIC_BY_ID[state?.id])
+    .map((state) => {
+      const level = clampRelicLevel(state.level);
+      return {
+        name: `${RELIC_BY_ID[state.id].name} ${RELIC_LEVEL_LABELS[level - 1]}`,
+        effect: relicEffectText(state.id, level),
+      };
+    });
+  if (relics.length) groups.push({ id: 'relic', items: relics });
+
+  // 套装按「不同遗物」计件，与 recomputeMods 口径一致。
+  const setPieces = new Map();
+  const counted = new Set();
+  for (const state of relicStates) {
+    const def = RELIC_BY_ID[state?.id];
+    if (!def?.set || counted.has(state.id)) continue;
+    counted.add(state.id);
+    setPieces.set(def.set, (setPieces.get(def.set) || 0) + 1);
+  }
+  const sets = [];
+  for (const [setId, pieces] of setPieces) {
+    const text = relicSetBonusText(setId, pieces);
+    if (text) sets.push({ name: `${RELIC_SET_BONUSES[setId].name} ${pieces}`, effect: text });
+  }
+  if (sets.length) groups.push({ id: 'set', items: sets });
+
+  const hex = sim.hex;
+  if (hex) {
+    groups.push({
+      id: 'hex',
+      items: [{ name: tOr(`hex.${hex.id}.name`, hex.name), effect: tOr(`hex.${hex.id}.pitch`, hex.pitch) }],
+    });
+  }
+
+  const contracts = (sim.rogue2?.contracts || [])
+    .filter((record) => record.scope === 'run' || sim.clearedWave < record.untilWave)
+    .map((record) => ({ name: t(`contract.${record.id}.name`), effect: t(`contract.${record.id}.desc`) }));
+  if (contracts.length) groups.push({ id: 'contract', items: contracts });
+
+  const doctrines = (sim.rogue2?.doctrines || [])
+    .filter((id) => DOCTRINES[id])
+    .map((id) => ({ name: t(DOCTRINES[id].nameKey), effect: t(DOCTRINES[id].descKey) }));
+  if (doctrines.length) groups.push({ id: 'doctrine', items: doctrines });
+
+  const talentNodes = Object.entries(normalizeTalent(sim.opts?.talent).nodes)
+    .map(([id]) => ({ name: t(`data.talent.${id}.name`), effect: t(`data.talent.${id}.desc`) }));
+  if (talentNodes.length) groups.push({ id: 'talent', items: talentNodes });
+
+  return groups;
 }
 
 export const shopMethods = {
@@ -111,6 +189,50 @@ export const shopMethods = {
       chip.innerHTML = `<i style="background:${view.color}"></i><span>${relic.name} <em class="relic-level">${view.levelLabel}</em></span>`;
       this.el.relicList.appendChild(chip);
     }
+  },
+
+  // 加成一览：汇总 sim.mods 最终加成并列出来源，复用效果注册表文案，不新造数值。
+  showBonusSummary() {
+    if (!this.game) return;
+    const rows = bonusSummaryRows(this.game.mods);
+    const groups = bonusSourceRows(this.game);
+    const rowsHtml = rows.length
+      ? `<ul class="bonus-rows">${rows.map((row) => `<li>${escapeHtml(row.text)}</li>`).join('')}</ul>`
+      : `<p class="bonus-empty">${t('bonus.empty')}</p>`;
+    const sourcesHtml = groups.length
+      ? groups
+          .map(
+            (group) => `
+              <div class="bonus-source">
+                <span class="bonus-source-label">${t(`bonus.source.${group.id}`)}</span>
+                <ul>${group.items
+                  .map((item) => `<li><b>${escapeHtml(item.name)}</b><span>${escapeHtml(item.effect)}</span></li>`)
+                  .join('')}</ul>
+              </div>`
+          )
+          .join('')
+      : `<p class="bonus-empty">${t('bonus.empty')}</p>`;
+    const modal = this.openModal(
+      `
+        <div class="bonus-summary">
+          <p class="eyebrow">${t('bonus.eyebrow')}</p>
+          <h2>${t('bonus.title')}</h2>
+          <section class="bonus-block">
+            <h3>${t('bonus.aggregate')}</h3>
+            ${rowsHtml}
+          </section>
+          <section class="bonus-block">
+            <h3>${t('bonus.sources')}</h3>
+            ${sourcesHtml}
+          </section>
+          <div class="modal-actions">
+            <button class="btn ghost" id="btn-close-bonus">${t('common.close')}</button>
+          </div>
+        </div>
+      `,
+      { className: 'bonus-modal', closable: true }
+    );
+    modal.querySelector('#btn-close-bonus').onclick = () => this.closeModal();
   },
 
   // ---------- 选中塔面板 ----------
