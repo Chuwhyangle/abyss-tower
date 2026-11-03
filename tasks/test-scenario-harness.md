@@ -43,11 +43,3 @@ extra:
 实现 2026-11-04：`node --test tests/scenario.test.mjs` 8/8 全绿（地基自证 + 塔轴 + 海克斯轴示范）。`npm test` 1970 例中唯一红为 `docs-consistency「check:docs」`——`docs/TODO.md:225-226` 引用了 TODO-13 分类法/迁移示范尚未落地的产物（`tests/lib/axes.mjs`、`tests/lib/seams.mjs`、`scripts/test-matrix.mjs`、`docs/TESTING.md`），属立案 `6affb1c` 即存在的前置红、已由 `gap-docs-todo-planned-block-missing` 单独立案追踪，非本任务改动所致（本任务新增 8 例全绿、未改 `sim.js`、未新增 RNG 调用）。
 
 该轴仍暗,理由:本任务为测试基础设施，纯测试代码无新玩法文档面，L_D/L_G/L_S 无需量化。
-
-## Blocker
-
-**2026-11-03T23:38:48.951Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：step=suite: name: 'AssertionError'
-- run_id：wk-prod-anchor
-- session_id：5b28cee2-3e9c-4af1-9470-150e05196734
