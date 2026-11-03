@@ -1,7 +1,7 @@
 ---
 id: gap-result-scene-polish
 title: 结算场景精灵与移动首屏修复：空金框、出屏分数/数据、孤立难度标签、奖励语义色（可选打磨）
-status: needs-human
+status: todo
 labels:
   - gap
 parent: null
@@ -47,7 +47,7 @@ AC-029 的语义评审（2026-10-27，全新上下文 subagent `ac76e326a17add0f
 - [ ] `data-sprite-id="ui/scene-result-panel"` 宿主内部有可见内容，或该宿主已被移除；不再出现空金框
 - [ ] `.diff-tag` 与难度值成对出现，两种视口都没有孤立「远征难度」标签
 - [ ] 星核奖励徽记取金色 `role.reward` 令牌，与 `docs/ART_DIRECTION.md` 一致
-- [ ] `docs/reviews/result-scene-fix/contact-sheet.png` 与 `manifest.json` 入库，且与修复前 `docs/reviews/art-after/contact-sheet.png` 不是同一张图
+- [ ] 复采证据存档：`docs/reviews/result-scene-fix/contact-sheet.png` 与 `manifest.json` 入库（存档证据；验收以浏览器断言为准，不驱动读图评审）
 - [ ] `npm test` exit 0；`node scripts/visual-check.mjs --suite ui`、`node scripts/visual-check.mjs --suite mobile` exit 0
 
 ## DoD
@@ -57,7 +57,7 @@ AC-029 的语义评审（2026-10-27，全新上下文 subagent `ac76e326a17add0f
 - [ ] 奖励语义色与 `docs/ART_DIRECTION.md` 的金色体系一致
 - [ ] 复采结果落盘，桌面端布局无回归（与修复前截图对照）
 - [ ] 不触碰 sim/RNG/计分/存档；`docs/ART_DIRECTION.md` 的增量与实现一致
-- [ ] 本任务落地后，`gap-art-review-record` 可重新采集并由全新上下文复评结算场景
+- [ ] 结算场景修复以浏览器断言验收：`tests/browser-result-scene.mjs` 与 `tests/result-scene-layout.test.mjs` exit 0（读图评审已退役，不再由 gap-art-review-record 复评）
 
 ## Touches
 
@@ -83,6 +83,8 @@ AC-029 的语义评审（2026-10-27，全新上下文 subagent `ac76e326a17add0f
 ---
 
 2026-10-29 用户决定：AC-029 读图评审退役，本任务不再阻断任何 goal，降级为可选打磨（todo）。DoD 里「重新采集并由全新上下文复评结算场景」与 AC 里 contact-sheet 入库两条因不再读图而作废——执行时以浏览器断言（tests/browser-result-scene.mjs）为准，不启动读图评审者。
+
+2026-11-03 用户指示：改写上述两条作废 AC/DoD 恢复可派（DoD「本任务落地后…复评结算场景」→ 浏览器断言验收；AC「contact-sheet 入库且与修复前非同一张」→ 存档证据），状态 needs-human → todo。
 
 ## Needs-Human
 
