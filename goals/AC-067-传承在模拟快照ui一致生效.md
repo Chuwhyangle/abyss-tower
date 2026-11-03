@@ -1,7 +1,7 @@
 ---
 id: AC-067
 title: 传承在模拟、快照与 UI 一致生效
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-012
 criterion: test -s public/js/shared/data/meta.js && grep -q 'legacyYield'
@@ -17,6 +17,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-11-03T04:20:52.844Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"
