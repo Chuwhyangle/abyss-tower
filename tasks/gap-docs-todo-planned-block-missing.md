@@ -1,7 +1,7 @@
 ---
 id: gap-docs-todo-planned-block-missing
 title: docs/TODO.md TODO-13 计划路径缺 planned 块标记，check:docs 判红（AC-005 全量测试 exit 1）
-status: ready
+status: done
 labels:
   - gap
   - defect
