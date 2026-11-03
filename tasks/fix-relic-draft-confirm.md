@@ -1,7 +1,7 @@
 ---
 id: fix-relic-draft-confirm
 title: 遗物三选一加「确定」按钮并修掉空 offers 软锁，必须显式确定才能推进
-status: ready
+status: done
 labels:
   - defect
 parent: null
