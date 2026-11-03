@@ -1,7 +1,7 @@
 ---
 id: fix-meta-balance-targets-tolerance
 title: meta 平衡目标测试落地 ±5pp 容忍：深渊 13.3%（矿脉先验漂移）不再硬断言失败
-status: ready
+status: done
 labels:
   - defect
 parent: null
