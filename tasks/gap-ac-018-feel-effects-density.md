@@ -26,30 +26,32 @@ AC-018（GOAL-005 退出条件「战斗场景机械指标：反馈覆盖、对�
 
 ## AC
 
-- [ ] `node scripts/visual-check.mjs --suite feel` exit 0，且 `effects-active`（同时存在的命中特效 ≥ 4）为 ok（AC-018 本体判据）
-- [ ] `node --test tests/visual-check.test.mjs` exit 0（改动 `scripts/lib/visual-metrics.mjs` / `tests/lib/visual/metrics.mjs` 度量口径时同步更新/新增单测）
-- [ ] `npm test` exit 0（全量 suite，含模拟确定性用例——修复不得改变 RNG 调用序列/模拟结果）
-- [ ] `git diff -- scripts/lib/visual-metrics.mjs` 中 `minActiveEffects` 未下调（无 diff，或 Notes 给出「真实反馈回归」证据与依据）
-- [ ] Notes 记录因果归因：`git log --oneline a9f9b22..HEAD -- <相关 sim 文件>` 定位 5→3 的落地提交，写明 hash 与 `git show --stat` 摘要；存疑时在嫌疑提交父节点重跑 feel 确认读数 5
+- [x] `node scripts/visual-check.mjs --suite feel` exit 0，且 `effects-active`（同时存在的命中特效 ≥ 4）为 ok（AC-018 本体判据）
+- [x] `node --test tests/visual-check.test.mjs` exit 0（改动 `scripts/lib/visual-metrics.mjs` / `tests/lib/visual/metrics.mjs` 度量口径时同步更新/新增单测）
+- [x] `npm test` exit 0（全量 suite，含模拟确定性用例——修复不得改变 RNG 调用序列/模拟结果）
+- [x] `git diff -- scripts/lib/visual-metrics.mjs` 中 `minActiveEffects` 未下调（无 diff，或 Notes 给出「真实反馈回归」证据与依据）
+- [x] Notes 记录因果归因：`git log --oneline a9f9b22..HEAD -- <相关 sim 文件>` 定位 5→3 的落地提交，写明 hash 与 `git show --stat` 摘要；存疑时在嫌疑提交父节点重跑 feel 确认读数 5
 
 ## DoD
 
-- [ ] 真实浏览器连续 2 次 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` exit 0，每次读数（effects-active 数值 + 8 项 ok 表）写入 Notes
-- [ ] 修复只改表现层：同 seed 模拟结果与 RNG 调用序列不变（确定性用例全绿），不引入第三方依赖
-- [ ] 门禁语义未被放宽：特效整体删除时 `effects-active` 必红（count 0 < 4）；`effect-budget` ≤ 320 不越线；`minActiveEffects` 未下调
-- [ ] 落地 diff 只含 `## Touches` 声明文件，`git status --short` 无本任务相关未提交改动
+- [x] 真实浏览器连续 2 次 `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite feel` exit 0，每次读数（effects-active 数值 + 8 项 ok 表）写入 Notes
+- [x] 修复只改表现层：同 seed 模拟结果与 RNG 调用序列不变（确定性用例全绿），不引入第三方依赖
+- [x] 门禁语义未被放宽：特效整体删除时 `effects-active` 必红（count 0 < 4）；`effect-budget` ≤ 320 不越线；`minActiveEffects` 未下调
+- [x] 落地 diff 只含 `## Touches` 声明文件，`git status --short` 无本任务相关未提交改动
 
 ## Touches
 
 - `public/js/sim/projectile-system.js`
-- `scripts/lib/visual-metrics.mjs`
-- `tests/lib/visual/metrics.mjs`
-- `tests/lib/visual/session.mjs`
-- `tests/visual-check.test.mjs`
 - `tasks/gap-ac-018-feel-effects-density.md`
 
 ## Notes
 
 立案依据（2026-11-03，本 agent 直接测量，非台账陈旧尾巴）：criterion `node scripts/visual-check.mjs --suite feel` exit 1，唯一红项 `effects-active`（同时存在的命中特效 3 < 4）。复跑读数与本轮 ledger evidence（2026-11-03T10:45Z）一致，均 3——确定性回归。
 
-待 worker 补充：因果归因 hash、修复方式（方向 1/2）、连续 2 次 feel 读数、`npm test` 结果。若实际 Touches 与本声明有出入（如未改动 `tests/lib/visual/session.mjs`），须 task_write 修正再 fan-in。
+**因果归因**：`git log --oneline a9f9b22..HEAD -- public/js/sim/projectile-system.js public/js/sim.js` 定位 5→3 落地提交为 `5a0e68e`（`fix(sim): 塔开火时重选 progress 最大目标 + 冻结飞行怪可被地面塔命中`，`public/js/sim/tower-system.js +22/-4`——每发重选队首敌人，火力向最靠基地的怪集中，同窗口并发命中变少）与 `88b3ee0`（`feat(destructibles): 新增资源矿脉可攻击地块，塔空手时自动攻击并确定性掉落金币`，`public/js/sim/tower-system.js +13`）。二者均为合法玩法修复、不可回滚。经 /tmp 脚本逐步累计确认：0–8s 全窗口峰值并发命中特效也仅为 3（= 2 spark + 1 muzzle），故「加长 ttl」方向 1a 与「峰值口径」方向 2 均不足，须实际每命中补特效。
+
+**修复方式（方向 1，表现层）**：在 `public/js/sim/projectile-system.js` 单目标命中路径的既有 spark 后，补一个低预算次级「冲击环」特效（`kind:'ring'`，`ttl 0.2`，`r0 0.05 / r1 0.45`，同 `#ffe4b0` 色、同 weapon 归属）。只加表现密度，不改命中/伤害/胜负/模拟结果；`addEffect` 不消费 RNG，RNG 调用顺序不变。t=8s 采样帧并发命中特效 3→5（2 spark + 2 ring + 1 muzzle）。
+
+**连续 2 次 feel 读数（均 exit 0，8 项全绿）**：第 1 次 `同时存在的命中特效: 5（阈值 ≥ 4）`、`特效预算: 5（阈值 ≤ 320）`；第 2 次读数一致（effects-active=5、effect-budget=5）。`node --test tests/visual-check.test.mjs` 40/40 pass；`npm test` 1925/1925 pass（含模拟确定性用例）。
+
+**门禁语义未被放宽**：`git diff -- scripts/lib/visual-metrics.mjs` 无 diff，`minActiveEffects: 4` 未下调；特效整体删除时 count 0 < 4 必红；`effect-budget` 5 ≤ 320 不越线。修复只改表现层、零第三方依赖。
