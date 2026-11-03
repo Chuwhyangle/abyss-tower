@@ -13,7 +13,7 @@ const HEX = 'glass_cannon';
 const TOWER_TYPE = 'arrow';
 
 function makeSim(opts = {}) {
-  const { map = generateMap(SEED), hex = HEX, ...rest } = opts;
+  const { map = makeMap(), hex = HEX, ...rest } = opts;
   return new Simulation({
     map,
     seed: SEED,
@@ -28,6 +28,16 @@ function makeSim(opts = {}) {
     hex,
     ...rest,
   });
+}
+
+// 固定峡谷改为贴路塔位掩码后不再全图可建；漏怪伤塔用例需要在基地 (20.5, 9.5) 附近
+// 有一组固定塔位（far/mid/near 与等距对），因此在这些格子上显式开放建造，其余地形不变。
+function makeMap() {
+  const map = generateMap(SEED);
+  for (const [c, r] of [[20, 8], [20, 7], [19, 8], [21, 7], [19, 7]]) {
+    map.buildable[r][c] = true;
+  }
+  return map;
 }
 
 function approx(actual, expected, message) {

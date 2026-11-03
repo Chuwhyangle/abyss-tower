@@ -47,9 +47,10 @@ test('地图生成：起点/终点、连续性、唯一性与可建造比例', (
       }
     }
     const freeCells = rows * cols - pathCells.length;
+    // 固定地图改为贴路塔位掩码后不再全图可建：可建造格偏少但仍存在，且不压路径。
     assert.ok(
-      buildableCount / freeCells > 0.4,
-      `可建造比例过低：${buildableCount}/${freeCells}`
+      buildableCount > 0 && buildableCount < freeCells,
+      `可建造格数异常：${buildableCount}/${freeCells}`
     );
   }
 });
