@@ -62,6 +62,50 @@ function deepFreeze(value) {
   return Object.freeze(value);
 }
 
+// 独塔为王 3/6/9/10 级视觉分层：tower.level 为 0 起索引，3/6/9 级各解锁一条进化、
+// 10 级解锁大招。这里把「等级索引 → 视觉档位」压成纯函数，渲染层据此叠加进化符文与大招光环。
+export function towerVisualTier(level) {
+  if (!Number.isFinite(level) || level < 0) return 0;
+  if (level >= 9) return 4;
+  if (level >= 8) return 3;
+  if (level >= 5) return 2;
+  if (level >= 2) return 1;
+  return 0;
+}
+
+// 已记上塔的进化 id：evolutions 完整列表，evolution 仅为旧字段兼容；只保留该塔真实存在的路线。
+export function towerAppliedEvolutions(tower) {
+  if (!tower || typeof tower !== 'object') return [];
+  const def = TOWERS[tower.type];
+  if (!def) return [];
+  const applied = Array.isArray(tower.evolutions)
+    ? tower.evolutions
+    : typeof tower.evolution === 'string'
+      ? [tower.evolution]
+      : [];
+  return applied.filter((id) => def.evolutions?.some((evolution) => evolution.id === id));
+}
+
+// 大招专属特效（独塔 10 级）：每塔一档，形态/配色与命中签名同源，但粒子、半径、时长整体放大，
+// 形成「这一发是大招」的专属爆发层。8 塔形态两两不同（shape + accent 各不重复）。
+export const ULTIMATE_VISUALS = deepFreeze({
+  arrow: { shape: 'needle', color: '#8fe0a8', accent: '#d8ffe3', particles: 9, spread: 0.5, duration: 0.16, size: 2.2, ring: 0.5, spin: 0.2 },
+  cannon: { shape: 'burst', color: '#f0a35e', accent: '#ffe2bd', particles: 14, spread: 1.1, duration: 0.3, size: 3.6, ring: 0.9, spin: 0.04 },
+  frost: { shape: 'crystal', color: '#7cd4f5', accent: '#d9f2ff', particles: 11, spread: 0.8, duration: 0.2, size: 2.8, ring: 0.55, spin: 0.3 },
+  arc: { shape: 'arc', color: '#b48cff', accent: '#e8dcff', particles: 13, spread: 0.95, duration: 0.22, size: 3, ring: 0.6, spin: 0.45 },
+  poison: { shape: 'motes', color: '#9adf6a', accent: '#d9f7bb', particles: 18, spread: 1.4, duration: 0.2, size: 2.5, ring: 0.7, spin: 0.12 },
+  banner: { shape: 'aura', color: '#f5c451', accent: '#ffe9a8', particles: 6, spread: 6.283, duration: 0.55, size: 3.2, ring: 1.6, spin: 0.6 },
+  shock: { shape: 'wave', color: '#6fe3c8', accent: '#ccfff4', particles: 11, spread: 1.05, duration: 0.26, size: 3.6, ring: 1.0, spin: 0.08 },
+  sniper: { shape: 'lance', color: '#8fb8ff', accent: '#dbe8ff', particles: 7, spread: 0.28, duration: 0.18, size: 2.6, ring: 0.4, spin: 0.5 },
+});
+
+export const ULTIMATE_TOWER_TYPES = Object.freeze(Object.keys(ULTIMATE_VISUALS).sort());
+
+// 未知塔型返回 null（渲染层走既有命中签名，不叠加专属大招层）。
+export function ultimateVisual(type) {
+  return typeof type === 'string' && Object.hasOwn(ULTIMATE_VISUALS, type) ? ULTIMATE_VISUALS[type] : null;
+}
+
 function entityRecord(family, entityId, states = ENTITY_FAMILY_DEFAULTS[family].states) {
   const map = {};
   for (const state of states) map[state] = entitySpriteName(family, entityId, state);

@@ -5,7 +5,12 @@
 import { TILE, TOWERS } from '../shared/data.js';
 import { DOCTRINES } from '../shared/doctrines.js';
 import { Palette } from './palette.js';
-import { towerSpriteId } from './sprite-coverage.js';
+import {
+  towerAppliedEvolutions,
+  towerSpriteId,
+  towerVisualTier,
+  ultimateVisual,
+} from './sprite-coverage.js';
 import { activeSkin, skinColorFor } from '../shared/skins.js';
 import {
   evolutionVisual,
@@ -66,9 +71,10 @@ export class TowerRenderer {
       const def = TOWERS[tower.type];
       const level = tower.level;
       const color = skinColorFor(skin, Palette.towerColor(tower.type, settings));
-      // 进化分支的专属配色；未进化时退回塔的默认色。
-      const evolution = tower.evolution
-        ? def.evolutions?.find((entry) => entry.id === tower.evolution) || null
+      // 进化分支的专属配色；独塔模式可能已选多条进化，取最后一条的颜色做主强调色。
+      const appliedEvolutions = towerAppliedEvolutions(tower);
+      const evolution = appliedEvolutions.length > 0
+        ? def.evolutions?.find((entry) => entry.id === appliedEvolutions[appliedEvolutions.length - 1]) || null
         : null;
       const accent = evolution ? Palette.presentColor(evolution.color, settings) : color;
       const disableLeft = (tower.disabledUntil || 0) - game.time;
@@ -181,14 +187,22 @@ export class TowerRenderer {
         }
 
         // 进化标识：每条路线独有的轮廓 + 符文组合，开销随画质档位递增。
+        // 独塔模式可同时挂多条进化（3/6/9 级逐级三选一）：最外层画最新一条，
+        // 更早的进化按选中顺序向里嵌套（半径逐层收缩），层级越深越厚。
         if (evolution) {
-          this.drawEvolutionMark(
-            g,
-            time,
-            evolutionVisual(evolution.id),
-            evolutionVisualBudget(settings.decorations),
-            accent
-          );
+          const budget = evolutionVisualBudget(settings.decorations);
+          this.drawEvolutionMark(g, time, evolutionVisual(evolution.id), budget, accent);
+          for (let depth = 1; depth < appliedEvolutions.length; depth++) {
+            const entry = def.evolutions?.find(
+              (item) => item.id === appliedEvolutions[appliedEvolutions.length - 1 - depth]
+            );
+            if (!entry) continue;
+            const scale = 0.78 - (depth - 1) * 0.18;
+            g.save();
+            g.scale(scale, scale);
+            this.drawEvolutionMark(g, time, evolutionVisual(entry.id), budget, accent);
+            g.restore();
+          }
         }
 
         // 炮塔：整机后退 + 高配追加炮管回缩，二者都只读模拟层已有的 recoil。
@@ -226,6 +240,13 @@ export class TowerRenderer {
         g.restore();
       }
 
+      // 大招光环（独塔 10 级）：白热核心 + 塔色双环呼吸，与命中时的大招爆发层呼应。
+      // 任何画质档位都保留一图；普通塔等级上限远低于 10，不会进入此分支。
+      const ultimate = ultimateVisual(tower.type);
+      if (ultimate && towerVisualTier(level) >= 4) {
+        this.drawUltimateAura(g, time, ultimate, accent);
+      }
+
       if (game.selectedTower === tower) {
         g.strokeStyle = 'rgba(255, 211, 107, 0.95)';
         g.lineWidth = 2;
@@ -235,6 +256,31 @@ export class TowerRenderer {
       }
       g.restore();
     }
+  }
+
+  // 大招光环：独塔 10 级的塔身专属层——白热核心 + 塔色双环呼吸。
+  // 只读传入的 spec/accent，不新增模拟事件、不消耗命中层粒子预算。
+  drawUltimateAura(g, time, spec, accent) {
+    const breathe = 0.5 + 0.5 * Math.sin(time * 3.1);
+    g.save();
+    g.globalAlpha = 0.55 + breathe * 0.4;
+    g.strokeStyle = spec.accent;
+    g.lineWidth = 1.6;
+    g.beginPath();
+    g.arc(0, 0, 27 + breathe * 2.5, 0, Math.PI * 2);
+    g.stroke();
+    g.globalAlpha = 0.35 + breathe * 0.25;
+    g.strokeStyle = spec.color;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.arc(0, 0, 25 - breathe * 1.5, 0, Math.PI * 2);
+    g.stroke();
+    g.globalAlpha = 0.85;
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(0, 0, 2.2 + breathe * 1.2, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
   }
 
   renderPlacement(g, time, glowOn, settings) {

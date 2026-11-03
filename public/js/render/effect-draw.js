@@ -5,7 +5,8 @@
 import { TILE } from '../shared/data.js';
 import { Palette } from './palette.js';
 import { drawImpactFallback, drawImpactShape, impactPlan, impactVariant } from './impact-vfx.js';
-import { SHARP_HIT_STAR, eventVariant, scaledCount } from './effect-data.js';
+import { SHARP_HIT_STAR, eventVariant, particleCount, scaledCount } from './effect-data.js';
+import { towerVisualTier, ultimateVisual } from './sprite-coverage.js';
 
 const T = TILE;
 const PI2 = Math.PI * 2;
@@ -91,6 +92,7 @@ export const effectDrawMethods = {
     g.arc(x, y, radius * 0.74, 0, PI2);
     g.stroke();
     g.restore();
+    if (effect.ultimate) this.drawUltimate(g, fx);
   },
 
   drawSpark(g, fx) {
@@ -124,6 +126,7 @@ export const effectDrawMethods = {
       drawSharpHitStar(g, x, y, p, fade, { color, rays: scaledCount(SHARP_HIT_STAR.rays, profile) });
       g.restore();
     }
+    if (effect.ultimate) this.drawUltimate(g, fx);
   },
 
   drawBolt(g, fx) {
@@ -148,10 +151,15 @@ export const effectDrawMethods = {
     g.lineWidth = impact ? 1.6 + impact.size * 0.18 : 1.6;
     this.strokeBolt(g, effect.points, x, y);
     g.restore();
+    if (effect.ultimate) this.drawUltimate(g, fx);
   },
 
   drawMuzzle(g, fx) {
     const { effect, p, fade, x, y, color, glow } = fx;
+    // 独塔模式枪口焰随层级增强：6/9/10 级（视觉档位 2/3/4）逐级拉长，普通塔（档位 ≤1）不变。
+    const tier = towerVisualTier(effect.towerLevel);
+    const boost = 1 + Math.max(0, tier - 1) * 0.18;
+    const reach = 18 * boost;
     g.save();
     g.translate(x, y);
     g.rotate(effect.angle);
@@ -160,8 +168,8 @@ export const effectDrawMethods = {
     g.fillStyle = Palette.withAlpha(color, 0.55);
     g.beginPath();
     g.moveTo(0, -4.5);
-    g.lineTo(18, -1.6);
-    g.lineTo(18, 1.6);
+    g.lineTo(reach, -1.6);
+    g.lineTo(reach, 1.6);
     g.lineTo(0, 4.5);
     g.closePath();
     g.fill();
@@ -172,9 +180,46 @@ export const effectDrawMethods = {
     g.globalAlpha = fade * 0.22;
     g.fillStyle = '#c9c2b4';
     g.beginPath();
-    g.arc(6 + p * 8, Math.sin(p * 5) * 2, 3 + p * 3.5, 0, PI2);
+    g.arc(6 + p * 8 * boost, Math.sin(p * 5) * 2, 3 + p * 3.5, 0, PI2);
     g.fill();
     g.restore();
+  },
+
+  // 大招专属爆发层（独塔 10 级）：白热核心 + 塔色外扩双环 + 该塔形态的放大版命中签名。
+  // 只在效果对象带 ultimate 标记时由 drawRing / drawSpark / drawBolt 追加，普通命中不受影响。
+  drawUltimate(g, fx) {
+    const { effect, p, fade, x, y, glow, profile } = fx;
+    const spec = ultimateVisual(effect.weapon);
+    if (!spec) return 0;
+    const count = particleCount(spec.particles, profile);
+    g.save();
+    if (glow) g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
+    g.globalAlpha = fade * 0.95;
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(x, y, Math.max(1.2, 3.4 * (1 - p * 0.55)), 0, PI2);
+    g.fill();
+    g.globalAlpha = fade * 0.85;
+    g.strokeStyle = spec.accent;
+    g.lineWidth = 1.6 + 2.4 * (1 - p);
+    g.beginPath();
+    g.arc(x, y, spec.ring * T * (0.4 + p * 0.85), 0, PI2);
+    g.stroke();
+    g.globalAlpha = fade * 0.5;
+    g.strokeStyle = spec.color;
+    g.lineWidth = 1;
+    g.beginPath();
+    g.arc(x, y, spec.ring * T * (0.28 + p * 0.6), 0, PI2);
+    g.stroke();
+    const taken = this.impactPool.reserve(count);
+    if (taken > 0) {
+      drawImpactShape(g, spec, x, y, p, fade, taken);
+    } else {
+      drawImpactFallback(g, spec, x, y, p, fade);
+    }
+    g.restore();
+    return 1;
   },
 
   drawSpawn(g, fx) {

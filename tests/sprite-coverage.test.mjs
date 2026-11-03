@@ -16,6 +16,8 @@ import {
   ENTITY_SPRITE_FAMILIES,
   PORTAL_ENTITY_ID,
   SUMMON_KINDS,
+  ULTIMATE_TOWER_TYPES,
+  ULTIMATE_VISUALS,
   baseSpriteId,
   baseSpriteState,
   coverageGaps,
@@ -30,10 +32,14 @@ import {
   portalSpriteState,
   summonSpriteId,
   summonSpriteState,
+  towerAppliedEvolutions,
   towerFormId,
   towerSpriteId,
   towerSpriteState,
+  towerVisualTier,
+  ultimateVisual,
 } from '../public/js/render/sprite-coverage.js';
+import { IMPACT_SHAPES } from '../public/js/render/impact-vfx.js';
 import {
   ATLAS_IMAGE_2X_PATH,
   ATLAS_IMAGE_PATH,
@@ -223,6 +229,49 @@ test('towerSpriteState：disabled > attack > idle，且进化形态取最后一�
   assert.equal(towerSpriteState(null, 0), null);
   assert.equal(towerSpriteState({ type: 'unknown-tower' }, 0), null);
   assert.equal(towerSpriteId({ type: 'unknown-tower' }, 0), null);
+});
+
+test('独塔视觉分层：3/6/9/10 级档位、已应用进化与八塔大招形态注册表', () => {
+  // tower.level 是 0 起索引：3/6/9/10 级 = 索引 2/5/8/9。
+  assert.equal(towerVisualTier(-1), 0);
+  assert.equal(towerVisualTier(0), 0);
+  assert.equal(towerVisualTier(1), 0);
+  assert.equal(towerVisualTier(2), 1, '3 级进入第一层进化');
+  assert.equal(towerVisualTier(4), 1);
+  assert.equal(towerVisualTier(5), 2, '6 级进入第二层进化');
+  assert.equal(towerVisualTier(7), 2);
+  assert.equal(towerVisualTier(8), 3, '9 级进入第三层进化');
+  assert.equal(towerVisualTier(9), 4, '10 级解锁大招');
+  assert.equal(towerVisualTier(11), 4);
+  assert.equal(towerVisualTier(Number.NaN), 0);
+  assert.equal(towerVisualTier(undefined), 0);
+
+  // 已应用进化：plural 列表优先，singular 旧字段兼容，只保留真实路线。
+  assert.deepEqual(towerAppliedEvolutions(null), []);
+  assert.deepEqual(towerAppliedEvolutions({ type: 'unknown' }), []);
+  assert.deepEqual(towerAppliedEvolutions({ type: 'arrow', evolution: 'arrow-rapid' }), ['arrow-rapid']);
+  assert.deepEqual(
+    towerAppliedEvolutions({ type: 'arrow', evolutions: ['arrow-longbow', 'arrow-rapid', 'arrow-nope'] }),
+    ['arrow-longbow', 'arrow-rapid'],
+    '只保留该塔真实存在的进化'
+  );
+
+  // 八塔大招形态：覆盖全部塔型、shape/accent 两两不同、都是命中签名已登记的形态。
+  assert.deepEqual(ULTIMATE_TOWER_TYPES, Object.keys(TOWERS).sort(), '大招形态覆盖全部塔型');
+  assert.equal(Object.keys(ULTIMATE_VISUALS).length, 8);
+  assert.equal(new Set(Object.values(ULTIMATE_VISUALS).map((v) => v.shape)).size, 8, '八塔大招形态两两不同');
+  assert.equal(new Set(Object.values(ULTIMATE_VISUALS).map((v) => v.accent)).size, 8, '八塔大招强调色两两不同');
+  for (const [type, spec] of Object.entries(ULTIMATE_VISUALS)) {
+    assert.ok(Object.isFrozen(spec), `${type} 大招形态应冻结`);
+    assert.ok(IMPACT_SHAPES.includes(spec.shape), `${type} 大招形态未登记：${spec.shape}`);
+    assert.match(spec.color, /^#[0-9a-f]{6}$/i);
+    assert.match(spec.accent, /^#[0-9a-f]{6}$/i);
+    assert.ok(spec.particles > 0 && Number.isFinite(spec.particles));
+    assert.ok(spec.ring > 0 && Number.isFinite(spec.ring));
+  }
+  assert.equal(ultimateVisual('cannon').shape, 'burst');
+  assert.equal(ultimateVisual('unknown'), null);
+  assert.equal(ultimateVisual(null), null);
 });
 
 test('enemySpriteState：cast > hit > move，首领变体按 enemy.variant 解析', () => {

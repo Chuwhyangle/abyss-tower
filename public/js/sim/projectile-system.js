@@ -68,7 +68,16 @@ export class ProjectileSystem {
         current = next;
       }
       // weapon 仅为表现字段：让渲染层按武器分派命中签名，不参与结算与随机数。
-      this.sim.addEffect({ kind: 'bolt', points, ttl: 0.18, color: '#c9a8ff', weapon: 'arc' });
+      // ultimate/towerLevel 同属表现字段：大招连锁画专属爆发层，等级供枪口焰缩放。
+      this.sim.addEffect({
+        kind: 'bolt',
+        points,
+        ttl: 0.18,
+        color: '#c9a8ff',
+        weapon: 'arc',
+        towerLevel: tower.level,
+        ultimate: !!ultimate,
+      });
       return;
     }
 
@@ -146,6 +155,8 @@ export class ProjectileSystem {
       angle: tower.angle,
       ttl: 0.1,
       color: def.color,
+      // 表现字段：独塔模式 6/9/10 级枪口焰逐级拉长。
+      towerLevel: tower.level,
     });
   }
 
@@ -198,6 +209,8 @@ export class ProjectileSystem {
         ttl: 0.25,
         color: '#ffb066',
         weapon: proj.towerType,
+        // 震荡塔大招即溅射强化：触发当次溅射环叠加专属爆发层。
+        ultimate: !!(proj.ultimate && proj.ultimate.splashMul),
       });
       this.sim.shake = Math.min(10, this.sim.shake + (hits > 3 ? 2.4 : 1));
       this.applyUltimate(proj);
@@ -329,6 +342,7 @@ export class ProjectileSystem {
       ttl: 0.35,
       color: '#ffd36b',
       weapon: proj.towerType,
+      ultimate: true,
     });
     if (hits > 0) this.sim.shake = Math.min(12, this.sim.shake + 1.6);
   }
@@ -362,6 +376,7 @@ export class ProjectileSystem {
         ttl: 0.15,
         color: '#ffe4b0',
         weapon: proj.towerType,
+        ultimate: true,
       });
       current = next;
     }
@@ -385,6 +400,8 @@ export class ProjectileSystem {
       r1: 0.6,
       ttl: 0.3,
       color: '#7fd4ff',
+      weapon: proj.towerType,
+      ultimate: true,
     });
   }
 
@@ -423,6 +440,8 @@ export class ProjectileSystem {
       r1: radius,
       ttl: 0.35,
       color: '#9be15d',
+      weapon: proj.towerType,
+      ultimate: true,
     });
   }
 
@@ -453,6 +472,7 @@ export class ProjectileSystem {
         ttl: 0.18,
         color: '#ffd36b',
         weapon: proj.towerType,
+        ultimate: true,
       });
     }
     // 攻速 surge 写在塔上，由 modifyTowerStats 读取；到期由 tower-system 清掉并刷新缓存。
@@ -469,6 +489,7 @@ export class ProjectileSystem {
       ttl: 0.35,
       color: '#ffd36b',
       weapon: proj.towerType,
+      ultimate: true,
     });
   }
 
@@ -493,6 +514,7 @@ export class ProjectileSystem {
       ttl: 0.2,
       color: '#ffd36b',
       weapon: proj.towerType,
+      ultimate: true,
     });
   }
 }
