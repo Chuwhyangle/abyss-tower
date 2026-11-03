@@ -16,10 +16,10 @@ TODO-12「爬塔模式」的三路综合设计草案已定稿在 `docs/TODO.md`�
 
 ## AC
 
-- [ ] `docs/PHASE_TOWER.md` 存在，含背景/范围/节点图契约/经济契约/难度映射/实现拆分六节
-- [ ] 节点图与经济契约与 `docs/TODO.md` 的爬塔草案一致（节点类型、8 条红线、商人定价）
-- [ ] ASCII 文件名 `PHASE_TOWER.md`（不触发 docs-consistency 非 ASCII 截断）
-- [ ] `node --test tests/docs-phase-sync.test.mjs tests/docs-consistency.test.mjs` exit 0
+- [x] `docs/PHASE_TOWER.md` 存在，含背景/范围/节点图契约/经济契约/难度映射/实现拆分六节
+- [x] 节点图与经济契约与 `docs/TODO.md` 的爬塔草案一致（节点类型、8 条红线、商人定价）
+- [x] ASCII 文件名 `PHASE_TOWER.md`（不触发 docs-consistency 非 ASCII 截断）
+- [x] `node --test tests/docs-phase-sync.test.mjs tests/docs-consistency.test.mjs` exit 0
 
 ## DoD
 
