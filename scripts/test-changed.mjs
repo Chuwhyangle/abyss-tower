@@ -366,6 +366,7 @@ export const TEST_MAP = [
   { match: 'scripts/style-check.mjs', tests: ['tests/style-check.test.mjs'] },
   { match: 'scripts/test-changed.mjs', tests: ['tests/test-changed.test.mjs'] },
   { match: 'scripts/test-isolation-audit.mjs', tests: ['tests/test-isolation-audit.test.mjs'] },
+  { match: 'scripts/test-matrix.mjs', tests: ['tests/test-matrix.test.mjs'] },
   { match: 'scripts/test-stability.mjs', tests: ['tests/test-stability.test.mjs'] },
   { match: 'scripts/check-stability.mjs', tests: ['tests/check-stability.test.mjs'] },
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
