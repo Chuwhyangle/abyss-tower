@@ -22,67 +22,69 @@ const ULTIMATE_LEVEL = MAX_LEVEL - 1;
 // 其余键 = 触发大招的规格（由 projectile-system / combat-system 按塔型消费）。
 const ULTIMATES = Object.freeze({
   cannon: Object.freeze({
-    every: 4,
+    every: 3,
     fullMap: true,
     // 余波：轰击命中后在目标点对半径内敌人造成二次范围伤害（不参与暴击判定，确定性触发）。
-    aftershock: Object.freeze({ radius: 1.6, damageMul: 0.6 }),
+    aftershock: Object.freeze({ radius: 2.2, damageMul: 1.0 }),
   }),
-  // 弩塔「连珠穿云」：攻速 +20%；每 6 发贯穿 2 个目标（各 60%）且必暴击。
+  // 弩塔「连珠穿云」：攻速 +30%、伤害 +25%、射程 +30%；每 3 发贯穿 5 个目标（各 85%）且必暴击。
   arrow: Object.freeze({
-    every: 6,
-    passive: Object.freeze({ rate: 1.2 }),
-    pierce: Object.freeze({ count: 2, damageMul: 0.6, crit: true }),
+    every: 3,
+    passive: Object.freeze({ rate: 1.3, dmg: 1.25, range: 1.3 }),
+    pierce: Object.freeze({ count: 5, damageMul: 0.85, crit: true }),
   }),
-  // 霜塔「急冻控杀」：减速 +20%；每 6 发命中冻结（首领减半）并附加冻结易伤 +25%。
+  // 霜塔「急冻控杀」：减速 +20%、伤害 +120%；每 5 发命中冻结（首领减半）并附加冻结易伤 +60%。
   frost: Object.freeze({
-    every: 6,
-    passive: Object.freeze({ slow: 1.2 }),
-    freeze: Object.freeze({ duration: 1.0, bossDuration: 0.5, vuln: 0.25 }),
+    every: 5,
+    passive: Object.freeze({ slow: 1.2, dmg: 2.2 }),
+    freeze: Object.freeze({ duration: 1.0, bossDuration: 0.5, vuln: 0.6 }),
   }),
-  // 电弧塔「天罚雷暴」：连锁 +1、跳转 +0.6 格；每 5 发本次连锁必暴击且跳转 +1.2 格。
+  // 电弧塔「天罚雷暴」：连锁 +0、跳转 +0.3 格；每 5 发本次连锁必暴击且跳转 +1.2 格。
+  // （回调：草案连锁 +1/跳转 +0.6 让独塔电弧 100% 漫游「秒全场」，收窄覆盖补下限。）
   arc: Object.freeze({
     every: 5,
-    passive: Object.freeze({ chain: 1, chainRange: 0.6 }),
+    passive: Object.freeze({ chain: 0, chainRange: 0.3 }),
     chainCrit: true,
     chainRangeBonus: 1.2,
   }),
-  // 毒雾塔「疫爆扩散」：毒伤 +30%；每 6 发即时结算目标当前毒伤（无视护甲）并 1.5 格传播毒。
+  // 毒雾塔「疫爆扩散」：毒伤 +80%；每 4 发即时结算目标当前毒伤（无视护甲）并 2.2 格传播毒。
   poison: Object.freeze({
-    every: 6,
-    passive: Object.freeze({ dot: 1.3 }),
+    every: 4,
+    passive: Object.freeze({ dot: 1.8 }),
     detonate: Object.freeze({ ignoreArmor: true }),
-    spread: Object.freeze({ radius: 1.5 }),
+    spread: Object.freeze({ radius: 2.2 }),
   }),
   // 战旗「御驾亲征」：光环强化 + 获得自攻（军令箭，复用 bolt 并吃自己光环）；
-  // 每 5 发号令齐射（光环内 4 目标 150%）+ 全塔攻速 +40%（surge，短暂窗口）。
+  // 每 4 发号令齐射（光环内 6 目标 150%）+ 全塔攻速 +40%（surge，短暂窗口）。
   banner: Object.freeze({
-    every: 5,
+    every: 4,
     passive: Object.freeze({
       buffDmg: 1.5,
       buffRate: 1.5,
-      selfAttack: Object.freeze({ dmg: 45, rate: 1.1 }),
+      selfAttack: Object.freeze({ dmg: 90, rate: 1.3 }),
     }),
-    volley: Object.freeze({ targets: 4, damageMul: 1.5 }),
+    volley: Object.freeze({ targets: 6, damageMul: 1.5 }),
     surgeRate: 0.4,
     surgeDuration: 3,
   }),
-  // 震荡塔「地裂震啸」：击退 +30%；每 4 发溅射 ×1.6、击退 ×2、减速 +0.2。
+  // 震荡塔「地裂震啸」：击退 +30%、伤害 +80%；每 4 发溅射 ×2.0、击退 ×2、减速 +0.2。
   shock: Object.freeze({
     every: 4,
-    passive: Object.freeze({ knockback: 1.3 }),
-    splashMul: 1.6,
+    passive: Object.freeze({ knockback: 1.3, dmg: 1.8 }),
+    splashMul: 2.0,
     knockbackMul: 2,
     slowBonus: 0.2,
   }),
-  // 狙击塔「夺命收割」：射程 +15%、处决线（对 <30% 血 +40%）；
-  // 每 4 发无视射程处决：250% + 最大生命 6%（首领 2%），触发当次全图索敌。
+  // 狙击塔「夺命收割」：射程 +15%、攻速 +40%、处决线（对 <30% 血 +40%）；
+  // 每 3 发无视射程处决：300% + 最大生命 12%（首领 4%），触发当次全图索敌。
   sniper: Object.freeze({
-    every: 4,
+    every: 3,
     passive: Object.freeze({
       range: 1.15,
       execute: Object.freeze({ threshold: 0.3, damageMul: 0.4 }),
+      rate: 1.4,
     }),
-    execute: Object.freeze({ fullMap: true, damageMul: 2.5, hpPct: 0.06, bossPct: 0.02 }),
+    execute: Object.freeze({ fullMap: true, damageMul: 3.0, hpPct: 0.12, bossPct: 0.04 }),
   }),
 });
 
@@ -117,14 +119,15 @@ function targetEvolutionCount(tower) {
 }
 
 // 10 级常驻特性：大招规格的 passive 块落到最终塔属性上。
-// 大多只是既有属性的乘法/加法改写；战旗「自攻」与狙击「处决线」需要额外字段，
-// 分别由 tower-system（selfAttack 支援短路/吃自己光环）与 combat-system（executeThreshold/executeMul）读取。
+// 大多只是既有属性的乘法/加法改写；狙击「处决线」需要额外字段，
+// 由 combat-system（executeThreshold/executeMul）读取。战旗「自攻」例外——见 modifyTowerStats。
 function applyUltimatePassive(tower, out, ctx) {
   const spec = ULTIMATES[tower.type];
   const p = spec?.passive;
   if (!p) return;
   if (p.rate) out.rate *= p.rate;
   if (p.range) out.range *= p.range;
+  if (p.dmg) out.dmg *= p.dmg;
   if (p.slow) out.slow *= p.slow;
   if (p.dot) out.dot *= p.dot;
   if (p.knockback) out.knockback *= p.knockback;
@@ -132,12 +135,6 @@ function applyUltimatePassive(tower, out, ctx) {
   if (p.chainRange) out.chainRange = (TOWERS[tower.type]?.chainRange || 0) + p.chainRange;
   if (p.buffDmg) out.buffDmg *= p.buffDmg;
   if (p.buffRate) out.buffRate *= p.buffRate;
-  // 战旗质变：纯支援塔在独塔模式空转，10 级必须获得自身攻击（军令箭）。
-  if (p.selfAttack) {
-    out.selfAttack = true;
-    out.dmg = p.selfAttack.dmg;
-    out.rate = p.selfAttack.rate;
-  }
   // 战旗号令齐射的攻速 surge：窗口内攻速 ×(1+surgeRate)，到期由 tower-system 清掉并刷新缓存。
   if (spec.surgeRate && ctx?.sim && tower.bannerSurgeUntil > ctx.sim.time) {
     out.rate *= 1 + spec.surgeRate;
@@ -191,15 +188,24 @@ const hooks = Object.freeze({
   modifyTowerStats(tower, stats, ctx) {
     const extra = extraTiers(tower);
     const out = { ...stats };
+    const growth = {
+      dmg: (1 + LEVEL_GROWTH.dmg) ** extra,
+      range: (1 + LEVEL_GROWTH.range) ** extra,
+      rate: (1 + LEVEL_GROWTH.rate) ** extra,
+    };
     if (extra > 0) {
-      const growth = {
-        dmg: (1 + LEVEL_GROWTH.dmg) ** extra,
-        range: (1 + LEVEL_GROWTH.range) ** extra,
-        rate: (1 + LEVEL_GROWTH.rate) ** extra,
-      };
       out.dmg = stats.dmg * growth.dmg;
       out.range = stats.range * growth.range;
       out.rate = stats.rate * growth.rate;
+    }
+    // 战旗质变前置：纯支援塔不索敌不攻击，若自攻只留到 10 级，单塔战旗永远杀不了怪、
+    // 攒不到升级金币、到不了 10 级。故从建造起就给军令箭自攻（随额外等级成长），
+    // 10 级再叠加光环强化与号令齐射 / surge 大招。
+    const sa = ULTIMATES.banner?.passive?.selfAttack;
+    if (tower.type === 'banner' && sa) {
+      out.selfAttack = true;
+      out.dmg = sa.dmg * growth.dmg;
+      out.rate = sa.rate * growth.rate;
     }
     if (ULTIMATES[tower.type]?.fullMap && isUltimateLevel(tower)) out.fullMap = true;
     if (isUltimateLevel(tower)) applyUltimatePassive(tower, out, ctx);
