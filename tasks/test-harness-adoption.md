@@ -1,7 +1,7 @@
 ---
 id: test-harness-adoption
 title: 迁移示范 + 落地「新功能走 harness + 声明接缝」约定（docs/TESTING.md）
-status: todo
+status: ready
 labels:
   - feat
 parent: null
