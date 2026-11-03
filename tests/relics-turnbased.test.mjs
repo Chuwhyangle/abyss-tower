@@ -1,6 +1,9 @@
 // 回合型遗物：数量与旧 id 保留、触发周期边界、等级缩放、波末结算与随机数顺序。
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
@@ -192,4 +195,36 @@ test('回合型结算不消耗战斗随机数，固定种子保持确定性', ()
   clearWaveAt(b, 3);
   assert.equal(a.gold, b.gold, '同种子同遗物结果一致');
   assert.equal(a.gold, 5000 + 31);
+});
+
+// ---------- 遗物三选一「确定」按钮与空 offers 软锁修复（TODO-4） ----------
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const readSrc = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+
+test('三选一弹窗带「确定」按钮：选卡高亮、未选禁用、确定才 pickOffer', () => {
+  const draft = readSrc('public/js/ui/draft.js');
+  const showDraft = draft.slice(draft.indexOf('showDraft('));
+  assert.match(showDraft, /id="btn-confirm-draft"\s+disabled/, '确定按钮缺失或未默认禁用');
+  // 点卡片只切换选中态并启用确定，不再直接推进。
+  assert.match(showDraft, /classList\.toggle\('selected'/, '选卡未高亮');
+  assert.match(showDraft, /confirm\.disabled = false/, '选卡后未启用确定按钮');
+  // 点确定才真正应用选中的卡。
+  assert.match(showDraft, /confirm\.onclick/, '确定按钮未绑定点击');
+  assert.match(showDraft, /handlers\.onPickOffer\?\.\(Number\(selected\.dataset\.index\)\)/, '确定按钮未调用 pickOffer');
+});
+
+test('续玩恢复对空 offers 清待选、解暂停并提示，不渲染空弹窗', () => {
+  const run = readSrc('public/js/app/run.js');
+  const restore = run.slice(run.indexOf('async restorePendingDraft()'));
+  assert.match(restore, /if \(!data\.offers \|\| data\.offers\.length === 0\)/, '空 offers 分支缺失');
+  assert.match(restore, /combat\.relicsExhausted/, '空 offers 未提示');
+  assert.match(restore, /setPaused\(false\)/, '空 offers 未解暂停');
+  // 空 offers 分支在调用 showDraft 之前 return，绝不渲染无卡片空弹窗。
+  const emptyBranch = restore.slice(
+    restore.indexOf('if (!data.offers'),
+    restore.indexOf('sim.pendingDraft = true;')
+  );
+  assert.match(emptyBranch, /return;/, '空 offers 分支未提前返回');
+  assert.doesNotMatch(emptyBranch, /showDraft/, '空 offers 分支仍渲染弹窗');
 });

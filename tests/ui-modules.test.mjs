@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { TOWER_ORDER, RELIC_LEVEL_LABELS } from '../public/js/shared/data.js';
 import { orderedShopTowers, shopCardAffordable, clampRelicLevel, relicChipView } from '../public/js/ui/shop.js';
-import { relicDraftLevels, supplyAmount } from '../public/js/ui/modals.js';
+import { relicDraftLevels, supplyAmount } from '../public/js/ui/draft.js';
 import { skillButtonState } from '../public/js/ui/hud.js';
 import { formatResultScore, resultBestWave } from '../public/js/ui/result.js';
 import {

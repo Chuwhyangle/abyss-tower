@@ -82,6 +82,7 @@ const METHOD_MODULES = {
   'hud.js': 'hudMethods',
   'shop.js': 'shopMethods',
   'modals.js': 'modalMethods',
+  'draft.js': 'draftMethods',
   'hex-select.js': 'hexSelectMethods',
   'starter-select.js': 'starterSelectMethods',
   'boss-core.js': 'bossCoreMethods',
@@ -95,7 +96,8 @@ const METHOD_MODULES = {
 const PURE_EXPORTS = {
   'hud.js': ['skillButtonState'],
   'shop.js': ['orderedShopTowers', 'shopCardAffordable', 'clampRelicLevel', 'relicChipView'],
-  'modals.js': ['relicDraftLevels', 'supplyAmount', 'abandonConfirmCopy'],
+  'modals.js': ['abandonConfirmCopy'],
+  'draft.js': ['relicDraftLevels', 'supplyAmount'],
   'hex-select.js': [
     'HexBadge',
     'hexBadge',

@@ -7,6 +7,7 @@ import { titleMethods } from './ui/title.js';
 import { hudMethods } from './ui/hud.js';
 import { shopMethods } from './ui/shop.js';
 import { modalMethods } from './ui/modals.js';
+import { draftMethods } from './ui/draft.js';
 import { hexSelectMethods } from './ui/hex-select.js';
 import { starterSelectMethods } from './ui/starter-select.js';
 import { bossCoreMethods } from './ui/boss-core.js';
@@ -283,16 +284,8 @@ const settingsMethodsWithMenu = {
 // 各面板以方法集合形式挂在同一原型上，对外仍是同一个 UI 实例与同一套方法签名。
 Object.assign(
   UI.prototype,
-  titleMethods,
-  hudMethods,
-  shopMethods,
-  modalMethods,
-  hexSelectMethods,
-  starterSelectMethods,
-  bossCoreMethods,
-  resultMethods,
-  settingsMethodsWithMenu,
-  panelMethods
+  titleMethods, hudMethods, shopMethods, modalMethods, draftMethods, hexSelectMethods,
+  starterSelectMethods, bossCoreMethods, resultMethods, settingsMethodsWithMenu, panelMethods
 );
 
 export const ui = new UI();

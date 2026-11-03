@@ -494,6 +494,14 @@ export class RunController {
         this.ui.toast(t('combat.relicAlreadyPicked'));
         return;
       }
+      // 与 handleWaveClear 对齐：offers 为空时清待选、解暂停并提示，绝不渲染无卡片的空弹窗。
+      if (!data.offers || data.offers.length === 0) {
+        sim.pendingDraft = false;
+        sim.save();
+        state.app.setPaused(false);
+        this.ui.toast(t('combat.relicsExhausted'));
+        return;
+      }
       sim.pendingDraft = true;
       state.currentOffers = data.offers;
       this.ui.showDraft({

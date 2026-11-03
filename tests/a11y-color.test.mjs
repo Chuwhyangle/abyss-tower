@@ -37,6 +37,7 @@ const UI_SRC = [
   'public/js/ui/hud.js',
   'public/js/ui/shop.js',
   'public/js/ui/modals.js',
+  'public/js/ui/draft.js',
   'public/js/ui/result.js',
   'public/js/ui/settings-panel.js',
   'public/js/ui/panels.js',

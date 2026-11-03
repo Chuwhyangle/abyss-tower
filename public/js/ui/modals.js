@@ -1,30 +1,15 @@
-// 通用弹窗：遮罩生命周期、遗物三选一、事件节点、选图、确认框与提示。
-import { RELIC_BY_ID, RARITY, RELIC_LEVEL_LABELS, relicEffectText } from '../shared/data.js';
+// 通用弹窗：遮罩生命周期、事件节点、选图、确认框与提示。
 import { canAffordEventOption, findEventChain } from '../shared/events.js';
 import { DESTRUCTIBLE_BY_ID } from '../shared/destructibles.js';
 import { SCENE_SPRITE_IDS, applySceneSpritesTo } from '../shared/scene-sprites.js';
 import { t, tData, tOr } from '../i18n.js';
 import { audio } from '../audio.js';
-import { iconSvg, relicIconName } from '../render/canvas-shapes.js';
 import { destructibleCostSpec, destructibleEffectSpec, destructibleFailureKey, destructibleWarningKey } from '../render/destructible-renderer.js';
-import { fmt, modifierName, modifierDesc, mapPreviewSvg, escapeHtml, contractCardHtml } from './shared.js';
+import { modifierName, modifierDesc, mapPreviewSvg, escapeHtml } from './shared.js';
 
 // 固定地图的专有名词按 id 取译名；旧随机地图没有 id 时回退数据表自带名称。
 const mapName = (map) => (map ? tData('map', map.id, 'name', map.name || map.archetypeName) : null);
 const mapDesc = (map) => (map ? tData('map', map.id, 'desc', map.desc || '') : null);
-
-// 遗物草稿的等级分组：fromLevel 为 0 表示新遗物，升级组夹在 1–3 级（纯函数）。
-export function relicDraftLevels(offer) {
-  const fromLevel = Math.max(0, Math.min(3, offer?.fromLevel || 0));
-  const toLevel = Math.min(3, offer?.toLevel || fromLevel + 1);
-  return { fromLevel, toLevel, isUpgrade: fromLevel > 0 };
-}
-
-// 金币/修理补给的数量：向下取整并夹到非负，非数值按 0 处理（纯函数）。
-export function supplyAmount(offer) {
-  const amount = Number(offer?.amount);
-  return Number.isFinite(amount) ? Math.max(0, Math.floor(amount)) : 0;
-}
 
 // 放弃确认文案：按模式说明代价，并给出该模式剩余次数（纯函数）。
 export function abandonConfirmCopy(mode, { dailyLeft = null, weeklyLeft = null } = {}) {
@@ -87,77 +72,6 @@ export const modalMethods = {
 
   hasModal() {
     return !!this.el?.modalRoot?.querySelector('.modal');
-  },
-
-  showDraft({ wave, offers, rerolls, gold, cost = 25 }) {
-    const used = rerolls?.used || 0;
-    const max = rerolls?.max || 0;
-    const cards = offers
-      .map((offer, index) => {
-        if (offer.kind === 'contract') return contractCardHtml(offer, index, { used, max });
-        if (offer.kind === 'relic') {
-          const relic = RELIC_BY_ID[offer.id];
-          if (!relic) return '';
-          const rarity = RARITY[relic.rarity];
-          const { fromLevel, toLevel, isUpgrade } = relicDraftLevels(offer);
-          const levelLabel = isUpgrade
-            ? `${RELIC_LEVEL_LABELS[fromLevel - 1]} → ${RELIC_LEVEL_LABELS[toLevel - 1]}`
-            : t('draft.new');
-          const effect = isUpgrade
-            ? `<div class="relic-effect"><span>${t('draft.current')}</span>${relicEffectText(offer.id, fromLevel)}</div>
-               <div class="relic-effect upgrade"><span>${t('draft.upgrade')}</span>${relicEffectText(offer.id, toLevel)}</div>`
-            : `<div class="relic-effect"><span>${t('draft.effect')}</span>${relicEffectText(offer.id, toLevel)}</div>`;
-          return `
-            <button class="relic-card ${isUpgrade ? 'upgrade' : ''}" data-index="${index}" style="--rarity:${rarity.color}">
-              <span class="rarity">${rarity.name} ${iconSvg(relicIconName(relic.rarity), 'icon-inline')}· ${levelLabel}</span>
-              <span class="faction-tag">${t('draft.faction')} · ${t(`faction.${relic.faction}.name`)}</span>
-              <h3>${relic.name}</h3>
-              ${effect}
-              <p class="relic-flavor">${relic.desc}</p>
-              <span class="pick">${t('draft.pick')}</span>
-            </button>
-          `;
-        }
-
-        const isGold = offer.kind === 'gold';
-        const amount = supplyAmount(offer);
-        return `
-          <button class="relic-card fallback" data-index="${index}" style="--rarity:#8fa3b2">
-            <span class="rarity">${t('draft.supply')}</span>
-            <h3>${isGold ? t('draft.goldSupply') : t('draft.repair')}</h3>
-            <div class="relic-effect"><span>${t('draft.effect')}</span>${
-              isGold ? t('draft.goldEffect', { n: amount }) : t('draft.repairEffect', { n: amount })
-            }</div>
-            <p class="relic-flavor">${t('draft.fallbackFlavor')}</p>
-            <span class="pick">${t('draft.pick')}</span>
-          </button>
-        `;
-      })
-      .join('');
-
-    const modal = this.openModal(
-      `
-        <div class="draft">
-          <p class="eyebrow">${t('draft.eyebrow', { wave })}</p>
-          <h2>${t('draft.title')}</h2>
-          <div class="draft-cards">${cards}</div>
-          <div class="draft-actions">
-            <span class="muted">${t('draft.gold', { gold: fmt(gold) })}</span>
-            <button class="btn ghost" id="btn-reroll" ${used >= max || gold < cost ? 'disabled' : ''}>
-              ${t('draft.reroll', { cost })} <span class="muted">(${used}/${max})</span>
-            </button>
-          </div>
-        </div>
-      `,
-      { className: 'draft-modal', closable: false }
-    );
-
-    modal.querySelectorAll('.relic-card').forEach((card) => {
-      card.onclick = () => this.handlers.onPickOffer?.(Number(card.dataset.index));
-    });
-    const reroll = modal.querySelector('#btn-reroll');
-    if (reroll) reroll.onclick = () => this.handlers.onReroll?.();
-    audio.play('draft');
   },
 
   showMapSelect({ candidates, onChoose, onCancel }) {

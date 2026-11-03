@@ -1194,6 +1194,12 @@ button {
   background: linear-gradient(180deg, var(--surface-2), var(--surface-1));
 }
 
+/* 选中态：确认前唯一可变更的状态，用稀有度色条与高亮边框表达。 */
+.relic-card.selected {
+  border-color: var(--rarity);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--rarity) 45%, transparent), var(--shadow-md);
+}
+
 .relic-card .pick {
   margin-top: auto;
   padding: 5px 10px;

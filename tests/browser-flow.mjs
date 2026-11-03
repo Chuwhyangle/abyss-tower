@@ -208,6 +208,7 @@ async function main() {
     }
 
     await browser.evaluate(`document.querySelector('.relic-card').click()`);
+    await browser.evaluate(`document.querySelector('#btn-confirm-draft').click()`);
     await browser.waitFor(`!document.querySelector('.modal')`, '三选一关闭');
     const afterPick = await browser.evaluate(`({
       relics: window.__rtd.state.sim.relics,

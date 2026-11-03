@@ -50,7 +50,17 @@ async function main() {
       throw new Error(`升级前后效果未展示：${text.slice(0, 200)}`);
     }
 
+    const confirmDisabledBefore = await browser.evaluate(
+      `document.querySelector('#btn-confirm-draft').disabled`
+    );
+    if (confirmDisabledBefore !== true) throw new Error('确定按钮未默认禁用');
+
     await browser.evaluate(`document.querySelectorAll('.relic-card')[0].click()`);
+    const confirmEnabled = await browser.evaluate(
+      `document.querySelector('#btn-confirm-draft').disabled`
+    );
+    if (confirmEnabled !== false) throw new Error('选卡后确定按钮未启用');
+    await browser.evaluate(`document.querySelector('#btn-confirm-draft').click()`);
     await browser.waitFor(`!document.querySelector('.modal')`, '升级选择完成');
     const upgraded = await browser.evaluate(`({
       level: window.__rtd.state.sim.getRelicLevel('sharp'),
@@ -80,6 +90,7 @@ async function main() {
     `);
     await browser.waitFor(`!!document.querySelector('.draft-modal')`, '补位弹窗');
     await browser.evaluate(`document.querySelectorAll('.relic-card')[0].click()`);
+    await browser.evaluate(`document.querySelector('#btn-confirm-draft').click()`);
     await browser.waitFor(`!document.querySelector('.modal')`, '补位选择完成');
     const goldAfter = await browser.evaluate(`Math.floor(window.__rtd.state.sim.gold)`);
     if (goldAfter !== goldBefore + 90) {
