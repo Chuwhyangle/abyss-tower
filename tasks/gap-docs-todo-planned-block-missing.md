@@ -43,16 +43,16 @@ AC-005 的 criterion 是 `node --test --test-concurrency=2 tests/*.test.mjs`、e
 
 ## Acceptance Criteria
 
-- [ ] `grep -n "docs-consistency:planned-start" docs/TODO.md` 命中新增起始标记，且 TODO-13「方案」三条（含 6 个计划路径）落在该块与 `docs-consistency:planned-end` 之间
-- [ ] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过）
-- [ ] `node --test tests/docs-consistency.test.mjs` exit 0（「真实仓库文档一致」用例绿）
-- [ ] `node --test --test-concurrency=2 tests/*.test.mjs` exit 0（即 AC-005 的 criterion 本身）
+- [x] `grep -n "docs-consistency:planned-start" docs/TODO.md` 命中新增起始标记，且 TODO-13「方案」三条（含 6 个计划路径）落在该块与 `docs-consistency:planned-end` 之间
+- [x] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过）
+- [x] `node --test tests/docs-consistency.test.mjs` exit 0（「真实仓库文档一致」用例绿）
+- [x] `node --test --test-concurrency=2 tests/*.test.mjs` exit 0（即 AC-005 的 criterion 本身）
 
 ## Definition of Done
 
-- [ ] `docs/TODO.md` 用 `docs-consistency:planned-start/end` 块标记 TODO-13 计划路径（块内只豁免代码路径存在性，链接与 npm 脚本照旧校验，不整篇 ignore、不逐行 ignore）
-- [ ] 在改动所在 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不靠重跑掩盖偶发失败）
-- [ ] `git diff --name-only <base>..HEAD` 只含 `docs/TODO.md` + `tasks/gap-docs-todo-planned-block-missing.md`（self-touch）
+- [x] `docs/TODO.md` 用 `docs-consistency:planned-start/end` 块标记 TODO-13 计划路径（块内只豁免代码路径存在性，链接与 npm 脚本照旧校验，不整篇 ignore、不逐行 ignore）
+- [x] 在改动所在 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不靠重跑掩盖偶发失败）
+- [x] `git diff --name-only <base>..HEAD` 只含 `docs/TODO.md` + `tasks/gap-docs-todo-planned-block-missing.md`（self-touch）
 
 ## Notes
 
