@@ -1,7 +1,7 @@
 ---
 id: feat-one-tower-visuals
 title: 独塔重做·视觉特效：3/6/9/10 级外观逐级变炫酷 + 大招特效
-status: todo
+status: ready
 labels:
   - feat
 parent: null
