@@ -1,9 +1,10 @@
 // 远征接口：只做身份读取、参数解析、调用领域服务与响应序列化。
 import { actionRateLimited, hashIp, recordRateLimitFailure } from '../auth/rate-limit.mjs';
-import { RunError, RunService } from '../services/run-service.mjs';
+import { RunService } from '../services/run-service.mjs';
+import { RunError } from '../services/run-error.mjs';
 import { dailyAttemptsLeft, weeklyAttemptsLeft } from '../services/run-rules.mjs';
 
-const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|starter|relics|relic|events|event|bosscore|finish|abandon))?$/;
+const RUN_ACTIONS = /^\/api\/runs\/(?<id>[A-Za-z0-9_-]+)(?:\/(?<action>wave|clear|map|hex|starter|relics|relic|events|event|bosscore|nodes|choose|merchant|finish|abandon))?$/;
 
 export class RunRoutes {
   constructor(service = new RunService()) {
@@ -59,6 +60,7 @@ export class RunRoutes {
         run: this.service.serialize(run, ctx.profile, { withVictory: true }),
       });
     }
+    if (action === 'nodes' && ctx.method === 'GET') return this.nodes(ctx, run);
     if (run.status !== 'active') return ctx.fail(409, '该远征已结束', 'RUN_FINISHED');
     if (ctx.method !== 'POST') return false;
 
@@ -72,6 +74,8 @@ export class RunRoutes {
     if (action === 'events') return this.events(ctx, run);
     if (action === 'event') return this.event(ctx, run);
     if (action === 'bosscore') return this.bosscore(ctx, run);
+    if (action === 'choose') return this.choose(ctx, run);
+    if (action === 'merchant') return this.merchant(ctx, run);
     if (action === 'finish') return this.finish(ctx, run);
     return false;
   }
@@ -132,6 +136,21 @@ export class RunRoutes {
     const body = await ctx.readJson();
     const pick = body.index == null ? null : { index: body.index, optionIndex: body.optionIndex };
     return this.respond(ctx, () => ctx.json(200, pick ? this.service.pickBossCore(run, pick) : this.service.bossCoreNode(run)));
+  }
+
+  nodes(ctx, run) {
+    return this.respond(ctx, () => ctx.json(200, this.service.nodes(run)));
+  }
+
+  async choose(ctx, run) {
+    const body = await ctx.readJson();
+    return this.respond(ctx, () => ctx.json(200, this.service.chooseNode(run, { node: body.node })));
+  }
+
+  async merchant(ctx, run) {
+    const body = await ctx.readJson();
+    const pick = body.index == null ? null : { index: body.index };
+    return this.respond(ctx, () => ctx.json(200, pick ? this.service.pickMerchant(run, pick) : this.service.merchantNode(run)));
   }
 
   async finish(ctx, run) {

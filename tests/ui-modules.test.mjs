@@ -15,6 +15,10 @@ import {
   unreadSummaryText,
 } from '../public/js/ui/notifications.js';
 import { DEFAULT_SETTINGS, detectPreset, normalizeSettings, presetSettings } from '../public/js/settings.js';
+import { towerNodeView, towerNodeState, merchantOfferView, merchantSellView } from '../public/js/ui/tower.js';
+import { TOWER_NODE_TYPES } from '../public/js/shared/tower.js';
+import zhCN from '../public/js/shared/i18n/zh-CN.js';
+import enUS from '../public/js/shared/i18n/en-US.js';
 
 // ---------- 商店 ----------
 
@@ -231,4 +235,72 @@ test('设置预设识别与回退', () => {
   assert.equal(detectPreset(presetSettings('high')), 'high');
   assert.equal(detectPreset({ ...presetSettings('low'), glow: true }), 'custom');
   assert.equal(presetSettings('unknown').fps, presetSettings('low').fps, '未知预设回退低配');
+});
+
+// ---------- 爬塔节点地图 / 商人 ----------
+
+test('节点展示模型只露类型与词缀，未知类型回退战斗', () => {
+  const view = towerNodeView({ key: '5:0', layer: 5, column: 0, type: 'elite' });
+  assert.equal(view.type, 'elite');
+  assert.equal(view.label, '精英');
+  assert.match(view.hint, /词缀/);
+  assert.ok(view.color, '精英节点应有配色');
+  assert.equal(view.color, '#ff8a5c', '精英沿用既有橙系配色');
+
+  const fallback = towerNodeView({ key: '1:0', layer: 1, column: 0, type: 'bogus' });
+  assert.equal(fallback.type, 'fight', '未知类型回退战斗');
+});
+
+test('节点状态分类：当前 / 已通过 / 未开放', () => {
+  const node = { key: '3:0' };
+  assert.equal(towerNodeState(node, { currentKey: '3:0' }), 'current');
+  assert.equal(towerNodeState(node, { currentKey: '4:0', path: ['3:0'] }), 'reached');
+  assert.equal(towerNodeState(node, { currentKey: '4:0', path: [] }), 'locked');
+});
+
+test('商人商品模型带出价格与可负担，未知遗物标记缺失', () => {
+  const view = merchantOfferView({ id: 'sharp', rarity: 'common', price: 80 }, { gold: 120 });
+  assert.equal(view.id, 'sharp');
+  assert.equal(view.name, '锐利箭簇');
+  assert.equal(view.price, 80);
+  assert.equal(view.affordable, true);
+  assert.equal(view.rarityKey, 'common');
+  assert.equal(view.rarityName, '普通');
+
+  assert.equal(merchantOfferView({ id: 'sharp', rarity: 'common', price: 80 }, { gold: 60 }).affordable, false);
+  assert.equal(merchantOfferView({ id: 'sharp', rarity: 'common', price: 80 }).affordable, true, '缺金币不误标买不起');
+  assert.equal(merchantOfferView({ id: 'missing', rarity: 'common', price: 80 }).missing, true, '未知遗物标记缺失');
+});
+
+test('商人出售条目夹取等级并带出售价', () => {
+  const view = merchantSellView({ id: 'sharp', level: 5, price: 40 });
+  assert.equal(view.levelLabel, RELIC_LEVEL_LABELS[2]);
+  assert.equal(view.price, 40);
+  assert.equal(merchantSellView({ id: 'sharp', level: 0, price: 40 }).levelLabel, RELIC_LEVEL_LABELS[0]);
+  assert.equal(merchantSellView({ id: 'missing', level: 1, price: 10 }).missing, true);
+});
+
+test('爬塔节点与商人 i18n 键 zh/en 对称且非空', () => {
+  const keys = [
+    ...TOWER_NODE_TYPES.flatMap((type) => [`tower.node.${type}.name`, `tower.node.${type}.hint`]),
+    'tower.map.eyebrow',
+    'tower.map.title',
+    'tower.map.note',
+    'tower.map.layer',
+    'tower.merchant.eyebrow',
+    'tower.merchant.title',
+    'tower.merchant.goods',
+    'tower.merchant.emptyGoods',
+    'tower.merchant.buy',
+    'tower.merchant.insufficient',
+    'tower.merchant.refresh',
+    'tower.merchant.sellTitle',
+    'tower.merchant.sell',
+    'tower.merchant.gold',
+  ];
+  for (const key of keys) {
+    assert.ok(typeof zhCN[key] === 'string' && zhCN[key].trim(), `zh 缺 ${key}`);
+    assert.ok(typeof enUS[key] === 'string' && enUS[key].trim(), `en 缺 ${key}`);
+    assert.notEqual(enUS[key], zhCN[key], `${key} 英文与中文逐字相同`);
+  }
 });

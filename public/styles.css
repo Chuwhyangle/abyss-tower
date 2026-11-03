@@ -2387,6 +2387,171 @@ kbd {
   }
 }
 
+/* ============ 爬塔节点地图 / 商人 ============ */
+
+.tower-map-scroll {
+  max-height: 52vh;
+  overflow-y: auto;
+  margin-top: var(--space-4);
+  padding-right: 6px;
+}
+
+.tower-layer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: 6px;
+}
+
+.tower-layer-num {
+  flex: 0 0 64px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.08em;
+  text-align: right;
+}
+
+.tower-layer-nodes {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+}
+
+.tower-node {
+  --node: var(--muted);
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--node);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-1));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--duration-base) var(--ease-standard),
+    border-color var(--duration-base) var(--ease-standard),
+    box-shadow var(--duration-base) var(--ease-standard);
+}
+
+.tower-node-label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.tower-node-hint {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  line-height: 1.4;
+}
+
+.tower-node.reachable {
+  border-color: color-mix(in srgb, var(--node) 60%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--node) 35%, transparent);
+}
+
+.tower-node.reachable:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md), 0 0 16px color-mix(in srgb, var(--node) 20%, transparent);
+}
+
+.tower-node.current {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--gold) 40%, transparent);
+}
+
+.tower-node:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.tower-merchant h3,
+.merchant-goods h3,
+.merchant-sell h3 {
+  margin: 0 0 8px;
+  color: var(--text-soft);
+  font-size: var(--text-sm);
+  letter-spacing: 0.06em;
+}
+
+.merchant-offers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+}
+
+.merchant-offer {
+  --rarity: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-top: 3px solid var(--rarity);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-1));
+}
+
+.merchant-offer.locked {
+  opacity: 0.65;
+}
+
+.merchant-offer .rarity {
+  color: var(--rarity);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.2em;
+}
+
+.merchant-offer h3 {
+  margin: 0;
+  font-size: var(--text-md);
+}
+
+.merchant-price {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.merchant-sell {
+  margin-top: var(--space-4);
+  border-top: 1px solid var(--line-soft);
+  padding-top: var(--space-3);
+}
+
+.merchant-sell-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.merchant-sell-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.merchant-sell-name {
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.merchant-sell-name em {
+  color: var(--gold);
+  font-style: normal;
+  font-size: var(--text-min);
+  letter-spacing: 0.06em;
+}
+
 /* ============ 移动端 / 响应式 ============ */
 
 @media (max-width: 980px) {

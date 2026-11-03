@@ -1,5 +1,6 @@
 // 远征生命周期：新开局、选图三选一、续玩恢复、遗物抽取恢复。
 import { generateMap } from '../shared/mapgen.js';
+import { normalizeTowerRoute } from '../shared/tower.js';
 import { fixedMapCandidates } from '../shared/maps/index.js';
 import { RELIC_BY_ID } from '../shared/data.js';
 import { Simulation } from '../sim.js';
@@ -21,6 +22,7 @@ export class RunController {
     onBindCanvas,
     onPendingEvent,
     onPendingBossCore,
+    onTowerStarted,
     onAttempts,
     onGoHome,
   }) {
@@ -34,6 +36,7 @@ export class RunController {
     this.onBindCanvas = onBindCanvas;
     this.onPendingEvent = onPendingEvent;
     this.onPendingBossCore = onPendingBossCore;
+    this.onTowerStarted = onTowerStarted;
     this.onAttempts = onAttempts;
     this.onGoHome = onGoHome;
   }
@@ -290,6 +293,10 @@ export class RunController {
     const seed = data.seed || snapshot?.seed;
     const map = data.map || generateMap(seed);
     const relics = (data.relics || []).slice();
+    // 爬塔选路：开局读 ruleset.tower.route，续玩读服务端 run.tower 或快照（三者归一）。
+    const towerRoute = normalizeTowerRoute(
+      data.tower?.route ?? data.ruleset?.tower?.route ?? snapshot?.tower?.route ?? null
+    );
 
     // 技能：等级以服务端 ruleset（开局冻结）为准；续玩时用快照的剩余冷却恢复。
     const ruleset = data.ruleset || snapshot?.ruleset || null;
@@ -318,6 +325,7 @@ export class RunController {
       difficulty: data.difficulty || snapshot?.difficulty || 'standard',
       runId: data.runId || snapshot?.runId,
       mode: data.mode || snapshot?.mode || 'normal',
+      tower: towerRoute ? { route: towerRoute } : null,
       gold: snapshot ? snapshot.gold : data.startingGold,
       baseHp: snapshot ? snapshot.baseHp : data.baseHp,
       maxBaseHp: snapshot ? snapshot.maxBaseHp : data.baseHp,
@@ -368,6 +376,7 @@ export class RunController {
       id: data.runId || snapshot?.runId,
       seed,
       mode: data.mode || snapshot?.mode || 'normal',
+      tower: towerRoute ? { route: towerRoute, node: towerRoute.node } : null,
       difficulty: sim.difficulty,
       day: data.day,
       maxRerolls: data.maxRerolls ?? 1,
@@ -401,6 +410,8 @@ export class RunController {
     this.store.clearPendingMap();
     state.mapCandidates = null;
     state.mapChoosing = false;
+    // 爬塔：开局/续玩后按当前节点状态决定是否立即进入节点地图（续玩停在已清波节点时）。
+    if (state.run.mode === 'tower') this.onTowerStarted?.();
   }
 
   // 快照里的 skill.cooldown 是“模拟秒”；同时记录 epoch readyAt，
@@ -457,6 +468,8 @@ export class RunController {
         hexOffers: run.hexOffers || [],
         // 账号天赋：续玩按服务端当前读数重建被动，零投入为空对象。
         talent: run.talent,
+        // 爬塔选路：续玩按服务端权威 route/node 恢复节点图。
+        tower: run.tower || null,
       };
       this.beginGame(data, snap);
       // 未结算的事件节点优先恢复（快照里只存事件历史，待办事件由波次推导）。
