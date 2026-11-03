@@ -132,7 +132,9 @@
 - **关键待验证点（balance 实验定夺）**：难度映射「楼层=波次」（最简单，但 15 场战斗 vs 30 波曲线可能太硬）vs「波次等价」（只战斗推进难度，事件/商人不推进）。落地前 `npm run balance` 验证明。
 - **需重排的既有节奏**：首领核心 6 次→3 次（10/20/30）、契约卡/事件定时器重排到节点。
 - **实现红线**（采纳架构视角）：`MODES` 三处硬编码（snapshot/replay/leaderboard）、`normalizeEventHistory` 会吞爬塔事件、分享码要加 `route`（REPLAY_VERSION=3）、`sim.js`/`events.js` 确定性不得动（新随机流用 `${seed}:tower:*` 命名空间）。
+<!-- docs-consistency:planned-start -->
 - **落地顺序**：docs lane 出 `docs/PHASE_爬塔.md` 冻结表 → 阶段 0 串行共享契约层（tower.js + events/snapshot/scoring/replay）→ 阶段 1 并行（服务端/客户端逻辑/UI）→ 集成 + `npm test` 全绿。
+<!-- docs-consistency:planned-end -->
 
 ## 已完成
 

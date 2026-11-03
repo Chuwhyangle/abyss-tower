@@ -225,6 +225,30 @@ test('围栏代码块内的 planned 标记按字面文本处理，不改变块�
   assert.deepEqual(result.problems, ['README.md:7: 代码路径不存在 -> public/js/planned.js']);
 });
 
+test('含中文（CJK）路径整段捕获：存在不误报、缺失报全名而非截断', (t) => {
+  const cjkPath = 'docs/PHASE_爬塔.md';
+  // 存在：不应误报缺失。
+  const existsRoot = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': ['# 示例', `规划 \`${cjkPath}\` 冻结表。`, ''].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+    [cjkPath]: '# 爬塔冻结表\n',
+  });
+  assert.deepEqual(analyzeDocs(existsRoot).problems, []);
+
+  // 缺失：报完整路径（含中文），而非截断成 docs/PHASE_。
+  const missingRoot = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': ['# 示例', `规划 \`${cjkPath}\` 冻结表。`, ''].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+  });
+  const missing = analyzeDocs(missingRoot);
+  assert.equal(missing.ok, false);
+  assert.equal(missing.problems.length, 1, missing.problems.join('\n'));
+  assert.match(missing.problems[0], /README\.md:2: 代码路径不存在 -> docs\/PHASE_爬塔\.md$/);
+  assert.ok(!missing.problems[0].endsWith('docs/PHASE_'), `不得截断：${missing.problems[0]}`);
+});
+
 // 计划正本（docs/PHASE_<主题>.md）的块外必须保持真实校验：把不在 planned 块内的行取出来。
 function outsidePlannedLines(text) {
   const outside = [];
