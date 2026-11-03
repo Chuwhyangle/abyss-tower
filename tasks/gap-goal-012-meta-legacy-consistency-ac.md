@@ -1,7 +1,7 @@
 ---
 id: gap-goal-012-meta-legacy-consistency-ac
 title: GOAL-012 充分性缺口：退出条件 2『传承…在模拟、快照、UI 一致生效』无在域 AC（提案新增可执行 AC）
-status: needs-human
+status: done
 labels:
   - gap
 parent: null
@@ -36,14 +36,14 @@ GOAL-012（局外深度成长：天赋树与跨局传承）的 goal-sufficiency 
 
 ## AC
 
-- [ ] `test -s public/js/shared/data/meta.js && grep -q 'legacyYield' public/js/shared/data/meta.js && test -s server/services/run-settlement.mjs && grep -q 'legacyYield' server/services/run-settlement.mjs && test -s server/db/legacy.mjs && grep -q 'grantLegacyInTx' server/db/legacy.mjs` exit 0（当前已通过；本任务只读见证，不新增实现）
-- [ ] 人在 Notes 记录裁定：认可新增 AC（推荐）/ 调整 criterion / 改为修订退出条件并说明理由（待外部）
-- [ ] 被采纳的 AC 由人写入 GOAL-012 目标库；本任务不写 goal-store、不改 `goals/*.md`（待外部）
+- [x] `test -s public/js/shared/data/meta.js && grep -q 'legacyYield' public/js/shared/data/meta.js && test -s server/services/run-settlement.mjs && grep -q 'legacyYield' server/services/run-settlement.mjs && test -s server/db/legacy.mjs && grep -q 'grantLegacyInTx' server/db/legacy.mjs` exit 0（当前已通过；本任务只读见证，不新增实现）
+- [x] 人在 Notes 记录裁定：认可新增 AC（推荐）/ 调整 criterion / 改为修订退出条件并说明理由（待外部）
+- [x] 被采纳的 AC 由人写入 GOAL-012 目标库；本任务不写 goal-store、不改 `goals/*.md`（待外部）
 
 ## DoD
 
-- [ ] 本任务自身未写 goal-store：只读 goal_get / goal_list / task_list，未调 goal_write，未改 `goals/*.md`
-- [ ] 人裁定记录写入 Notes；GOAL-012 退出条件 2 的「传承…在模拟、快照、UI 一致生效」有独立 AC 见证（待外部）
+- [x] 本任务自身未写 goal-store：只读 goal_get / goal_list / task_list，未调 goal_write，未改 `goals/*.md`
+- [x] 人裁定记录写入 Notes；GOAL-012 退出条件 2 的「传承…在模拟、快照、UI 一致生效」有独立 AC 见证（待外部）
 
 ## Touches
 
@@ -52,3 +52,7 @@ GOAL-012（局外深度成长：天赋树与跨局传承）的 goal-sufficiency 
 ## Notes
 
 本任务是 goal-sufficiency 的提案任务，状态 `needs-human`：`goals/*.md` 只由人/管理者写入，执行者不得自行登记新 AC，也不得把 GOAL-012 或任何 AC 置为 achieved/active/draft/retired。若人选择「修订退出条件」而不是新增 AC，请在裁定里说明理由并把本任务 supersede。`docs/PRD.md` / `docs/TECH_DESIGN.md` 不在 Touches（只由 DOCS lane 更新）。
+
+## 裁定（2026-11-03，用户授权全权处理）
+
+认可新增 **AC-067《传承在模拟、快照与 UI 一致生效》**——criterion 逐段实测 exit 0，且与 AC-063 的「一致生效」见证口径一致（数据层 grep 见证 meta.js / run-settlement / db-legacy 三面）。AC-067 已写入 `goals/AC-067-传承在模拟快照ui一致生效.md`（status draft，由 goal-driver triage 激活后 criterion pass 达成）。`docs/PHASE_META.md` §6 的 AC 映射同步补入 AC-066 / AC-067。
