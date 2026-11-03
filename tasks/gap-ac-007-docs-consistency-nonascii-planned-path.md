@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-docs-consistency-nonascii-planned-path
 title: AC-007 复验：docs-consistency 误报 docs/TODO.md 计划态路径（未打 planned 标记 + 非 ASCII 截断）
-status: todo
+status: ready
 labels:
   - gap
   - defect
