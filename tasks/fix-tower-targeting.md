@@ -1,14 +1,16 @@
 ---
 id: fix-tower-targeting
 title: 索敌开火时刻重选目标 + 冻结飞行怪可被地面塔攻击
-status: ready
+status: done
 labels:
   - defect
 parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/hex-one-tower.test.mjs tests/tower-evolution.test.mjs tests/combat.test.mjs tests/towers-depth.test.mjs
+  acceptance: node --test tests/hex-one-tower.test.mjs
+    tests/tower-evolution.test.mjs tests/combat.test.mjs
+    tests/towers-depth.test.mjs
 ---
 ## Proposal
 
