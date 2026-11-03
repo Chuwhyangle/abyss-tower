@@ -16,14 +16,73 @@ const EVOLUTION_TIERS = Object.freeze([2, 5, 8]);
 // 大招解锁等级 = 10 级（索引 9）。
 const ULTIMATE_LEVEL = MAX_LEVEL - 1;
 
-// 每塔大招：本任务先落地炮台参考实现（全图索敌 + 每 4 下轰击带余波），
-// 其余 7 塔大招由后续任务填（草案表见 docs/TODO.md TODO-3）。数值为草案，待 balance 调优。
+// 每塔大招（docs/TODO.md TODO-3 七塔大招草案，数值为草案，待 balance 调优）。
+// 结构：every = 每 N 次攻击触发一次（确定性计数器，不耗 RNG）；
+// passive = 10 级常驻特性（由 modifyTowerStats 落到最终塔属性）；
+// 其余键 = 触发大招的规格（由 projectile-system / combat-system 按塔型消费）。
 const ULTIMATES = Object.freeze({
   cannon: Object.freeze({
     every: 4,
     fullMap: true,
     // 余波：轰击命中后在目标点对半径内敌人造成二次范围伤害（不参与暴击判定，确定性触发）。
     aftershock: Object.freeze({ radius: 1.6, damageMul: 0.6 }),
+  }),
+  // 弩塔「连珠穿云」：攻速 +20%；每 6 发贯穿 2 个目标（各 60%）且必暴击。
+  arrow: Object.freeze({
+    every: 6,
+    passive: Object.freeze({ rate: 1.2 }),
+    pierce: Object.freeze({ count: 2, damageMul: 0.6, crit: true }),
+  }),
+  // 霜塔「急冻控杀」：减速 +20%；每 6 发命中冻结（首领减半）并附加冻结易伤 +25%。
+  frost: Object.freeze({
+    every: 6,
+    passive: Object.freeze({ slow: 1.2 }),
+    freeze: Object.freeze({ duration: 1.0, bossDuration: 0.5, vuln: 0.25 }),
+  }),
+  // 电弧塔「天罚雷暴」：连锁 +1、跳转 +0.6 格；每 5 发本次连锁必暴击且跳转 +1.2 格。
+  arc: Object.freeze({
+    every: 5,
+    passive: Object.freeze({ chain: 1, chainRange: 0.6 }),
+    chainCrit: true,
+    chainRangeBonus: 1.2,
+  }),
+  // 毒雾塔「疫爆扩散」：毒伤 +30%；每 6 发即时结算目标当前毒伤（无视护甲）并 1.5 格传播毒。
+  poison: Object.freeze({
+    every: 6,
+    passive: Object.freeze({ dot: 1.3 }),
+    detonate: Object.freeze({ ignoreArmor: true }),
+    spread: Object.freeze({ radius: 1.5 }),
+  }),
+  // 战旗「御驾亲征」：光环强化 + 获得自攻（军令箭，复用 bolt 并吃自己光环）；
+  // 每 5 发号令齐射（光环内 4 目标 150%）+ 全塔攻速 +40%（surge，短暂窗口）。
+  banner: Object.freeze({
+    every: 5,
+    passive: Object.freeze({
+      buffDmg: 1.5,
+      buffRate: 1.5,
+      selfAttack: Object.freeze({ dmg: 45, rate: 1.1 }),
+    }),
+    volley: Object.freeze({ targets: 4, damageMul: 1.5 }),
+    surgeRate: 0.4,
+    surgeDuration: 3,
+  }),
+  // 震荡塔「地裂震啸」：击退 +30%；每 4 发溅射 ×1.6、击退 ×2、减速 +0.2。
+  shock: Object.freeze({
+    every: 4,
+    passive: Object.freeze({ knockback: 1.3 }),
+    splashMul: 1.6,
+    knockbackMul: 2,
+    slowBonus: 0.2,
+  }),
+  // 狙击塔「夺命收割」：射程 +15%、处决线（对 <30% 血 +40%）；
+  // 每 4 发无视射程处决：250% + 最大生命 6%（首领 2%），触发当次全图索敌。
+  sniper: Object.freeze({
+    every: 4,
+    passive: Object.freeze({
+      range: 1.15,
+      execute: Object.freeze({ threshold: 0.3, damageMul: 0.4 }),
+    }),
+    execute: Object.freeze({ fullMap: true, damageMul: 2.5, hpPct: 0.06, bossPct: 0.02 }),
   }),
 });
 
@@ -55,6 +114,39 @@ function appliedEvolutionIds(tower) {
 function targetEvolutionCount(tower) {
   const tiers = EVOLUTION_TIERS.filter((level) => tower.level >= level).length;
   return Math.min(tiers, evolutionEntries(tower).length);
+}
+
+// 10 级常驻特性：大招规格的 passive 块落到最终塔属性上。
+// 大多只是既有属性的乘法/加法改写；战旗「自攻」与狙击「处决线」需要额外字段，
+// 分别由 tower-system（selfAttack 支援短路/吃自己光环）与 combat-system（executeThreshold/executeMul）读取。
+function applyUltimatePassive(tower, out, ctx) {
+  const spec = ULTIMATES[tower.type];
+  const p = spec?.passive;
+  if (!p) return;
+  if (p.rate) out.rate *= p.rate;
+  if (p.range) out.range *= p.range;
+  if (p.slow) out.slow *= p.slow;
+  if (p.dot) out.dot *= p.dot;
+  if (p.knockback) out.knockback *= p.knockback;
+  if (p.chain) out.chain = (out.chain || 0) + p.chain;
+  if (p.chainRange) out.chainRange = (TOWERS[tower.type]?.chainRange || 0) + p.chainRange;
+  if (p.buffDmg) out.buffDmg *= p.buffDmg;
+  if (p.buffRate) out.buffRate *= p.buffRate;
+  // 战旗质变：纯支援塔在独塔模式空转，10 级必须获得自身攻击（军令箭）。
+  if (p.selfAttack) {
+    out.selfAttack = true;
+    out.dmg = p.selfAttack.dmg;
+    out.rate = p.selfAttack.rate;
+  }
+  // 战旗号令齐射的攻速 surge：窗口内攻速 ×(1+surgeRate)，到期由 tower-system 清掉并刷新缓存。
+  if (spec.surgeRate && ctx?.sim && tower.bannerSurgeUntil > ctx.sim.time) {
+    out.rate *= 1 + spec.surgeRate;
+  }
+  // 狙击处决线：对生命低于阈值的敌人伤害 +mul（combat-system 的 computeHit 读取）。
+  if (p.execute) {
+    out.executeThreshold = p.execute.threshold;
+    out.executeMul = p.execute.damageMul;
+  }
 }
 
 const hooks = Object.freeze({
@@ -95,7 +187,7 @@ const hooks = Object.freeze({
   },
   // 按额外等级追加成长；进化系数由模拟层按已选 evolutions 应用，这里不再兜底补乘。
   // 10 级大招的「全图索敌」写进 stats.fullMap：射程数值保持有限（渲染层照常画射程圈），
-  // 模拟层索敌按 fullMap 放宽到全图。
+  // 模拟层索敌按 fullMap 放宽到全图。常驻特性随后叠加在大招 passive 块上。
   modifyTowerStats(tower, stats, ctx) {
     const extra = extraTiers(tower);
     const out = { ...stats };
@@ -110,6 +202,7 @@ const hooks = Object.freeze({
       out.rate = stats.rate * growth.rate;
     }
     if (ULTIMATES[tower.type]?.fullMap && isUltimateLevel(tower)) out.fullMap = true;
+    if (isUltimateLevel(tower)) applyUltimatePassive(tower, out, ctx);
     return out;
   },
 });

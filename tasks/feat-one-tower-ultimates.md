@@ -1,14 +1,15 @@
 ---
 id: feat-one-tower-ultimates
 title: 独塔重做·七塔大招：弩/霜/电弧/毒/战旗/震荡/狙击的 10 级独属大招
-status: ready
+status: done
 labels:
   - feat
 parent: null
 children: []
 extra:
   schema: execution
-  acceptance: node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/tower-evolution.test.mjs
+  acceptance: node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs
+    tests/tower-evolution.test.mjs
 ---
 ## Proposal
 
@@ -28,29 +29,30 @@ extra:
 
 ## AC
 
-- [ ] 7 塔各在 `ultimateSpec` 返回大招规格（常驻特性 + 触发 N + 效果），10 级解锁生效
-- [ ] 弩贯穿必暴击、霜冻结易伤、电弧连锁暴击、毒即时毒爆传播、战旗自攻号令、震荡溅射击退、狙击无视射程处决——各效果按草案落地
-- [ ] 战旗获得自身攻击（军令箭），独塔+战旗可玩
-- [ ] 确定性：所有触发计数器不耗 RNG，`sim.js` RNG 顺序不变
-- [ ] `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/tower-evolution.test.mjs` exit 0
+- [x] 7 塔各在 `ultimateSpec` 返回大招规格（常驻特性 + 触发 N + 效果），10 级解锁生效
+- [x] 弩贯穿必暴击、霜冻结易伤、电弧连锁暴击、毒即时毒爆传播、战旗自攻号令、震荡溅射击退、狙击无视射程处决——各效果按草案落地
+- [x] 战旗获得自身攻击（军令箭），独塔+战旗可玩
+- [x] 确定性：所有触发计数器不耗 RNG，`sim.js` RNG 顺序不变
+- [x] `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/tower-evolution.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/js/shared/hexes/one-tower.js`、`public/js/sim/projectile-system.js`、`public/js/sim/combat-system.js`，不引入第三方依赖
-- [ ] 回归测试覆盖 7 塔大招的触发与数值
-- [ ] `npm test` 全绿；补跑 `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/tower-evolution.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `public/js/shared/hexes/one-tower.js`、`public/js/sim/projectile-system.js`、`public/js/sim/combat-system.js`、`public/js/sim/tower-system.js`，不引入第三方依赖
+- [x] 回归测试覆盖 7 塔大招的触发与数值
+- [x] `npm test` 全绿；补跑 `node --test tests/hex-one-tower.test.mjs tests/combat.test.mjs tests/tower-evolution.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
 - `public/js/shared/hexes/one-tower.js`
 - `public/js/sim/projectile-system.js`
 - `public/js/sim/combat-system.js`
+- `public/js/sim/tower-system.js`
 - `tests/hex-one-tower.test.mjs`
 - `tasks/feat-one-tower-ultimates.md`
 
 ## Notes
 
-立案 2026-11-03，源自 `docs/TODO.md` TODO-3（7 塔大招草案）。依赖 `feat-one-tower-core`（done）的 `ultimateSpec` 钩子与 `tower.ultimateShots` 计数器。数值为草案，落地后 `npm run balance` 验证「一塔顶 7 塔」下限。战旗「军令箭自攻」是最大改动点（support 塔短路要开例外）。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
+立案 2026-11-03，源自 `docs/TODO.md` TODO-3（7 塔大招草案）。依赖 `feat-one-tower-core`（done）的 `ultimateSpec` 钩子与 `tower.ultimateShots` 计数器。数值为草案，落地后 `npm run balance` 验证「一塔顶 7 塔」下限。战旗「军令箭自攻」是最大改动点（support 塔短路要开例外 + 号令攻速 surge 到期清理，需 `tower-system.js`，已补进 Touches）。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为玩法重做，机制设计已定稿、无新文档面，L_D/L_G/L_S 无需量化。

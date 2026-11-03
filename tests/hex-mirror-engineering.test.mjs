@@ -28,7 +28,7 @@ const CLOCKWISE = [
 ];
 
 function makeSim(opts = {}) {
-  const { map = generateMap(SEED), hex = HEX, ...rest } = opts;
+  const { map = makeMap(), hex = HEX, ...rest } = opts;
   return new Simulation({
     map,
     seed: SEED,
@@ -43,6 +43,19 @@ function makeSim(opts = {}) {
     hex,
     ...rest,
   });
+}
+
+// 镜像工程需要可对称建造的格子对；固定峡谷改为贴路塔位掩码后不再全图可建，
+// 对称格不复存在，因此用「非路径且非阻挡」的开放地形作为镜像测试基座。
+function makeMap() {
+  const map = generateMap(SEED);
+  const path = new Set(map.pathCells.map((p) => `${p.c},${p.r}`));
+  for (let r = 0; r < map.rows; r++) {
+    for (let c = 0; c < map.cols; c++) {
+      map.buildable[r][c] = !path.has(`${c},${r}`) && !map.blocked[r][c];
+    }
+  }
+  return map;
 }
 
 function approx(actual, expected, message) {
@@ -139,7 +152,7 @@ test('镜像伤害/攻速/射程 ×0.60，本体保持 100%', () => {
 });
 
 test('对称格不可建时顺时针找最近的空可建格', () => {
-  const map = generateMap(SEED);
+  const map = makeMap();
   const sim = makeSim({ map });
   const pair = findPair(sim, { requireFirstNeighbor: true });
   assert.ok(pair, '应存在「对称格可禁、正上方可建」的格子对');
@@ -154,7 +167,7 @@ test('对称格不可建时顺时针找最近的空可建格', () => {
 });
 
 test('对称格与 8 邻格全满时不生成镜像', () => {
-  const map = generateMap(SEED);
+  const map = makeMap();
   const sim = makeSim({ map });
   const pair = findPair(sim, { requireFullRing: true });
   assert.ok(pair, '应存在 8 邻环全可建的格子对');

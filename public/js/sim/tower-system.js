@@ -8,11 +8,21 @@ export class TowerSystem {
   }
 
   updateTowers(dt) {
+    // 独塔为王 10 级战旗「号令齐射」的攻速 surge 到期：清掉并整体刷新属性缓存，
+    // 攻速回到常驻值（recomputeTowerStats 也会把战旗自己的光环一并重算，避免部分刷新丢光环）。
+    for (const tower of this.sim.towers) {
+      if ((tower.bannerSurgeUntil || 0) > 0 && this.sim.time >= tower.bannerSurgeUntil) {
+        tower.bannerSurgeUntil = 0;
+        this.sim.recomputeTowerStats();
+        break;
+      }
+    }
     for (const tower of this.sim.towers) {
       tower.cd = Math.max(0, tower.cd - dt);
       tower.recoil = Math.max(0, (tower.recoil || 0) - dt * 5);
       // 支援塔不索敌、不攻击，只通过 recomputeTowerStats 产生的光环影响其他塔。
-      if (TOWERS[tower.type].support) {
+      // 独塔为王 10 级战旗获得自攻（军令箭）后不再空转：stats.selfAttack 为真时照常索敌开火。
+      if (TOWERS[tower.type].support && !(tower.stats && tower.stats.selfAttack)) {
         tower.target = null;
         continue;
       }
@@ -383,7 +393,8 @@ export class TowerSystem {
     const banners = this.sim.towers.filter((tower) => TOWERS[tower.type].support);
     if (!banners.length) return;
     for (const tower of this.sim.towers) {
-      if (TOWERS[tower.type].support) continue;
+      // 支援塔不吃光环；独塔为王 10 级战旗获得自攻（selfAttack）后也吃自己的光环（军令箭加成）。
+      if (TOWERS[tower.type].support && !(tower.stats && tower.stats.selfAttack)) continue;
       let dmg = 0;
       let rate = 0;
       for (const banner of banners) {

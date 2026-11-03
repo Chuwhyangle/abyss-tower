@@ -61,6 +61,15 @@ const EXPECTED_BASE = {
 
 const EXPECTED_SCORE_MUL = { canyon: 0.95, twin: 1, ring: 1.08 };
 
+// 贴路判定：格子的 4 邻接内是否存在路径格。
+function isPathAdjacent(map, cell) {
+  const pathKeys = new Set(map.pathCells.map((p) => `${p.c},${p.r}`));
+  for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (pathKeys.has(`${cell.c + dc},${cell.r + dr}`)) return true;
+  }
+  return false;
+}
+
 function specErrorReason(fn) {
   try {
     fn();
@@ -178,7 +187,7 @@ test('固定地图：旧 map 契约字段齐全、形状正确', () => {
   }
 });
 
-test('固定地图：路径格不与 blocked/buildable 冲突，可建造比例 ≥ 35%', () => {
+test('固定地图：路径格不与 blocked/buildable 冲突，塔位掩码偏少且贴路', () => {
   for (const map of FIXED_MAPS) {
     const pathKeys = new Set(map.pathCells.map((cell) => `${cell.c},${cell.r}`));
     assert.equal(pathKeys.size, map.pathCells.length, `${map.id} pathCells 有重复`);
@@ -186,13 +195,25 @@ test('固定地图：路径格不与 blocked/buildable 冲突，可建造比例 
       assert.equal(map.blocked[cell.r][cell.c], false, `${map.id} 路径格被标为 blocked`);
       assert.equal(map.buildable[cell.r][cell.c], false, `${map.id} 路径格被标为可建造`);
     }
-    const buildable = map.buildable.flat().filter(Boolean).length;
-    const ratio = buildable / (map.cols * map.rows);
-    assert.ok(ratio >= 0.35, `${map.id} 可建造比例 ${(ratio * 100).toFixed(1)}% < 35%`);
     for (const rock of map.rocks) {
       assert.equal(map.blocked[rock.r][rock.c], true, `${map.id} 岩石格必须 blocked`);
       assert.equal(map.buildable[rock.r][rock.c], false, `${map.id} 岩石格不可建造`);
       assert.ok(!pathKeys.has(`${rock.c},${rock.r}`), `${map.id} 岩石不能压路径`);
+    }
+    // 塔位掩码：可建造格 = 手写塔位 ∪ 可破坏物占格。纯塔位 15~25 且以贴路为主。
+    const destructibleKeys = new Set(map.destructibles.map((item) => `${item.c},${item.r}`));
+    const spots = [];
+    for (let r = 0; r < map.rows; r++) {
+      for (let c = 0; c < map.cols; c++) {
+        if (map.buildable[r][c] && !destructibleKeys.has(`${c},${r}`)) spots.push({ c, r });
+      }
+    }
+    assert.ok(spots.length >= 15 && spots.length <= 25, `${map.id} 纯塔位 ${spots.length} 不在 15~25`);
+    const adjacent = spots.filter((spot) => isPathAdjacent(map, spot)).length;
+    assert.ok(adjacent >= spots.length * 0.8, `${map.id} 贴路塔位 ${adjacent}/${spots.length} 不足 80%`);
+    // 可破坏物仍落在可建造格（拆除后由模拟层恢复该格可建）。
+    for (const item of map.destructibles) {
+      assert.equal(map.buildable[item.r][item.c], true, `${map.id} ${item.id} 必须落在可建造格`);
     }
   }
 });
@@ -423,6 +444,52 @@ test('地图数据校验：基地收束、岩石/阻挡、汇流点都必须合�
   assert.equal(map.buildable[3][2], false);
   assert.equal(map.rocks.length, 1);
   assert.deepEqual(map.blockers, [{ c: 2, r: 3 }]);
+});
+
+test('塔位掩码：声明掩码时取代全图可建，未声明时回退非路径非阻挡', () => {
+  // 未声明 buildableMask → 回退旧行为（非路径且非阻挡即可建）。
+  const fallback = buildFixedMap(baseSpec());
+  assert.equal(fallback.buildable[0][0], true, '非路径非阻挡格可建');
+  assert.equal(fallback.buildable[1][0], false, '路径格不可建');
+  // 声明掩码 → 只开放掩码格（可破坏物占格另计）。
+  const masked = buildFixedMap(baseSpec({ buildableMask: [[0, 2], [2, 2]] }));
+  assert.equal(masked.buildable[2][0], true, '(0,2) 在掩码中');
+  assert.equal(masked.buildable[2][2], true, '(2,2) 在掩码中');
+  assert.equal(masked.buildable[0][0], false, '未在掩码中的格不可建');
+  assert.equal(masked.buildable[1][0], false, '路径格仍不可建');
+});
+
+test('塔位掩码：越界/压路径/压阻挡/压可破坏物/重复/空数组都会报错', () => {
+  assert.equal(
+    specErrorReason(() => buildFixedMap(baseSpec({ buildableMask: [[10, 1]] }))),
+    'buildableMask-out-of-bounds'
+  );
+  assert.equal(
+    specErrorReason(() => buildFixedMap(baseSpec({ buildableMask: [[1, 1]] }))),
+    'buildableMask-on-path'
+  );
+  assert.equal(
+    specErrorReason(() =>
+      buildFixedMap(baseSpec({ buildableMask: [[1, 3]], rocks: [{ c: 1, r: 3, size: 0.3, rot: 0 }] }))
+    ),
+    'buildableMask-on-blocked'
+  );
+  assert.equal(
+    specErrorReason(() =>
+      buildFixedMap(
+        baseSpec({ destructibles: [{ id: 'd', type: 'vein', c: 1, r: 3 }], buildableMask: [[1, 3]] })
+      )
+    ),
+    'buildableMask-on-destructible'
+  );
+  assert.equal(
+    specErrorReason(() => buildFixedMap(baseSpec({ buildableMask: [[0, 2], [0, 2]] }))),
+    'buildableMask-duplicate'
+  );
+  assert.equal(
+    specErrorReason(() => buildFixedMap(baseSpec({ buildableMask: [] }))),
+    'buildableMask-invalid'
+  );
 });
 
 test('多入口地图：汇流点必须在每条 lane 上', () => {

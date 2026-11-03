@@ -43,9 +43,22 @@ export class CombatSystem {
     // 条件上下文只读本局状态快照，不调用随机数，也不改变暴击的 RNG 顺序。
     const context = opts.conditionContext || conditionSnapshot(this.sim);
     for (const bonus of hitBonuses(this.sim, enemy, context)) dmg *= 1 + bonus;
+    // 独塔为王 10 级狙击「处决线」：对生命低于阈值的敌人伤害 +mul（常驻，由 stats.executeThreshold 驱动）。
+    const towerStats = opts.tower?.stats;
+    if (
+      towerStats?.executeThreshold > 0 &&
+      enemy.maxHp > 0 &&
+      enemy.hp < enemy.maxHp * towerStats.executeThreshold
+    ) {
+      dmg *= 1 + (towerStats.executeMul || 0);
+    }
     let crit = false;
-    if (!opts.noCrit && this.sim.mods.crit > 0 && this.sim.combatRng.float() < this.sim.mods.crit) {
+    // 强制暴击（crit: true）：大招触发当次的「必暴击」走此分支，不消耗战斗 RNG。
+    if (opts.crit) {
       // 火力 T2：暴击额外倍率（默认 0；暴击总倍率 2.0 + 值）。
+      dmg *= 2 + (setMods.critDamage || 0);
+      crit = true;
+    } else if (!opts.noCrit && this.sim.mods.crit > 0 && this.sim.combatRng.float() < this.sim.mods.crit) {
       dmg *= 2 + (setMods.critDamage || 0);
       crit = true;
     }

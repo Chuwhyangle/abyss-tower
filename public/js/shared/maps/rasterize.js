@@ -183,8 +183,27 @@ export function buildFixedMap(spec) {
   for (const cell of rocks) blocked[cell.r][cell.c] = true;
   for (const cell of blockers) blocked[cell.r][cell.c] = true;
 
+  // 手写塔位掩码：固定地图声明 buildableMask 时取代「全图可建」，
+  // 只开放掩码格 + 可破坏物占格（可破坏物拆除后由模拟层恢复该格可建）。
+  // 未声明掩码的旧 spec / 合成地图回退到「非路径且非阻挡即可建」，与旧行为一致。
+  const maskCells = normalizeBuildableMask(
+    spec.buildableMask,
+    id,
+    pathSet,
+    blocked,
+    destructibles,
+    cols,
+    rows
+  );
+  const maskKeys = maskCells ? new Set(maskCells.map((cell) => cellKey(cell, rows))) : null;
+  const destructibleKeys = new Set(destructibles.map((cell) => cellKey(cell, rows)));
+
   const buildable = Array.from({ length: rows }, (_, r) =>
-    Array.from({ length: cols }, (_, c) => !pathSet.has(c * rows + r) && !blocked[r][c])
+    Array.from({ length: cols }, (_, c) =>
+      maskKeys
+        ? maskKeys.has(c * rows + r) || destructibleKeys.has(c * rows + r)
+        : !pathSet.has(c * rows + r) && !blocked[r][c]
+    )
   );
 
   const lanes = laneCells.map((cells, index) => {
@@ -373,6 +392,41 @@ function normalizeBlockers(list, id, field, pathSet, cols, rows) {
     return field === 'rocks'
       ? { c: cell[0], r: cell[1], size: item.size, rot: item.rot }
       : { c: cell[0], r: cell[1] };
+  });
+}
+
+// 手写塔位掩码：固定地图声明 buildableMask 时取代「全图可建」。
+// 掩码格必须落在界内、不压路径、不压岩石/阻挡、不占可破坏物格、不重复；
+// 「偏少（15~25）」与「贴路为主」是平衡目标，由地图作者与回归测试把关，不在此硬编码。
+function normalizeBuildableMask(mask, id, pathSet, blocked, destructibles, cols, rows) {
+  if (mask == null) return null;
+  if (!Array.isArray(mask) || mask.length === 0) {
+    throw new MapSpecError('buildableMask-invalid', { id, detail: '掩码必须是非空数组' });
+  }
+  const seen = new Set();
+  const destructibleKeys = new Set(destructibles.map((cell) => cellKey(cell, rows)));
+  return mask.map((cell, index) => {
+    const point = Array.isArray(cell) ? cell : [cell?.c, cell?.r];
+    if (!isCellInBounds(point, cols, rows)) {
+      throw new MapSpecError('buildableMask-out-of-bounds', { id, index, detail: JSON.stringify(point) });
+    }
+    const c = point[0];
+    const r = point[1];
+    const key = cellKey({ c, r }, rows);
+    if (pathSet.has(key)) {
+      throw new MapSpecError('buildableMask-on-path', { id, index, detail: `(${c},${r})` });
+    }
+    if (blocked[r][c]) {
+      throw new MapSpecError('buildableMask-on-blocked', { id, index, detail: `(${c},${r})` });
+    }
+    if (destructibleKeys.has(key)) {
+      throw new MapSpecError('buildableMask-on-destructible', { id, index, detail: `(${c},${r})` });
+    }
+    if (seen.has(key)) {
+      throw new MapSpecError('buildableMask-duplicate', { id, index, detail: `(${c},${r})` });
+    }
+    seen.add(key);
+    return { c, r };
   });
 }
 
