@@ -499,10 +499,15 @@ export class CombatController {
 
     let res = null;
     if (state.run?.id) {
+      const wave = stats.clearedWave ?? Math.max(0, stats.wave - 1);
       try {
+        // 通关清第 30 波时，completeWave 直接 gameOver(true) 并 return，跳过了 onWaveClear 回调
+        // （见 sim/wave-director.js），服务端 clearedWaves 仍停在 29。结算前先把最终波补同步上去，
+        // finishRun 的 waveReached 才不被 clampFinishPayload 钳到 29、isVictory(30) 才成立。
+        if (stats.victory) await this.api.clearWave(state.run.id, wave);
         res = await this.api.finishRun(state.run.id, {
           // 服务端只接受“已清波次”，避免在第 30 波中途死亡被误判为通关。
-          waveReached: stats.clearedWave ?? Math.max(0, stats.wave - 1),
+          waveReached: wave,
           kills: stats.kills,
           goldLeft: Math.floor(stats.gold),
           baseHp: Math.ceil(stats.baseHp),

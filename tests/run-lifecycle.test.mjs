@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 
 import { registerAndLogin, startTestServer } from './harness.mjs';
 import { Simulation } from '../public/js/sim.js';
+import { CombatController } from '../public/js/app/combat.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { MAX_WAVE } from '../public/js/shared/data.js';
 import { TOWER_LAYERS, generateTowerGraph, nodeKey, successors } from '../public/js/shared/tower.js';
@@ -422,4 +423,87 @@ test('sim：普通模式确定性不受爬塔分支影响（同 seed 快照字�
   assert.deepEqual(snapA, snapB);
   assert.equal(snapA.mode, 'normal');
   assert.equal('tower' in snapA, false, '普通模式快照不写 tower 块');
+});
+
+// 结算控制器：用假 api/state/ui/store 记录调用顺序，验证最终波清波同步与结算链路。
+function combatHarness(runId) {
+  const calls = [];
+  const controller = new CombatController({
+    state: {
+      run: { id: runId },
+      app: { setPaused() {} },
+      dailyLeft: 3,
+    },
+    api: {
+      async clearWave(id, wave) {
+        calls.push(['clearWave', id, wave]);
+        return { ok: true, clearedWaves: wave, wavesServed: wave };
+      },
+      async finishRun(id, payload) {
+        calls.push(['finishRun', id, payload]);
+        return { victory: payload.waveReached >= MAX_WAVE, waveReached: payload.waveReached };
+      },
+    },
+    ui: {
+      closeModal() {},
+      showResult(args) {
+        calls.push(['showResult', args]);
+      },
+    },
+    store: { clearSnapshot() {} },
+    onRefreshProfile: async () => {},
+    onRequestError() {},
+  });
+  return { controller, calls };
+}
+
+test('combat：通关最终波先补同步 clearWave(30)，finishRun 的 waveReached=30 不被钳到 29', async () => {
+  const { controller, calls } = combatHarness('run-victory');
+  await controller.handleGameOver({
+    wave: MAX_WAVE,
+    clearedWave: MAX_WAVE,
+    kills: 10,
+    gold: 5,
+    baseHp: 20,
+    victory: true,
+    score: 0,
+    rawScore: 0,
+    cores: 0,
+    mode: 'normal',
+    difficulty: 'standard',
+    maxWave: MAX_WAVE,
+  });
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['clearWave', 'finishRun', 'showResult'],
+    'victory 结算应先 clearWave 再 finishRun'
+  );
+  assert.equal(calls[0][1], 'run-victory');
+  assert.equal(calls[0][2], MAX_WAVE, '最终波应同步 clearWave(30)');
+  assert.equal(calls[1][2].waveReached, MAX_WAVE, 'finishRun 应携带 waveReached=30');
+  assert.equal(calls[2][1].res.victory, true);
+});
+
+test('combat：非通关（死亡）不误同步最终波，waveReached 用已清波次', async () => {
+  const { controller, calls } = combatHarness('run-defeat');
+  await controller.handleGameOver({
+    wave: 29,
+    clearedWave: 29,
+    kills: 10,
+    gold: 5,
+    baseHp: 0,
+    victory: false,
+    score: 0,
+    rawScore: 0,
+    cores: 0,
+    mode: 'normal',
+    difficulty: 'standard',
+    maxWave: MAX_WAVE,
+  });
+  assert.deepEqual(
+    calls.map((call) => call[0]),
+    ['finishRun', 'showResult'],
+    '非通关不应调用 clearWave'
+  );
+  assert.equal(calls[0][2].waveReached, 29, '死亡结算 waveReached 应为已清波次 29');
 });
