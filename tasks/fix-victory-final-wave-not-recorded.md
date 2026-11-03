@@ -1,7 +1,7 @@
 ---
 id: fix-victory-final-wave-not-recorded
 title: 通关无法记录：最终波（30）清波未同步服务端，waveReached 被钳到 29
-status: todo
+status: ready
 labels:
   - fix
 parent: null
