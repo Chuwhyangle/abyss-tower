@@ -1,7 +1,7 @@
 ---
 id: gap-result-scene-polish
 title: 结算场景精灵与移动首屏修复：空金框、出屏分数/数据、孤立难度标签、奖励语义色（可选打磨）
-status: ready
+status: done
 labels:
   - gap
 parent: null
