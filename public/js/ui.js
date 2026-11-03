@@ -11,6 +11,7 @@ import { draftMethods } from './ui/draft.js';
 import { hexSelectMethods } from './ui/hex-select.js';
 import { starterSelectMethods } from './ui/starter-select.js';
 import { bossCoreMethods } from './ui/boss-core.js';
+import { towerMethods } from './ui/tower.js';
 import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
@@ -285,7 +286,7 @@ const settingsMethodsWithMenu = {
 Object.assign(
   UI.prototype,
   titleMethods, hudMethods, shopMethods, modalMethods, draftMethods, hexSelectMethods,
-  starterSelectMethods, bossCoreMethods, resultMethods, settingsMethodsWithMenu, panelMethods
+  starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods
 );
 
 export const ui = new UI();
