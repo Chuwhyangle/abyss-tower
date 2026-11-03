@@ -89,32 +89,12 @@ export class ProjectileSystem {
       if (tower.arrowShots % SHARP_PIERCE_INTERVAL === 0) pierce2 = true;
     }
 
-    // 触发当次的投射物属性改写：震荡溅射/击退/减速，狙击 250% 处决伤害与全图索敌。
+    // 大招覆盖脉冲在 impact 命中后按塔型结算（全图前 K 名 / 震啸），此处不再改写投射物属性。
     let dmg = stats.dmg;
     let splash = stats.splash || 0;
     let slow = stats.slow || 0;
     let knockback = stats.knockback || 0;
-    let aimTarget = target;
-    if (ultimate) {
-      if (ultimate.splashMul) splash *= ultimate.splashMul;
-      if (ultimate.knockbackMul) knockback *= ultimate.knockbackMul;
-      if (ultimate.slowBonus) slow += ultimate.slowBonus;
-      if (ultimate.execute) {
-        if (ultimate.execute.damageMul) dmg *= ultimate.execute.damageMul;
-        // 无视射程处决：触发当次全图索敌（复用炮台 fullMap 的确定性索敌口径）。
-        if (ultimate.execute.fullMap) {
-          let best = null;
-          for (const enemy of this.sim.enemies) {
-            if (enemy.dead) continue;
-            if (def.groundOnly && enemy.flying && !(this.sim.time < (enemy.freezeUntil || 0))) continue;
-            if (!best || enemy.progress > best.progress || (enemy.progress === best.progress && enemy.id < best.id)) {
-              best = enemy;
-            }
-          }
-          if (best) aimTarget = best;
-        }
-      }
-    }
+    const aimTarget = target;
 
     // 战旗军令箭复用 bolt 投射物（战旗无 proj 表项，兜底为弩塔 bolt 参数）。
     const projDef = def.proj || { kind: 'bolt', speed: 17 };
@@ -318,16 +298,13 @@ export class ProjectileSystem {
   }
 
   // 大招触发效果（独塔为王）：按规格分发到各塔的命中后效果。
-  // target 是本次单目标命中的敌人（溅射类大招不依赖它，传 null）。
+  // 炮台走余波（半径内二次伤害）；其余 6 塔走「覆盖脉冲」——全图取前 K 名 / 震啸，
+  // 用该塔自己的武器签名结算（非 RNG 路径，不改 sim.js 确定性）。target 保留兼容，脉冲不依赖它。
   applyUltimate(proj, target = null) {
     const spec = proj.ultimateSpec;
     if (!proj.ultimate || !spec) return;
     if (spec.aftershock) this.applyCannonAftershock(proj, spec);
-    if (spec.pierce) this.applyArrowPierce(proj, spec, target);
-    if (spec.freeze) this.applyFrostFreeze(proj, spec, target);
-    if (spec.detonate) this.applyPoisonDetonate(proj, spec, target);
-    if (spec.volley) this.applyBannerVolley(proj, spec);
-    if (spec.execute) this.applySniperExecute(proj, spec, target);
+    if (spec.pulse) this.applyPulse(proj, spec);
   }
 
   // 炮台轰击「余波」：命中后在目标点对半径内敌人造成二次范围伤害（不参与暴击判定，确定性触发）。
@@ -360,86 +337,133 @@ export class ProjectileSystem {
     if (hits > 0) this.sim.shake = Math.min(12, this.sim.shake + 1.6);
   }
 
-  // 弩塔「连珠穿云」：命中后向近邻依次穿透 count 个目标，各 damageMul 伤害且必暴击。
-  applyArrowPierce(proj, spec, target) {
-    if (!target || target.dead) return;
-    const pierce = spec.pierce;
-    let current = target;
-    for (let i = 0; i < (pierce.count || 0); i++) {
-      let next = null;
-      let bestDist = Infinity;
-      for (const enemy of this.sim.enemies) {
-        if (enemy.dead || enemy === current || enemy === target) continue;
-        const d = Math.hypot(enemy.x - current.x, enemy.y - current.y);
-        if (d <= PIERCE_RANGE + enemy.r && d < bestDist) {
-          bestDist = d;
-          next = enemy;
-        }
-      }
-      if (!next) break;
-      this.sim.dealDamage(next, proj.dmg * (pierce.damageMul || 0.6), proj.towerType, {
-        ignoreArmor: proj.ignoreArmor,
-        tower: proj.tower || null,
-        crit: pierce.crit ? true : undefined,
-      });
-      this.sim.addEffect({
-        kind: 'spark',
-        x: next.x,
-        y: next.y,
-        ttl: 0.15,
-        color: '#ffe4b0',
-        weapon: proj.towerType,
-        ultimate: true,
-      });
-      current = next;
+  // ---------- 大招覆盖脉冲 ----------
+
+  // 全图确定性取敌人：progress 降序、id 升序（与 findTarget/skillTargets 同一口径），不引入随机数。
+  pulseTargets() {
+    return this.sim.enemies
+      .filter((enemy) => !enemy.dead)
+      .sort((a, b) => b.progress - a.progress || a.id - b.id);
+  }
+
+  // 覆盖脉冲入口：topK 走前 K 名结算；radius 走震荡震啸（圆心=最深入敌人）。
+  applyPulse(proj, spec) {
+    const pulse = spec.pulse;
+    if (!pulse) return;
+    if (pulse.radius) {
+      this.applyShockPulse(proj, spec, pulse);
+      return;
+    }
+    const candidates = this.pulseTargets();
+    const count = Math.min(pulse.topK || 0, candidates.length);
+    for (let i = 0; i < count; i++) {
+      this.settlePulseHit(proj, spec, pulse, candidates[i]);
+    }
+    // 战旗号令齐射的攻速 surge 写在塔上，由 modifyTowerStats 读取；到期由 tower-system 清掉并刷新缓存。
+    if (spec.surgeRate && proj.tower) {
+      proj.tower.bannerSurgeUntil = this.sim.time + (spec.surgeDuration || 3);
+      this.sim.recomputeTowerStats();
     }
   }
 
-  // 霜塔「急冻控杀」：命中目标冻结（首领减半），冻结期间受伤 +vuln。
-  applyFrostFreeze(proj, spec, target) {
-    if (!target || target.dead) return;
-    const freeze = spec.freeze;
-    const dur = target.boss ? (freeze.bossDuration ?? freeze.duration) : freeze.duration;
-    if (!(dur > 0)) return;
-    const now = this.sim.time;
-    target.freezeUntil = Math.max(target.freezeUntil || 0, now + dur);
-    target.freezeVuln = Math.max(target.freezeVuln || 0, freeze.vuln || 0);
-    target.freezeVulnUntil = Math.max(target.freezeVulnUntil || 0, now + dur);
+  // 每个脉冲目标按塔型结算：弩=连珠齐射、霜=寒潮、毒=疫爆、战旗=号令齐射、狙击=处决贯线。
+  settlePulseHit(proj, spec, pulse, enemy) {
+    const towerType = proj.towerType;
+    const tower = proj.tower || null;
+    const ignoreArmor = proj.ignoreArmor;
+    if (towerType === 'arrow') {
+      // 连珠齐射：前 K 名各吃 damageMul 伤害且必暴击（crit: true 走 computeHit 强制暴击分支，不耗 RNG）。
+      this.sim.dealDamage(enemy, proj.dmg * (pulse.damageMul || 0.7), towerType, {
+        ignoreArmor,
+        tower,
+        crit: pulse.crit ? true : undefined,
+      });
+    } else if (towerType === 'frost') {
+      // 寒潮：前 K 名各吃 damageMul 寒霜伤害并冻结（首领减半）。
+      this.sim.dealDamage(enemy, proj.dmg * (pulse.damageMul || 0), towerType, {
+        ignoreArmor,
+        tower,
+        noCrit: true,
+      });
+      const freeze = pulse.freeze;
+      const dur = enemy.boss ? (freeze.bossDuration ?? freeze.duration) : freeze.duration;
+      if (dur > 0) {
+        enemy.freezeUntil = Math.max(enemy.freezeUntil || 0, this.sim.time + dur);
+      }
+      this.sim.addEffect({
+        kind: 'frostBurst',
+        x: enemy.x,
+        y: enemy.y,
+        r0: 0.1,
+        r1: 0.6,
+        ttl: 0.3,
+        color: '#7fd4ff',
+        weapon: towerType,
+        ultimate: true,
+      });
+    } else if (towerType === 'poison') {
+      // 疫爆：先直击 damageMul 伤害，再即时结算当前毒伤（无视护甲）并传播毒。
+      this.sim.dealDamage(enemy, proj.dmg * (pulse.damageMul || 0), towerType, {
+        ignoreArmor,
+        tower,
+        noCrit: true,
+      });
+      this.detonatePoison(proj, spec, enemy);
+    } else if (towerType === 'banner') {
+      this.sim.dealDamage(enemy, proj.dmg * (pulse.damageMul || 1.5), towerType, {
+        ignoreArmor,
+        tower,
+        noCrit: true,
+      });
+    } else if (towerType === 'sniper') {
+      // 处决贯线：前 K 名吃 damageMul 倍直击 + 最大生命百分比（首领降额，百分比路径无视护甲）。
+      this.sim.dealDamage(enemy, proj.dmg * (pulse.damageMul || 2.5), towerType, {
+        ignoreArmor,
+        tower,
+      });
+      const pct = enemy.boss ? (pulse.bossPct ?? pulse.hpPct) : pulse.hpPct;
+      const amount = (enemy.maxHp || 0) * (pct || 0);
+      if (amount > 0) {
+        this.sim.damage(enemy, amount, {
+          ignoreArmor: true,
+          weapon: towerType,
+          source: 'tower',
+          towerId: proj.tower?.id ?? null,
+        });
+      }
+    }
     this.sim.addEffect({
-      kind: 'frostBurst',
-      x: target.x,
-      y: target.y,
-      r0: 0.1,
-      r1: 0.6,
-      ttl: 0.3,
-      color: '#7fd4ff',
-      weapon: proj.towerType,
+      kind: 'spark',
+      x: enemy.x,
+      y: enemy.y,
+      ttl: 0.18,
+      color: TOWERS[towerType]?.color || '#ffd36b',
+      weapon: towerType,
       ultimate: true,
     });
   }
 
-  // 毒雾塔「疫爆扩散」：即时结算目标当前毒伤（无视护甲），并把毒传播给半径内敌人（单槽取高）。
-  applyPoisonDetonate(proj, spec, target) {
-    if (!target || target.dead) return;
+  // 毒雾「疫爆」：即时结算目标当前毒伤（无视护甲），并把毒传播给半径内敌人（单槽取高）。
+  detonatePoison(proj, spec, enemy) {
     const now = this.sim.time;
-    const active = target.poisonUntil > now && target.poisonDps > 0;
-    const dps = active ? target.poisonDps : 0;
+    const active = enemy.poisonUntil > now && enemy.poisonDps > 0;
+    const dps = active ? enemy.poisonDps : 0;
     if (dps > 0) {
-      this.sim.damage(target, dps * (target.poisonUntil - now), {
+      this.sim.damage(enemy, dps * (enemy.poisonUntil - now), {
         ignoreArmor: true,
         weapon: 'poison',
         source: 'tower',
         towerId: proj.tower?.id ?? null,
       });
-      target.poisonDps = 0;
-      target.poisonUntil = 0;
+      enemy.poisonDps = 0;
+      enemy.poisonUntil = 0;
     }
     if (dps <= 0) return;
     const radius = spec.spread?.radius ?? 1.5;
     const spreadUntil = now + (proj.dotDur || 3);
     for (const other of this.sim.enemies) {
-      if (other.dead || other === target) continue;
-      if (Math.hypot(other.x - target.x, other.y - target.y) > radius) continue;
+      if (other.dead || other === enemy) continue;
+      if (Math.hypot(other.x - enemy.x, other.y - enemy.y) > radius) continue;
       if (dps >= (other.poisonDps || 0) || now > (other.poisonUntil || 0)) {
         other.poisonDps = Math.max(dps, now > (other.poisonUntil || 0) ? 0 : other.poisonDps);
         other.poisonUntil = Math.max(other.poisonUntil || 0, spreadUntil);
@@ -447,8 +471,8 @@ export class ProjectileSystem {
     }
     this.sim.addEffect({
       kind: 'poisonSpread',
-      x: target.x,
-      y: target.y,
+      x: enemy.x,
+      y: enemy.y,
       r0: 0.1,
       r1: radius,
       ttl: 0.35,
@@ -458,76 +482,41 @@ export class ProjectileSystem {
     });
   }
 
-  // 战旗「号令齐射」：光环内最多 targets 个敌人受 damageMul 倍军令箭伤害，并进入攻速 surge 窗口。
-  applyBannerVolley(proj, spec) {
-    const tower = proj.tower;
-    if (!tower) return;
-    const volley = spec.volley;
-    const range = tower.stats?.range ?? 3;
-    const candidates = [];
+  // 震荡「地裂震啸」：以最深入敌人为圆心，大半径内所有敌人承受溅射伤害 + 击退 + 减速。
+  // 复用 hitEnemy 的结算口径（含击退质量衰减/冷却/深度封顶的软锁修复）。
+  applyShockPulse(proj, spec, pulse) {
+    const center = this.pulseTargets()[0];
+    if (!center) return;
+    const radius = pulse.radius || 7;
+    const hit = {
+      dmg: proj.dmg * (pulse.damageMul || 1),
+      towerType: proj.towerType,
+      tower: proj.tower || null,
+      ignoreArmor: proj.ignoreArmor,
+      slow: (proj.slow || 0) + (pulse.slowBonus || 0),
+      slowDur: proj.slowDur || 0,
+      dot: 0,
+      dotDur: 0,
+      knockback: (proj.knockback || 0) * (pulse.knockbackMul || 1),
+    };
+    let hits = 0;
     for (const enemy of this.sim.enemies) {
       if (enemy.dead) continue;
-      if (Math.hypot(enemy.x - tower.x, enemy.y - tower.y) <= range + (enemy.r || 0)) candidates.push(enemy);
-    }
-    // 确定性目标顺序：progress 降序、id 升序（与 findTarget 同一口径），不引入随机数。
-    candidates.sort((a, b) => b.progress - a.progress || a.id - b.id);
-    for (let i = 0; i < Math.min(volley.targets || 0, candidates.length); i++) {
-      const enemy = candidates[i];
-      this.sim.dealDamage(enemy, proj.dmg * (volley.damageMul || 1.5), proj.towerType, {
-        ignoreArmor: proj.ignoreArmor,
-        tower,
-        noCrit: true,
-      });
-      this.sim.addEffect({
-        kind: 'spark',
-        x: enemy.x,
-        y: enemy.y,
-        ttl: 0.18,
-        color: '#ffd36b',
-        weapon: proj.towerType,
-        ultimate: true,
-      });
-    }
-    // 攻速 surge 写在塔上，由 modifyTowerStats 读取；到期由 tower-system 清掉并刷新缓存。
-    if (spec.surgeRate) {
-      tower.bannerSurgeUntil = this.sim.time + (spec.surgeDuration || 3);
-      this.sim.recomputeTowerStats();
+      if (Math.hypot(enemy.x - center.x, enemy.y - center.y) > radius + (enemy.r || 0)) continue;
+      this.sim.hitEnemy(enemy, hit);
+      hits++;
     }
     this.sim.addEffect({
       kind: 'ring',
-      x: tower.x,
-      y: tower.y,
-      r0: 0.2,
-      r1: range,
-      ttl: 0.35,
-      color: '#ffd36b',
+      x: center.x,
+      y: center.y,
+      r0: 0.15,
+      r1: radius,
+      ttl: 0.3,
+      color: '#6fe3c8',
       weapon: proj.towerType,
       ultimate: true,
     });
-  }
-
-  // 狙击塔「无视射程处决」：命中目标额外承受最大生命百分比（首领降额，走百分比路径无视护甲）。
-  applySniperExecute(proj, spec, target) {
-    if (!target || target.dead) return;
-    const exe = spec.execute;
-    const pct = target.boss ? (exe.bossPct ?? exe.hpPct) : exe.hpPct;
-    if (!(pct > 0)) return;
-    const amount = target.maxHp * pct;
-    if (!(amount > 0)) return;
-    this.sim.damage(target, amount, {
-      ignoreArmor: true,
-      weapon: proj.towerType,
-      source: 'tower',
-      towerId: proj.tower?.id ?? null,
-    });
-    this.sim.addEffect({
-      kind: 'spark',
-      x: target.x,
-      y: target.y,
-      ttl: 0.2,
-      color: '#ffd36b',
-      weapon: proj.towerType,
-      ultimate: true,
-    });
+    if (hits > 0) this.sim.shake = Math.min(12, this.sim.shake + 1.6);
   }
 }

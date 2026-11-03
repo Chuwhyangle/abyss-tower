@@ -11,6 +11,16 @@ const FROSTHEART_FREEZE_DURATION = 0.4;
 const TOXIN_SPREAD_RADIUS = 1.5;
 const TOXIN_SPREAD_MAX_HOPS = 3;
 
+// 击退软锁（独塔震荡震啸的修口）：按质量衰减击退距离、单目标 0.4s 冷却、最多回退 3 格。
+const KNOCKBACK_COOLDOWN = 0.4;
+const KNOCKBACK_DEPTH_CAP = 3;
+
+function knockbackMassMul(enemy) {
+  if (enemy.boss || enemy.type === 'golem') return 0.15;
+  if (enemy.type === 'tank' || enemy.type === 'shielder') return 0.4;
+  return 1;
+}
+
 export class CombatSystem {
   constructor(sim) {
     this.sim = sim;
@@ -205,7 +215,18 @@ export class CombatSystem {
     }
     if (proj.knockback > 0) {
       // 击退只回退路径进度，位置在下个模拟步由 posAt 重新求得，不引入额外随机数。
-      enemy.progress = Math.max(0, enemy.progress - proj.knockback);
+      // 软锁：质量衰减（boss/golem ×0.15、tank/shielder ×0.4）、单目标 0.4s 冷却、
+      // 且只在与历史最远点齐平或越过时才击退（先把最远点推进到当前位置再回退），
+      // 每次击退都由「先前进」换来，敌人净位移永远向前，杜绝被无限推离导致波次不结束。
+      const now = this.sim.time;
+      if (now >= (enemy.knockbackUntil || 0)) {
+        const kb = proj.knockback * knockbackMassMul(enemy);
+        if (kb > 0 && enemy.progress >= (enemy.maxProgress ?? 0)) {
+          enemy.maxProgress = Math.max(enemy.maxProgress ?? 0, enemy.progress);
+          enemy.progress = Math.max(0, enemy.progress - kb, enemy.maxProgress - KNOCKBACK_DEPTH_CAP);
+          enemy.knockbackUntil = now + KNOCKBACK_COOLDOWN;
+        }
+      }
     }
     // 霜缚 T2：每 N 次霜塔命中冻结 duration 秒（复用 freezeUntil，解冻统一走 resolveThaw）。
     if (setMods.frostFreeze && proj.towerType === 'frost') {

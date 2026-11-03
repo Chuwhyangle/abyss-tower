@@ -138,7 +138,7 @@ test('扩展等级费用受遗物 costMul 影响', () => {
   assert.equal(sim.upgradeCost(tower), Math.round(EXTRA_COSTS[1] * 0.92), '第二次额外升级折后价');
 });
 
-test('3 级以内保持表内数值，第 4 级起每级 +12% 伤害 / +4% 射程 / +6% 攻速', () => {
+test('3 级以内保持表内数值，第 4 级起每级 +12% 伤害 / +7% 射程 / +6% 攻速', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'arrow', BASE_LEVELS - 1);
   const base = TOWERS.arrow.levels[BASE_LEVELS - 1];
@@ -151,13 +151,13 @@ test('3 级以内保持表内数值，第 4 级起每级 +12% 伤害 / +4% 射�
   assert.equal(sim.upgradeTower(tower), true);
   const lv4 = sim.statsFor(tower);
   assertClose(lv4.dmg, base.dmg * 1.12, '4 级伤害');
-  assertClose(lv4.range, base.range * 1.04, '4 级射程');
+  assertClose(lv4.range, base.range * 1.07, '4 级射程');
   assertClose(lv4.rate, base.rate * 1.06, '4 级攻速');
 
   while (tower.level < 5) sim.upgradeTower(tower);
   const lv6 = sim.statsFor(tower);
   assertClose(lv6.dmg, base.dmg * 1.12 ** 3, '6 级伤害按级数累乘');
-  assertClose(lv6.range, base.range * 1.04 ** 3, '6 级射程按级数累乘');
+  assertClose(lv6.range, base.range * 1.07 ** 3, '6 级射程按级数累乘');
   assertClose(lv6.rate, base.rate * 1.06 ** 3, '6 级攻速按级数累乘');
 });
 
@@ -345,7 +345,7 @@ test('读档/预览路径：未选进化不补乘、已选进化不重复乘算'
   assert.deepEqual(tower.evolutions, []);
   const stats = sim.computeTowerStats(tower);
   assertClose(stats.dmg, base.dmg * 1.12 ** tiers, '未选进化时只有等级成长');
-  assertClose(stats.range, base.range * 1.04 ** tiers);
+  assertClose(stats.range, base.range * 1.07 ** tiers);
   assertClose(stats.rate, base.rate * 1.06 ** tiers);
   assert.ok(stats.fullMap, '满级读档路径也带全图索敌');
 
@@ -353,7 +353,7 @@ test('读档/预览路径：未选进化不补乘、已选进化不重复乘算'
   tower.evolutions = TOWERS.cannon.evolutions.map((entry) => entry.id);
   const applied = sim.computeTowerStats(tower);
   assertClose(applied.dmg, base.dmg * 1.12 ** tiers * mul('dmg'), '已选进化与等级成长相乘');
-  assertClose(applied.range, base.range * 1.04 ** tiers * mul('range'));
+  assertClose(applied.range, base.range * 1.07 ** tiers * mul('range'));
   assertClose(applied.rate, base.rate * 1.06 ** tiers * mul('rate'));
 });
 
@@ -415,19 +415,34 @@ test('冻结中的飞行怪可被炮台锁定与命中，未冻结的飞行怪�
   assert.ok(flyer.hp < hpBefore, '冻结飞行怪被炮台命中扣血');
 });
 
-// ---------- 七塔大招（10 级独属大招） ----------
+// ---------- 七塔大招（覆盖脉冲 4 级提前解锁 / 电弧炮台仍守 10 级大招） ----------
 const NON_CANNON = ['arrow', 'frost', 'arc', 'poison', 'banner', 'shock', 'sniper'];
+const PULSE_TYPES = ['arrow', 'frost', 'poison', 'banner', 'shock', 'sniper'];
 
-test('七塔 10 级各返回大招规格，未到 10 级返回 null', () => {
+test('脉冲塔 4 级提前解锁大招规格，电弧仍守 10 级', () => {
   const { sim } = makeSim();
-  for (const type of NON_CANNON) {
-    const tower = sim.makeTower(type, 0, 0, MAX_LEVEL - 1, 0);
-    const spec = sim.hexRuntime.ultimateSpec(tower, sim.hexCtx);
-    assert.ok(spec, `${type} 应有大招规格`);
+  for (const type of PULSE_TYPES) {
+    const max = sim.makeTower(type, 0, 0, MAX_LEVEL - 1, 0);
+    const spec = sim.hexRuntime.ultimateSpec(max, sim.hexCtx);
+    assert.ok(spec, `${type} 10 级应有大招规格`);
     assert.ok(Number.isFinite(spec.every) && spec.every > 0, `${type} every 为正数`);
+    assert.ok(spec.pulse, `${type} 走覆盖脉冲`);
+
+    // 4 级（索引 3，第一条进化之后）提前解锁脉冲；3 级（索引 2）尚未解锁。
+    const unlocked = sim.makeTower(type, 0, 0, 3, 0);
+    assert.ok(sim.hexRuntime.ultimateSpec(unlocked, sim.hexCtx), `${type} 4 级提前解锁脉冲`);
+    const locked = sim.makeTower(type, 0, 0, 2, 0);
+    assert.equal(sim.hexRuntime.ultimateSpec(locked, sim.hexCtx), null, `${type} 3 级未解锁脉冲`);
   }
-  const low = sim.makeTower('arrow', 0, 0, 5, 0);
-  assert.equal(sim.hexRuntime.ultimateSpec(low, sim.hexCtx), null, '未到 10 级无大招');
+
+  // 电弧（连锁）与炮台（全图）不接入脉冲，仍守 10 级大招。
+  const arcLow = sim.makeTower('arc', 0, 0, 5, 0);
+  assert.equal(sim.hexRuntime.ultimateSpec(arcLow, sim.hexCtx), null, '电弧未到 10 级无大招');
+  const arcMax = sim.makeTower('arc', 0, 0, MAX_LEVEL - 1, 0);
+  assert.ok(sim.hexRuntime.ultimateSpec(arcMax, sim.hexCtx), '电弧 10 级解锁大招');
+  const cannonMax = sim.makeTower('cannon', 0, 0, MAX_LEVEL - 1, 0);
+  assert.ok(sim.hexRuntime.ultimateSpec(cannonMax, sim.hexCtx), '炮台 10 级解锁大招');
+  assert.equal(sim.hexRuntime.ultimateSpec(cannonMax, sim.hexCtx).pulse, undefined, '炮台无脉冲');
 });
 
 test('七塔 10 级常驻特性落进最终属性', () => {
@@ -447,13 +462,14 @@ test('七塔 10 级常驻特性落进最终属性', () => {
     const base = TOWERS.frost.levels[BASE_LEVELS - 1];
     assertClose(sim.statsFor(tower).slow, base.slow * 1.2, '霜塔减速 +20%');
   }
-  // 电弧塔：连锁 +1、跳转 +0.6 格。
+  // 电弧塔：连锁 +1、跳转 +0.6 格、伤害 ×0.8（轻回调）。
   {
     const { sim } = makeSim();
     const tower = buildTowerAt(sim, 'arc', MAX_LEVEL - 1);
     const base = TOWERS.arc.levels[BASE_LEVELS - 1];
     assertClose(sim.statsFor(tower).chain, base.chain + 1, '电弧连锁 +1');
     assertClose(sim.statsFor(tower).chainRange, TOWERS.arc.chainRange + 0.6, '电弧跳转 +0.6 格');
+    assertClose(sim.statsFor(tower).dmg, base.dmg * 1.12 ** tiers * 0.8, '电弧伤害 ×0.8');
   }
   // 毒雾塔：毒伤 +30%。
   {
@@ -462,12 +478,12 @@ test('七塔 10 级常驻特性落进最终属性', () => {
     const base = TOWERS.poison.levels[BASE_LEVELS - 1];
     assertClose(sim.statsFor(tower).dot, base.dot * 1.3, '毒雾毒伤 +30%');
   }
-  // 震荡塔：击退 +30%。
+  // 震荡塔：10 级常驻不再追加击退（软锁修复后击退由脉冲 knockbackMul 提供）。
   {
     const { sim } = makeSim();
     const tower = buildTowerAt(sim, 'shock', MAX_LEVEL - 1);
     const base = TOWERS.shock.levels[BASE_LEVELS - 1];
-    assertClose(sim.statsFor(tower).knockback, base.knockback * 1.3, '震荡击退 +30%');
+    assertClose(sim.statsFor(tower).knockback, base.knockback, '震荡常驻不追加击退');
   }
   // 狙击塔：射程 +15%、处决线阈值/倍率。
   {
@@ -475,7 +491,7 @@ test('七塔 10 级常驻特性落进最终属性', () => {
     const tower = buildTowerAt(sim, 'sniper', MAX_LEVEL - 1);
     const base = TOWERS.sniper.levels[BASE_LEVELS - 1];
     const stats = sim.statsFor(tower);
-    assertClose(stats.range, base.range * 1.04 ** tiers * 1.15, '狙击射程 +15%');
+    assertClose(stats.range, base.range * 1.07 ** tiers * 1.15, '狙击射程 +15%');
     assertClose(stats.executeThreshold, 0.3, '处决线阈值');
     assertClose(stats.executeMul, 0.4, '处决线倍率');
   }
@@ -485,66 +501,86 @@ test('七塔 10 级常驻特性落进最终属性', () => {
     const tower = buildTowerAt(sim, 'banner', MAX_LEVEL - 1);
     const raw = sim.computeTowerStats(tower);
     assert.equal(raw.selfAttack, true, '战旗自攻标记');
-    assertClose(raw.dmg, 45, '军令箭基础伤害');
-    assertClose(raw.rate, 1.1, '军令箭基础攻速');
+    assertClose(raw.dmg, 65 * 1.12 ** tiers, '军令箭基础伤害吃等级成长');
+    assertClose(raw.rate, 1.2 * 1.06 ** tiers, '军令箭基础攻速吃等级成长');
     const final = sim.statsFor(tower);
     assert.ok(final.dmg > raw.dmg, '军令箭吃自己光环（伤害）');
     assert.ok(final.rate > raw.rate, '军令箭吃自己光环（攻速）');
   }
 });
 
-test('弩塔大招：第 6 发贯穿 2 个目标各 60% 且必暴击', () => {
+test('弩塔大招：第 3 发全图取前 6 名各 180% 且必暴击', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'arrow', MAX_LEVEL - 1);
   const dmg = sim.statsFor(tower).dmg;
 
-  const spawnAt = (dx, dy) => {
+  const spawnAt = (dx, progress) => {
     sim.spawnEnemy('grunt');
     const enemy = sim.enemies[sim.enemies.length - 1];
     enemy.x = tower.x + dx;
-    enemy.y = tower.y + dy;
+    enemy.y = tower.y;
     enemy.armor = 0;
     enemy.hp = 100000;
     enemy.maxHp = 100000;
+    enemy.progress = progress;
     return enemy;
   };
-  const t0 = spawnAt(0.5, 0);
-  const t1 = spawnAt(1.0, 0);
-  const t2 = spawnAt(1.5, 0);
+  // 覆盖脉冲按 progress 降序取前 6 名；直击主目标 progress 最低，不占前 6 名额。
+  const front = [
+    spawnAt(0.6, 0.9), spawnAt(1.0, 0.85), spawnAt(1.4, 0.8),
+    spawnAt(1.8, 0.75), spawnAt(2.2, 0.7), spawnAt(2.6, 0.65),
+  ];
+  const behind = spawnAt(3.0, 0.5);
+  const aim = spawnAt(0.2, 0.1);
 
   const fireShot = () => {
-    sim.fire(tower, sim.statsFor(tower), t0);
+    sim.fire(tower, sim.statsFor(tower), aim);
     sim.projectileSystem.impact(sim.projectiles.pop());
   };
-  for (let i = 0; i < 5; i++) fireShot();
-  const t1Before = t1.hp;
-  const t2Before = t2.hp;
-  fireShot(); // 第 6 发触发
-  assertClose(t1Before - t1.hp, dmg * 0.6 * 2, '第 1 个穿透目标 60% 必暴击');
-  assertClose(t2Before - t2.hp, dmg * 0.6 * 2, '第 2 个穿透目标 60% 必暴击');
+  for (let i = 0; i < 2; i++) fireShot();
+  assert.ok(front.every((enemy) => enemy.hp === 100000), '前 2 发不触发脉冲');
+  const before = front.map((enemy) => enemy.hp);
+  const behindBefore = behind.hp;
+  fireShot(); // 第 3 发触发
+  for (let i = 0; i < 6; i++) {
+    assertClose(before[i] - front[i].hp, dmg * 1.8 * 2, `前第 ${i + 1} 名 180% 必暴击`);
+  }
+  assert.equal(behind.hp, behindBefore, '第 7 名不被脉冲命中');
 });
 
-test('霜塔大招：第 6 发冻结目标并附加冻结易伤', () => {
+test('霜塔大招：第 3 发全图取前 8 名冻结 0.8 秒（首领减半）', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'frost', MAX_LEVEL - 1);
 
-  sim.spawnEnemy('grunt');
-  const target = sim.enemies[sim.enemies.length - 1];
-  target.x = tower.x + 0.5;
-  target.y = tower.y;
-  target.armor = 0;
-  target.hp = 100000;
-  target.maxHp = 100000;
+  const spawn = (dx, progress, type = 'grunt') => {
+    sim.spawnEnemy(type);
+    const enemy = sim.enemies[sim.enemies.length - 1];
+    enemy.x = tower.x + dx;
+    enemy.y = tower.y;
+    enemy.armor = 0;
+    enemy.hp = 100000;
+    enemy.maxHp = 100000;
+    enemy.progress = progress;
+    return enemy;
+  };
+  const targets = [
+    spawn(0.6, 0.95), spawn(1.0, 0.9), spawn(1.4, 0.85), spawn(1.8, 0.8),
+    spawn(2.2, 0.75), spawn(2.6, 0.7, 'boss'), spawn(3.0, 0.65), spawn(3.4, 0.6),
+  ];
+  const behind = spawn(3.8, 0.5);
 
   const fireShot = () => {
-    sim.fire(tower, sim.statsFor(tower), target);
+    sim.fire(tower, sim.statsFor(tower), behind);
     sim.projectileSystem.impact(sim.projectiles.pop());
   };
-  for (let i = 0; i < 5; i++) fireShot();
-  assert.equal(target.freezeUntil, 0, '前 5 发不冻结');
-  fireShot(); // 第 6 发触发
-  assertClose(target.freezeUntil, sim.time + 1.0, '冻结 1.0 秒');
-  assertClose(target.freezeVuln, 0.25, '冻结易伤 +25%');
+  for (let i = 0; i < 2; i++) fireShot();
+  assert.equal(targets[0].freezeUntil, 0, '前 2 发不冻结');
+  fireShot(); // 第 3 发触发
+  for (let i = 0; i < 8; i++) {
+    const dur = i === 5 ? 0.4 : 0.8; // 第 6 名为首领，冻结减半
+    assertClose(targets[i].freezeUntil, sim.time + dur, `第 ${i + 1} 名冻结`);
+  }
+  assert.equal(behind.freezeUntil, 0, '第 9 名不冻结');
 });
 
 test('电弧塔大招：第 5 发连锁必暴击', () => {
@@ -570,35 +606,46 @@ test('电弧塔大招：第 5 发连锁必暴击', () => {
   assertClose(before - target.hp, dmg * 2, '第 5 发连锁必暴击（×2）');
 });
 
-test('毒雾塔大招：第 6 发即时结算当前毒伤并 1.5 格传播', () => {
+test('毒雾塔大招：第 3 发全图取前 8 名直击 250% 并即时结算当前毒伤 + 传播', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'poison', MAX_LEVEL - 1);
   const stats = sim.statsFor(tower);
 
-  const spawnAt = (dx, dy) => {
+  const spawnAt = (dx, progress) => {
     sim.spawnEnemy('grunt');
     const enemy = sim.enemies[sim.enemies.length - 1];
     enemy.x = tower.x + dx;
-    enemy.y = tower.y + dy;
+    enemy.y = tower.y;
     enemy.armor = 0;
     enemy.hp = 100000;
     enemy.maxHp = 100000;
+    enemy.progress = progress;
     return enemy;
   };
-  const t0 = spawnAt(0.5, 0);
-  const t1 = spawnAt(1.2, 0); // 距 t0 0.7 ≤ 1.5，会被传播
+  // t0 是主目标（progress 最高），前几发挂毒；7 名远距填充目标填满前 8 名额。
+  // t1 在 t0 的 1.5 格传播半径内但 progress 最低，不进前 8（只吃传播毒，不被脉冲直击）。
+  const t0 = spawnAt(0.5, 0.95);
+  const fillers = [
+    spawnAt(5, 0.9), spawnAt(6, 0.85), spawnAt(7, 0.8), spawnAt(8, 0.75),
+    spawnAt(9, 0.7), spawnAt(10, 0.65), spawnAt(11, 0.6),
+  ];
+  const t1 = spawnAt(1.2, 0.2);
 
   const fireShot = () => {
     sim.fire(tower, sim.statsFor(tower), t0);
     sim.projectileSystem.impact(sim.projectiles.pop());
   };
-  for (let i = 0; i < 5; i++) fireShot();
+  for (let i = 0; i < 2; i++) fireShot();
   assert.ok(t0.poisonDps > 0, '前几发已挂毒');
   const before = t0.hp;
-  fireShot(); // 第 6 发触发
-  assert.ok(before - t0.hp > stats.dmg, '即时结算当前毒伤（超出单发直击）');
+  const fillerBefore = fillers.map((enemy) => enemy.hp);
+  fireShot(); // 第 3 发触发
+  assert.ok(before - t0.hp > stats.dmg * 2.5, '即时结算当前毒伤（直击 250% + 毒伤结算）');
   assert.equal(t0.poisonDps, 0, '结算后目标毒伤清空');
-  assert.ok(t1.poisonDps > 0, '1.5 格内敌人被传播毒');
+  for (let i = 0; i < fillers.length; i++) {
+    assertClose(fillerBefore[i] - fillers[i].hp, stats.dmg * 2.5, `填充目标 ${i + 1} 直击 250%`);
+  }
+  assert.ok(t1.poisonDps > 0, '1.5 格内敌人被传播毒（不在前 8 名，不被脉冲直击）');
 });
 
 test('战旗大招：自攻后不再空转，正常索敌开火', () => {
@@ -617,110 +664,187 @@ test('战旗大招：自攻后不再空转，正常索敌开火', () => {
   assert.equal(sim.projectiles[0].target, near, '军令箭锁定光环内目标');
 });
 
-test('战旗大招：第 5 发号令齐射（光环内 4 目标 150%）+ 攻速 surge', () => {
+test('战旗大招：第 3 发全图取前 8 名号令齐射 270% + 攻速 surge', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'banner', MAX_LEVEL - 1);
   const stats = sim.statsFor(tower);
 
-  // 远处主目标（超光环范围）只吃直击；4 名光环内敌人吃齐射。
-  const far = (() => {
+  const spawn = (dx, progress) => {
     sim.spawnEnemy('grunt');
     const enemy = sim.enemies[sim.enemies.length - 1];
-    enemy.x = tower.x + 20;
+    enemy.x = tower.x + dx;
     enemy.y = tower.y;
     enemy.hp = 100000;
     enemy.maxHp = 100000;
+    enemy.armor = 0;
+    enemy.progress = progress;
     return enemy;
-  })();
-  const others = [];
-  for (let i = 0; i < 4; i++) {
-    sim.spawnEnemy('grunt');
-    const enemy = sim.enemies[sim.enemies.length - 1];
-    enemy.x = tower.x + 0.4 + i * 0.4;
-    enemy.y = tower.y + 0.3;
-    enemy.hp = 100000;
-    enemy.maxHp = 100000;
-    others.push(enemy);
-  }
+  };
+  // 直击主目标 progress 最低，不占前 8 名额；8 名高 progress 敌人吃号令齐射。
+  const aim = spawn(0.3, 0.1);
+  const top = [
+    spawn(0.8, 0.9), spawn(1.2, 0.85), spawn(1.6, 0.8), spawn(2.0, 0.75),
+    spawn(2.4, 0.7), spawn(2.8, 0.65), spawn(3.2, 0.6), spawn(3.6, 0.55),
+  ];
+  const behind = spawn(4.0, 0.5);
 
   const fireShot = () => {
-    sim.fire(tower, sim.statsFor(tower), far);
+    sim.fire(tower, sim.statsFor(tower), aim);
     sim.projectileSystem.impact(sim.projectiles.pop());
   };
-  for (let i = 0; i < 4; i++) fireShot();
-  assert.ok(others.every((enemy) => enemy.hp === 100000), '前 4 发不触发齐射');
-  const before = others.map((enemy) => enemy.hp);
-  fireShot(); // 第 5 发触发
-  for (let i = 0; i < 4; i++) {
-    assertClose(before[i] - others[i].hp, stats.dmg * 1.5, `齐射第 ${i + 1} 目标 150%`);
+  for (let i = 0; i < 2; i++) fireShot();
+  assert.ok(top.every((enemy) => enemy.hp === 100000), '前 2 发不触发齐射');
+  const before = top.map((enemy) => enemy.hp);
+  const behindBefore = behind.hp;
+  fireShot(); // 第 3 发触发
+  for (let i = 0; i < 8; i++) {
+    assertClose(before[i] - top[i].hp, stats.dmg * 2.7, `齐射第 ${i + 1} 目标 270%`);
   }
+  assert.equal(behind.hp, behindBefore, '第 9 名不进入齐射');
   assert.ok(tower.bannerSurgeUntil > sim.time, '进入攻速 surge 窗口');
   assertClose(sim.statsFor(tower).rate, stats.rate * 1.4, 'surge 攻速 ×1.4');
 });
 
-test('震荡塔大招：第 4 发溅射 ×1.6、击退 ×2、减速 +0.2', () => {
+test('震荡塔大招：触发不改写投射物，改为 8 格震啸（伤害 + 击退 + 减速）', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'shock', MAX_LEVEL - 1);
   const stats = sim.statsFor(tower);
 
+  // 触发当次不再给投射物乘溅射/击退/减速，改由 impact 的震啸脉冲按 8 格半径结算。
   sim.spawnEnemy('grunt');
-  const target = sim.enemies[sim.enemies.length - 1];
-  target.x = tower.x + 0.5;
-  target.y = tower.y;
-  target.hp = 100000;
-  target.maxHp = 100000;
-
-  for (let i = 0; i < 3; i++) {
-    sim.fire(tower, sim.statsFor(tower), target);
+  const aim = sim.enemies[sim.enemies.length - 1];
+  aim.x = tower.x + 1;
+  aim.y = tower.y;
+  aim.hp = 100000;
+  aim.maxHp = 100000;
+  for (let i = 0; i < 2; i++) {
+    sim.fire(tower, sim.statsFor(tower), aim);
     const proj = sim.projectiles.pop();
     assertClose(proj.splash, stats.splash, `第 ${i + 1} 发溅射不变`);
   }
-  sim.fire(tower, sim.statsFor(tower), target); // 第 4 发触发
+  sim.fire(tower, sim.statsFor(tower), aim); // 第 3 发触发
   const proj = sim.projectiles.pop();
-  assertClose(proj.splash, stats.splash * 1.6, '溅射 ×1.6');
-  assertClose(proj.knockback, stats.knockback * 2, '击退 ×2');
-  assertClose(proj.slow, stats.slow + 0.2, '减速 +0.2');
+  assertClose(proj.splash, stats.splash, '触发发溅射不变');
+  assertClose(proj.knockback, stats.knockback, '触发发击退不变');
+  assertClose(proj.slow, stats.slow, '触发发减速不变');
+
+  // 直接构造一发已触发震啸的炮弹验证脉冲：圆心=最深入敌人，8 格内结算、8 格外不受。
+  const pulseProj = {
+    id: 999,
+    x: tower.x,
+    y: tower.y,
+    towerType: 'shock',
+    tower,
+    dmg: 100,
+    splash: 0,
+    slow: 0.2,
+    slowDur: 1.5,
+    knockback: 1,
+    ignoreArmor: false,
+    target: null,
+    ultimate: { pulse: { radius: 8, damageMul: 3.0, knockbackMul: 1.2, slowBonus: 0.1 } },
+    ultimateSpec: { pulse: { radius: 8, damageMul: 3.0, knockbackMul: 1.2, slowBonus: 0.1 } },
+  };
+  const spawn = (dx, progress) => {
+    sim.spawnEnemy('grunt');
+    const enemy = sim.enemies[sim.enemies.length - 1];
+    enemy.x = tower.x + dx;
+    enemy.y = tower.y;
+    enemy.armor = 0;
+    enemy.hp = 100000;
+    enemy.maxHp = 100000;
+    enemy.progress = progress;
+    return enemy;
+  };
+  const center = spawn(1, 0.9); // 最深入 → 圆心
+  const inner = spawn(4, 0.5); // 距圆心 3 ≤ 8
+  const outer = spawn(12, 0.8); // 距圆心 11 > 8
+
+  sim.projectileSystem.impact(pulseProj);
+  assertClose(100000 - center.hp, 300, '圆心目标吃 300 震啸伤害');
+  assertClose(100000 - inner.hp, 300, '8 格内目标吃 300 震啸伤害');
+  assert.equal(outer.hp, 100000, '8 格外目标不受震啸');
+  assertClose(inner.progress, 0, '8 格内目标被击退（0.5 → 0）');
+  assertClose(inner.slowAmt, 0.3, '8 格内目标减速 +0.1（0.2+0.1）');
 });
 
-test('狙击塔大招：第 4 发无视射程处决 250% + 6% 最大生命', () => {
+test('震荡击退软锁：质量衰减 + 0.4s 冷却 + 3 格深度封顶 + 净前进', () => {
+  const { sim } = makeSim();
+  const hitBig = { dmg: 0, towerType: 'shock', slow: 0, slowDur: 0, knockback: 10, ignoreArmor: true };
+  const hitSmall = { dmg: 0, towerType: 'shock', slow: 0, slowDur: 0, knockback: 2, ignoreArmor: true };
+
+  const spawn = (type, progress) => {
+    sim.spawnEnemy(type);
+    const enemy = sim.enemies[sim.enemies.length - 1];
+    enemy.progress = progress;
+    return enemy;
+  };
+
+  // 质量衰减：首领 ×0.15、石盾 ×0.4（击退 2 格，不触深度封顶）。
+  const boss = spawn('boss', 10);
+  sim.hitEnemy(boss, hitSmall);
+  assertClose(boss.progress, 9.7, '首领击退按质量 ×0.15');
+  const shielder = spawn('shielder', 10);
+  sim.hitEnemy(shielder, hitSmall);
+  assertClose(shielder.progress, 9.2, '石盾击退按质量 ×0.4');
+
+  // 深度封顶：击退 10 格但最多回退 3 格，并记录历史最远点。
+  const grunt = spawn('grunt', 8);
+  sim.hitEnemy(grunt, hitBig);
+  assertClose(grunt.progress, 5, '击退最多回退 3 格');
+  assertClose(grunt.maxProgress, 8, '记录历史最远点');
+
+  // 净前进：未越过历史最远点前不再被击退。
+  const behind = spawn('grunt', 4);
+  behind.maxProgress = 6;
+  sim.hitEnemy(behind, hitBig);
+  assertClose(behind.progress, 4, '未到历史最远点不击退');
+
+  // 冷却：0.4s 内第二次击退被忽略。
+  const cooled = spawn('grunt', 10);
+  sim.hitEnemy(cooled, hitBig);
+  assertClose(cooled.progress, 7, '首次击退生效');
+  sim.hitEnemy(cooled, hitBig);
+  assertClose(cooled.progress, 7, '0.4s 冷却内不重复击退');
+});
+
+test('狙击塔大招：第 2 发全图取前 6 名处决 260% + 6% 最大生命', () => {
   const { sim } = makeSim();
   const tower = buildTowerAt(sim, 'sniper', MAX_LEVEL - 1);
   const stats = sim.statsFor(tower);
 
-  // 近处目标（正常射程内）作初始锁定；远处目标（超射程）progress 更高，全图索敌优先。
-  const near = (() => {
+  const spawn = (dx, progress) => {
     sim.spawnEnemy('grunt');
     const enemy = sim.enemies[sim.enemies.length - 1];
-    enemy.x = tower.x + 1;
+    enemy.x = tower.x + dx;
     enemy.y = tower.y;
-    enemy.hp = 100000;
-    enemy.maxHp = 100000;
-    return enemy;
-  })();
-  const far = (() => {
-    sim.spawnEnemy('grunt');
-    const enemy = sim.enemies[sim.enemies.length - 1];
-    enemy.x = tower.x + 20;
-    enemy.y = tower.y;
-    enemy.progress = 0.9;
     enemy.armor = 0;
     enemy.hp = 100000;
     enemy.maxHp = 100000;
+    enemy.progress = progress;
     return enemy;
-  })();
+  };
+  // 直击主目标 progress 最低，不占前 6 名额；6 名高 progress 敌人吃处决。
+  const aim = spawn(0.5, 0.1);
+  const top = [
+    spawn(1, 0.9), spawn(1.6, 0.85), spawn(2.2, 0.8),
+    spawn(2.8, 0.75), spawn(3.4, 0.7), spawn(4.0, 0.65),
+  ];
+  const behind = spawn(4.6, 0.5);
 
-  for (let i = 0; i < 3; i++) {
-    sim.fire(tower, sim.statsFor(tower), near);
-    sim.projectiles.pop();
+  const fireShot = () => {
+    sim.fire(tower, sim.statsFor(tower), aim);
+    sim.projectileSystem.impact(sim.projectiles.pop());
+  };
+  for (let i = 0; i < 1; i++) fireShot();
+  assert.ok(top.every((enemy) => enemy.hp === 100000), '前 1 发不触发处决');
+  const before = top.map((enemy) => enemy.hp);
+  const behindBefore = behind.hp;
+  fireShot(); // 第 2 发触发
+  for (let i = 0; i < 6; i++) {
+    assertClose(before[i] - top[i].hp, stats.dmg * 2.6 + 100000 * 0.06, `前第 ${i + 1} 名 260% + 6%`);
   }
-  sim.fire(tower, sim.statsFor(tower), near); // 第 4 发触发
-  const proj = sim.projectiles.pop();
-  assert.equal(proj.target, far, '无视射程处决锁定远处目标');
-  assertClose(proj.dmg, stats.dmg * 2.5, '处决 250%');
-
-  const before = far.hp;
-  sim.projectileSystem.impact(proj);
-  assertClose(before - far.hp, stats.dmg * 2.5 + far.maxHp * 0.06, '250% + 6% 最大生命');
+  assert.equal(behind.hp, behindBefore, '第 7 名不进入处决');
 });
 
 test('狙击塔处决线：对 <30% 血目标伤害 +40%', () => {

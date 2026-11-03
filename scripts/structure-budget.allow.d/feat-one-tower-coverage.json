@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "tests/hex-one-tower.test.mjs",
+      "maxLines": 900,
+      "owner": "feat-one-tower-coverage"
+    }
+  ]
+}
