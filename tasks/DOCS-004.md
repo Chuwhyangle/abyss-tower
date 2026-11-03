@@ -1,7 +1,7 @@
 ---
 id: DOCS-004
 title: 爬塔模式 PHASE 冻结表：把 TODO-12 三路综合草案落成 docs/PHASE_TOWER.md
-status: ready
+status: done
 labels:
   - docs
 parent: null
