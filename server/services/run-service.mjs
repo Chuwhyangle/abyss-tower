@@ -3,6 +3,7 @@
 import crypto from 'node:crypto';
 
 import { hydrateRun } from '../db.mjs';
+import { readTalent } from '../db/accounts.mjs';
 import {
   abandonActiveRuns,
   findActiveRun,
@@ -109,6 +110,8 @@ export class RunService {
       ruleset: run.ruleset || null,
       mutations: run.ruleset?.mutations || null,
       status: run.status,
+      // 续玩/恢复时按账号当前天赋读入，客户端据此重建 Simulation 的 talentMods。
+      talent: readTalent(run.token),
     };
     if (withVictory) payload.victory = !!run.victory;
     // 刷新次数：基础（固定规则模式恒为 1）算清后交给主海克斯加码（遗物吞噬者 +2 / 赌徒之骰 +1）。

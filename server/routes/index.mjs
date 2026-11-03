@@ -15,6 +15,7 @@ import { BountyRoutes } from './bounties.mjs';
 import { SeasonPassRoutes } from './season-pass.mjs';
 import { NotificationRoutes } from './notifications.mjs';
 import { StatsRoutes } from './stats.mjs';
+import { TalentRoutes } from './talent.mjs';
 import { ReplayRoutes } from './replay.mjs';
 import { ReplayHistoryRoutes } from './replays.mjs';
 
@@ -48,6 +49,7 @@ export function createApiRouter() {
     .addProtected(new SeasonPassRoutes())
     .addProtected(new NotificationRoutes())
     .addProtected(new StatsRoutes())
+    .addProtected(new TalentRoutes())
     .addProtected(new ReplayRoutes())
     .addProtected(new ReplayHistoryRoutes());
 }

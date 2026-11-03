@@ -853,6 +853,7 @@ export default {
   'shell.closeCosmetics': 'Close appearance panel',
   'shell.seasonPassTitle': 'Season pass',
   'shell.closeSeasonPass': 'Close season pass panel',
+  'shell.closeMetaTree': 'Close talent tree panel',
   'shell.gameScreen': 'Battlefield',
   'shell.statusBar': 'Status bar',
   'shell.situation': 'Battle status',

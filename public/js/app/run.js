@@ -331,6 +331,8 @@ export class RunController {
       kills: snapshot?.kills || 0,
       startedAt: snapshot?.startedAt,
       restored: !!snapshot,
+      // 账号天赋被动：服务端开局/续玩读入（data.talent），零投入得到空 mods 不改变确定性。
+      talent: data.talent,
       // 可破坏物：只恢复拆除结果（布点随地图恢复）；旧档缺字段时按「全部存活」处理。
       destructibleState: snapshot?.destructibles,
       unlockedTowers: data.towersUnlocked || ['arrow', 'cannon', 'frost'],
@@ -453,6 +455,8 @@ export class RunController {
         // 主海克斯：旧局没有该字段 → 无海克斯照常续玩/结算。
         hex: run.hex || null,
         hexOffers: run.hexOffers || [],
+        // 账号天赋：续玩按服务端当前读数重建被动，零投入为空对象。
+        talent: run.talent,
       };
       this.beginGame(data, snap);
       // 未结算的事件节点优先恢复（快照里只存事件历史，待办事件由波次推导）。

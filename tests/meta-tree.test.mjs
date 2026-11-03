@@ -26,6 +26,9 @@ const UNIT_DB = path.join(os.tmpdir(), `rtd-meta-tree-unit-${process.pid}-${Date
 let createAccount = null;
 let readTalent = null;
 let writeTalent = null;
+let readLegacy = null;
+let grantLegacyInTx = null;
+let TalentRoutes = null;
 
 function removeDb(file) {
   for (const suffix of ['', '-wal', '-shm']) {
@@ -42,11 +45,33 @@ before(async () => {
   process.env.DB_BACKUP = '0';
   await import('../server/db/index.mjs');
   ({ createAccount, readTalent, writeTalent } = await import('../server/db/accounts.mjs'));
+  ({ readLegacy, grantLegacyInTx } = await import('../server/db/legacy.mjs'));
+  ({ TalentRoutes } = await import('../server/routes/talent.mjs'));
 });
 
 after(() => {
   removeDb(UNIT_DB);
 });
+
+// 薄路由测试用假上下文：只捕获 json/fail 调用与 readJson 请求体，不拉起 HTTP 服务。
+function fakeCtx(token, body = {}) {
+  const calls = [];
+  return {
+    token,
+    calls,
+    async readJson() {
+      return body;
+    },
+    json(status, data) {
+      calls.push({ kind: 'json', status, data });
+      return true;
+    },
+    fail(status, message, code = null) {
+      calls.push({ kind: 'fail', status, message, code });
+      return true;
+    },
+  };
+}
 
 function makeSim({ talent } = {}) {
   const seed = 'meta-tree-seed';
@@ -242,4 +267,96 @@ test('toSnapshot 不写天赋字段，快照仍与旧存档兼容', () => {
   assert.equal('talent' in snapshot, false, '天赋是账号级永久状态，不应混入单局快照');
   assert.equal('talentMods' in snapshot, false);
   assert.equal(typeof snapshot.seed, 'string');
+});
+
+test('talent 路由：读取返回天赋、传承余额、8 节点视图与已生效 mods', () => {
+  const account = createAccount({});
+  grantLegacyInTx(account.id, 5);
+  writeTalent(account.id, { points: 3, nodes: { tower_atk: 1 } });
+
+  const ctx = fakeCtx(account.id);
+  const routes = new TalentRoutes();
+  routes.list(ctx);
+
+  assert.equal(ctx.calls.length, 1);
+  const res = ctx.calls[0];
+  assert.equal(res.kind, 'json');
+  assert.equal(res.status, 200);
+  assert.equal(res.data.wallet.legacyCores, 5, '传承之核余额应来自 legacy 材料');
+  assert.equal(res.data.talent.nodes.tower_atk, 1);
+  assert.equal(res.data.nodes.length, 8, '三系 8 节点视图应齐全');
+  const atk = res.data.nodes.find((node) => node.id === 'tower_atk');
+  assert.equal(atk.rank, 1);
+  assert.equal(atk.maxed, false);
+  assert.ok(atk.canInvest, '余额充足且未满级应可投入');
+  assert.equal(res.data.mods.dmgAll, 0.001, 'mods 应折叠 tower_atk 的 dmgAll');
+});
+
+test('talent 路由：投入节点扣传承之核并持久化，余额不足/满级/未知节点分路径拒绝', async () => {
+  const account = createAccount({});
+  grantLegacyInTx(account.id, 3);
+  const routes = new TalentRoutes();
+
+  const invest = async (nodeId) => {
+    const ctx = fakeCtx(account.id, { nodeId });
+    await routes.invest(ctx);
+    return ctx.calls[0];
+  };
+
+  // 第一次投入：成功，扣 1 颗核，rank 1，points 与 spent 同步 +1。
+  const first = await invest('tower_atk');
+  assert.equal(first.kind, 'json');
+  assert.equal(first.status, 200);
+  assert.equal(first.data.wallet.legacyCores, 2);
+  assert.equal(first.data.talent.nodes.tower_atk, 1);
+  assert.equal(first.data.talent.points, 1);
+  assert.equal(first.data.talent.spent, 1);
+  assert.deepEqual(first.data.invested, { nodeId: 'tower_atk', from: 0, to: 1, cost: 1 });
+
+  // 第二次投入到满级（maxRank=2）。
+  const second = await invest('tower_atk');
+  assert.equal(second.kind, 'json');
+  assert.equal(second.data.talent.nodes.tower_atk, 2);
+  assert.equal(second.data.wallet.legacyCores, 1);
+
+  // 已满级：拒绝，不再扣材料。
+  const maxed = await invest('tower_atk');
+  assert.equal(maxed.kind, 'fail');
+  assert.equal(maxed.status, 409);
+  assert.equal(maxed.code, 'MAXED');
+  assert.equal(readLegacy(account.id).materials.legacy_core, 1, '满级拒绝不得扣材料');
+
+  // 花掉最后一颗核。
+  const spend = await invest('economy_kill');
+  assert.equal(spend.kind, 'json');
+  assert.equal(spend.data.wallet.legacyCores, 0);
+
+  // 余额不足：拒绝，一行都不改。
+  const broke = await invest('skill_cd');
+  assert.equal(broke.kind, 'fail');
+  assert.equal(broke.status, 400);
+  assert.equal(broke.code, 'INSUFFICIENT_LEGACY');
+  assert.equal(readTalent(account.id).nodes.skill_cd, undefined, '余额不足不得写入节点');
+
+  // 未知节点：拒绝。
+  const unknown = await invest('nope');
+  assert.equal(unknown.kind, 'fail');
+  assert.equal(unknown.status, 400);
+  assert.equal(unknown.code, 'INVALID_NODE');
+});
+
+test('talent 路由：投入失败（余额不足）不扣材料也不改天赋', async () => {
+  const account = createAccount({});
+  const routes = new TalentRoutes();
+
+  const beforeLegacy = readLegacy(account.id);
+  const beforeTalent = readTalent(account.id);
+
+  const ctx = fakeCtx(account.id, { nodeId: 'tower_atk' });
+  await routes.invest(ctx);
+
+  assert.equal(ctx.calls[0].kind, 'fail');
+  assert.equal(ctx.calls[0].code, 'INSUFFICIENT_LEGACY');
+  assert.deepEqual(readLegacy(account.id), beforeLegacy, '失败后传承状态不变');
+  assert.deepEqual(readTalent(account.id), beforeTalent, '失败后天赋状态不变');
 });

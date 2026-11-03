@@ -8,6 +8,7 @@ import {
   participationDays,
 } from '../db/runs.mjs';
 import { readSelectedSkill, readSkillLevel, skillUnlocked } from '../db/skills.mjs';
+import { readTalent } from '../db/accounts.mjs';
 import { CONTENT_VERSION } from '../config.mjs';
 import { boardKeyFor } from '../db/leaderboard-sql.mjs';
 import {
@@ -396,6 +397,8 @@ export function planRunStart({ token, profile, body, testSeed }) {
       weeklyAttemptsLeft: mode === 'weekly' ? weeklyAttemptsLeft(token, weekly.week) : null,
       daily: dailyInfo,
       weekly: weeklyInfo,
+      // 账号天赋被动：开局从 player_kv 读入，客户端据此注入 Simulation（talentMods 生效）。
+      talent: readTalent(token),
     },
   };
 }

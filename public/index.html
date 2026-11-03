@@ -41,6 +41,7 @@
               <button id="btn-stats" class="btn small" type="button" data-i18n="title.stats">生涯</button>
               <button id="btn-season" class="btn small" type="button" data-i18n="title.season">赛季</button>
               <button id="btn-season-pass" class="btn small" type="button" data-i18n="shell.seasonPass">通行证</button>
+              <button id="btn-meta-tree" class="btn small" type="button" data-i18n="talent.title">天赋树</button>
               <button id="btn-relic-codex" class="btn small" type="button" data-i18n="title.relicCodex">遗物图鉴</button>
               <button id="btn-share" class="btn small" type="button" data-i18n="shell.shareCode">分享码</button>
               <button id="btn-help" class="btn small" type="button" data-i18n="title.help">玩法</button>
@@ -103,6 +104,16 @@
               <button id="btn-season-pass-close" class="icon-btn" type="button" title="关闭通行证面板" aria-label="关闭通行证面板" data-i18n-title="shell.closeSeasonPass" data-i18n-aria="shell.closeSeasonPass"><span data-icon="close" aria-hidden="true"></span></button>
             </div>
             <div id="season-pass-list" class="achievements-list"></div>
+          </div>
+
+          <div id="meta-tree-panel" class="achievements-panel meta-tree-panel" hidden>
+            <div class="achievements-head">
+              <h2 data-i18n="talent.title">天赋树</h2>
+              <span id="meta-tree-summary" class="achievements-progress"></span>
+              <span id="meta-tree-balance" class="achievements-progress meta-tree-balance"></span>
+              <button id="btn-meta-tree-close" class="icon-btn" type="button" title="关闭天赋树面板" aria-label="关闭天赋树面板" data-i18n-title="shell.closeMetaTree" data-i18n-aria="shell.closeMetaTree"><span data-icon="close" aria-hidden="true"></span></button>
+            </div>
+            <div id="meta-tree-list" class="achievements-list"></div>
           </div>
 
           <div id="relic-codex-panel" class="relic-codex-panel" hidden></div>
@@ -199,6 +210,7 @@
   <script type="module" src="/js/leaderboard-ui.js"></script>
   <script type="module" src="/js/season-ui.js"></script>
   <script type="module" src="/js/ui/season-pass.js"></script>
+  <script type="module" src="/js/ui/meta-tree.js"></script>
   <script type="module" src="/js/relic-codex-ui.js"></script>
   <script type="module" src="/js/daily-history-ui.js"></script>
   <script type="module" src="/js/share-ui.js"></script>

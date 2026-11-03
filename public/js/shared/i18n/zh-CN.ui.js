@@ -853,6 +853,7 @@ export default {
   'shell.closeCosmetics': '关闭外观面板',
   'shell.seasonPassTitle': '赛季通行证',
   'shell.closeSeasonPass': '关闭通行证面板',
+  'shell.closeMetaTree': '关闭天赋树面板',
   'shell.gameScreen': '战场',
   'shell.statusBar': '状态栏',
   'shell.situation': '战况',
