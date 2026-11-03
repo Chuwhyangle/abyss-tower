@@ -1,7 +1,7 @@
 ---
 id: feat-tower-stage1-client
 title: 爬塔·阶段1客户端：api/combat/run/nodes 节点图循环 + sim mode 分支
-status: ready
+status: done
 labels:
   - feat
 parent: null
