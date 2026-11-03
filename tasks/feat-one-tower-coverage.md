@@ -1,7 +1,7 @@
 ---
 id: feat-one-tower-coverage
 title: 独塔覆盖脉冲 + 震荡软锁修复 + 数值回调（非 AOE 塔回目标区间）
-status: needs-human
+status: done
 labels:
   - feat
 parent: null
