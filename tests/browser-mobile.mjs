@@ -16,6 +16,17 @@ const SEED_SCRIPT = `
       headers.set('x-test-seed', '${TEST_SEED}');
       return originalFetch(input, { ...init, headers });
     };
+    // 无头 Chrome 里 requestFullscreen / orientation.lock 会让渲染进程主线程挂起（CDP 停摆）。
+    // 移动端验收用 CDP 视口模拟控制横竖屏，不依赖真实全屏/方向锁定，故在本环境降级为 no-op。
+    Element.prototype.requestFullscreen = () => Promise.resolve();
+    try {
+      Object.defineProperty(screen, 'orientation', {
+        value: { lock: () => Promise.resolve(), unlock: () => {} },
+        configurable: true,
+      });
+    } catch {
+      /* screen.orientation 只读的环境忽略 */
+    }
   })();
 `;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -161,13 +172,29 @@ async function main() {
     await browser.evaluate(`window.__rtd.state.sim.addRelic('sharp')`);
     await browser.evaluate(`document.querySelector('#btn-relics-mobile').click()`);
     await browser.waitFor(`document.querySelector('.relic-panel').classList.contains('open')`, '遗物抽屉');
-    const relicText = await browser.evaluate(`(() => {
+    const drawerInfo = await browser.evaluate(`(() => {
       const panel = document.querySelector('.relic-panel');
-      const tip = panel.querySelector('.relic-chip')?.dataset.tip || '';
-      return panel.textContent + ' ' + tip;
+      // 起始遗物会排在新增遗物之前：升级效果只在对应 chip 的 data-tip 里，聚合全部 chip 再断言。
+      const tips = [...panel.querySelectorAll('.relic-chip')].map((chip) => chip.dataset.tip || '').join(' ');
+      const nextWave = document.querySelector('#next-wave-panel');
+      const bonus = document.querySelector('#btn-bonus-summary');
+      return {
+        text: panel.textContent,
+        tips,
+        nextWaveHidden: nextWave.hidden,
+        nextWaveH: nextWave.getBoundingClientRect().height,
+        bonusH: bonus.getBoundingClientRect().height,
+      };
     })()`);
-    if (!relicText.includes('锐利箭簇') || !relicText.includes('25%')) {
+    if (!drawerInfo.text.includes('锐利箭簇') || !drawerInfo.tips.includes('25%')) {
       throw new Error('移动端遗物抽屉内容错误');
+    }
+    // AC-1：下一波情报与加成一览入口也随抽屉可见，不再被 display:none 丢失。
+    if (drawerInfo.nextWaveHidden || drawerInfo.nextWaveH <= 0) {
+      throw new Error('移动端抽屉缺少下一波情报');
+    }
+    if (drawerInfo.bonusH <= 0) {
+      throw new Error('移动端抽屉缺少加成一览入口');
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-04-relics.png`);
     await browser.evaluate(`document.querySelector('#btn-relic-collapse').click()`);
@@ -193,10 +220,16 @@ async function main() {
     const target = await browser.evaluate(`(() => {
       const sim = window.__rtd.state.sim;
       const map = sim.map;
+      // 触屏在可破坏物吸附半径内会优先打开矿脉面板：建造格必须避开可破坏物，否则点塔建塔都会被劫持。
+      const destructibles = (sim.destructibles || []).filter((d) => !d.destroyed);
+      const nearDestructible = (c, r) => destructibles.some((d) => {
+        const dc = d.c - c, dr = d.r - r;
+        return dc * dc + dr * dr <= 1.2 * 1.2;
+      });
       for (const p of map.pathCells) {
         for (const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]) {
           const c = p.c + dc, r = p.r + dr;
-          if (map.buildable[r]?.[c]) {
+          if (map.buildable[r]?.[c] && !nearDestructible(c, r)) {
             const rect = document.querySelector('#game-canvas').getBoundingClientRect();
             return {
               c, r,
@@ -223,6 +256,88 @@ async function main() {
       throw new Error(`横屏 HUD 入口提示异常：${JSON.stringify(builtMap)}`);
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-05-landscape.png`);
+
+    // 塔面板与触控目标（AC-2/AC-3）：触屏再次点塔打开面板，升级/出售/进化、倍速/暂停 ≥44px。
+    await tap(target.x, target.y);
+    await browser.waitFor(`!document.querySelector('#tower-panel').hidden`, '塔面板打开');
+    const towerPanel = await browser.evaluate(`(() => {
+      const tp = document.querySelector('#tower-panel');
+      const rect = tp.getBoundingClientRect();
+      const btns = [...tp.querySelectorAll('.btn')].map((b) => {
+        const r = b.getBoundingClientRect();
+        return { cls: b.className, w: r.width, h: r.height };
+      });
+      return { rect: rect.toJSON(), btns, iw: innerWidth, ih: innerHeight };
+    })()`);
+    if (towerPanel.btns.length < 2) throw new Error('塔面板缺少升级/出售按钮');
+    for (const b of towerPanel.btns) {
+      if (b.w < 44 || b.h < 44) throw new Error(`塔面板按钮触控目标不足 44px：${JSON.stringify(b)}`);
+    }
+    if (
+      towerPanel.rect.left < 0 ||
+      towerPanel.rect.right > towerPanel.iw + 1 ||
+      towerPanel.rect.bottom > towerPanel.ih + 1
+    ) {
+      throw new Error(`塔面板超出视口：${JSON.stringify(towerPanel.rect)}`);
+    }
+    // 满级进化按钮同样 ≥44px
+    const evolveTargets = await browser.evaluate(`(() => {
+      const sim = window.__rtd.state.sim;
+      const tower = sim.towers[0];
+      tower.level = sim.towerMaxLevel(tower) - 1;
+      window.__rtd.ui.showTowerPanel(tower);
+      return [...document.querySelectorAll('#tower-panel .tp-evolution-actions .btn')].map((b) => {
+        const r = b.getBoundingClientRect();
+        return { cls: b.className, w: r.width, h: r.height };
+      });
+    })()`);
+    if (!evolveTargets.length) throw new Error('满级塔面板未显示进化按钮');
+    for (const b of evolveTargets) {
+      if (b.w < 44 || b.h < 44) throw new Error(`进化按钮触控目标不足 44px：${JSON.stringify(b)}`);
+    }
+    await browser.evaluate(`window.__rtd.ui.hideTowerPanel()`);
+    // 倍速与暂停按钮触控目标（AC-2）
+    const speedTargets = await browser.evaluate(`(() => [...document.querySelectorAll('.speed-btn')].map((b) => {
+      const r = b.getBoundingClientRect();
+      return { speed: b.dataset.speed, w: r.width, h: r.height };
+    }))()`);
+    if (speedTargets.length < 4) throw new Error('倍速/暂停按钮数量异常');
+    for (const s of speedTargets) {
+      if (s.w < 44 || s.h < 44) throw new Error(`倍速/暂停触控目标不足 44px：${JSON.stringify(s)}`);
+    }
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-05b-tower-panel.png`);
+
+    // offer 弹窗（遗物三选一，AC-3）：三张卡在视口内可读，选卡后确定可用。
+    const offers = [
+      { kind: 'relic', id: 'sharp', fromLevel: 1, toLevel: 2 },
+      { kind: 'gold', amount: 120 },
+      { kind: 'repair', amount: 2 },
+    ];
+    await browser.evaluate(`(() => {
+      window.__rtd.state.currentOffers = ${JSON.stringify(offers)};
+      window.__rtd.ui.showDraft({ wave: 2, offers: ${JSON.stringify(offers)}, rerolls: { used: 0, max: 1 }, gold: 150 });
+    })()`);
+    await browser.waitFor(`!!document.querySelector('.draft-modal')`, 'offer 弹窗');
+    const offerInfo = await browser.evaluate(`(() => {
+      const cards = [...document.querySelectorAll('.draft-modal .relic-card')].map((c) => {
+        const r = c.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, w: r.width, h: r.height };
+      });
+      return { cards, iw: innerWidth, ih: innerHeight };
+    })()`);
+    if (offerInfo.cards.length !== 3) throw new Error('offer 弹窗卡片数量异常');
+    for (const c of offerInfo.cards) {
+      if (c.left < 0 || c.right > offerInfo.iw + 1 || c.top < 0 || c.bottom > offerInfo.ih + 1) {
+        throw new Error(`offer 卡片超出视口：${JSON.stringify(c)}`);
+      }
+    }
+    await browser.evaluate(`document.querySelectorAll('.draft-modal .relic-card')[0].click()`);
+    if (!(await browser.evaluate(`!document.querySelector('#btn-confirm-draft').disabled`))) {
+      throw new Error('offer 选卡后确定未启用');
+    }
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-05c-offer.png`);
+    await browser.evaluate(`document.querySelector('#btn-confirm-draft').click()`);
+    await browser.waitFor(`!document.querySelector('.modal')`, 'offer 选择完成');
 
     // 右下角技能按钮：触控尺寸达标、不被面板遮挡、可点释放并显示冷却。
     await browser.evaluate(`document.querySelector('#btn-next-wave').click()`);
@@ -282,11 +397,22 @@ async function main() {
     if (!mobileSkill.count) throw new Error('移动端冷却秒数未显示');
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-07-skill.png`);
 
+    // 结算（AC-3）：开波后把基地血量归零触发失败结算，结算面板可读且可返回大厅。
+    await browser.evaluate(`document.querySelector('#btn-next-wave').click()`);
+    await browser.waitFor(`window.__rtd.state.sim.phase === 'wave'`, '结算开波');
+    await browser.evaluate(`(() => {
+      const sim = window.__rtd.state.sim;
+      sim.baseHp = 0;
+      sim.update(1 / 60);
+    })()`);
+    await browser.waitFor(`!!document.querySelector('.result-modal')`, '结算弹窗', 20000);
+    const resultText = await browser.evaluate(`document.querySelector('.result-modal').textContent`);
+    if (!resultText.includes('最终得分')) throw new Error(`结算文案异常：${resultText.slice(0, 120)}`);
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-08-result.png`);
+    await browser.evaluate(`document.querySelector('#btn-home').click()`);
+    await browser.waitFor(`document.getElementById('title-screen').hidden === false`, '结算返回大厅');
+
     // 横屏选图弹窗：三张卡与“放弃本局”按钮需在首屏内可读可点。
-    await browser.evaluate(`document.querySelector('#btn-quit').click()`);
-    await browser.waitFor(`!!document.querySelector('.confirm-modal')`, '退出确认');
-    await browser.evaluate(`document.querySelector('#btn-confirm-yes').click()`);
-    await browser.waitFor(`document.getElementById('title-screen').hidden === false`, '返回标题');
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗（横屏）');
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
@@ -330,9 +456,14 @@ async function main() {
       target,
       towers,
       builtMap,
+      towerPanel,
+      evolveTargets,
+      speedTargets,
+      offerInfo,
       skillTarget,
       mobileSkill,
       landscapeMapModal,
+      resultText,
     }, null, 2));
   } finally {
     if (browser) await browser.close();
