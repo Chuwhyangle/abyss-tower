@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] 通关第 30 波时，服务端 `clearedWaves` 同步到 30（`clearWave(30)` 被调用）
-- [ ] `finishRun` 的 `waveReached=30` 不被钳到 29，`victory=true`、记录显示 30 关
-- [ ] 非通关（死亡/放弃）路径不受影响（不误同步最终波）
-- [ ] `node --test tests/scoring.test.mjs tests/run-lifecycle.test.mjs` exit 0
+- [x] 通关第 30 波时，服务端 `clearedWaves` 同步到 30（`clearWave(30)` 被调用）
+- [x] `finishRun` 的 `waveReached=30` 不被钳到 29，`victory=true`、记录显示 30 关
+- [x] 非通关（死亡/放弃）路径不受影响（不误同步最终波）
+- [x] `node --test tests/scoring.test.mjs tests/run-lifecycle.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/js/app/combat.js`（`handleGameOver` 补最终波清波同步），不引入第三方依赖
-- [ ] 回归测试覆盖「最终波清波 → victory 结算 waveReached=30」与「非通关不误同步」
-- [ ] `npm test` 全绿；补跑 `node --test tests/scoring.test.mjs tests/run-lifecycle.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `public/js/app/combat.js`（`handleGameOver` 补最终波清波同步），不引入第三方依赖
+- [x] 回归测试覆盖「最终波清波 → victory 结算 waveReached=30」与「非通关不误同步」
+- [x] `npm test` 全绿；补跑 `node --test tests/scoring.test.mjs tests/run-lifecycle.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
