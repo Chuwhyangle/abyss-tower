@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-stability-gate-reverify-nonascii-landed
 title: AC-007 复验：非 ASCII 截断修复落地后稳定性门禁连续 3 轮 exit 0
-status: todo
+status: ready
 labels:
   - gap
   - defect
