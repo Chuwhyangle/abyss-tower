@@ -207,6 +207,13 @@
 - `feat-tower-stage2-integration`（爬塔阶段2 集成，ready）
 - 独塔覆盖脉冲（`feat-one-tower-coverage` done）
 
+### TODO-17 通关无法记录：最终波清波未同步服务端，waveReached 被钳到 29
+
+- **现象（用户报告）**：永远通关不了，记录只记到 29 关。
+- **根因**：`completeWave`（`wave-director.js:203`）清第 30 波时 `cleared >= MAX_WAVE` 直接 `gameOver(true)` 并 `return`，**跳过了 `onWaveClear` 回调** → `handleWaveClear` 里的 `api.clearWave(30)` 从不调用 → 服务端 `clearedWaves` 停在 29 → `finishRun` 的 `settle` 里 `clampFinishPayload(body, run.clearedWaves=29)` 把 `waveReached` 钳到 29 → `isVictory(29)` 为 false、记录 29。
+- **修法**：`combat.js` 的 `handleGameOver` 里，`finishRun` 之前若 `stats.victory`，先补 `api.clearWave(state.run.id, stats.clearedWave)` 同步最终波次。
+- **状态**：[x] 根因已定位，待实现（`fix-victory-final-wave-not-recorded`）
+
 ## 已完成
 
 （暂无）
