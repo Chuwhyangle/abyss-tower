@@ -80,7 +80,8 @@ export function resolveMotionBudget(settings = {}, { reducedMotion = false } = {
 
 // 单次命中冻结时长（秒）。纯函数：不读时钟、不读全局设置，只吃事件字段与预算。
 export function hitstopFor(event, budget = null) {
-  if (!event || event.source === 'dot') return 0;
+  // 技能来源（大招释放的 AoE 命中）不计入 hitstop：全局冻结帧会让玩家误以为「我方也被暂停」。
+  if (!event || event.source === 'dot' || event.source === 'skill') return 0;
   const hpLost = Math.max(0, finiteOr(event.hpLost));
   let duration = HITSTOP_BASE;
   for (const tier of HITSTOP_TIERS) {

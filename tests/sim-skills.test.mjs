@@ -5,6 +5,7 @@ import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
 import { SKILLS, skillStats } from '../public/js/shared/data.js';
+import { hitstopFor } from '../public/js/render/camera-feedback.js';
 import { normalizeSnapshot } from '../public/js/shared/save.js';
 import { SAVE_VERSION } from '../public/js/shared/snapshot.js';
 
@@ -476,6 +477,39 @@ test('终章 L7：星痕时长 9s（数据已包含里程碑）', () => {
   const enemy = spawn(sim, { progress: 1, hp: 1e6, maxHp: 1e6 });
   sim.castSkill();
   near(enemy.skillVulnUntil, 3 + 9, '7 级星痕 9s');
+});
+
+test('终章：星辉命中的 skill 来源事件不触发 hitstop 冻结帧', () => {
+  const sim = makeSim({ skill: { id: 'chrono', level: 1 } });
+  enterWave(sim);
+  sim.time = 8;
+  spawn(sim, { progress: 6, hp: 100000, maxHp: 100000 });
+  assert.equal(sim.castSkill(), true);
+
+  const skillHits = sim.impactEvents.filter((event) => event.source === 'skill');
+  assert.ok(skillHits.length > 0, '终章释放应产出 skill 来源命中事件');
+  for (const event of skillHits) {
+    assert.equal(hitstopFor(event), 0, 'skill 来源命中不触发 hitstop');
+  }
+  // 对照：塔命中仍产生 hitstop，确认只是去掉 skill 来源（避免误删全部冻结反馈）。
+  assert.ok(hitstopFor({ source: 'tower', hpLost: 30 }) > 0);
+});
+
+test('终章：stop 数值上调且随等级线性插值（L10 = 2×L1）', () => {
+  const l1 = skillStats('chrono', 1).stop;
+  const l10 = skillStats('chrono', 10).stop;
+  assert.ok(l1 >= 1.5, `L1 时停已上调（${l1}s ≥ 1.5s）`);
+  near(l10, l1 * 2, 'L10 保持为 L1 的 2 倍');
+
+  // 线性插值：每级 = L1 + (level-1) × (L10-L1)/9，容差覆盖 3 位小数的取值舍入。
+  const step = (l10 - l1) / 9;
+  for (let level = 1; level <= 10; level += 1) {
+    const expected = l1 + (level - 1) * step;
+    assert.ok(
+      Math.abs(skillStats('chrono', level).stop - expected) < 0.002,
+      `L${level} 线性插值（期望 ${expected.toFixed(3)}，实际 ${skillStats('chrono', level).stop}）`
+    );
+  }
 });
 
 // ---------- 快照 ----------

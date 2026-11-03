@@ -65,7 +65,7 @@ export default {
   'skill.meteor.desc': 'Locks onto the densest enemy cluster and calls down a meteor shower.',
   'skill.meteor.summary': '{meteors} meteors · {dmg}% max HP each · Cooldown {cd}s',
   'skill.chrono.name': 'Final Chapter · Starsea Echo',
-  'skill.chrono.desc': 'Time stops, the starsea descends, and every tower overloads.',
+  'skill.chrono.desc': 'Time stops and the starsea descends — while time is stopped, your towers keep attacking and overload.',
   'skill.chrono.summary': 'Time stop {stop}s · Overload {overdrive}s · Cooldown {cd}s',
   'skill.role.control': 'Control',
   'skill.role.burst': 'Burst',

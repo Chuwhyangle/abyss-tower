@@ -65,7 +65,7 @@ export default {
   'skill.meteor.desc': '锁定最密集的敌群，召唤流星雨。',
   'skill.meteor.summary': '{meteors} 颗 · 单颗 {dmg}% 最大生命 · 冷却 {cd}s',
   'skill.chrono.name': '时之终章·星海回响',
-  'skill.chrono.desc': '时间停滞，星海降临，所有防御塔过载。',
+  'skill.chrono.desc': '时间停滞，星海降临，时停期间我方防御塔持续攻击并过载。',
   'skill.chrono.summary': '时停 {stop}s · 过载 {overdrive}s · 冷却 {cd}s',
   'skill.role.control': '控场',
   'skill.role.burst': '爆发',
