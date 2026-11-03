@@ -945,6 +945,7 @@ export default {
   'uiShared.evolution.slowDur': '减速时长',
   'uiShared.evolution.splash': '溅射',
   'shop.chooseFinalForm': '选择最终形态',
+  'shop.chooseEvolution': '选择进化 · {index}/{total}',
   'shop.evolution': '进化',
   'shop.evolutionIndex': '进化 · {index}',
   'shop.fullEvolution': '满级进化 · {choice}',

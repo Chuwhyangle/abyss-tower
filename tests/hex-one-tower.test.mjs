@@ -1,4 +1,4 @@
-// 主海克斯「独塔为王」：单塔限制、建造折扣、10 级扩展曲线与满级兼得三条进化。
+// 主海克斯「独塔为王」：单塔限制、建造折扣、10 级扩展曲线、3/6/9 逐级选进化与 10 级大招。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -12,6 +12,8 @@ const UNLOCKED = ['arrow', 'cannon', 'frost', 'arc', 'poison', 'banner', 'shock'
 const BASE_LEVELS = TOWERS.arrow.levels.length;
 const MAX_LEVEL = 10;
 const EXTRA_COSTS = [120, 180, 260, 360, 480, 620, 800];
+// 进化选择等级（0 起索引）：3 / 6 / 9 级。
+const EVOLUTION_TIERS = [2, 5, 8];
 
 function makeSim(opts = {}) {
   const toasts = [];
@@ -62,7 +64,7 @@ test('定义：id / scoreMul / implemented 与设计一致', () => {
   assert.equal(oneTower.id, 'one_tower');
   assert.equal(oneTower.scoreMul, 1.2);
   assert.equal(oneTower.implemented, true);
-  for (const hook of ['canBuild', 'buildCost', 'towerMaxLevel', 'upgradeCost', 'allowedEvolutions', 'onTowerUpgraded', 'modifyTowerStats']) {
+  for (const hook of ['canBuild', 'buildCost', 'towerMaxLevel', 'upgradeCost', 'canEvolve', 'allowedEvolutions', 'ultimateSpec', 'modifyTowerStats']) {
     assert.equal(typeof oneTower.hooks[hook], 'function', `${hook} 钩子缺失`);
   }
 });
@@ -71,9 +73,10 @@ test('建造费 ×0.70，且第二座塔被拒绝并 toast', () => {
   const { sim, toasts } = makeSim({ gold: 1000 });
   const [first, second] = buildableCells(sim);
 
-  assert.equal(sim.towerCost('arrow'), Math.round(TOWERS.arrow.cost * 0.7));
+  const buildCost = Math.round(TOWERS.arrow.cost * 0.7);
+  assert.equal(sim.towerCost('arrow'), buildCost);
   assert.equal(sim.placeTower('arrow', first.c, first.r), true);
-  assert.equal(sim.gold, 1000 - 49, '建造扣费按七折');
+  assert.equal(sim.gold, 1000 - buildCost, '建造扣费按七折');
 
   const goldBefore = sim.gold;
   assert.equal(sim.placeTower('cannon', second.c, second.r), false, '第二座塔必须被拒绝');
@@ -158,46 +161,200 @@ test('3 级以内保持表内数值，第 4 级起每级 +12% 伤害 / +4% 射�
   assertClose(lv6.rate, base.rate * 1.06 ** 3, '6 级攻速按级数累乘');
 });
 
-test('升到 10 级自动兼得三条进化（乘算），且不再弹三选一', () => {
+test('3/6/9 级各可三选一一条进化，选完三条到 9 级', () => {
   const { sim } = makeSim();
-  const tower = buildTowerAt(sim, 'arrow', MAX_LEVEL - 1);
+  const tower = buildTowerAt(sim, 'arrow', 0);
   const ids = TOWERS.arrow.evolutions.map((entry) => entry.id);
-  const base = TOWERS.arrow.levels[BASE_LEVELS - 1];
 
-  assert.deepEqual(tower.evolutions, ids, '满级自动记入全部进化');
-  assert.equal(tower.evolution, ids[0], '兼容字段保留首个进化');
-  assert.equal(sim.canEvolve(tower), false, '满级已兼得，不再进入三选一');
+  // 3 级之前不进入进化选择。
+  assert.equal(sim.canEvolve(tower), false, '1 级不可进化');
+  sim.upgradeTower(tower);
+  assert.equal(sim.canEvolve(tower), false, '2 级不可进化');
+
+  // 3 级（索引 2）→ 三选一第 1 条。
+  sim.upgradeTower(tower);
+  assert.equal(tower.level, 2);
+  assert.equal(sim.canEvolve(tower), true, '3 级进入三选一');
+  assert.deepEqual(sim.evolutionOptions(tower).map((entry) => entry.id), ids);
+  assert.equal(sim.evolveTower(tower, ids[0]), true);
+  assert.deepEqual(tower.evolutions, [ids[0]]);
+  assert.equal(sim.canEvolve(tower), false, '选满当前层后不再弹');
+
+  // 6 级（索引 5）→ 三选一第 2 条，只剩未选过的两条。
+  while (tower.level < 5) sim.upgradeTower(tower);
+  assert.equal(sim.canEvolve(tower), true, '6 级进入三选一');
+  assert.deepEqual(sim.evolutionOptions(tower).map((entry) => entry.id), [ids[1], ids[2]]);
+  assert.equal(sim.evolveTower(tower, ids[2]), true);
+  assert.deepEqual(tower.evolutions, [ids[0], ids[2]]);
+  assert.equal(sim.canEvolve(tower), false);
+
+  // 9 级（索引 8）→ 三选一第 3 条，只剩最后一条。
+  while (tower.level < 8) sim.upgradeTower(tower);
+  assert.equal(sim.canEvolve(tower), true, '9 级进入三选一');
+  assert.deepEqual(sim.evolutionOptions(tower).map((entry) => entry.id), [ids[1]]);
+  assert.equal(sim.evolveTower(tower, ids[1]), true);
+  assert.deepEqual(tower.evolutions, [ids[0], ids[2], ids[1]]);
+  assert.equal(sim.canEvolve(tower), false, '三条选完不再弹');
+
+  // 升到 10 级：不再「兼得全部进化」，也不再有新的进化选择。
+  while (tower.level < MAX_LEVEL - 1) sim.upgradeTower(tower);
+  assert.equal(tower.level, MAX_LEVEL - 1);
+  assert.equal(sim.canEvolve(tower), false);
   assert.deepEqual(sim.evolutionOptions(tower), []);
-
-  const mul = (key) =>
-    TOWERS.arrow.evolutions.reduce((acc, entry) => acc * (entry.mods[key] ?? 1), 1);
-  const tiers = MAX_LEVEL - BASE_LEVELS;
-  const stats = sim.statsFor(tower);
-  assertClose(stats.dmg, base.dmg * 1.12 ** tiers * mul('dmg'), '满级伤害');
-  assertClose(stats.range, base.range * 1.04 ** tiers * mul('range'), '满级射程');
-  assertClose(stats.rate, base.rate * 1.06 ** tiers * mul('rate'), '满级攻速');
 });
 
-test('满级属性对读档/预览路径同样成立且不重复乘算', () => {
+test('10 级不再自动兼得全部进化（未逐级选的不会补记，但可补选）', () => {
+  const { sim } = makeSim();
+  const tower = buildTowerAt(sim, 'cannon', MAX_LEVEL - 1);
+  assert.deepEqual(tower.evolutions, [], '升满级不会自动兼得');
+  assert.equal(tower.evolution, null);
+
+  // 已到达全部层数，仍可补选（逐级选择不强制在升级瞬间完成）。
+  assert.equal(sim.canEvolve(tower), true);
+  assert.equal(sim.evolutionOptions(tower).length, 3);
+  assert.equal(sim.evolveTower(tower, TOWERS.cannon.evolutions[0].id), true);
+  assert.deepEqual(tower.evolutions, [TOWERS.cannon.evolutions[0].id]);
+});
+
+test('进化系数随逐级选择依次乘入属性，且未选进化不乘入', () => {
+  const { sim } = makeSim();
+  const tower = buildTowerAt(sim, 'arrow', 0);
+  const ids = TOWERS.arrow.evolutions.map((entry) => entry.id);
+  const base = TOWERS.arrow.levels[BASE_LEVELS - 1];
+  const mul = (id, key) => TOWERS.arrow.evolutions.find((entry) => entry.id === id).mods[key] ?? 1;
+
+  // 走到 3 级（索引 2）只选第 1 条：此刻无额外等级成长，属性只乘第 1 条进化系数。
+  while (tower.level < 2) sim.upgradeTower(tower);
+  assert.equal(sim.evolveTower(tower, ids[0]), true);
+  assertClose(sim.statsFor(tower).dmg, base.dmg * mul(ids[0], 'dmg'), '第 1 条进化伤害');
+  assertClose(sim.statsFor(tower).range, base.range * mul(ids[0], 'range'), '第 1 条进化射程');
+});
+
+test('炮台 10 级解锁全图索敌（射程覆盖全图）', () => {
+  const { sim } = makeSim();
+  const tower = buildTowerAt(sim, 'cannon', MAX_LEVEL - 1);
+  const stats = sim.statsFor(tower);
+  assert.equal(stats.fullMap, true, '10 级炮台 stats.fullMap');
+
+  sim.spawnEnemy('grunt');
+  const enemy = sim.enemies[sim.enemies.length - 1];
+  enemy.x = tower.x + 12;
+  enemy.y = tower.y + 12;
+  enemy.progress = 0.5;
+  assert.equal(sim.findTarget(tower, stats.range), enemy, '全图索敌能锁定远距离敌人');
+  assert.equal(sim.inRange(tower, enemy, stats.range), true, '全图索敌 inRange 恒真');
+
+  // 未到 10 级不享有全图索敌。
+  const { sim: low } = makeSim();
+  const lowTower = buildTowerAt(low, 'cannon', 0);
+  assert.ok(!low.statsFor(lowTower).fullMap, '低等级无 fullMap');
+  low.spawnEnemy('grunt');
+  const lowEnemy = low.enemies[low.enemies.length - 1];
+  lowEnemy.x = lowTower.x + 12;
+  lowEnemy.y = lowTower.y + 12;
+  lowEnemy.progress = 0.5;
+  assert.equal(low.findTarget(lowTower, low.statsFor(lowTower).range), null, '低等级不锁远距目标');
+});
+
+test('大招触发框架：塔级计数器每 4 次攻击触发一次，10 级解锁', () => {
+  const { sim } = makeSim();
+  const tower = buildTowerAt(sim, 'cannon', MAX_LEVEL - 1);
+  const stats = sim.statsFor(tower);
+
+  sim.spawnEnemy('grunt');
+  const enemy = sim.enemies[sim.enemies.length - 1];
+  enemy.x = tower.x + 1;
+  enemy.y = tower.y;
+  enemy.progress = 0.5;
+  enemy.hp = 10000;
+  enemy.maxHp = 10000;
+
+  for (let i = 1; i <= 3; i++) {
+    sim.fire(tower, stats, enemy);
+    const proj = sim.projectiles[sim.projectiles.length - 1];
+    assert.equal(tower.ultimateShots, i, `第 ${i} 发计数`);
+    assert.equal(proj.ultimate, null, `第 ${i} 发不触发`);
+  }
+
+  sim.fire(tower, stats, enemy);
+  const ultimate = sim.projectiles[sim.projectiles.length - 1];
+  assert.equal(tower.ultimateShots, 4, '第 4 发计数');
+  assert.ok(ultimate.ultimate, '第 4 发触发大招');
+  assert.ok(ultimate.ultimateSpec.aftershock, '大招规格带余波');
+
+  // 未到 10 级不计数、不触发。
+  const { sim: low } = makeSim();
+  const lowTower = buildTowerAt(low, 'cannon', 5);
+  low.spawnEnemy('grunt');
+  const lowEnemy = low.enemies[low.enemies.length - 1];
+  lowEnemy.x = lowTower.x + 1;
+  lowEnemy.y = lowTower.y;
+  lowEnemy.progress = 0.5;
+  low.fire(lowTower, low.statsFor(lowTower), lowEnemy);
+  assert.equal(lowTower.ultimateShots, undefined, '10 级前不启动计数器');
+  assert.equal(low.projectiles[low.projectiles.length - 1].ultimate, null);
+});
+
+test('炮台轰击余波：对半径内敌人造成二次范围伤害，半径外不受影响', () => {
+  const { sim } = makeSim();
+  const tower = buildTowerAt(sim, 'cannon', MAX_LEVEL - 1);
+
+  // 直接构造一发已触发轰击的炮弹（关掉主溅射，便于单独验证余波）。
+  const proj = {
+    id: 999,
+    x: tower.x,
+    y: tower.y,
+    towerType: 'cannon',
+    tower,
+    dmg: 100,
+    splash: 0,
+    ignoreArmor: false,
+    target: null,
+    ultimate: { aftershock: { radius: 1.6, damageMul: 0.6 } },
+    ultimateSpec: { aftershock: { radius: 1.6, damageMul: 0.6 } },
+  };
+
+  const spawnAt = (dx, dy) => {
+    sim.spawnEnemy('grunt');
+    const enemy = sim.enemies[sim.enemies.length - 1];
+    enemy.x = tower.x + dx;
+    enemy.y = tower.y + dy;
+    enemy.armor = 0;
+    enemy.hp = 10000;
+    enemy.maxHp = 10000;
+    return enemy;
+  };
+
+  const inside = spawnAt(1.0, 0);
+  const outside = spawnAt(3.0, 0);
+  sim.impact(proj);
+
+  assert.equal(inside.hp, 10000 - 60, '半径内目标吃 60% 余波伤害');
+  assert.equal(outside.hp, 10000, '半径外目标不受余波');
+});
+
+test('读档/预览路径：未选进化不补乘、已选进化不重复乘算', () => {
   const { sim } = makeSim();
   const base = TOWERS.cannon.levels[BASE_LEVELS - 1];
   const mul = (key) =>
     TOWERS.cannon.evolutions.reduce((acc, entry) => acc * (entry.mods[key] ?? 1), 1);
   const tiers = MAX_LEVEL - BASE_LEVELS;
 
-  // 读档/预览直接用 makeTower 造出满级塔，不会触发 onTowerUpgraded。
+  // 读档/预览直接用 makeTower 造出满级塔（不触发升级钩子）：未选进化不得补乘。
   const tower = sim.makeTower('cannon', 0, 0, MAX_LEVEL - 1, 0);
   assert.deepEqual(tower.evolutions, []);
   const stats = sim.computeTowerStats(tower);
-  assertClose(stats.dmg, base.dmg * 1.12 ** tiers * mul('dmg'), '未记入进化时由钩子补乘');
-  assertClose(stats.rate, base.rate * 1.06 ** tiers * mul('rate'));
+  assertClose(stats.dmg, base.dmg * 1.12 ** tiers, '未选进化时只有等级成长');
+  assertClose(stats.range, base.range * 1.04 ** tiers);
+  assertClose(stats.rate, base.rate * 1.06 ** tiers);
+  assert.ok(stats.fullMap, '满级读档路径也带全图索敌');
 
-  // 已记入全部进化时，模拟层已应用系数，钩子不得重复乘算。
+  // 已选进化由模拟层应用，等级成长只乘一次，二者相乘且不重复。
   tower.evolutions = TOWERS.cannon.evolutions.map((entry) => entry.id);
   const applied = sim.computeTowerStats(tower);
-  assertClose(applied.dmg, stats.dmg, '不重复乘算');
-  assertClose(applied.range, stats.range);
-  assertClose(applied.rate, stats.rate);
+  assertClose(applied.dmg, base.dmg * 1.12 ** tiers * mul('dmg'), '已选进化与等级成长相乘');
+  assertClose(applied.range, base.range * 1.04 ** tiers * mul('range'));
+  assertClose(applied.rate, base.rate * 1.06 ** tiers * mul('rate'));
 });
 
 test('无海克斯时行为不变：满价、3 级上限、可建多塔', () => {

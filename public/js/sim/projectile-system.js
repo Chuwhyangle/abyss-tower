@@ -58,6 +58,17 @@ export class ProjectileSystem {
       if (tower.arrowShots % SHARP_PIERCE_INTERVAL === 0) pierce2 = true;
     }
 
+    // 大招触发框架（独塔为王）：10 级解锁的被动大招，塔级确定性计数器「每 N 次攻击触发一次」，
+    // 不消耗 RNG、不改 sim RNG 调用顺序（复用 tower.arrowShots 范式）。触发效果在 impact 结算。
+    let ultimate = null;
+    const ultimateSpec = this.sim.hexRuntime.active
+      ? this.sim.hexRuntime.ultimateSpec(tower, this.sim.hexCtx)
+      : null;
+    if (ultimateSpec && Number.isFinite(ultimateSpec.every) && ultimateSpec.every > 0) {
+      tower.ultimateShots = (tower.ultimateShots || 0) + 1;
+      if (tower.ultimateShots % ultimateSpec.every === 0) ultimate = ultimateSpec;
+    }
+
     this.sim.projectiles.push({
       id: this.sim.nextId++,
       kind: def.proj.kind,
@@ -80,6 +91,8 @@ export class ProjectileSystem {
       knockback: stats.knockback || 0,
       ignoreArmor: !!def.ignoreArmor,
       pierce2,
+      ultimate,
+      ultimateSpec,
       ttl: 4,
       done: false,
     });
@@ -144,6 +157,7 @@ export class ProjectileSystem {
         weapon: proj.towerType,
       });
       this.sim.shake = Math.min(10, this.sim.shake + (hits > 3 ? 2.4 : 1));
+      this.applyUltimate(proj);
       return;
     }
 
@@ -231,5 +245,37 @@ export class ProjectileSystem {
         }
       }
     }
+    this.applyUltimate(proj);
+  }
+
+  // 大招触发效果（独塔为王）：炮台轰击「余波」——命中后在目标点对半径内敌人造成二次范围伤害。
+  // 伤害走常规入口但不参与暴击判定（确定性触发，不额外扰动 RNG 顺序）；其余 7 塔大招后续在此扩展。
+  applyUltimate(proj) {
+    if (!proj.ultimate || !proj.ultimateSpec) return;
+    const aftershock = proj.ultimateSpec.aftershock;
+    if (!aftershock || !(aftershock.damageMul > 0) || !(aftershock.radius > 0)) return;
+    let hits = 0;
+    for (const enemy of this.sim.enemies) {
+      if (enemy.dead) continue;
+      if (Math.hypot(enemy.x - proj.x, enemy.y - proj.y) <= aftershock.radius + enemy.r) {
+        this.sim.dealDamage(enemy, proj.dmg * aftershock.damageMul, proj.towerType, {
+          ignoreArmor: proj.ignoreArmor,
+          tower: proj.tower || null,
+          noCrit: true,
+        });
+        hits++;
+      }
+    }
+    this.sim.addEffect({
+      kind: 'ring',
+      x: proj.x,
+      y: proj.y,
+      r0: 0.2,
+      r1: aftershock.radius,
+      ttl: 0.35,
+      color: '#ffd36b',
+      weapon: proj.towerType,
+    });
+    if (hits > 0) this.sim.shake = Math.min(12, this.sim.shake + 1.6);
   }
 }

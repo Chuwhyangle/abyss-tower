@@ -231,7 +231,7 @@ test('普通塔满级单进化跨存读档保持（含 splash/chain 非三键系
   }
 });
 
-test('独塔为王满级进化跨存读档保持且不再弹三选一', () => {
+test('独塔为王满级不再兼得进化，逐级三选一跨存读档保持', () => {
   const sim = makeSim({ hex: 'one_tower' });
   const spot = findBuildSpot(sim);
   assert.equal(sim.placeTower('arrow', spot.c, spot.r), true);
@@ -240,8 +240,17 @@ test('独塔为王满级进化跨存读档保持且不再弹三选一', () => {
     assert.equal(sim.upgradeTower(tower), true);
   }
   const ids = TOWERS.arrow.evolutions.map((entry) => entry.id);
-  assert.deepEqual(tower.evolutions, ids, '满级自动兼得全部进化');
+  // 10 级不再「自动兼得全部进化」：未逐级选择时列表为空，但可补选（3/6/9 三层已到齐）。
+  assert.deepEqual(tower.evolutions, [], '满级不自动兼得全部进化');
+  assert.equal(sim.canEvolve(tower), true);
+  assert.deepEqual(sim.evolutionOptions(tower).map((entry) => entry.id), ids);
+
+  for (const id of ids) {
+    assert.equal(sim.evolveTower(tower, id), true, `${id} 逐级补选失败`);
+  }
+  assert.deepEqual(tower.evolutions, ids, '逐级三选一后选满三条');
   assert.equal(sim.canEvolve(tower), false);
+  assert.deepEqual(sim.evolutionOptions(tower), []);
 
   const rebuilt = makeSim({ hex: 'one_tower', towers: normalizeSnapshot(sim.toSnapshot()).towers });
   const restored = rebuilt.towers[0];

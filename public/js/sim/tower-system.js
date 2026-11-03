@@ -47,7 +47,9 @@ export class TowerSystem {
 
   findTarget(tower, range) {
     const def = TOWERS[tower.type];
-    const range2 = range * range;
+    // 独塔为王 10 级大招的「全图索敌」：stats.fullMap 为真时射程覆盖全图，只受 groundOnly 限制。
+    const fullMap = tower.stats?.fullMap === true;
+    const range2 = fullMap ? Infinity : range * range;
     const now = this.sim.time;
     let best = null;
     for (const enemy of this.sim.enemies) {
@@ -67,6 +69,7 @@ export class TowerSystem {
   }
 
   inRange(tower, enemy, range) {
+    if (tower.stats?.fullMap === true) return true;
     const dx = enemy.x - tower.x;
     const dy = enemy.y - tower.y;
     return dx * dx + dy * dy <= range * range;
@@ -255,13 +258,18 @@ export class TowerSystem {
   }
 
   // 满级且尚未选择分支时才可进化；进化不消耗 RNG，也不改变基础塔数值。
+  // 独塔为王通过 canEvolve 钩子改成 3/6/9 逐级三选一（每层可多选一条，直至选满）。
   canEvolve(tower) {
     const def = TOWERS[tower.type];
-    if (!def?.evolutions?.length || normalizeEvolutionIds(tower.evolutions).length) return false;
-    return tower.level >= this.sim.towerMaxLevel(tower) - 1;
+    if (!def?.evolutions?.length) return false;
+    const base =
+      normalizeEvolutionIds(tower.evolutions).length === 0 &&
+      tower.level >= this.sim.towerMaxLevel(tower) - 1;
+    if (this.sim.hexRuntime.active) return this.sim.hexRuntime.canEvolve(tower, base);
+    return base;
   }
 
-  // 默认给出数据表的全部分支；allowedEvolutions 钩子可裁剪（独塔为王可一次兼得全部）。
+  // 默认给出数据表的全部分支；allowedEvolutions 钩子可裁剪（独塔为王只给出尚未选过的分支）。
   evolutionOptions(tower) {
     if (!this.sim.canEvolve(tower)) return [];
     const base = TOWERS[tower.type].evolutions;
@@ -274,7 +282,8 @@ export class TowerSystem {
     return entries;
   }
 
-  // 接受单个分支 id 或数组：一次应用多条进化，返回是否有任一进化生效。
+  // 接受单个分支 id 或数组：把新进化追加到已有列表（普通塔只选一次，追加与替换等价；
+  // 独塔为王 3/6/9 逐级选则逐条累积）。返回是否有任一进化生效。
   evolveTower(tower, evolutionIds) {
     if (!tower || !this.sim.towers.includes(tower)) return false;
     const options = this.sim.evolutionOptions(tower);
@@ -282,8 +291,14 @@ export class TowerSystem {
     const requested = normalizeEvolutionIds(evolutionIds);
     const applied = options.filter((entry) => requested.includes(entry.id));
     if (!applied.length) return false;
-    tower.evolutions = applied.map((entry) => entry.id);
-    tower.evolution = tower.evolutions[0];
+    const existing = normalizeEvolutionIds(tower.evolutions ?? tower.evolution);
+    const next = [...existing];
+    for (const entry of applied) {
+      if (!next.includes(entry.id)) next.push(entry.id);
+    }
+    if (next.length === existing.length) return false;
+    tower.evolutions = next;
+    tower.evolution = next[0];
     this.sim.recomputeTowerStats();
     const def = TOWERS[tower.type];
     for (const evolution of applied) {
