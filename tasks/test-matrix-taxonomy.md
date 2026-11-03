@@ -16,18 +16,18 @@ extra:
 
 ## AC
 
-- [ ] `axes.mjs` 轴注册表 + 参数化轴测试覆盖 塔/海克斯/遗物/技能/地图/难度（至少 6 轴）
-- [ ] `seams.mjs` 接缝注册表 + 参数化缝测试覆盖 加成聚合/钩子×塔生命周期/快照往返/回放往返/mode 分支（至少 5 缝）
-- [ ] `scripts/test-matrix.mjs` 输出覆盖矩阵（每轴×每缝），能识别「某轴未声明某缝」
-- [ ] 示范：一个轴 + 一个缝走通 harness + 断言复用
-- [ ] `node --test tests/test-matrix.test.mjs` exit 0
+- [x] `axes.mjs` 轴注册表 + 参数化轴测试覆盖 塔/海克斯/遗物/技能/地图/难度（至少 6 轴）
+- [x] `seams.mjs` 接缝注册表 + 参数化缝测试覆盖 加成聚合/钩子×塔生命周期/快照往返/回放往返/mode 分支（至少 5 缝）
+- [x] `scripts/test-matrix.mjs` 输出覆盖矩阵（每轴×每缝），能识别「某轴未声明某缝」
+- [x] 示范：一个轴 + 一个缝走通 harness + 断言复用
+- [x] `node --test tests/test-matrix.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `tests/lib/axes.mjs`（新）、`tests/lib/seams.mjs`（新）、`scripts/test-matrix.mjs`（新）、`tests/test-matrix.test.mjs`（新），零第三方依赖
-- [ ] 新脚本 `scripts/test-matrix.mjs` 登记 `scripts/test-changed.mjs` 的 TEST_MAP
-- [ ] `npm test` 全绿；`node scripts/test-matrix.mjs` 输出矩阵报告
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `tests/lib/axes.mjs`（新）、`tests/lib/seams.mjs`（新）、`scripts/test-matrix.mjs`（新）、`tests/test-matrix.test.mjs`（新），零第三方依赖
+- [x] 新脚本 `scripts/test-matrix.mjs` 登记 `scripts/test-changed.mjs` 的 TEST_MAP
+- [x] `npm test` 全绿；`node scripts/test-matrix.mjs` 输出矩阵报告
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
