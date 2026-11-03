@@ -5,6 +5,7 @@ import { TOWERS, TOWER_ORDER } from '../public/js/shared/data/towers.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
+import { normalizeSnapshot } from '../public/js/shared/snapshot.js';
 
 const SEED = 'tower-evolution-seed';
 // 既有属性键：进化只能修正这些值，不允许引入未实现的新机制。
@@ -24,7 +25,7 @@ const EVOLUTION_MOD_KEYS = [
 ];
 const MAX_LEVEL = (type) => TOWERS[type].levels.length - 1;
 
-function makeSim({ seed = SEED, towers = [], relics = [] } = {}) {
+function makeSim({ seed = SEED, towers = [], relics = [], hex = null } = {}) {
   return new Simulation({
     map: generateMap(seed),
     seed,
@@ -35,6 +36,7 @@ function makeSim({ seed = SEED, towers = [], relics = [] } = {}) {
     relics,
     towers,
     unlockedTowers: [...TOWER_ORDER],
+    hex,
     onToast: () => {},
     onSave: () => {},
   });
@@ -196,6 +198,58 @@ test('旧存档没有 evolution 字段时按未进化处理', () => {
   // 旧档塔仍然可以在本局补选分支。
   assert.equal(legacy.canEvolve(tower), true);
   assert.equal(legacy.evolveTower(tower, 'sniper-piercer'), true);
+});
+
+test('普通塔满级单进化跨存读档保持（含 splash/chain 非三键系数）', () => {
+  // cannon-siege 带 splash、arc-storm 带 chain：验证非「伤害/射程/攻速」三键也不丢。
+  const cases = [
+    { type: 'cannon', id: 'cannon-siege' },
+    { type: 'arc', id: 'arc-storm' },
+  ];
+  for (const { type, id } of cases) {
+    const sim = makeSim({ towers: [{ type, c: 2, r: 3, level: MAX_LEVEL(type) }] });
+    const tower = sim.towers[0];
+    assert.equal(sim.evolveTower(tower, id), true);
+    const before = sim.statsFor(tower);
+
+    const rebuilt = makeSim({ towers: normalizeSnapshot(sim.toSnapshot()).towers });
+    const restored = rebuilt.towers[0];
+
+    assert.deepEqual(restored.evolutions, [id], `${type} 进化未写入/读回`);
+    assert.equal(restored.evolution, id, `${type} 兼容字段未恢复`);
+    assert.equal(rebuilt.towerEvolution(restored)?.id, id, `${type} towerEvolution 未恢复`);
+    assert.equal(rebuilt.canEvolve(restored), false, `${type} 重建后仍可进化（会重新三选一）`);
+    assert.deepEqual(rebuilt.evolutionOptions(restored), []);
+
+    for (const key of Object.keys(before)) {
+      assert.equal(
+        rebuilt.statsFor(restored)[key],
+        before[key],
+        `${type}.${id} 系数 ${key} 跨存读档未保持`
+      );
+    }
+  }
+});
+
+test('独塔为王满级进化跨存读档保持且不再弹三选一', () => {
+  const sim = makeSim({ hex: 'one_tower' });
+  const spot = findBuildSpot(sim);
+  assert.equal(sim.placeTower('arrow', spot.c, spot.r), true);
+  const tower = sim.towerAt(spot.c, spot.r);
+  while (tower.level < sim.towerMaxLevel(tower) - 1) {
+    assert.equal(sim.upgradeTower(tower), true);
+  }
+  const ids = TOWERS.arrow.evolutions.map((entry) => entry.id);
+  assert.deepEqual(tower.evolutions, ids, '满级自动兼得全部进化');
+  assert.equal(sim.canEvolve(tower), false);
+
+  const rebuilt = makeSim({ hex: 'one_tower', towers: normalizeSnapshot(sim.toSnapshot()).towers });
+  const restored = rebuilt.towers[0];
+
+  assert.deepEqual(restored.evolutions, ids, '进化列表跨存读档丢失');
+  assert.equal(restored.evolution, ids[0], '兼容字段未恢复');
+  assert.equal(rebuilt.canEvolve(restored), false, '重建后重新弹出三选一');
+  assert.deepEqual(rebuilt.evolutionOptions(restored), []);
 });
 
 test('进化不消耗 RNG：同种子的战斗随机序列不受影响', () => {

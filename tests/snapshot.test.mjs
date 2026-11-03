@@ -100,6 +100,32 @@ test('Simulation.toSnapshot 使用同一实现', () => {
   assert.equal(validateSnapshot(snap).ok, true);
 });
 
+test('塔进化写入 evolutions 并归一化读回，旧档缺字段按未进化处理', () => {
+  // 序列化：有进化时写入 evolutions 数组；无进化时不写字段（保持旧字节结构）。
+  const evolved = toSnapshot({
+    ...FIXED_STATE,
+    towers: [{ type: 'arrow', c: 2, r: 3, level: 2, invested: 230, evolutions: ['arrow-longbow'] }],
+  });
+  assert.deepEqual(evolved.towers, [
+    { type: 'arrow', c: 2, r: 3, level: 2, invested: 230, evolutions: ['arrow-longbow'] },
+  ]);
+
+  // 归一化读回：evolutions 数组 / 单条 evolution 字符串都归一化成数组；缺字段不补 evolutions。
+  const norm = normalizeSnapshot({
+    version: 3,
+    towers: [
+      { type: 'arrow', c: 2, r: 3, level: 2, invested: 230, evolutions: ['arrow-longbow'] },
+      { type: 'cannon', c: 1, r: 1, level: 2, invested: 320, evolution: 'cannon-siege' },
+      { type: 'frost', c: 0, r: 0, level: 2, invested: 200 },
+    ],
+  });
+  assert.deepEqual(norm.towers, [
+    { type: 'arrow', c: 2, r: 3, level: 2, invested: 230, evolutions: ['arrow-longbow'] },
+    { type: 'cannon', c: 1, r: 1, level: 2, invested: 320, evolutions: ['cannon-siege'] },
+    { type: 'frost', c: 0, r: 0, level: 2, invested: 200 },
+  ]);
+});
+
 test('v2 存档迁移：遗物仅 ID 恢复为 Ⅰ 级，wave 提升为 clearedWave', () => {
   const snap = normalizeSnapshot({
     version: 2,
