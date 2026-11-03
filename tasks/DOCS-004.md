@@ -41,11 +41,3 @@ TODO-12「爬塔模式」的三路综合设计草案已定稿在 `docs/TODO.md`�
 该轴仍暗,理由:本任务为阶段冻结表文档，把已定稿设计落文档，L_D/L_G/L_S 无需量化。
 
 续做轮（2026-11-03）：复验 `node --test tests/docs-phase-sync.test.mjs tests/docs-consistency.test.mjs` 27/27 通过、`npm test` 1928/1928 全绿，`docs/PHASE_TOWER.md` 六节与 TODO-12 草案逐条对应，勾选 DoD 四项。
-
-## Blocker
-
-**2026-11-03T11:55:58.500Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：AC 未全勾（checked 4/8，剩余未勾 4）——续做只需验证并勾选 AC
-- run_id：wk-prod-anchor
-- session_id：944974b9-232a-4d0e-968c-09923f09ce25
