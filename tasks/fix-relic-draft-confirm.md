@@ -1,7 +1,7 @@
 ---
 id: fix-relic-draft-confirm
 title: 遗物三选一加「确定」按钮并修掉空 offers 软锁，必须显式确定才能推进
-status: done
+status: ready
 labels:
   - defect
 parent: null
@@ -10,6 +10,8 @@ extra:
   schema: execution
   acceptance: node --test tests/relics-turnbased.test.mjs tests/run-lifecycle.test.mjs
 ---
+> **RETREATED / 搁置（误推进：promote 连跑 acceptance（现有绿测试）导致未实现即 done，退回 ready 待 worker 实现）**
+
 ## Proposal
 
 清波后的遗物三选一现在是「点卡片=确认」，没有独立「确定」按钮，用户要求必须显式点「确定」才能推进。且 `public/js/app/run.js` 的 `restorePendingDraft()`（约 479-509 行）对「`offers` 为空」分支没处理，会渲染 `closable:false`、无卡片的空弹窗形成软锁。修复：① `public/js/ui/modals.js` 的 `showDraft` 加「确定」按钮——点卡高亮选中、点「确定」才 `pickOffer`（`public/js/app/combat.js:148-195`）并关弹窗，未选时确定禁用；② `restorePendingDraft` 与 `handleWaveClear`（`combat.js:122-136`）对齐，`offers` 空/已选都清 `pendingDraft` + 解暂停 + toast，绝不渲染空弹窗。
