@@ -24,7 +24,7 @@ GOAL-012（局外深度成长）在既有「星核解锁 / 成就 / 赛季通行
 - **数值**：增益幅度与难度倍率的克制口径，兼容平衡模拟，不改战斗数值口径与 sim 确定性。
 - **字段契约**：账号级成长数据模块（public/js/shared/data/meta.js，实现任务落地）的键族，
   以及快照/UI/旧档兼容字段。
-- **AC 映射**：GOAL-012 退出条件 1–4 → AC-062…AC-065 的逐条落点。
+- **AC 映射**：GOAL-012 退出条件 1–4 → AC-062…AC-067 的逐条落点。
 
 ## 2. 范围
 
@@ -161,9 +161,11 @@ GOAL-012（局外深度成长）在既有「星核解锁 / 成就 / 赛季通行
 | 退出条件 | AC | 判据 | 任务 | 文档落点 |
 |---|---|---|---|---|
 | 1. `docs/PHASE_META.md` 定稿，字段契约与 AC 映射完整 | AC-062 设计定稿 | test -s docs/PHASE_META.md && grep -q '字段契约' docs/PHASE_META.md && grep -q 'AC 映射' docs/PHASE_META.md && grep -q 'GOAL-012' docs/PHASE_META.md | gap-phase-meta-design-freeze | 本文 |
-| 2. 天赋树/永久强化/传承在模拟、快照、UI 一致生效，数值克制 | AC-063 talent 一致生效 | test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js | —（待立案） | 本文 §5.2 |
-| 3. 与星核/成就/通行证/悬赏分层清晰，无重复结算 | AC-064 legacy 分层清晰 | test -s public/js/shared/data/meta.js && grep -q 'legacy' public/js/shared/data/meta.js | —（待立案） | 本文 §5.3 |
-| 4. 平衡复测：meta 增益纳入后三档通关率仍在目标区间，全量测试与确定性不回归 | AC-065 平衡复测不回归 | ! grep -qE '低于目标|高于目标' docs/BALANCE.md | —（待立案） | `docs/BALANCE.md`、本文 §4.2 |
+| 2a. 天赋树/永久强化在模拟、快照、UI 一致生效 | AC-063 talent 一致生效 | test -s public/js/shared/data/meta.js && grep -q 'talent' public/js/shared/data/meta.js | gap-ac-063-meta-talent-tree | 本文 §5.2 |
+| 2b. 传承在模拟、快照、UI 一致生效 | AC-067 传承一致生效 | test -s public/js/shared/data/meta.js && grep -q 'legacyYield' public/js/shared/data/meta.js && test -s server/services/run-settlement.mjs && grep -q 'legacyYield' server/services/run-settlement.mjs && test -s server/db/legacy.mjs && grep -q 'grantLegacyInTx' server/db/legacy.mjs | —（goal 级见证） | 本文 §5.3 |
+| 2c. 数值克制（可感知但不碾压） | AC-066 数值克制 | test -s public/js/shared/data/meta.js && grep -q 'maxRank' public/js/shared/data/meta.js | gap-ac-066-meta-maxrank | 本文 §5.2 |
+| 3. 与星核/成就/通行证/悬赏分层清晰，无重复结算 | AC-064 legacy 分层清晰 | test -s public/js/shared/data/meta.js && grep -q 'legacy' public/js/shared/data/meta.js | gap-ac-064-meta-legacy | 本文 §5.3 |
+| 4. 平衡复测：meta 增益纳入后三档通关率仍在目标区间，全量测试与确定性不回归 | AC-065 平衡复测不回归 | ! grep -qE '低于目标|高于目标' docs/BALANCE.md | gap-ac-065-meta-balance-retest | `docs/BALANCE.md`、本文 §4.2 |
 
-GOAL-012 退出条件 1–4 与 AC-062…AC-065 一一对应；AC-062 由本文档直接满足（文档落地即 exit 0），
-AC-063 / AC-064 的实现任务以本文 §5 为字段契约的唯一定义处，AC-065 以本文 §4 数值为复测输入口径。
+GOAL-012 退出条件 1–4 与 AC-062…AC-067 一一对应；AC-062 由本文档直接满足（文档落地即 exit 0），
+AC-063 / AC-064 / AC-066 / AC-067 的实现任务以本文 §5 为字段契约的唯一定义处，AC-065 以本文 §4 数值为复测输入口径。
