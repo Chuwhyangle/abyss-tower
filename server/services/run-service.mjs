@@ -45,22 +45,15 @@ import {
   hexOffersOf,
   hexRuntimeFor,
   isFixedRulesMode,
+  isTowerRun,
   mapCandidatesFor,
   maxRerollsFor,
   planRunStart,
   starterFor,
 } from './run-rules.mjs';
 import { settleRunOutcome } from './run-settlement.mjs';
-
-// 预期内的领域/请求错误：路由层据此选择状态码，其余异常继续上抛。
-export class RunError extends Error {
-  constructor(status, message, code = null) {
-    super(message);
-    this.name = 'RunError';
-    this.status = status;
-    this.code = code;
-  }
-}
+import { RunError } from './run-error.mjs';
+import * as tower from './tower-service.mjs';
 
 // 首领核心（§4）：offers JSON 的 core:<wave> 槽位与 event:<wave> 同幂等模型；已选教义数与补给刷新加码都从已选槽位派生。
 function coreDoctrineCount(run) {
@@ -122,6 +115,8 @@ export class RunService {
       ? [...TOWER_ORDER]
       : unlockedTowerIds(profile.unlocks);
     payload.createdAt = run.createdAt;
+    // 爬塔：回传选路状态与当前节点，客户端据此恢复节点图；旧 run 无该字段，客户端跳过。
+    if (isTowerRun(run)) payload.tower = tower.towerPayload(run);
     return payload;
   }
 
@@ -231,7 +226,12 @@ export class RunService {
     return { map: chosen, mapMeta: chosen.meta, mapChoice: index };
   }
 
+  // 爬塔节点图/选路/战斗波次/商人货架委托给 tower-service，本类只保留薄壳。
+  nodes(run) { return tower.towerNodes(run); }
+  chooseNode(run, choice) { return tower.chooseTowerNode(run, choice); }
+
   serveWave(run) {
+    if (isTowerRun(run)) return this.serveTowerWave(run);
     if (run.mapChoice < 0) throw new RunError(409, '请先选择地图');
     const candidates = mapCandidatesFor(run);
     const mapMeta = candidates[run.mapChoice]?.meta || {};
@@ -269,6 +269,8 @@ export class RunService {
     };
   }
 
+  serveTowerWave(run) { return tower.serveTowerWaveFor(run); }
+
   clearWave(run, wave) {
     const maxWave = run.mode === 'endless' ? ENDLESS.maxIndex : MAX_WAVE;
     if (!Number.isFinite(wave) || wave < 1 || wave > maxWave) {
@@ -295,6 +297,8 @@ export class RunService {
   }
 
   relicOffers(run, profile, { reroll = false } = {}) {
+    // 爬塔：只有 fight 节点清波后给免费遗物；event/merchant 无战斗无遗物，抵达即完成。
+    if (isTowerRun(run)) tower.ensureTowerFightRelicNode(run);
     if (run.clearedWaves !== run.wavesServed) {
       throw new RunError(409, '当前波次尚未结算完成');
     }
@@ -460,12 +464,18 @@ export class RunService {
     return { applied: offer, picked: true, relics: states };
   }
 
-  // 局内事件节点：与遗物选择同一套幂等模型，状态寄存在 offers JSON 的 event:<wave> 槽位。
-  eventNode(run) {
+  // 事件波次：爬塔取当前事件节点层，其余取已清波次（未结算先拒绝）。
+  eventWave(run) {
+    if (isTowerRun(run)) return tower.towerEventWave(run);
     if (run.clearedWaves !== run.wavesServed) {
       throw new RunError(409, '当前波次尚未结算完成');
     }
-    const wave = run.clearedWaves;
+    return run.clearedWaves;
+  }
+
+  // 局内事件节点：与遗物选择同一套幂等模型，状态寄存在 offers JSON 的 event:<wave> 槽位。
+  eventNode(run) {
+    const wave = this.eventWave(run);
     // 已选择的波次仍要回显节点：剔除本波历史后重新推导，未选择时才按“未结算”判断。
     const history = eventHistory(run).filter((entry) => entry.wave !== wave);
     const event = resolveEventForWave(run.seed, wave, { history, mode: run.mode });
@@ -482,10 +492,7 @@ export class RunService {
   }
 
   pickEvent(run, { index, optionId } = {}) {
-    if (run.clearedWaves !== run.wavesServed) {
-      throw new RunError(409, '当前波次尚未结算完成');
-    }
-    const wave = run.clearedWaves;
+    const wave = this.eventWave(run);
     const offers = run.offers || {};
     const key = eventKey(wave);
     // 先判幂等：已选择的事件不能再解析（否则历史会让该波次看起来“没有事件节点”）。
@@ -523,13 +530,19 @@ export class RunService {
     };
   }
 
-  // 首领核心节点（§4.1）：清波后、遗物三选一前发放；候选由服务端从种子确定性派生。
-  bossCoreNode(run) {
+  // 首领核心波次：爬塔取当前首领节点层，其余取已清波次（未结算先拒绝）。
+  bossCoreWave(run) {
+    if (isTowerRun(run)) return tower.towerBossCoreWave(run);
     if (run.clearedWaves !== run.wavesServed) {
       throw new RunError(409, '当前波次尚未结算完成');
     }
-    const wave = run.clearedWaves;
-    if (!isBossCoreWave(wave)) throw new RunError(409, '当前波次没有首领核心');
+    return run.clearedWaves;
+  }
+
+  // 首领核心节点（§4.1）：清波后、遗物三选一前发放；候选由服务端从种子确定性派生。
+  bossCoreNode(run) {
+    const wave = this.bossCoreWave(run);
+    if (!isTowerRun(run) && !isBossCoreWave(wave)) throw new RunError(409, '当前波次没有首领核心');
     const offers = run.offers || {};
     const key = `core:${wave}`;
     let slot = offers[key];
@@ -554,11 +567,8 @@ export class RunService {
   }
 
   pickBossCore(run, { index, optionIndex } = {}) {
-    if (run.clearedWaves !== run.wavesServed) {
-      throw new RunError(409, '当前波次尚未结算完成');
-    }
-    const wave = run.clearedWaves;
-    if (!isBossCoreWave(wave)) throw new RunError(400, '当前波次没有首领核心');
+    const wave = this.bossCoreWave(run);
+    if (!isTowerRun(run) && !isBossCoreWave(wave)) throw new RunError(400, '当前波次没有首领核心');
     const offers = run.offers || {};
     const key = `core:${wave}`;
     const slot = offers[key];
@@ -608,6 +618,11 @@ export class RunService {
       picked: true,
     };
   }
+
+  // 商人节点：确定性货架（seed:shop:<node>），picked 状态寄存在 offers JSON 的 merchant:<node> 槽位。
+  // 买一件遗物镜像遗物三选一落库；同节点幂等，已购买后换选/重买一律 409。
+  merchantNode(run) { return tower.towerMerchantNode(run); }
+  pickMerchant(run, choice) { return tower.pickTowerMerchant(run, choice); }
 
   // 回放摘要只保留决策与结果：种子、地图、遗物、事件节点与波次/结算数据。
   // 不包含任何模拟帧或逐帧状态。

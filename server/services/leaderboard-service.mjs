@@ -24,7 +24,7 @@ import { validateLeaderboardEntry } from '../db/leaderboard-validate.mjs';
 
 const DEFAULT_SIZE = 20;
 // 已知榜单模式；未识别的取值一律落到普通榜，与旧接口的兜底口径一致。
-const MODES = new Set(['daily', 'weekly', 'endless', 'mutated']);
+const MODES = new Set(['daily', 'weekly', 'endless', 'mutated', 'tower']);
 
 // 玩家可见的复核说明：只描述哪类数据对不上，不出现任何阈值或内部规则名。
 const SUSPECT_REASON_TEXT = {

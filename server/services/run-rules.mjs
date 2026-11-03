@@ -48,6 +48,7 @@ import {
   weekKey,
 } from '../../public/js/shared/scoring.js';
 import { normalizeEventHistory } from '../../public/js/shared/events.js';
+import { generateTowerGraph, normalizeTowerRoute } from '../../public/js/shared/tower.js';
 
 export const START_GOLD = 260;
 export const START_HP = 20;
@@ -208,6 +209,29 @@ export function starterFor(run) {
   return { offers: [...starter.offers], picked: starter.picked ?? null };
 }
 
+// ---------- 爬塔模式（阶段 1 服务端） ----------
+
+// 爬塔 run：mode 为 tower。旧存档（normal/daily/…）无该 mode，天然不走进任何爬塔分支。
+export function isTowerRun(run) {
+  return run?.mode === 'tower';
+}
+
+// 选路状态：ruleset.tower.route 为唯一持久化处；旧 run 缺字段时只读回退到起点（向后兼容）。
+export function towerRouteFor(run) {
+  const route = normalizeTowerRoute(run?.ruleset?.tower?.route ?? { path: ['1:0'], node: '1:0' });
+  return route ?? { path: ['1:0'], node: '1:0' };
+}
+
+// 当前节点键；无路由视为起点。
+export function towerNodeFor(run) {
+  return towerRouteFor(run).node;
+}
+
+// 战斗类节点（fight/elite/boss）：清波后给遗物；event/merchant/treasure 抵达即完成、无战斗无遗物。
+export function isTowerCombatType(type) {
+  return type === 'fight' || type === 'elite' || type === 'boss';
+}
+
 // ---------- 开局规则计算 ----------
 
 // 建局前的全部规则推导：模式/难度/技能/开局资源/规则集/固定图/变异与开局响应字段。
@@ -223,7 +247,9 @@ export function planRunStart({ token, profile, body, testSeed }) {
           ? 'endless'
           : body.mode === 'mutated'
             ? 'mutated'
-            : 'normal';
+            : body.mode === 'tower'
+              ? 'tower'
+              : 'normal';
   const difficulty = DIFFICULTIES[body.difficulty] ? body.difficulty : 'standard';
   const diff = DIFFICULTIES[difficulty];
   const daily = mode === 'daily' ? dailyChallenge(dayKey()) : null;
@@ -324,6 +350,13 @@ export function planRunStart({ token, profile, body, testSeed }) {
   // 客户端不得自造候选。取代既有的 start_relic 随机送 1 件。
   const starterOffers = rollStarterOffers(`${seed}:starter:${mode}`, mode).map((offer) => offer.id);
   ruleset.rogue2 = { starter: { offers: starterOffers, picked: null } };
+  // 爬塔模式（§1.2 零 DB 迁移）：选路状态只落 ruleset.tower.route，难度映射冻结为「楼层=波次」。
+  if (mode === 'tower') {
+    ruleset.tower = {
+      route: { path: ['1:0'], node: '1:0' },
+      difficultyMode: 'floor-equals-wave',
+    };
+  }
   // 固定地图池：所有模式（普通/每日/本周/无尽/变异）都是同一组三张图与固定 trait。
   const candidates = generateMapCandidates(seed, FIXED_MAP_COUNT);
   // 词缀即固定地图的 trait（无 trait 的 canyon 不参与）；不再做随机词缀一致性校验。

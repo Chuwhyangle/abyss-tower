@@ -14,6 +14,8 @@ export function boardKeyFor(mode, day, { season = null } = {}) {
   if (mode === 'weekly') return `weekly:${day}`;
   // 变异榜按规范化后的变异组合隔离：不同组合各自独立，互不混榜。
   if (mode === 'mutated') return `mutated:${day}`;
+  // 爬塔榜独立：不与普通/每日/无尽/变异混榜。
+  if (mode === 'tower') return 'tower';
   return 'normal';
 }
 
