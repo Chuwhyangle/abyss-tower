@@ -122,13 +122,15 @@ export const shopMethods = {
     const stats = this.game.statsFor(tower);
     const cost = this.game.upgradeCost(tower);
     const sell = this.game.sellValue(tower);
-    const evolution = this.game.towerEvolution?.(tower) || null;
-    const evolutions = this.game.evolutionOptions?.(tower) || [];
-    const title = evolution ? `${towerName(def)} · ${evolution.name}` : towerName(def);
+    const picked = this.game.towerEvolutions?.(tower) || [];
+    const options = this.game.evolutionOptions?.(tower) || [];
+    const title = picked.length
+      ? `${towerName(def)} · ${picked.map((entry) => entry.name).join(' / ')}`
+      : towerName(def);
     this.el.towerPanel.hidden = false;
     this.el.towerPanel.innerHTML = `
       <div class="tp-head">
-        <span class="tp-name" style="color:${evolution?.color || def.color}">${title} <em>Lv.${tower.level + 1}</em></span>
+        <span class="tp-name" style="color:${picked[0]?.color || def.color}">${title} <em>Lv.${tower.level + 1}</em></span>
         <button class="tp-close" title="${t('towerPanel.close')}">${iconSvg('close')}</button>
       </div>
       <div class="tp-stats">
@@ -146,18 +148,23 @@ export const shopMethods = {
         </button>
         <button class="btn small danger sell">${t('towerPanel.sell', { value: sell })}</button>
       </div>
-      ${evolution
-        ? `<div class="tp-evolution" style="display:flex;gap:8px;align-items:baseline;margin-top:8px">
+      ${picked.length
+        ? `<div class="tp-evolution" style="display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin-top:8px">
              <span class="muted">${t('shop.evolution')}</span>
-             <b style="color:${evolution.color || def.color}">${evolution.name}</b>
-             <em class="muted" style="font-size:11px">${evolutionEffectText(evolution)}</em>
+             ${picked
+               .map(
+                 (entry) =>
+                   `<b style="color:${entry.color || def.color}">${entry.name}</b>
+                    <em class="muted" style="font-size:11px">${evolutionEffectText(entry)}</em>`
+               )
+               .join('')}
            </div>`
         : ''}
-      ${evolutions.length
+      ${options.length
         ? `<div class="tp-evolutions" style="display:flex;flex-direction:column;gap:6px;margin-top:8px">
-             <span class="muted">${t('shop.fullEvolution', { choice: choiceLabel(evolutions.length) })}</span>
+             <span class="muted">${t('shop.evolution')} · ${choiceLabel(options.length)}</span>
              <div class="tp-evolution-actions" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">
-               ${evolutions
+               ${options
                  .map(
                    (entry, index) =>
                      `<button class="btn small evolve" data-evolve="${entry.id}" title="${escapeHtml(entry.desc)}"
@@ -200,6 +207,8 @@ export const shopMethods = {
     const def = TOWERS[tower.type];
     const options = this.game.evolutionOptions?.(tower) || [];
     if (!options.length) return;
+    const picked = this.game.towerEvolutions?.(tower)?.length || 0;
+    const total = def.evolutions?.length || options.length;
     const cards = options
       .map(
         (evolution, index) => `
@@ -217,7 +226,7 @@ export const shopMethods = {
       `
         <div class="draft evolution">
           <p class="eyebrow">${escapeHtml(towerName(def))} · Lv.${tower.level + 1}</p>
-          <h2>${t('shop.chooseFinalForm')}</h2>
+          <h2>${t('shop.chooseEvolution', { index: picked + 1, total })}</h2>
           <div class="draft-cards">${cards}</div>
           <div class="draft-actions">
             <span class="muted">${t('shop.keyboardHint', {

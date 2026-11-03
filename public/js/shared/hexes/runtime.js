@@ -86,6 +86,18 @@ export class HexRuntime {
     return Array.isArray(next) ? next : base;
   }
 
+  // 是否可进入进化选择：默认由模拟层按「满级且未选」判定，海克斯可改写（独塔为王逐级选）。
+  canEvolve(tower, base) {
+    const next = this.call('canEvolve', tower, base);
+    return next === undefined ? base : Boolean(next);
+  }
+
+  // 大招触发规格：10 级解锁的被动大招数据（null = 无大招）。非法值回退为无大招。
+  ultimateSpec(tower, ctx) {
+    const next = this.call('ultimateSpec', tower, ctx);
+    return isPlainRecord(next) ? next : null;
+  }
+
   // 默认允许建造；钩子显式返回 false 才拦截。
   canBuild(type, c, r, ctx) {
     const next = this.call('canBuild', type, c, r, ctx);

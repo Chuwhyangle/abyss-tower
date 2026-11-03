@@ -945,6 +945,7 @@ export default {
   'uiShared.evolution.slowDur': 'Slow duration',
   'uiShared.evolution.splash': 'Splash',
   'shop.chooseFinalForm': 'Choose final form',
+  'shop.chooseEvolution': 'Choose evolution · {index}/{total}',
   'shop.evolution': 'Evolution',
   'shop.evolutionIndex': 'Evolution · {index}',
   'shop.fullEvolution': 'Max-level evolution · {choice}',
