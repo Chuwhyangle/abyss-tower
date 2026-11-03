@@ -1,46 +1,44 @@
 ---
 id: feat-one-tower-visuals
-title: 独塔重做·视觉：3/6/9/10 级外观与特效随强化逐级变炫酷
-status: ready
+title: 独塔重做·视觉：3/6/9/10 级外观与特效逐级变炫酷
+status: todo
 labels:
   - feat
 parent: null
 children: []
-depends_on:
-  - feat-one-tower-ultimates
 extra:
   schema: execution
-  acceptance: node --test tests/sprite-coverage.test.mjs tests/render-visuals.test.mjs
+  acceptance: node --test tests/render-budget.test.mjs tests/render-visuals.test.mjs
 ---
 ## Proposal
 
-依赖 `feat-one-tower-ultimates`（7 塔大招落地）。独塔重做后，塔在 3/6/9 级逐级选进化、10 级解锁大招——这些强化应有**可见的视觉变化**（塔身、配色、攻击特效、大招专属特效逐级变炫酷），而不是数值变了外观却不动。本任务给独塔加视觉分层：每层进化（3/6/9）在塔身/攻击特效上叠一层可见变化，10 级解锁大招后触发专属大招特效（按各塔大招的机制形态设计：炮台轰击余波、弩贯穿、电弧连锁暴击、狙击处决等）。复用现有精灵图集与渲染框架（`tower-renderer.js` 的进化配色/符文、`effect-draw.js` 的特效层、`sprite-coverage.js` 的 kind 登记），遵守 render-budget / sprite-coverage / perf-budget 门禁（不得红）。
+`feat-one-tower-core`（done）与 `feat-one-tower-ultimates`（done）已落地「3/6/9 逐级选进化 + 10 级固定大招」的机制。本任务补视觉表现，让塔的**外观与攻击特效随 3/6/9/10 逐级变炫酷**（用户明确要求「外观和特效都要发生变化，变得更炫酷」）：① 3/6/9 级每选一条进化，塔外观/配色/符文有一档可见变化（复用现有进化视觉 `tower-renderer.js` 的 `drawEvolutionMark` / 进化配色路径，扩到三档）；② 10 级大招各有专属特效（弩=贯穿光箭、霜=冻结冰爆、电弧=天雷、毒=绿雾爆、战旗=军令箭齐射、震荡=地裂、狙击=红线处决），复用 `public/js/render/effect-draw.js` 与 `projectile-visuals` 既有特效原语，不新开特效系统。**不得超 render-budget 预算**（perf 门禁），新精灵/特效要同步 `sprite-coverage` 清单。
 
 ## AC
 
-- [ ] 独塔 3/6/9/10 级各有可见的外观/特效变化（塔身 + 攻击特效随层级增强）
-- [ ] 大招触发有专属特效，7 塔大招的视觉形态可区分
-- [ ] 新特效/精灵登记进 `sprite-coverage`，`render-budget`/`perf-budget` 不红
-- [ ] `node --test tests/sprite-coverage.test.mjs tests/render-visuals.test.mjs` exit 0
+- [ ] 3/6/9 级进化各有可见外观档位变化（配色/符文/轮廓之一，不靠悬浮 tooltip）
+- [ ] 10 级大招各塔有专属攻击特效（至少与普通攻击可肉眼区分）
+- [ ] `node --test tests/render-budget.test.mjs tests/render-visuals.test.mjs` exit 0（预算不超）
+- [ ] 新精灵/特效同步进 `sprite-coverage`，`tests/sprite-coverage.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/js/render/tower-renderer.js`、`public/js/render/effect-draw.js`、`public/js/render/sprite-coverage.js`，不引入第三方依赖
-- [ ] 回归测试覆盖层级视觉分层 + 大招特效登记 + 预算门禁
-- [ ] `npm test` 全绿；补跑 `node --test tests/sprite-coverage.test.mjs tests/render-visuals.test.mjs tests/render-budget.test.mjs`
+- [ ] 落地于 `public/js/render/`（tower-renderer/tower-draw/effect-draw 等），不引入第三方依赖
+- [ ] 回归测试覆盖三档进化外观 + 大招特效存在性 + 预算不超
+- [ ] `npm test` 全绿；补跑 `node --test tests/render-budget.test.mjs tests/render-visuals.test.mjs tests/sprite-coverage.test.mjs`
 - [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
 - `public/js/render/tower-renderer.js`
+- `public/js/render/tower-draw.js`
 - `public/js/render/effect-draw.js`
-- `public/js/render/sprite-coverage.js`
-- `tests/sprite-coverage.test.mjs`
+- `tests/render-budget.test.mjs`
 - `tests/render-visuals.test.mjs`
 - `tasks/feat-one-tower-visuals.md`
 
 ## Notes
 
-立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-3（视觉部分）。依赖 `feat-one-tower-ultimates`（depends_on）。具体视觉形态由 worker 在预算门禁内设计；若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
+立案 2026-11-03，源自 `docs/TODO.md` 的 TODO-3。视觉是玩法重做的最后一环；render 层不改 sim，`npm test` 的确定性门禁不受影响。若 worker 实际 Touches 有出入（如 sprite-coverage 清单、projectile-visuals），须 task_write 修正再 fan-in。
 
-该轴仍暗,理由:本任务为渲染表现升级，无新文档面，L_D/L_G/L_S 无需量化。
+该轴仍暗,理由:本任务为渲染层视觉增强，不改玩法/数值/文档面，L_D/L_G/L_S 无需量化。
