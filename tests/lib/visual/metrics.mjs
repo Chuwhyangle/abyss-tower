@@ -67,10 +67,13 @@ function canvasRect(payload) {
 }
 
 export function feelMetrics(result) {
-  const frame = result.frames.find((item) => item.id === result.metricsFrame);
+  // 窗口峰值口径：优先用峰值瞬时采集的帧 / 参照帧 / payload（特效是短命爆发信号，单瞬时采样会撞空窗）；
+  // 缺少峰值证据时回退到 metricsFrame + references + payload（单测与旧调用方）。
+  const frame = result.feelFrame || result.frames.find((item) => item.id === result.metricsFrame);
   if (!frame) throw new Error('采集结果缺少指标帧');
-  const { references, payload } = result;
+  const references = result.feelReferences || result.references;
   if (!references?.all) throw new Error('采集结果缺少表现层参照帧');
+  const payload = result.feelPayload || result.payload;
   const rect = canvasRect(payload);
   const points = toScreenPoints(payload.enemies, payload);
   return {
