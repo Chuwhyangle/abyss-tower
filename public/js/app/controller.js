@@ -11,6 +11,7 @@ import { SessionController } from './session.js';
 import { RunController } from './run.js';
 import { CombatController } from './combat.js';
 import { InputController } from './input.js';
+import { TowerNodeController } from './nodes.js';
 
 export class GameController {
   constructor({ api: apiClient = api, ui: uiLayer = ui, audio: audioEngine = audio, store = new RunStore() } = {}) {
@@ -68,6 +69,7 @@ export class GameController {
       onBindCanvas: (canvas) => this.input.bindCanvas(canvas),
       onPendingEvent: () => this.combat.resolvePendingEvent(),
       onPendingBossCore: () => this.combat.resolveBossCore(),
+      onTowerStarted: () => this.onTowerStarted(),
       onAttempts: (data) => this.session.applyAttempts(data),
       onGoHome: () => this.goHome(),
     });
@@ -78,6 +80,13 @@ export class GameController {
       store: this.store,
       onRequestError: (error, options) => this.handleKeyRequestError(error, options),
       onRefreshProfile: (options) => this.session.refreshProfile(options),
+      onNodeMap: () => this.nodes.openNodeMap(),
+    });
+    this.nodes = new TowerNodeController({
+      state: this.state,
+      api: this.api,
+      ui: this.ui,
+      onChooseNode: (node) => this.dispatchTowerNode(node),
     });
     this.input = new InputController({ state: this.state, ui: this.ui });
   }
@@ -289,6 +298,42 @@ export class GameController {
       // 局内设置面板的「退出远征」：走与 HUD 退出键同一个放弃确认流程。
       onQuit: inGame ? () => this.run.confirmAbandon() : null,
     });
+  }
+
+  // 爬塔：开局/续玩后按当前节点状态推进——已清波节点进节点地图，未清战斗节点留待玩家开波，
+  // 非战斗节点（event/merchant/treasure 抵达即完成）重新分发其即时动作。
+  onTowerStarted() {
+    const node = this.nodes.currentNode();
+    if (!node) return;
+    const cleared = (this.state.sim?.clearedWave ?? 0) >= node.layer;
+    if (cleared) {
+      this.nodes.openNodeMap();
+      return;
+    }
+    if (node.type === 'event' || node.type === 'merchant' || node.type === 'treasure') {
+      this.dispatchTowerNode(node);
+    }
+  }
+
+  // 选路推进后的节点分流：战斗类开波，事件/商人/宝藏分别走各自即时动作。
+  async dispatchTowerNode(node) {
+    if (!node) return;
+    if (node.type === 'merchant') {
+      await this.combat.openMerchant(node);
+      return;
+    }
+    if (node.type === 'event') {
+      await this.combat.resolvePendingEvent(node.layer);
+      this.nodes.openNodeMap();
+      return;
+    }
+    if (node.type === 'treasure') {
+      // 宝藏节点阶段 1 无服务端端点：抵达即完成，直接继续选路。
+      this.nodes.openNodeMap();
+      return;
+    }
+    // fight / elite / boss：战斗类节点，开波。
+    await this.combat.nextWave();
   }
 
   async goHome() {

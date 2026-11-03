@@ -1,17 +1,40 @@
 // 战斗流程：开波与清波同步、遗物三选一/刷新、结算上报。
 import { rollRelicOffers } from '../shared/data.js';
 import { isBossCoreWave } from '../shared/boss-core.js';
+import { generateTowerGraph } from '../shared/tower.js';
 import { t } from '../i18n.js';
 import { RelicOffers } from './offers.js';
 
 export class CombatController {
-  constructor({ state, api, ui, store, onRequestError, onRefreshProfile }) {
+  constructor({ state, api, ui, store, onRequestError, onRefreshProfile, onNodeMap }) {
     this.state = state;
     this.api = api;
     this.ui = ui;
     this.store = store;
     this.onRequestError = onRequestError;
     this.onRefreshProfile = onRefreshProfile;
+    this.onNodeMap = onNodeMap;
+  }
+
+  // 爬塔当前节点对象：由选路游标从 seed 派生图取；非爬塔模式返回 null。
+  currentTowerNode() {
+    const { state } = this;
+    if (state.run?.mode !== 'tower') return null;
+    const key = state.run?.tower?.route?.node ?? state.run?.tower?.node ?? null;
+    if (!key) return null;
+    const graph = state.towerGraph ?? generateTowerGraph(state.run.seed);
+    return graph.byKey.get(key) ?? null;
+  }
+
+  // 展示爬塔节点地图（由 controller 注入 nodes.openNodeMap 装配）。
+  openNodeMap() {
+    this.onNodeMap?.();
+  }
+
+  // 战斗节点后置序列完成：爬塔进入选路，普通模式恢复整备。
+  finishTowerNodeSequence() {
+    if (this.currentTowerNode()) this.openNodeMap();
+    else this.state.app?.setPaused(false);
   }
 
   async nextWave() {
@@ -85,6 +108,26 @@ export class CombatController {
     sim.pendingDraft = true;
     // 清波未确认时不覆盖波前快照，避免刷新后重复领取奖励。
     if (clearOk) sim.save();
+
+    // 爬塔：清波后按节点类型分流（fight→遗物、elite→无、boss→首领核心）；
+    // event/merchant/treasure 抵达即完成、不经过战斗清波，此处只处理战斗类节点。
+    const towerNode = this.currentTowerNode();
+    if (towerNode) {
+      if (towerNode.type === 'boss') {
+        const handled = await this.resolveBossCore(wave);
+        if (!state.sim || state.sim.phase === 'over') return;
+        if (!handled) this.openNodeMap();
+        return;
+      }
+      if (towerNode.type !== 'fight') {
+        // elite 等战斗节点：无遗物、无首领核心，直接推进节点地图。
+        sim.pendingDraft = false;
+        if (clearOk) sim.save();
+        this.openNodeMap();
+        return;
+      }
+      // fight：唯一免费遗物来源，落到下方遗物三选一；选完后由 pickOffer 转入选路。
+    }
 
     // 每 5 波的事件节点先于遗物三选一结算。
     await this.resolvePendingEvent(wave);
@@ -188,7 +231,7 @@ export class CombatController {
     state.currentOffers = null;
     sim.save();
     this.ui.closeModal();
-    state.app.setPaused(false);
+    this.finishTowerNodeSequence();
     this.ui.renderRelics();
     this.ui.updateShopState();
     state.app.emitHud(true);
@@ -300,7 +343,10 @@ export class CombatController {
     const { state } = this;
     const sim = state.sim;
     const targetWave = wave ?? sim?.clearedWave;
-    if (!sim || !isBossCoreWave(targetWave)) return false;
+    // 爬塔：首领核心重排到首领节点（10/20/30）；普通模式沿用每 5 波一次的固定表。
+    const towerNode = this.currentTowerNode();
+    const isBossNode = towerNode ? towerNode.type === 'boss' : isBossCoreWave(targetWave);
+    if (!sim || !isBossNode) return false;
 
     let data;
     try {
@@ -331,6 +377,7 @@ export class CombatController {
             applied = result.applied || applied;
             this.ui.closeModal();
             this.applyBossCoreLocally(applied);
+            if (this.currentTowerNode()) this.openNodeMap();
             resolve(true);
           } catch (error) {
             if (error.status === 409) {
@@ -341,6 +388,7 @@ export class CombatController {
                   applied = { kind: info.choice.kind, option: info.choice.option };
                   this.ui.closeModal();
                   this.applyBossCoreLocally(applied);
+                  if (this.currentTowerNode()) this.openNodeMap();
                   resolve(true);
                   return;
                 }
@@ -387,6 +435,60 @@ export class CombatController {
     this.ui.renderRelics();
     this.ui.updateShopState();
     state.app?.emitHud(true);
+  }
+
+  // 商人节点（阶段 1）：只开放购买（服务端支持 buy），刷新/出售暂未开放（docs/PHASE_TOWER.md §4.3）。
+  async openMerchant(node) {
+    const { state } = this;
+    const sim = state.sim;
+    if (!sim || !node) return;
+
+    let data;
+    try {
+      data = await this.api.getMerchant(state.run.id);
+    } catch (error) {
+      this.ui.toast(error.message, 2800);
+      this.openNodeMap();
+      return;
+    }
+    // 已购买或空货架：直接推进选路。
+    if (!data?.offers?.length || data.picked) {
+      this.openNodeMap();
+      return;
+    }
+
+    state.app?.setPaused(true);
+    this.ui.showMerchant({
+      inventory: { offers: data.offers, refreshFee: data.refreshFee },
+      gold: sim.gold,
+      sellable: [],
+      onBuy: async (index) => {
+        const offer = data.offers[index];
+        if (!offer || !state.sim) return;
+        try {
+          const result = await this.api.pickMerchant(state.run.id, index);
+          // 金币由客户端本地结算（服务端只落遗物与购买槽位）。
+          sim.gold = Math.max(0, sim.gold - offer.price);
+          sim.applyOffer({ kind: 'relic', id: result.applied?.id ?? offer.id });
+          this.ui.closeModal();
+          this.ui.renderRelics();
+          this.ui.updateShopState();
+          state.app?.emitHud(true);
+        } catch (error) {
+          if (error.status === 409) {
+            // 另一标签页已购买：幂等收敛，关闭并推进选路。
+            this.ui.closeModal();
+          } else {
+            this.ui.toast(error.message, 2800);
+          }
+        }
+      },
+      onRefresh: () => this.ui.toast(t('tower.map.locked'), 2200),
+      onSell: () => this.ui.toast(t('tower.map.locked'), 2200),
+    });
+    // 商人弹窗的所有关闭路径（购买后关闭 / 不购买点关闭 / 点遮罩）一律推进节点地图，
+    // 避免停在暂停态软锁。showMerchant 不暴露 onClose，这里沿用 modals 自身的 onClose 槽位。
+    this.ui._modalOnClose = () => this.openNodeMap();
   }
 
   async handleGameOver(stats) {

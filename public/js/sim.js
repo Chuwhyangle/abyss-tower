@@ -13,6 +13,7 @@ import {
 import { createFloater, floaterVisible, pushFloater } from './shared/floaters.js';
 import { RNG } from './shared/rng.js';
 import { computeOutcome } from './shared/scoring.js';
+import { generateTowerGraph, normalizeTowerRoute, TOWER_LAYERS } from './shared/tower.js';
 import { FACTION_ORDER, factionPoints, factionSetMods } from './shared/factions.js';
 import { normalizeBonusPoints, normalizeContractRecords } from './shared/contracts.js';
 import { TOWER_TYPE_DOCTRINE, applyDoctrine as applyDoctrineEffect, normalizeDoctrineIds } from './shared/doctrines.js';
@@ -43,6 +44,18 @@ export class Simulation {
     this.difficulty = opts.difficulty || 'standard';
     this.runId = opts.runId || null;
     this.mode = opts.mode || 'normal';
+    // 爬塔选路状态（docs/PHASE_TOWER.md §1.2）：仅爬塔模式持有，读档从 opts.tower 恢复，缺省回退起点。
+    // 非爬塔模式为 null，不触碰 ${seed}:tower:* 随机流（确定性红线）。
+    this.tower =
+      this.mode === 'tower'
+        ? {
+            route:
+              normalizeTowerRoute(opts.tower?.route ?? { path: ['1:0'], node: '1:0' }) ??
+              { path: ['1:0'], node: '1:0' },
+          }
+        : null;
+    // 节点图：爬塔模式才按 seed 派生（独立随机流），其余模式不生成、不消耗 RNG。
+    this.towerGraph = this.mode === 'tower' ? generateTowerGraph(this.seed) : null;
 
     this.gold = opts.gold ?? 260;
     this.baseHp = opts.baseHp ?? 20;
@@ -372,8 +385,9 @@ export class Simulation {
     this.paused = true;
     this.playSound(victory ? 'victory' : 'gameover');
 
-    // 只按已清波次结算：进行中波次（含重放）不算清波。
-    const clearedWave = victory ? MAX_WAVE : Math.max(0, this.clearedWave);
+    // 通关层数口径：爬塔登顶 30 层，普通模式清满 30 波；两者同值仍分离符号，各自演进。
+    const finalWave = this.mode === 'tower' ? TOWER_LAYERS : MAX_WAVE;
+    const clearedWave = victory ? finalWave : Math.max(0, this.clearedWave);
     this.clearedWave = clearedWave;
     const outcome = computeOutcome({
       waveReached: clearedWave,
@@ -397,13 +411,40 @@ export class Simulation {
       cores: outcome.cores,
       mode: this.mode,
       difficulty: this.difficulty,
-      maxWave: MAX_WAVE,
+      maxWave: finalWave,
     };
     this.opts.onGameOver?.(stats);
   }
 
+  // 爬塔当前节点对象；非爬塔模式或游标缺失返回 null（只读派生，不改 RNG 顺序）。
+  towerNode() {
+    if (!this.towerGraph || !this.tower?.route?.node) return null;
+    return this.towerGraph.byKey.get(this.tower.route.node) ?? null;
+  }
+
+  // 事件/结算所用的“波次”口径：爬塔取当前节点层（事件重排到节点），其余取已清波次。
+  eventWave() {
+    const node = this.towerNode();
+    return node ? node.layer : this.clearedWave;
+  }
+
+  // 选路推进（服务端校验后回写）：更新游标并按新节点重排待办事件，供事件/快照/结算取层。
+  setTowerRoute(route) {
+    if (this.mode !== 'tower') return;
+    const normalized = normalizeTowerRoute(route);
+    if (!normalized) return;
+    this.tower = { route: normalized };
+    this.pendingEvent = this.computePendingEvent();
+    if (this.pendingEvent) this.phase = 'event';
+  }
+
   computePendingEvent() {
-    return resolveEventForWave(this.seed, this.clearedWave, {
+    if (this.mode === 'tower') {
+      // 爬塔：事件重排到节点，只有当前节点是事件节点才解析；连锁不引入波次延迟。
+      const node = this.towerNode();
+      if (!node || node.type !== 'event') return null;
+    }
+    return resolveEventForWave(this.seed, this.eventWave(), {
       history: this.events,
       chains: this.chains,
       mode: this.mode,
@@ -420,7 +461,7 @@ export class Simulation {
 
     const result = resolveEventOption(event, option.id, {
       seed: this.seed,
-      wave: this.clearedWave,
+      wave: this.eventWave(),
       gold: this.gold,
       baseHp: this.baseHp,
       maxHp: this.maxBaseHp,
@@ -455,7 +496,7 @@ export class Simulation {
     }
     this.baseHp = Math.min(this.baseHp, this.maxBaseHp);
 
-    this.events.push({ wave: this.clearedWave, eventId: event.id, optionId: option.id });
+    this.events.push({ wave: this.eventWave(), eventId: event.id, optionId: option.id });
     this.events = normalizeEventHistory(this.events, this.mode);
     // 连锁选项在此刻排期；后续波次由事件历史推导，不消耗战斗 RNG。
     this.chains = normalizeChains(chainsFromHistory(this.events, this.mode), this.mode);

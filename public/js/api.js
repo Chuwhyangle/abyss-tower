@@ -331,6 +331,25 @@ export function createApi({
         body: { wave },
       });
     },
+    // 爬塔节点图 / 选路 / 商人（docs/PHASE_TOWER.md §6.1）：nodes 读图、choose 推进游标、merchant 购买。
+    getNodes(id) {
+      return request(`/api/runs/${encodeURIComponent(id)}/nodes`);
+    },
+    chooseNode(id, node) {
+      return request(`/api/runs/${encodeURIComponent(id)}/choose`, {
+        method: 'POST',
+        body: { node },
+      });
+    },
+    getMerchant(id) {
+      return request(`/api/runs/${encodeURIComponent(id)}/merchant`, { method: 'POST', body: {} });
+    },
+    pickMerchant(id, index) {
+      return request(`/api/runs/${encodeURIComponent(id)}/merchant`, {
+        method: 'POST',
+        body: { index },
+      });
+    },
     getRelics(id, reroll = false) {
       return request(`/api/runs/${encodeURIComponent(id)}/relics`, {
         method: 'POST',
