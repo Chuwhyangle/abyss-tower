@@ -1,7 +1,7 @@
 ---
 id: feat-tower-stage1-ui
 title: 爬塔·阶段1UI：节点地图选择弹窗 + 商人弹窗（复用现有弹窗骨架）
-status: ready
+status: done
 labels:
   - feat
 parent: null
