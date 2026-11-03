@@ -1,7 +1,7 @@
 ---
 id: fix-tower-evolution-snapshot
 title: 塔进化状态写入单局快照：serializeTower/normalizeTowers 补 evolutions，修复存读档丢进化
-status: ready
+status: done
 labels:
   - defect
 parent: null
