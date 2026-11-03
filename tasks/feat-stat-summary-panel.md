@@ -1,7 +1,7 @@
 ---
 id: feat-stat-summary-panel
 title: 加成一览面板 + 遗物栏可收起
-status: todo
+status: ready
 labels:
   - feat
 parent: null
