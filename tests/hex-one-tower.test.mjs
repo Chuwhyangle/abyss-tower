@@ -219,3 +219,38 @@ test('无海克斯时行为不变：满价、3 级上限、可建多塔', () => 
   const base = TOWERS.arrow.levels[BASE_LEVELS - 1];
   assertClose(sim.statsFor(first).dmg, base.dmg, '无海克斯无额外成长');
 });
+
+test('冻结中的飞行怪可被炮台锁定与命中，未冻结的飞行怪仍不可被地面塔打', () => {
+  const { sim } = makeSim();
+  // 直接造地面塔（炮台），绕开单塔建造限制，专注索敌判定。
+  const tower = sim.makeTower('cannon', 1, 1, 0, 0);
+  sim.towers.push(tower);
+  sim.recomputeTowerStats();
+  const range = sim.statsFor(tower).range;
+
+  sim.spawnEnemy('flyer');
+  const flyer = sim.enemies[sim.enemies.length - 1];
+  flyer.x = tower.x + 1;
+  flyer.y = tower.y;
+  flyer.hp = 1000;
+  flyer.maxHp = 1000;
+
+  // 未冻结：地面塔打不到飞行怪，也不开火。
+  flyer.freezeUntil = 0;
+  assert.equal(sim.findTarget(tower, range), null, '未冻结飞行怪不可被炮台锁定');
+  tower.cd = 0;
+  sim.updateTowers(1 / 60);
+  assert.equal(sim.projectiles.length, 0, '未冻结飞行怪不会引发开火');
+
+  // 冻结中：地面塔可锁定、开火并命中。
+  flyer.freezeUntil = sim.time + 1;
+  const hpBefore = flyer.hp;
+  sim.updateTowers(1 / 60);
+  assert.equal(sim.findTarget(tower, range), flyer, '冻结飞行怪可被炮台锁定');
+  assert.equal(sim.projectiles.length, 1, '炮台对冻结飞行怪开火');
+  assert.equal(sim.projectiles[0].target, flyer, '投射物指向冻结飞行怪');
+
+  // 弹道落地后命中扣血。
+  sim.updateProjectiles(0.2);
+  assert.ok(flyer.hp < hpBefore, '冻结飞行怪被炮台命中扣血');
+});
