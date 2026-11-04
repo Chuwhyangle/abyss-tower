@@ -1,7 +1,7 @@
 ---
 id: feat-new-enemies
 title: 新型怪物：新增 6~8 种敌人，各带独特机制，配合关卡节点主题
-status: ready
+status: done
 labels:
   - feat
 parent: null
