@@ -12,6 +12,8 @@ import { DOCTRINES } from '../shared/doctrines.js';
 import { normalizeTalent } from '../shared/data/meta.js';
 import { t, tOr } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
+import { drawPortrait } from '../render/portrait-draw.js';
+import { drawRelicIcon } from '../render/relic-art.js';
 import { towerName, evolutionEffectText, choiceLabel, escapeHtml } from './shared.js';
 
 // 商店卡片顺序：按 TOWER_ORDER 展开，缺少定义的 id 跳过（纯函数，便于单测）。
@@ -144,13 +146,15 @@ export const shopMethods = {
         <p class="tip-stats">${t('shop.cost')} ${this.game.towerCost(id)} · ${statsText}</p>`;
       button.innerHTML = `
         <span class="key">${index + 1}</span>
-        <span class="glyph" style="color:${def.color}">${iconSvg('tower')}</span>
+        <span class="glyph" style="color:${def.color}"><canvas width="48" height="48" style="width:var(--icon-size-lg);height:var(--icon-size-lg)"></canvas></span>
         <span class="name">${towerName(def)}</span>
         <span class="cost">${iconSvg('gold', 'icon-inline')}${this.game.towerCost(id)}</span>
         ${locked ? `<span class="lock">${t('shop.locked')}</span>` : ''}
       `;
       button.onclick = () => this.handlers.onSelectShop?.(id);
       this.el.shopList.appendChild(button);
+      const portrait = button.querySelector('canvas');
+      if (portrait) drawPortrait(portrait.getContext('2d'), `tower.${id}`, 48);
     });
     this.updateShopState();
   },
@@ -186,8 +190,10 @@ export const shopMethods = {
       const chip = document.createElement('div');
       chip.className = 'relic-chip';
       chip.dataset.tip = `<b style="color:${view.color}">${relic.name} ${view.levelLabel}</b><span class="rarity-tag" style="color:${view.color}">${rarity.name}</span><p>${relicEffectText(state.id, view.level)}</p>`;
-      chip.innerHTML = `<i style="background:${view.color}"></i><span>${relic.name} <em class="relic-level">${view.levelLabel}</em></span>`;
+      chip.innerHTML = `<canvas width="32" height="32" style="width:16px;height:16px;flex:0 0 auto"></canvas><span>${relic.name} <em class="relic-level">${view.levelLabel}</em></span>`;
       this.el.relicList.appendChild(chip);
+      const canvas = chip.querySelector('canvas');
+      if (canvas) drawRelicIcon(canvas.getContext('2d'), state.id, 32);
     }
   },
 

@@ -7,10 +7,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { ENEMIES, TOWERS } from '../public/js/shared/data.js';
+import { ENEMIES, RARITY, RELICS, TOWERS } from '../public/js/shared/data.js';
 import { BOSS_VARIANTS } from '../public/js/shared/data/enemies.js';
 import { DESTRUCTIBLE_TYPES } from '../public/js/shared/destructibles.js';
 import {
+  ART_COVERAGE,
+  ART_KINDS,
   BASE_ENTITY_ID,
   ENTITY_SPRITES,
   ENTITY_SPRITE_FAMILIES,
@@ -18,6 +20,7 @@ import {
   SUMMON_KINDS,
   ULTIMATE_TOWER_TYPES,
   ULTIMATE_VISUALS,
+  artCoverageGaps,
   baseSpriteId,
   baseSpriteState,
   coverageGaps,
@@ -30,6 +33,8 @@ import {
   entitySpriteIds,
   portalSpriteId,
   portalSpriteState,
+  portraitEntityIds,
+  relicIconIds,
   summonSpriteId,
   summonSpriteState,
   towerAppliedEvolutions,
@@ -39,6 +44,8 @@ import {
   towerVisualTier,
   ultimateVisual,
 } from '../public/js/render/sprite-coverage.js';
+import { drawPortrait, portraitSpec } from '../public/js/render/portrait-draw.js';
+import { RELIC_GLYPH_NAMES, drawRelicIcon, relicGlyphName, relicIconSpec } from '../public/js/render/relic-art.js';
 import { IMPACT_SHAPES } from '../public/js/render/impact-vfx.js';
 import {
   ATLAS_IMAGE_2X_PATH,
@@ -358,5 +365,135 @@ test('渲染接线：render.js 注入管线，五个实体渲染器按注册表 
   for (const specifier of imports) {
     assert.doesNotMatch(specifier, /\/sim(?:\.js|\/)/, '覆盖表不得 import 模拟层');
     assert.doesNotMatch(specifier, /\/render(?:\.js|\/)/, '覆盖表不得 import 渲染层');
+  }
+});
+
+// ── 程序化美术内容（立绘 + 遗物图标）────────────────────────────────────────
+
+// 记录型 2D 上下文替身：任何方法调用与属性赋值都按序记录，用于证明绘制确定性。
+function recordingCtx() {
+  const calls = [];
+  const recorder = {
+    save: () => calls.push(['save']),
+    restore: () => calls.push(['restore']),
+    translate: (...args) => calls.push(['translate', ...args]),
+    beginPath: () => calls.push(['beginPath']),
+    closePath: () => calls.push(['closePath']),
+    moveTo: (...args) => calls.push(['moveTo', ...args]),
+    lineTo: (...args) => calls.push(['lineTo', ...args]),
+    arc: (...args) => calls.push(['arc', ...args]),
+    ellipse: (...args) => calls.push(['ellipse', ...args]),
+    quadraticCurveTo: (...args) => calls.push(['quadraticCurveTo', ...args]),
+    fill: () => calls.push(['fill']),
+    stroke: () => calls.push(['stroke']),
+  };
+  const ctx = new Proxy(recorder, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      return () => calls.push([String(prop)]);
+    },
+    set(target, prop, value) {
+      calls.push(['set', String(prop), value]);
+      return true;
+    },
+  });
+  Object.defineProperty(ctx, 'calls', { value: calls });
+  return ctx;
+}
+
+test('美术覆盖登记：立绘覆盖 8 塔 + 敌人 + 3 首领变体，遗物图标覆盖全部遗物', () => {
+  assert.deepEqual(ART_KINDS, ['portrait', 'relic-icon']);
+  assert.deepEqual(portraitEntityIds(), [
+    ...Object.keys(TOWERS).map((id) => `tower.${id}`),
+    ...Object.keys(ENEMIES).map((id) => `enemy.${id}`),
+    ...Object.keys(BOSS_VARIANTS).map((id) => `enemy.${id}`),
+  ]);
+  assert.equal(portraitEntityIds().length, 8 + Object.keys(ENEMIES).length + Object.keys(BOSS_VARIANTS).length);
+  assert.deepEqual(relicIconIds(), RELICS.map((relic) => `relic.${relic.id}`));
+  assert.equal(relicIconIds().length, RELICS.length);
+
+  assert.deepEqual(ART_COVERAGE.portrait, portraitEntityIds());
+  assert.deepEqual(ART_COVERAGE['relic-icon'], relicIconIds());
+  assert.ok(Object.isFrozen(ART_COVERAGE));
+  assert.ok(Object.isFrozen(ART_COVERAGE.portrait));
+  assert.ok(Object.isFrozen(ART_COVERAGE['relic-icon']));
+
+  assert.deepEqual(artCoverageGaps(portraitEntityIds(), 'portrait'), { kind: 'portrait', missing: [], extra: [], valid: true });
+  assert.deepEqual(artCoverageGaps(relicIconIds(), 'relic-icon'), { kind: 'relic-icon', missing: [], extra: [], valid: true });
+  assert.equal(artCoverageGaps([], 'unknown-kind').valid, false);
+});
+
+test('立绘确定性：portraitSpec 按实体 id 稳定、可解析、未知 id 返回 null', () => {
+  for (const id of portraitEntityIds()) {
+    const first = portraitSpec(id);
+    const second = portraitSpec(id);
+    assert.ok(first, `${id} 缺少立绘规格`);
+    assert.deepEqual(first, second, `${id} 的立绘规格必须确定`);
+    assert.equal(first.id, id);
+    assert.ok(['tower', 'enemy', 'boss'].includes(first.family), `${id} 家族未知`);
+    assert.match(first.color, /^#[0-9a-f]{6}$/i);
+    assert.ok(first.sides >= 4 && first.sides <= 7, `${id} 边数越界`);
+    assert.ok(first.bulk > 0.5 && first.bulk < 1, `${id} 占宽比越界`);
+    assert.equal(first.jitter.length, first.sides);
+    assert.ok(first.jitter.every((value) => Number.isFinite(value)));
+    assert.ok(Number.isFinite(first.spikeCount));
+  }
+  assert.equal(portraitSpec('nope.nope'), null);
+  assert.equal(portraitSpec(null), null);
+  assert.equal(portraitSpec('tower.arrow').color, TOWERS.arrow.color, '塔立绘配色来自塔定义');
+  assert.equal(portraitSpec('enemy.grunt').color, ENEMIES.grunt.color, '敌人立绘配色来自敌人定义');
+  assert.equal(portraitSpec('enemy.armored').color, BOSS_VARIANTS.armored.color, '首领变体立绘配色来自变体定义');
+});
+
+test('遗物图标确定性：relicIconSpec 按遗物 id 稳定、稀有度配色正确、未知 id 返回 null', () => {
+  assert.equal(RELIC_GLYPH_NAMES.length, 10);
+  assert.equal(new Set(RELIC_GLYPH_NAMES).size, RELIC_GLYPH_NAMES.length, 'glyph 表不得重复');
+  for (const relic of RELICS) {
+    const first = relicIconSpec(relic.id);
+    const second = relicIconSpec(relic.id);
+    assert.ok(first, `relic.${relic.id} 缺少图标规格`);
+    assert.deepEqual(first, second, `relic.${relic.id} 的图标规格必须确定`);
+    assert.equal(first.color, RARITY[relic.rarity].color, `relic.${relic.id} 稀有度配色必须来自 RARITY`);
+    assert.ok(RELIC_GLYPH_NAMES.includes(first.glyph), `relic.${relic.id} glyph 必须来自 glyph 表`);
+    assert.equal(relicGlyphName(relic.id), first.glyph);
+  }
+  assert.equal(relicIconSpec('nope'), null);
+  assert.equal(relicIconSpec(null), null);
+  assert.equal(relicIconSpec('warlord').color, RARITY.epic.color);
+  assert.equal(relicIconSpec('sharp').color, RARITY.common.color);
+});
+
+test('立绘与遗物图标绘制确定性：两次绘制产生相同指令序列', () => {
+  const portraitIds = [
+    portraitEntityIds()[0],
+    portraitEntityIds()[8],
+    portraitEntityIds()[portraitEntityIds().length - 1],
+  ];
+  for (const id of portraitIds) {
+    const a = recordingCtx();
+    const b = recordingCtx();
+    assert.equal(drawPortrait(a, id, 96), true, `${id} 立绘应成功绘制`);
+    assert.equal(drawPortrait(b, id, 96), true);
+    assert.deepEqual(a.calls, b.calls, `${id} 立绘两次绘制必须一致`);
+    assert.ok(a.calls.length > 0, `${id} 立绘应产生绘制指令`);
+  }
+  for (const relic of RELICS.slice(0, 3)) {
+    const a = recordingCtx();
+    const b = recordingCtx();
+    assert.equal(drawRelicIcon(a, relic.id, 32), true, `relic.${relic.id} 图标应成功绘制`);
+    assert.equal(drawRelicIcon(b, relic.id, 32), true);
+    assert.deepEqual(a.calls, b.calls, `relic.${relic.id} 图标两次绘制必须一致`);
+    assert.ok(a.calls.length > 0);
+  }
+  assert.equal(drawPortrait(recordingCtx(), 'nope.nope', 96), false);
+  assert.equal(drawRelicIcon(recordingCtx(), 'nope', 32), false);
+});
+
+test('立绘/图标源码：零随机、零 DOM、不 import 模拟层', () => {
+  for (const file of ['public/js/render/portrait-draw.js', 'public/js/render/relic-art.js']) {
+    const source = read(file);
+    assert.doesNotMatch(source, /Math\.random/, `${file} 不得使用随机数`);
+    assert.doesNotMatch(source, /\bnew Image\b|\bdocument\.|\bwindow\./, `${file} 导入期不得触碰 DOM`);
+    assert.doesNotMatch(source, /from\s+'\.\.\/sim\.js'/, `${file} 不得依赖模拟模块`);
   }
 });

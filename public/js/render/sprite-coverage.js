@@ -2,7 +2,7 @@
 // 导入期零 DOM、零随机、不 import sim/render：状态来源是模拟层已有的只读字段，
 // 选择器只做「字段 → 状态名」的映射，未知输入返回 null（渲染器据此走既有程序化路径）。
 // 覆盖集的权威定义见 docs/PHASE_FEEL_ART.md §4.3；新增实体必须同时进本表与覆盖测试。
-import { ENEMIES, TOWERS } from '../shared/data.js';
+import { ENEMIES, RELICS, TOWERS } from '../shared/data.js';
 import { BOSS_VARIANTS } from '../shared/data/enemies.js';
 import { DESTRUCTIBLE_BY_ID, DESTRUCTIBLE_TYPES } from '../shared/destructibles.js';
 
@@ -293,4 +293,42 @@ export function baseSpriteState(hpRatio, hurtFlash = 0) {
 export function baseSpriteId(hpRatio, hurtFlash = 0) {
   const state = baseSpriteState(hpRatio, hurtFlash);
   return state ? ENTITY_SPRITES[`base.${BASE_ENTITY_ID}`]?.states[state] ?? null : null;
+}
+
+// ── 程序化美术内容（立绘 + 遗物图标）的覆盖登记 ─────────────────────────────
+// 与单位精灵同源：共享数据表是唯一权威，登记表只做「数据实体 → 覆盖 id」的映射。
+// 立绘覆盖 8 塔 + 全部敌人 + 3 首领变体；遗物图标覆盖全部遗物。绘制在
+// portrait-draw.js / relic-art.js（运行时程序化绘制，不进实体精灵图集）。
+
+export const ART_KINDS = Object.freeze(['portrait', 'relic-icon']);
+
+// 立绘实体 id：<family>.<entity>，塔 / 敌人 / 首领变体三族共用同一命名空间。
+export function portraitEntityIds() {
+  return [
+    ...Object.keys(TOWERS).map((id) => `tower.${id}`),
+    ...Object.keys(ENEMIES).map((id) => `enemy.${id}`),
+    ...Object.keys(BOSS_VARIANTS).map((id) => `enemy.${id}`),
+  ];
+}
+
+// 遗物图标 id：relic.<id>，覆盖 RELICS 全表。
+export function relicIconIds() {
+  return RELICS.map((relic) => `relic.${relic.id}`);
+}
+
+// 覆盖登记表：art kind → 覆盖 id 列表。绘制模块据此枚举要支持的实体，测试据此复核。
+export const ART_COVERAGE = deepFreeze({
+  portrait: deepFreeze(portraitEntityIds()),
+  'relic-icon': deepFreeze(relicIconIds()),
+});
+
+// 覆盖缺口：绘制模块支持集与登记表是否一致（对称校验，多 / 少都报）。
+export function artCoverageGaps(supported, kind) {
+  const expected = ART_COVERAGE[kind];
+  if (!expected) return { kind, missing: [], extra: [], valid: false };
+  const declared = new Set(expected);
+  const actual = new Set(Array.isArray(supported) ? supported : []);
+  const missing = expected.filter((id) => !actual.has(id));
+  const extra = [...actual].filter((id) => !declared.has(id)).sort();
+  return { kind, missing, extra, valid: missing.length === 0 && extra.length === 0 };
 }
