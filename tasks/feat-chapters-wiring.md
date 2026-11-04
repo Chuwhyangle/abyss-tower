@@ -1,7 +1,7 @@
 ---
 id: feat-chapters-wiring
 title: 关卡节点化·阶段1接线：服务端 presence-gate + 客户端透传 + replay 版本
-status: todo
+status: ready
 labels:
   - feat
 parent: null
