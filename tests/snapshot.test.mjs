@@ -1,8 +1,9 @@
 // 快照单一来源：固定样例字节一致、序列化结果可校验、v2/v3 迁移、非法字段回退。
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { Simulation } from '../public/js/sim.js';
-import { generateMap } from '../public/js/shared/mapgen.js';
+import { buildScenario } from './lib/scenario.mjs';
+import { assertSnapshotRoundTrip } from './lib/assertions.mjs';
+import { seamById } from './lib/seams.mjs';
 import { MAP_ROWS, MAX_WAVE } from '../public/js/shared/data.js';
 import {
   MIN_SAVE_VERSION,
@@ -77,8 +78,8 @@ test('toSnapshot 输出必须通过 validateSnapshot 且迁移后不变', () => 
 
 test('Simulation.toSnapshot 使用同一实现', () => {
   const fixedNow = 1700000000999;
-  const opts = {
-    map: generateMap('snapshot-test-seed'),
+  // 迁移示范：ad-hoc `new Simulation(opts)` → buildScenario（tests/lib/scenario.mjs）。
+  const sim = buildScenario({
     seed: 'snapshot-test-seed',
     runId: 'run-sim',
     mode: 'normal',
@@ -87,11 +88,8 @@ test('Simulation.toSnapshot 使用同一实现', () => {
     baseHp: 20,
     maxBaseHp: 20,
     relics: [{ id: 'sharp', level: 1 }],
-    towers: [],
     startedAt: 1700000000000,
-    onToast: () => {},
-  };
-  const sim = new Simulation(opts);
+  }).sim;
   const snap = withFixedNow(fixedNow, () => sim.toSnapshot());
   const shared = withFixedNow(fixedNow, () => toSnapshot(sim));
 
@@ -218,4 +216,18 @@ test('版本入口保持单一：save.js 与 snapshot.js 共享同一常量与�
   assert.equal(validateSave, validateSnapshot);
   assert.equal(SAVE_VERSION, 8);
   assert.equal(MIN_SAVE_VERSION, 2);
+});
+
+// ---------- 迁移示范：快照走缝注册表 ----------
+// snapshot 缝（tests/lib/seams.mjs）把「快照往返」写成一条变体无关断言 assertSnapshotRoundTrip，
+// 所有声明 snapshot 缝的轴（tower/hex/relic/skill/map/difficulty/wave/mode）自动卷进去——
+// 比 ad-hoc 每个测试手写 toSnapshot → 重建 → 逐字段对比更省，且与注册表共用同一份断言。
+
+test('示范·快照缝：缝只写一次，声明 snapshot 缝的场景自动被卷进', () => {
+  const seam = seamById('snapshot');
+  assert.ok(seam, 'snapshot 缝应已注册');
+  const sc = buildScenario({ seed: 'seam-snapshot-demo', gold: 2000, relics: ['sharp'], hex: 'glass_cannon' });
+  seam.assert(sc);
+  // 缝断言体与复用断言等价：assertSnapshotRoundTrip 可独立于注册表直接调用。
+  assertSnapshotRoundTrip(sc.sim, { label: '快照缝·复用断言' });
 });

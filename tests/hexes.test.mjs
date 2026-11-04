@@ -11,6 +11,9 @@ import {
   offerHexesFromPool,
   validateHexChoice,
 } from '../public/js/shared/hexes.js';
+import { axisById } from './lib/axes.mjs';
+import { buildScenario } from './lib/scenario.mjs';
+import { assertInvariants } from './lib/assertions.mjs';
 
 // 设计基准：顺序、名称与 scoreMul 由 PRD/任务定义固定。
 const EXPECTED = [
@@ -150,4 +153,23 @@ test('validateHexChoice 拒绝不在 offers 里的 id', () => {
 test('validateHexChoice 接受真实 offer 中的元素', () => {
   const offer = offerHexesFromPool(HEX_ORDER, 'choose-seed');
   for (const id of offer) assert.equal(validateHexChoice(id, offer), true);
+});
+
+// ---------- 迁移示范：海克斯走轴注册表参数化 ----------
+// 过去每个海克斯一个 ad-hoc 文件（hex-*.test.mjs），各自手拼 `new Simulation` 验证钩子行为；
+// 现在只登记一根 `hex` 轴（tests/lib/axes.mjs），一条测试参数化遍历全部海克斯，
+// 复用 assertions.mjs 的不变量——加一个海克斯 = 变体表 +1，测试数 +1 轴，不 ×N。
+
+test('示范·海克斯轴：一根轴参数化遍历全部海克斯，不变量自动卷入', () => {
+  const axis = axisById('hex');
+  assert.ok(axis, 'hex 轴应已注册');
+  // 参数化遍历：HEX_ORDER 十个海克斯 = 十个变体，一条测试走完（ad-hoc 时代是十个文件）。
+  assert.equal(axis.variants.length, HEX_ORDER.length, 'hex 轴变体数应等于 HEX_ORDER');
+  for (const variant of axis.variants) {
+    const sc = buildScenario(axis.specFor(variant));
+    axis.run(sc, variant);
+  }
+  // 不变量对任意海克斯变体自动落证：确定性 + RNG 顺序 + 快照 round-trip + 无崩溃。
+  const [first] = axis.variants;
+  assertInvariants(axis.specFor(first), (sc) => axis.run(sc, first), { label: `海克斯轴·${first.id}` });
 });

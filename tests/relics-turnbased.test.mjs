@@ -5,8 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { Simulation } from '../public/js/sim.js';
-import { generateMap } from '../public/js/shared/mapgen.js';
+import { buildScenario } from './lib/scenario.mjs';
+import { assertInvariants } from './lib/assertions.mjs';
 import { RELICS, RELIC_BY_ID, relicEffectText, relicModsAtLevel } from '../public/js/shared/data.js';
 import {
   EFFECT_REGISTRY,
@@ -47,21 +47,19 @@ const PERIODIC = {
   eternalhourglass: ['waveGold5', 5],
 };
 
+// 迁移示范：ad-hoc 手拼 `new Simulation({ map: generateMap(SEED), … })` → buildScenario（tests/lib/scenario.mjs）。
+// 过去要写地图/难度/经济/回调一整块样板，现在一条声明式 spec 得到就绪 Simulation。
 function makeSim(relics = [], opts = {}) {
-  return new Simulation({
-    map: generateMap(SEED),
+  return buildScenario({
     seed: SEED,
     difficulty: 'standard',
     gold: 5000,
     baseHp: 40,
     maxBaseHp: 40,
     relics,
-    towers: [],
     unlockedTowers: ['arrow', 'cannon', 'frost', 'arc', 'poison', 'sniper', 'banner'],
-    onToast: () => {},
-    onSave: () => {},
     ...opts,
-  });
+  }).sim;
 }
 
 function fakeSim(mods, { gold = 100, baseHp = 10, maxBaseHp = 20 } = {}) {
@@ -227,4 +225,28 @@ test('续玩恢复对空 offers 清待选、解暂停并提示，不渲染空弹
   );
   assert.match(emptyBranch, /return;/, '空 offers 分支未提前返回');
   assert.doesNotMatch(emptyBranch, /showDraft/, '空 offers 分支仍渲染弹窗');
+});
+
+// ---------- 迁移示范：遗物走 harness（buildScenario 替代 ad-hoc makeSim） ----------
+// makeSim 已是一层 buildScenario 薄封装（见文件顶部）；这里再证明不变量自动把回合型遗物卷进去。
+
+test('示范·遗物走 harness：不变量自动卷入回合型遗物波末结算', () => {
+  const spec = {
+    seed: SEED,
+    gold: 5000,
+    baseHp: 10,
+    maxBaseHp: 20,
+    relics: [{ id: 'harvestsickle', level: 1 }],
+  };
+  assertInvariants(
+    spec,
+    (sc) => {
+      sc.sim.phase = 'wave';
+      sc.sim.wave = 2;
+      sc.sim.waveDef = { reward: 0 };
+      sc.sim.completeWave();
+      assert.equal(sc.sim.gold, 5006, '第 2 波结算收割镰刀');
+    },
+    { label: '遗物·harvestsickle' }
+  );
 });

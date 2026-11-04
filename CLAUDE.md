@@ -18,6 +18,7 @@
 3. **每 5 个版本重构一次**：到版本节点（v1.5、v2.0……）必须安排一次结构重构，力度不限，单独提交。
 4. **封装优先**：新代码用类/模块组织，职责单一、边界清晰；避免巨型文件、散落的自由函数和过程式大函数。重构时保持公共 API 与行为不变。
 5. **文档所有权（单一 lane）**：`docs/PRD.md` / `docs/TECH_DESIGN.md` 只由文档 lane（`DOCS-*` 任务）更新；实现类任务不把这两份文件加入 `## Touches`，设计增量写进任务 Notes。每个阶段一份 `docs/PHASE_<主题>.md` 作为冻结表、字段契约与 AC 映射的唯一定义处；总文档只写增量并引用它，避免重复定义。提交前跑 `node scripts/check-doc-ownership.mjs`（exit 1 = 仍有 open 任务声明总文档）。
+6. **新功能测试走 harness**：新功能测试必须走 `tests/lib/scenario.mjs` 的 `buildScenario` + 在 `tests/lib/axes.mjs` / `tests/lib/seams.mjs` 注册轴/缝，禁止 ad-hoc 手拼 `Simulation`；详见 `docs/TESTING.md`。
 
 ## 代码地图与所有权
 
