@@ -2,6 +2,23 @@
 
 版本号与 git tag、`server/config.mjs` 的 `CONTENT_VERSION` 保持一致。
 
+## v1.34.0 — 2026-11-04
+
+爬塔阶段 2 集成、镜像工程落位重做、通关结算修复与测试体系。
+
+### 爬塔
+- 选路 → 节点分流 → 登顶全链路打通；难度映射冻结为「楼层=波次」（`ruleset.tower.difficultyMode = "floor-equals-wave"`），读数回写 `docs/BALANCE.md`。
+- 标题页新增爬塔入口与难度弹窗文案（中/英）。
+
+### 体验修复
+- 通关最终波补同步 `clearWave(30)`：结算 `waveReached` 不再被钳到 29，登顶局能正确记录。
+- 镜像工程改为玩家自选落位（手放连体镜像），不再自动找位；预览、快照与读档一致。
+
+### 测试体系
+- 无头模拟场景构造器 `tests/lib/scenario.mjs`、「轴/缝」分类法与覆盖矩阵报告（`scripts/test-matrix.mjs`）。
+- hexes / relics / snapshot 三类测试迁移到 harness 作示范，落地 `docs/TESTING.md` 与 CLAUDE.md 约定。
+- 新增爬塔浏览器验收 `tests/browser-tower.mjs` 与无头平衡模拟 `tests/balance-tower.mjs`。
+
 ## v1.33.0 — 2026-11-03
 
 独塔重做、爬塔模式、局外天赋与体验修复。
