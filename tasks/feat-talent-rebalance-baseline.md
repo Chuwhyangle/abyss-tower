@@ -1,7 +1,7 @@
 ---
 id: feat-talent-rebalance-baseline
 title: 天赋树·阶段2：零 meta 基线重排 + balance 复测（+1%/级 腾头寸不顶穿）
-status: ready
+status: done
 labels:
   - feat
 parent: null

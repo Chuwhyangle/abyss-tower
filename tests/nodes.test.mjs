@@ -27,11 +27,11 @@ const REFERENCE = {
         "count": 5,
         "interval": 0.62,
         "delay": 0.3,
-        "hpMul": 1.1,
+        "hpMul": 1.22,
         "portal": 0
       }
     ],
-    "hpMul": 1.1,
+    "hpMul": 1.22,
     "speedMul": 1.016,
     "countMul": 1.04,
     "reward": 23,
@@ -54,7 +54,7 @@ const REFERENCE = {
         "count": 1,
         "interval": 3,
         "delay": 0.4,
-        "hpMul": 1.67,
+        "hpMul": 1.852,
         "portal": 0
       },
       {
@@ -65,7 +65,7 @@ const REFERENCE = {
         "portal": 0
       }
     ],
-    "hpMul": 2.061,
+    "hpMul": 2.286,
     "speedMul": 1.04,
     "countMul": 1.04,
     "reward": 35,
@@ -88,7 +88,7 @@ const REFERENCE = {
         "count": 6,
         "interval": 0.62,
         "delay": 0.3,
-        "hpMul": 2.8216806219458994,
+        "hpMul": 3.129500326158179,
         "portal": 0
       },
       {
@@ -96,11 +96,11 @@ const REFERENCE = {
         "count": 2,
         "interval": 1.25,
         "delay": 3.013916800543666,
-        "hpMul": 2.8216806219458994,
+        "hpMul": 3.129500326158179,
         "portal": 0
       }
     ],
-    "hpMul": 2.822,
+    "hpMul": 3.13,
     "speedMul": 1.052,
     "countMul": 1.04,
     "reward": 41,
@@ -123,7 +123,7 @@ const REFERENCE = {
         "count": 3,
         "interval": 1.15,
         "delay": 0.3,
-        "hpMul": 11.592593605941394,
+        "hpMul": 12.857240181135,
         "portal": 0
       },
       {
@@ -131,7 +131,7 @@ const REFERENCE = {
         "count": 5,
         "interval": 0.62,
         "delay": 2.0007883980870247,
-        "hpMul": 11.592593605941394,
+        "hpMul": 12.857240181135,
         "portal": 0
       },
       {
@@ -139,7 +139,7 @@ const REFERENCE = {
         "count": 3,
         "interval": 0.8,
         "delay": 4.741945281997323,
-        "hpMul": 11.592593605941394,
+        "hpMul": 12.857240181135,
         "portal": 0
       },
       {
@@ -147,11 +147,11 @@ const REFERENCE = {
         "count": 2,
         "interval": 1.3,
         "delay": 6.070938251819462,
-        "hpMul": 11.592593605941394,
+        "hpMul": 12.857240181135,
         "portal": 0
       }
     ],
-    "hpMul": 11.593,
+    "hpMul": 12.857,
     "speedMul": 1.107,
     "countMul": 1.04,
     "reward": 68,
@@ -174,7 +174,7 @@ const REFERENCE = {
         "count": 1,
         "interval": 3,
         "delay": 0.4,
-        "hpMul": 45.372,
+        "hpMul": 50.322,
         "portal": 0
       },
       {
@@ -213,7 +213,7 @@ const REFERENCE = {
         "portal": 0
       }
     ],
-    "hpMul": 104.42,
+    "hpMul": 115.811,
     "speedMul": 1.192,
     "countMul": 1.04,
     "reward": 110,
@@ -236,7 +236,7 @@ const REFERENCE = {
         "count": 3,
         "interval": 1,
         "delay": 0.3,
-        "hpMul": 7.536145548657975,
+        "hpMul": 8.435983823124598,
         "portal": 0
       },
       {
@@ -244,7 +244,7 @@ const REFERENCE = {
         "count": 6,
         "interval": 0.62,
         "delay": 2.2575109760276972,
-        "hpMul": 7.536145548657975,
+        "hpMul": 8.435983823124598,
         "portal": 0
       },
       {
@@ -252,11 +252,11 @@ const REFERENCE = {
         "count": 2,
         "interval": 1.5,
         "delay": 4.71958608366549,
-        "hpMul": 7.536145548657975,
+        "hpMul": 8.435983823124598,
         "portal": 0
       }
     ],
-    "hpMul": 7.536,
+    "hpMul": 8.436,
     "speedMul": 1.126,
     "countMul": 1.12,
     "reward": 56,
@@ -279,7 +279,7 @@ const REFERENCE = {
         "count": 6,
         "interval": 0.62,
         "delay": 0.3,
-        "hpMul": 3.386016746335079,
+        "hpMul": 3.7554003913898146,
         "portal": 1
       },
       {
@@ -287,11 +287,11 @@ const REFERENCE = {
         "count": 2,
         "interval": 1.25,
         "delay": 3.013916800543666,
-        "hpMul": 3.386016746335079,
+        "hpMul": 3.7554003913898146,
         "portal": 1
       }
     ],
-    "hpMul": 3.386,
+    "hpMul": 3.755,
     "speedMul": 0.947,
     "countMul": 1.04,
     "reward": 41,
@@ -314,7 +314,7 @@ const REFERENCE = {
         "count": 3,
         "interval": 3,
         "delay": 0.4,
-        "hpMul": 64.415,
+        "hpMul": 71.442,
         "portal": 0
       },
       {
@@ -353,7 +353,7 @@ const REFERENCE = {
         "portal": 0
       }
     ],
-    "hpMul": 501.928,
+    "hpMul": 556.684,
     "speedMul": 1.252,
     "countMul": 1.04,
     "reward": 140,

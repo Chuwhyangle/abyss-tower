@@ -42,7 +42,8 @@ const EXPECTED_EXPORTS = [
 // feat-new-enemies：敌人扩容到 21 种（穹翼精英/反伤壁垒/回春图腾/自爆虫/潜行者/裂隙召唤师/破盾者），内容快照随之更新。
 // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
 // 内容快照哈希更新（行为本身无改动）。
-const BASELINE_HASH = 'b12ae297af613b852a3c3886252ef8b0cf85f3b81d3b905b9d8d912835f0e2c7';
+// TODO-14 §5：重排零 meta 基线 hpMul（深渊 1.34→1.50、远征 1.10→1.22、漫游 0.85→0.90），内容快照随之更新。
+const BASELINE_HASH = 'd39df3c32065e85e495b790e9cb276de1aea0bf911a3c36d60a40af9593ab0a2';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
