@@ -1,7 +1,7 @@
 ---
 id: test-migration-demo
 title: 测试体系迁移示范 + 落地「新功能必须走 harness」约定（收口）
-status: ready
+status: done
 labels:
   - feat
 parent: null
