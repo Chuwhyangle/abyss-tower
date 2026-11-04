@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] 迁移示范：hexes/relics/snapshot 三组走 harness（轴/缝注册 + 复用断言），证明比 ad-hoc 更省
-- [ ] `docs/TESTING.md` 落地：场景构造器契约 + 轴/缝/不变量分类法 + 新功能接缝声明约定
-- [ ] `CLAUDE.md` 补一句「新功能测试走 harness」约定
-- [ ] `node --test tests/scenario.test.mjs tests/test-matrix.test.mjs` exit 0；`node scripts/test-matrix.mjs` 报告无未声明接缝
+- [x] 迁移示范：hexes/relics/snapshot 三组走 harness（轴/缝注册 + 复用断言），证明比 ad-hoc 更省
+- [x] `docs/TESTING.md` 落地：场景构造器契约 + 轴/缝/不变量分类法 + 新功能接缝声明约定
+- [x] `CLAUDE.md` 补一句「新功能测试走 harness」约定
+- [x] `node --test tests/scenario.test.mjs tests/test-matrix.test.mjs` exit 0；`node scripts/test-matrix.mjs` 报告无未声明接缝
 
 ## DoD
 
-- [ ] 落地于 `tests/`（迁移示范三组）、`docs/TESTING.md`（新）、`CLAUDE.md`，零第三方依赖
-- [ ] 迁移示范证明「+1 轴 +k 缝、不 ×N」的纪律成立
-- [ ] `npm test` 全绿；`check:docs` 不红（TESTING.md 引用文件均已存在）
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `tests/`（迁移示范三组）、`docs/TESTING.md`（新）、`CLAUDE.md`，零第三方依赖
+- [x] 迁移示范证明「+1 轴 +k 缝、不 ×N」的纪律成立
+- [x] `npm test` 全绿；`check:docs` 不红（TESTING.md 引用文件均已存在）
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
