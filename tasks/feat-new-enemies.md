@@ -67,3 +67,13 @@ extra:
 - enemy-body.js 新增 3 个程序化造型后超 600 行预算，登记债务 `scripts/structure-budget.allow.d/feat-new-enemies.json`（maxLines 700）。
 - 合并 develop 后，本任务的 POOL 增补改变了 `tests/nodes.test.mjs` 的「chapters 默认关闭现状快照」（该快照由 feat-chapters-table 立案），已按新现状重生成快照并声明进 Touches。
 - `npm test` 2015/2015 全绿；`node --test tests/enemies-depth.test.mjs tests/waves.test.mjs` 26/26 exit 0。
+
+## Blocker
+
+**2026-11-04T04:00:54.247Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=merge-develop: Auto-merging tests/data-split.test.mjs
+CONFLICT (content): Merge conflict in tests/data-split.test.mjs
+Automatic merge failed; fix conflicts and then commit the result.
+- run_id：wk-prod-anchor
+- session_id：5c646135-7b8d-4669-a890-da6a70c1ed17

@@ -1,7 +1,7 @@
 ---
 id: GOAL-013
 title: 内容与成长扩展：关卡节点化 + 天赋树重做 + 新型怪物 + 立绘遗物图
-status: active
+status: achieved
 kind: goal
 origin: 人 2026-11-04：在 v1.34 之上做一版内容与成长扩展，解决「重复度高、无成长感、缺美术内容」
 activatedAt: 2026-11-04T03:56:53.352Z
@@ -11,6 +11,11 @@ statusLog:
     to: active
     actor: goal-cli
     reason: ""
+  - at: 2026-11-04T04:04:37.240Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: all ACs achieved + sufficiency covered"
 ---
 ## 背景
 
