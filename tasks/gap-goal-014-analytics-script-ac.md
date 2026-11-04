@@ -1,7 +1,7 @@
 ---
 id: gap-goal-014-analytics-script-ac
 title: GOAL-014 充分性缺口：退出条件 1「分析脚本落地」无在域 AC（AC-072 草稿 criterion 指向未落地测试文件，提案新增可执行读数 AC）
-status: todo
+status: needs-human
 labels:
   - gap
 parent: null
