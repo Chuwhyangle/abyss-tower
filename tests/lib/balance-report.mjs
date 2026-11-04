@@ -550,14 +550,14 @@ function tradeoffLines(statuses) {
   if (!missed.length) {
     return [
       '- 三档均落入目标区间（全解锁、机器人口径），本轮无需进一步取舍。',
-      '- 三档倍率、波次生成与 `BALANCE_TARGETS` 口径未动；达标来自机器人按「真人下限」使用技能 / 主海克斯 / 塔进化与肉鸽 2.0 新系统、并叠加 per-map `hpMul` 逐图补偿后的真实复测，具体取舍见「固定地图结论」。',
+      '- 三档基线 `hpMul` 按 TODO-14 §5 重排（腾出满 meta 头寸）、`BALANCE_TARGETS` 口径未动；达标来自重排后的零 meta 基线 + 机器人按「真人下限」使用技能 / 主海克斯 / 塔进化与肉鸽 2.0 新系统、并叠加 per-map `hpMul` 逐图补偿后的真实复测，具体取舍见「固定地图结论」。',
     ];
   }
   return [
     `- 未达标：${missed
       .map((row) => `${DIFFICULTIES[row.difficulty].name} ${formatPercent(row.winRate)}（目标 ${(row.low * 100).toFixed(0)}–${(row.high * 100).toFixed(0)}%，${row.status}）`)
       .join('；')}。`,
-    '- 本轮未调整三档倍率，也未改战斗数值、波次生成、经济与计分的既有口径；以上是固定地图池 + 机器人按「真人下限」使用新系统后的真实口径。',
+    '- 本轮按 TODO-14 §5 重排三档基线 `hpMul`，未改战斗数值、波次生成、经济与计分的既有口径；以上是固定地图池 + 机器人按「真人下限」使用新系统后的真实口径。',
     '- 结构性原因与是否调参的结论见「固定地图结论」；目标区间仍按机器人口径保留，用于衡量差距。',
   ];
 }

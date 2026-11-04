@@ -41,7 +41,8 @@ const EXPECTED_EXPORTS = [
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
 // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
 // 内容快照哈希更新（行为本身无改动）。
-const BASELINE_HASH = '822a3f7f02bfeeecd02ed47a703790ca70079c47405d5d0b09d568974c43b27e';
+// TODO-14 §5：重排零 meta 基线 hpMul（深渊 1.34→1.50、远征 1.10→1.22、漫游 0.85→0.90），内容快照随之更新。
+const BASELINE_HASH = '1cdea1f3ae4b3741b26553532ed2b46b6b25d507ce47dea5d106b1d26f2408f6';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
