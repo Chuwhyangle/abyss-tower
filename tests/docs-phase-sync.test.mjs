@@ -26,6 +26,8 @@ const REQUIRED_SECTIONS = [/^##\s+1\.\s+背景/m, /^##\s+2\.\s+范围/m, /^##\s+
 const PHASE_AC = /^AC-0(?:1[1-9]|2\d|3[01])$/;
 const TOWER_DOC = 'docs/PHASE_TOWER.md';
 const TOWER_REQUIRED_SECTIONS = [/^##\s+1\.\s+背景/m, /^##\s+2\.\s+范围/m, /^##\s+3\.\s+节点图契约/m, /^##\s+4\.\s+三类节点经济契约/m, /^##\s+5\.\s+难度映射/m, /^##\s+6\.\s+实现拆分/m];
+const CHAPTER_DOC = 'docs/PHASE_CHAPTERS.md';
+const CHAPTER_REQUIRED_SECTIONS = [/^##\s+1\.\s+背景/m, /^##\s+2\.\s+范围/m, /^##\s+3\.\s+章节契约/m, /^##\s+4\.\s+难度曲线/m, /^##\s+5\.\s+平衡红线/m, /^##\s+6\.\s+实现三阶段/m];
 const SCRIPT = path.join(ROOT, 'scripts/check-doc-ownership.mjs');
 
 function read(rel) {
@@ -60,6 +62,11 @@ test('PHASE_FEEL_ART 存在且含背景/范围/命中反馈契约/精灵资源�
 test('PHASE_TOWER 存在且含背景/范围/节点图契约/经济契约/难度映射/实现拆分六节', () => {
   const markdown = read(TOWER_DOC);
   for (const pattern of TOWER_REQUIRED_SECTIONS) assert.match(markdown, pattern);
+});
+
+test('PHASE_CHAPTERS 存在且含背景/范围/章节契约/难度曲线/平衡红线/实现三阶段六节', () => {
+  const markdown = read(CHAPTER_DOC);
+  for (const pattern of CHAPTER_REQUIRED_SECTIONS) assert.match(markdown, pattern);
 });
 
 test('PRD/TECH 都链接到 PHASE_FEEL_ART，且其引用的章节号真实存在', () => {

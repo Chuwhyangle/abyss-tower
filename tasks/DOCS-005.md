@@ -1,7 +1,7 @@
 ---
 id: DOCS-005
 title: 关卡节点化 PHASE 冻结表：6 节点 × 5 波章节契约落 docs/PHASE_CHAPTERS.md
-status: ready
+status: done
 labels:
   - docs
 parent: null
@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] `docs/PHASE_CHAPTERS.md` 存在，含背景/范围/章节契约/难度曲线/平衡红线/实现三阶段六节
-- [ ] 6 节点表与 `docs/TODO.md` TODO-15 三路收敛方案一致（主题/敌人池/词缀/首领）
-- [ ] ASCII 文件名 `PHASE_CHAPTERS.md`（不触发 docs-consistency 非 ASCII 截断）
-- [ ] `node --test tests/docs-phase-sync.test.mjs tests/docs-consistency.test.mjs` exit 0
+- [x] `docs/PHASE_CHAPTERS.md` 存在，含背景/范围/章节契约/难度曲线/平衡红线/实现三阶段六节
+- [x] 6 节点表与 `docs/TODO.md` TODO-15 三路收敛方案一致（主题/敌人池/词缀/首领）
+- [x] ASCII 文件名 `PHASE_CHAPTERS.md`（不触发 docs-consistency 非 ASCII 截断）
+- [x] `node --test tests/docs-phase-sync.test.mjs tests/docs-consistency.test.mjs` exit 0
 
 ## DoD
 
-- [ ] `docs/PHASE_CHAPTERS.md` 落地，章节契约与 TODO-15 逐条对应
-- [ ] 若 docs-phase-sync 需覆盖新 PHASE 文档，同步更新其检查（不破坏既有 PHASE_* 断言）
-- [ ] `npm test` 全绿
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] `docs/PHASE_CHAPTERS.md` 落地，章节契约与 TODO-15 逐条对应
+- [x] 若 docs-phase-sync 需覆盖新 PHASE 文档，同步更新其检查（不破坏既有 PHASE_* 断言）
+- [x] `npm test` 全绿
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -37,5 +37,7 @@ extra:
 ## Notes
 
 立案 2026-11-04，源自 `docs/TODO.md` 的 TODO-15。关卡节点化实现依赖本冻结表落地后再拆任务（阶段 0 章节表 → 阶段 1 并行 → 阶段 2 集成）。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
+
+实现 2026-11-04：落 `docs/PHASE_CHAPTERS.md`（§1 背景 / §2 范围 / §3 章节契约 / §4 难度曲线 / §5 平衡红线 / §6 实现三阶段，六节点表逐条对应 TODO-15），`tests/docs-phase-sync.test.mjs` 新增六节断言。验证：acceptance 命令 exit 0、`npm test` 1993 例全绿、anti-drift 零越界。
 
 该轴仍暗,理由:本任务为阶段冻结表文档，把已定稿设计落文档，L_D/L_G/L_S 无需量化。
