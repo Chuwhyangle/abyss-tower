@@ -221,13 +221,11 @@
 - **背景（用户要求，2026-11-04）**：搭一个「去美术的完整游戏模拟」作为测试环境——所有数据+功能特效（战斗/状态/触发/计分/存档/回放）都能无头编程驱动、跑一局、断言结果。后续做功能走这个环境测试 + 交叉测试（看它和别的系统怎么联动），但**不要笛卡尔积**（M×N×Z），要 **M+N+Z 加法级**复用。
 - **现状**：`sim.js` 已是确定性无头引擎（公开面完整），现有测试已有「轴测试」（每海克斯 `hex-*.test.mjs`、每塔、每遗物）与「缝测试」（snapshot/replay/sim-systems/combat）雏形，`balance-bot.mjs`/`feel-sim-diff.mjs`/`check-sim-determinism.mjs` 已做场景模拟。**缺**：① 无统一「场景构造器」（每个测试 ad-hoc 拼 `Simulation`）；② 无显式「轴/缝/不变量」注册表，接缝手工维护；③ 复用断言散落各处。
 - **方案（三连任务，串行）**：
-<!-- docs-consistency:planned-start -->
   1. **地基**：`tests/lib/scenario.mjs`（声明式 `buildScenario(spec)` → 就绪 Simulation + 驱动 helper）+ `tests/lib/assertions.mjs`（stats 数值/确定性哈希/快照 round-trip/no-crash 复用断言）+ 不变量（确定性、RNG 顺序、快照 round-trip、无崩溃，对任意 scenario 跑）。
   2. **分类法**：`tests/lib/axes.mjs`（轴注册表：塔/海克斯/遗物/技能/地图/难度/波次，参数化一条测试遍历整轴）+ `tests/lib/seams.mjs`（接缝注册表：加成聚合/海克斯钩子×塔生命周期/存档往返/回放往返/mode 分支）+ `scripts/test-matrix.mjs`（报告每轴/每缝/每不变量的覆盖矩阵）。
   3. **迁移示范**：把一组现有测试迁到新 harness 做示范（hexes + relics + snapshot），并落地「新功能必须走 harness + 声明接缝」约定（`docs/TESTING.md` + CLAUDE.md 一句）。
-<!-- docs-consistency:planned-end -->
 - **核心纪律**：加一个新维度，测试数 +1（轴）或 +1（缝声明），不 ×N；不变量自动把新东西卷进去，付「组合覆盖」不付「组合代价」。
-- **状态**：[ ] 待实现（三连：地基 → 分类法 → 迁移示范）
+- **状态**：[x] 已实现（三连：地基 → 分类法 → 迁移示范，契约见 `docs/TESTING.md`）
 
 ## 已完成
 
