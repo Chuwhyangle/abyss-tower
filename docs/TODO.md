@@ -286,4 +286,6 @@
 | TODO-12 | 爬塔模式 | `feat-tower-stage0-contract` / `-stage1-server` / `-stage1-client` / `-stage1-ui` / `-stage2-integration` |
 | TODO-13 | 测试体系 | `test-scenario-harness` / `test-matrix-taxonomy` / `test-harness-adoption` |
 
+GOAL-013 内容与成长扩展（2026-11-04 全部 achieved）：关卡节点化（`DOCS-005` / `feat-chapters-table` / `feat-chapters-wiring`）、天赋树重做（`feat-talent-rework-contract` / `feat-talent-rebalance-baseline`）、新型怪物（`feat-new-enemies`，7 种）、立绘+遗物图（`feat-art-portraits-relic-icons`）。
+
 跟进修复：`fix-meta-balance-targets-tolerance`、`fix-mirror-engineering-placement`、`fix-victory-final-wave-not-recorded`。
