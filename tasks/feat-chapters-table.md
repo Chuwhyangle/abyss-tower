@@ -1,7 +1,7 @@
 ---
 id: feat-chapters-table
 title: 关卡节点化·阶段0：chapters.js 章节表 + generateWave 默认关闭开关
-status: todo
+status: ready
 labels:
   - feat
 parent: null
