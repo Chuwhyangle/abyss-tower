@@ -31,17 +31,17 @@ AC-007 判据 `node scripts/check-stability.mjs` 现 exit 1（3 轮全红），�
 
 ## AC
 
-- [ ] `REPO_PATH_RE` 字符集含 `<` 与 `>`；`` `docs/PHASE_<主题>.md` `` 与 `` `docs/<topic>` `` 占位符不再被报「代码路径不存在」
-- [ ] 新增回归测试：尖括号占位符不误报、真实缺失路径仍报
-- [ ] `node --test tests/docs-consistency.test.mjs` exit 0
-- [ ] `npm test` exit 0（全量套件一次通过）
-- [ ] `node scripts/check-stability.mjs` exit 0
+- [x] `REPO_PATH_RE` 字符集含 `<` 与 `>`；`` `docs/PHASE_<主题>.md` `` 与 `` `docs/<topic>` `` 占位符不再被报「代码路径不存在」
+- [x] 新增回归测试：尖括号占位符不误报、真实缺失路径仍报
+- [x] `node --test tests/docs-consistency.test.mjs` exit 0
+- [x] `npm test` exit 0（全量套件一次通过）
+- [x] `node scripts/check-stability.mjs` exit 0
 
 ## DoD
 
-- [ ] 门禁语义未放宽：仅让占位符不误报，真实缺失路径照旧红
-- [ ] 零运行时/玩家可见改动、零第三方依赖
-- [ ] 不提交 `server/data/*.db*`、`backups/*.db`
+- [x] 门禁语义未放宽：仅让占位符不误报，真实缺失路径照旧红
+- [x] 零运行时/玩家可见改动、零第三方依赖
+- [x] 不提交 `server/data/*.db*`、`backups/*.db`
 
 ## Touches
 
