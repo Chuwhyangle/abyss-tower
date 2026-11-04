@@ -253,6 +253,19 @@
 - **需求**：用户要「立绘和遗物图」。立绘 = 塔/敌人/首领的卡面画像（UI/图鉴用）；遗物图 = 遗物图标。零第三方依赖，走现有 Canvas 程序化绘制 + 精灵图集管线（`sprite-coverage.js` 登记），风格与现有配色/形状统一。**不搞读图评审**（用户已定：语义验收交玩家），画完玩家进游戏看效果。
 - **状态**：[ ] 待实现（`feat-art-portraits-relic-icons`）
 
+## 游玩分析（Go，2026-11-04 用户要求）
+
+### TODO-18 真人游玩分析系统：report/check 双模式 + human-vs-bot 洞察闭环
+
+- **背景**：每局 run 已落库（`runs` 表 mode/difficulty/seed/ruleset/relics/waves/结算 victory·score·wave·kills·duration·result_json），但**没聚合分析**——真人游玩数据「存了没被用」，balance 全是机器人（用户已判「bot 数据不可靠，重玩法不重平衡」）。
+- **三路收敛方案**：
+  1. **脚本双模式** `scripts/play-analytics.mjs`：`report`（读 runs/replays → 5 段 markdown 报告，分 `content_version` 隔离）＋ `check <insight-id>`（单条洞察求值 exit 0/1，作 goal AC 的 criterion，红 → gap-filer 自动立案）。
+  2. **报告段**（MVP 零迁移）：总体（难度×mode 局数/通关率/波次/时长/余金/剩血）、主海克斯选取率/胜率、遗物选取率/胜率差、失败波次分布、mode 使用量。关键坑：脚本**不得 import `server/db/index.mjs`**（会触发清理写），直接 `new DatabaseSync(db, {readOnly:true})`。
+  3. **洞察触发器**（带样本 floor + content_version 隔离 + 连续两期）：`human-vs-bot`（真人 vs 机器人 >10pp）、`hex-winrate`（<-15pp）、`relic-dead/unpicked`、`wave-death`（>30%）、`mode-cold`（<5%）、`abandon-rate`（>30%）、`duration-outlier`。**绝大多数路由到玩法/内容/UX（重玩法不重平衡），数值类只作触发器交机器人 balance 执行**。
+  4. **分工**：机器人管「能不能通」（数值区间），真人管「好不好玩、还想不想再来」（手感/乐趣/留存）。
+  5. **v2 补打点**（最高杠杆）：塔编成落库（`towersUnlocked` 落 ruleset 1 行 + 塔最终编成落 `result_json`）+ 战败归因 `deathCause` + 逐波 `baseHp` 时间线。
+- **状态**：[x] 三路方案已出，待实现（`feat-play-analytics`；GOAL-014 已立案）
+
 ## 测试体系（Go）
 
 ### TODO-13 无头模拟场景 + 正交/接缝/不变量测试体系（M+N+Z 而非 M×N×Z）
