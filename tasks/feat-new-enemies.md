@@ -16,27 +16,39 @@ extra:
 
 ## AC
 
-- [ ] 新增 6~8 种敌人，数据落地 `enemies.js`（hp/speed/armor/gold + 机制字段）
-- [ ] 每种一个独特机制，行为钩子落地 `enemy-system.js`（反伤/自爆/隐身/光环等），确定性、零新 RNG
-- [ ] 进 `wave-director.js` 波次池（minWave 与节点主题对齐），`enemy-data.js` 有程序化形状/颜色
-- [ ] `node --test tests/enemies-depth.test.mjs tests/waves.test.mjs` exit 0
+- [x] 新增 6~8 种敌人，数据落地 `enemies.js`（hp/speed/armor/gold + 机制字段）
+- [x] 每种一个独特机制，行为钩子落地 `enemy-system.js`（反伤/自爆/隐身/光环等），确定性、零新 RNG
+- [x] 进 `wave-director.js` 波次池（minWave 与节点主题对齐），`enemy-data.js` 有程序化形状/颜色
+- [x] `node --test tests/enemies-depth.test.mjs tests/waves.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/js/shared/data/enemies.js`、`public/js/sim/enemy-system.js`、`public/js/sim/wave-director.js`、`public/js/render/enemy-data.js`、i18n，零第三方依赖
-- [ ] 回归测试覆盖每种新敌人的机制与波次池（确定性、不越 RNG 红线）
-- [ ] `npm test` 全绿；补跑 `node --test tests/enemies-depth.test.mjs tests/waves.test.mjs tests/combat.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `public/js/shared/data/enemies.js`、`public/js/sim/enemy-system.js`、`public/js/sim/wave-director.js`、`public/js/render/enemy-data.js`、i18n，零第三方依赖
+- [x] 回归测试覆盖每种新敌人的机制与波次池（确定性、不越 RNG 红线）
+- [x] `npm test` 全绿；补跑 `node --test tests/enemies-depth.test.mjs tests/waves.test.mjs tests/combat.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
 - `public/js/shared/data/enemies.js`
 - `public/js/sim/enemy-system.js`
 - `public/js/sim/wave-director.js`
+- `public/js/shared/waves.js`
 - `public/js/render/enemy-data.js`
+- `public/js/render/enemy-body.js`
+- `public/js/render/art-tokens.js`
 - `public/js/shared/i18n/zh-CN.enemies.js`
 - `public/js/shared/i18n/en-US.enemies.js`
+- `public/assets/sprites/entities/entity-atlas.json`
+- `public/assets/sprites/entities/entity-atlas@1x.png`
+- `public/assets/sprites/entities/entity-atlas@2x.png`
+- `public/assets/sprites/manifest.json`
+- `docs/reviews/entity-sprite-coverage-contact-sheet.png`
+- `docs/reviews/entity-sprite-states-contact-sheet.png`
 - `tests/enemies-depth.test.mjs`
+- `tests/data-split.test.mjs`
+- `tests/sprite-coverage.test.mjs`
+- `scripts/structure-budget.allow.d/feat-new-enemies.json`
 - `tasks/feat-new-enemies.md`
 
 ## Notes
@@ -44,3 +56,12 @@ extra:
 立案 2026-11-04，源自 `docs/TODO.md` 的 TODO-16。与美术线（TODO-17）并行：本任务只做机制 + 程序化形状，新怪物的立绘/图集交给美术线。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为敌人内容填充，机制走既有敌人系统，无新玩法文档面，L_D/L_G/L_S 无需量化。
+
+实现落地（2026-11-04）：
+
+- 新增 7 种敌人：skywing（护盾再生）、bastion（反伤脉冲停摆近身塔）、mender（治疗光环）、bomber（逼近基地自爆）、stalker（周期冲刺）、riftcaller（召唤噬虫小弟）、shieldbreaker（漏怪穿透减伤），机制全部为确定性周期行为，零新 RNG，不碰 `sim.js` RNG 调用顺序。
+- 波次池 POOL 实际在 `public/js/shared/waves.js`（非 AC 字面的 wave-director.js），Touches 已增补 waves.js；minWave 与 6 节点主题对齐（skywing 6 / bastion 11 / mender 13 / bomber 16 / stalker 21 / riftcaller 26 / shieldbreaker 28）。
+- 新敌人类型 id 用 `riftcaller`：原拟 `summoner` 与首领变体 `BOSS_VARIANTS.summoner` 撞名，会使 sprite 覆盖表因同名键去重到 63 实体（覆盖测试红）。中文名仍为「裂隙召唤师」。
+- 图集重生成（实体状态帧 164）；无障碍配色蓝黄/红绿两套敌人映射补 7 种（art-tokens.js）。
+- enemy-body.js 新增 3 个程序化造型后超 600 行预算，登记债务 `scripts/structure-budget.allow.d/feat-new-enemies.json`（maxLines 700）。
+- `npm test` 2001/2001 全绿；`node --test tests/enemies-depth.test.mjs tests/waves.test.mjs` 26/26 exit 0。
