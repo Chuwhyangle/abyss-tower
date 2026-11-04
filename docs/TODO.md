@@ -229,4 +229,22 @@
 
 ## 已完成
 
-（暂无）
+（2026-11-04 全部落地，详见各任务 Notes；上面各条目的「待实现」状态文字是历史记录，实际均已完成）
+
+| # | 条目 | 落地任务 |
+|---|---|---|
+| TODO-1 | 塔进化快照丢失 | `fix-tower-evolution-snapshot` |
+| TODO-2 | 飞行怪冻结可被地面塔打 | 并入 `fix-tower-targeting` |
+| TODO-3 | 独塔重做 | `feat-one-tower-core` / `-ultimates` / `-visuals` / `-coverage` |
+| TODO-4 | 遗物三选一须点确定 | `fix-relic-draft-confirm` |
+| TODO-5 | 索敌顺序 | `fix-tower-targeting` |
+| TODO-6 | 大招时停 | `fix-chrono-stasis-feedback` |
+| TODO-7 | 手机适配 | `feat-mobile-drawer` / `feat-mobile-info-accessibility` |
+| TODO-8 | 加成一览 + 遗物收起 | `feat-bonus-summary-relic-collapse`（`feat-stat-summary-panel` 去重 superseded） |
+| TODO-9 | 局外升级系统 | `feat-talent-tree-wiring` |
+| TODO-10 | 可攻击矿脉 | `feat-attackable-tiles` / `feat-resource-vein-placement` |
+| TODO-11 | 建塔位贴路 | `feat-buildable-mask` |
+| TODO-12 | 爬塔模式 | `feat-tower-stage0-contract` / `-stage1-server` / `-stage1-client` / `-stage1-ui` / `-stage2-integration` |
+| TODO-13 | 测试体系 | `test-scenario-harness` / `test-matrix-taxonomy` / `test-harness-adoption` |
+
+跟进修复：`fix-meta-balance-targets-tolerance`、`fix-mirror-engineering-placement`、`fix-victory-final-wave-not-recorded`。
