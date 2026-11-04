@@ -299,6 +299,8 @@ export const TEST_MAP = [
     'tests/sprite-coverage.test.mjs',
   ] },
   { match: 'public/js/render/sprite-coverage.js', tests: ['tests/sprite-coverage.test.mjs'] },
+  { match: 'public/js/render/portrait-draw.js', tests: ['tests/sprite-coverage.test.mjs'] },
+  { match: 'public/js/render/relic-art.js', tests: ['tests/sprite-coverage.test.mjs'] },
   { match: 'public/js/render/transition.js', tests: ['tests/transition.test.mjs'] },
 
   // 服务端
