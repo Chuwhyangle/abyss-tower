@@ -52,3 +52,11 @@ extra:
 立案 2026-11-04，源自 `docs/PHASE_CHAPTERS.md` §6 + `docs/TODO.md` TODO-15。依赖 `feat-chapters-table`（depends_on，done）。阶段 2（CONTENT_VERSION 已含本任务 + 浏览器验收）在阶段 1 落地后收尾。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为章节接线，契约已冻结，无新玩法文档面，L_D/L_G/L_S 无需量化。
+
+## Blocker
+
+**2026-11-04T04:23:15.571Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 5/9，剩余未勾 4）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：76b6e7d4-c4e6-4b36-9b11-e67e907f0fa4
