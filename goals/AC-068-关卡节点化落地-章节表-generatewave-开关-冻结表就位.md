@@ -1,7 +1,7 @@
 ---
 id: AC-068
 title: 关卡节点化落地：章节表 + generateWave 开关 + 冻结表就位
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-013
 criterion: node --test tests/nodes.test.mjs
@@ -14,6 +14,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-11-04T04:04:26.697Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"

@@ -119,9 +119,9 @@ const REFERENCE = {
     "difficulty": "standard",
     "groups": [
       {
-        "type": "swarm",
-        "count": 16,
-        "interval": 0.28,
+        "type": "tank",
+        "count": 3,
+        "interval": 1.15,
         "delay": 0.3,
         "hpMul": 12.857240181135,
         "portal": 0
@@ -135,17 +135,17 @@ const REFERENCE = {
         "portal": 0
       },
       {
-        "type": "splitter",
+        "type": "wraith",
         "count": 3,
-        "interval": 1,
+        "interval": 0.8,
         "delay": 4.741945281997323,
         "hpMul": 12.857240181135,
         "portal": 0
       },
       {
-        "type": "shielder",
-        "count": 3,
-        "interval": 1.25,
+        "type": "caster",
+        "count": 2,
+        "interval": 1.3,
         "delay": 6.070938251819462,
         "hpMul": 12.857240181135,
         "portal": 0
@@ -158,7 +158,7 @@ const REFERENCE = {
     "boss": false,
     "bossVariant": null,
     "finalBoss": false,
-    "totalCount": 27,
+    "totalCount": 13,
     "portals": [
       0
     ],
@@ -232,9 +232,9 @@ const REFERENCE = {
     "difficulty": "abyss",
     "groups": [
       {
-        "type": "healer",
-        "count": 2,
-        "interval": 1.5,
+        "type": "splitter",
+        "count": 3,
+        "interval": 1,
         "delay": 0.3,
         "hpMul": 8.435983823124598,
         "portal": 0
@@ -248,9 +248,9 @@ const REFERENCE = {
         "portal": 0
       },
       {
-        "type": "flyer",
-        "count": 4,
-        "interval": 0.7,
+        "type": "healer",
+        "count": 2,
+        "interval": 1.5,
         "delay": 4.71958608366549,
         "hpMul": 8.435983823124598,
         "portal": 0
@@ -263,7 +263,7 @@ const REFERENCE = {
     "boss": false,
     "bossVariant": null,
     "finalBoss": false,
-    "totalCount": 12,
+    "totalCount": 11,
     "portals": [
       0
     ],

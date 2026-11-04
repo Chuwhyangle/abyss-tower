@@ -68,6 +68,47 @@ export const ENEMIES = {
     splits: { type: 'splitling', count: 2 },
     desc: '高护甲慢速，死亡时裂成 2 只裂生虫。',
   },
+  skywing: {
+    id: 'skywing', name: '穹翼精英', hp: 88, speed: 1.75, armor: 4, gold: 14, dmg: 1,
+    r: 0.30, color: '#4dcfb8', shape: 'skywing', flying: true,
+    shield: 45, shieldRegen: 5,
+    desc: '护甲飞怪，护盾持续再生，破盾前本体不掉血。',
+  },
+  bastion: {
+    id: 'bastion', name: '反伤壁垒', hp: 150, speed: 0.8, armor: 6, gold: 18, dmg: 2,
+    r: 0.42, color: '#ff7a8a', shape: 'shield', shield: 60,
+    thorns: { range: 1.8, interval: 1.4, disable: 0.6 },
+    desc: '破盾前周期性释放反伤脉冲，停摆射程内的防御塔。',
+  },
+  mender: {
+    id: 'mender', name: '回春图腾', hp: 90, speed: 0.95, armor: 2, gold: 13, dmg: 1,
+    r: 0.32, color: '#3ecf6e', shape: 'priest',
+    healAura: { range: 2.4, hps: 8 },
+    desc: '每 0.5 秒为光环内友军回复固定生命，不奶自己。',
+  },
+  bomber: {
+    id: 'bomber', name: '自爆虫', hp: 45, speed: 1.6, armor: 1, gold: 9, dmg: 1,
+    r: 0.24, color: '#ffa94d', shape: 'bomber',
+    fuse: { laneFraction: 0.9, baseDamage: 4 },
+    desc: '逼近基地时自爆，直接炸掉基地 4 点生命后死亡。',
+  },
+  stalker: {
+    id: 'stalker', name: '潜行者', hp: 110, speed: 1.4, armor: 2, gold: 15, dmg: 1,
+    r: 0.30, color: '#22d3ee', shape: 'stalker',
+    lurk: { interval: 1.8, lungeDur: 0.55, lungeSpeedMul: 2.6 },
+    desc: '周期性潜行冲刺：短暂爆发移速，不换车道、不耗 RNG。',
+  },
+  riftcaller: {
+    id: 'riftcaller', name: '裂隙召唤师', hp: 130, speed: 0.9, armor: 3, gold: 20, dmg: 2,
+    r: 0.33, color: '#f783ac', shape: 'caster',
+    summon: { interval: 3.5, type: 'swarm', count: 2, maxTotal: 6 },
+    desc: '周期性召唤噬虫小弟，一生最多召唤 6 只。',
+  },
+  shieldbreaker: {
+    id: 'shieldbreaker', name: '破盾者', hp: 120, speed: 1.5, armor: 3, gold: 17, dmg: 2,
+    r: 0.36, color: '#9fb3c8', shape: 'hex', pierce: true,
+    desc: '护盾穿透者：漏怪时无视守护套装的漏怪减伤与免伤。',
+  },
 };
 
 // 首领技能：名称/颜色/预警半径由服务端与渲染层共用。

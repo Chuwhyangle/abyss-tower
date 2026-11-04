@@ -14,4 +14,11 @@ export default {
   'data.enemy.caster.name': '咒术师',
   'data.enemy.wraith.name': '相位幽魂',
   'data.enemy.golem.name': '岩石魔像',
+  'data.enemy.skywing.name': '穹翼精英',
+  'data.enemy.bastion.name': '反伤壁垒',
+  'data.enemy.mender.name': '回春图腾',
+  'data.enemy.bomber.name': '自爆虫',
+  'data.enemy.stalker.name': '潜行者',
+  'data.enemy.riftcaller.name': '裂隙召唤师',
+  'data.enemy.shieldbreaker.name': '破盾者',
 };

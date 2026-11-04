@@ -243,13 +243,15 @@ export class RunService {
       hpMul: mapMeta.hpMul || 1,
     };
     const endless = run.mode === 'endless';
+    // 章节开关：老 run 无 ruleset.chapters → false → generateWave 走旧波次（字节不变）。
+    const chapters = !!run.ruleset?.chapters;
     // 未选海克斯的旧流程仍可进行；hex 只作为本局规则从 ruleset 回传。
     const hex = hexFor(run);
     // 有未结算波次时重放当前波，不推进波次、不重复发奖。
     if (run.clearedWaves < run.wavesServed) {
       const current = run.wavesServed;
       return {
-        wave: generateWave(run.seed, current, run.difficulty, waveOptions, { endless }),
+        wave: generateWave(run.seed, current, run.difficulty, waveOptions, { endless, chapters }),
         replay: true,
         clearedWaves: run.clearedWaves,
         wavesServed: run.wavesServed,
@@ -261,7 +263,7 @@ export class RunService {
     const next = run.wavesServed + 1;
     setWavesServed(run.id, next);
     return {
-      wave: generateWave(run.seed, next, run.difficulty, waveOptions, { endless }),
+      wave: generateWave(run.seed, next, run.difficulty, waveOptions, { endless, chapters }),
       replay: false,
       clearedWaves: run.clearedWaves,
       wavesServed: next,

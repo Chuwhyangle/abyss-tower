@@ -34,6 +34,7 @@ const CANONICAL = {
   events: [RUN.events[1], RUN.events[0]],
   hexId: null,
   route: null,
+  chapters: false,
 };
 
 function fnv1a(text) {
@@ -65,7 +66,7 @@ function craft(payload) {
 
 test('往返：编码后可完整解码，且重复编码结果一致', () => {
   const code = encodeRun(RUN);
-  assert.match(code, /^RTD3\./);
+  assert.match(code, /^RTD4\./);
   assert.match(code.split('.')[1], /^[A-Za-z0-9_-]+$/);
   assert.ok(code.length < MAX_REPLAY_CODE_LENGTH);
 
@@ -88,6 +89,7 @@ test('最小对局：缺省遗物与事件解码为空数组', () => {
     events: [],
     hexId: null,
     route: null,
+    chapters: false,
   });
   // 字符串形式的遗物与数组形式的事件同样接受。
   const loose = validateRun({
@@ -146,11 +148,11 @@ test('任意损坏输入都不抛异常，而是返回明确错误码', () => {
 
 test('版本不兼容：前缀版本或 payload 版本不符都被拒绝', () => {
   const valid = encodeRun(RUN);
-  const nextPrefix = valid.replace(/^RTD3\./, 'RTD4.');
+  const nextPrefix = valid.replace(/^RTD4\./, 'RTD5.');
   assert.equal(decodeRun(nextPrefix).code, 'REPLAY_UNSUPPORTED_VERSION');
 
   const payload = {
-    v: 4,
+    v: 5,
     s: RUN.seed,
     m: RUN.mapChoice,
     d: RUN.difficulty,
@@ -200,13 +202,14 @@ test('爬塔选路往返：route 只在 tower 模式编码，游标由 path 末�
     route,
   };
   const code = encodeRun(towerRun);
-  assert.match(code, /^RTD3\./);
+  assert.match(code, /^RTD4\./);
   const decoded = decodeRun(code);
   assert.equal(decoded.ok, true);
   assert.deepEqual(decoded.run, {
     ...towerRun,
     hexId: null,
     route: { path: ['1:0', '2:0', '3:1'], node: '3:1' },
+    chapters: false,
   });
   assert.equal(encodeRun(decoded.run), code);
 
@@ -239,6 +242,42 @@ test('v2 无 t 字段：旧码导入 route 为 null，且 v2 带 t 被拒绝', (
   const withRoute = decodeRun(`RTD2.${withRouteBody}.${checksum(withRouteBody)}`);
   assert.equal(withRoute.code, 'REPLAY_UNKNOWN_FIELD');
   assert.equal(withRoute.detail, 't');
+});
+
+test('章节开关（v4）：c 字段往返，旧 v3 码缺省关闭且不接受 c', () => {
+  const chaptersOn = encodeRun({ ...RUN, chapters: true });
+  assert.match(chaptersOn, /^RTD4\./);
+  const decodedOn = decodeRun(chaptersOn);
+  assert.equal(decodedOn.ok, true);
+  assert.equal(decodedOn.run.chapters, true);
+  assert.equal(encodeRun(decodedOn.run), chaptersOn);
+
+  // 缺省（不传 chapters）→ false，且最短编码不带 c。
+  const off = encodeRun(RUN);
+  assert.equal(decodeRun(off).run.chapters, false);
+
+  // v3 旧码：无 c 字段 → chapters 缺省 false。
+  const v3Payload = {
+    v: 3,
+    s: RUN.seed,
+    m: RUN.mapChoice,
+    d: RUN.difficulty,
+    o: RUN.mode,
+    r: [],
+    e: [],
+  };
+  const v3Body = bytesToB64Url(new TextEncoder().encode(JSON.stringify(v3Payload)));
+  const v3 = decodeRun(`RTD3.${v3Body}.${checksum(v3Body)}`);
+  assert.equal(v3.ok, true);
+  assert.equal(v3.run.chapters, false);
+
+  // v3 带 c 属于跨版本误读，按未知字段拒绝。
+  const withChaptersBody = bytesToB64Url(
+    new TextEncoder().encode(JSON.stringify({ ...v3Payload, c: true }))
+  );
+  const withChapters = decodeRun(`RTD3.${withChaptersBody}.${checksum(withChaptersBody)}`);
+  assert.equal(withChapters.code, 'REPLAY_UNKNOWN_FIELD');
+  assert.equal(withChapters.detail, 'c');
 });
 
 test('未知字段被拒绝，避免跨版本误读', () => {
@@ -292,6 +331,7 @@ test('编码侧非法输入抛出带错误码的 ReplayError', () => {
     [{ ...RUN, mapChoice: '1' }, 'REPLAY_INVALID_MAP'],
     [{ ...RUN, difficulty: 'easy' }, 'REPLAY_INVALID_DIFFICULTY'],
     [{ ...RUN, mode: 'ranked' }, 'REPLAY_INVALID_MODE'],
+    [{ ...RUN, chapters: 'yes' }, 'REPLAY_INVALID_CHAPTERS'],
     [{ ...RUN, relics: 'sharp' }, 'REPLAY_INVALID_RELICS'],
     [{ ...RUN, relics: [{ id: 'nope', level: 1 }] }, 'REPLAY_INVALID_RELICS'],
     [{ ...RUN, relics: [{ id: 'sharp', level: 1 }, { id: 'sharp', level: 1 }] },

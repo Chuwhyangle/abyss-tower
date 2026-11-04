@@ -107,7 +107,7 @@ function frameHash(image, frame) {
 }
 
 // ── 覆盖集与数据表严格相等 ──────────────────────────────────────────────────
-test('覆盖集与数据表严格相等：32 塔形态 + 14 敌人 + 3 首领变体 + 召唤物 + 5 可破坏物 + 传送门 + 基地', () => {
+test('覆盖集与数据表严格相等：32 塔形态 + 21 敌人 + 3 首领变体 + 召唤物 + 5 可破坏物 + 传送门 + 基地', () => {
   const registered = entityRecords().map((record) => record.id).sort();
   const expected = authoritativeEntities();
   assert.equal(registered.length, expected.length, `实体数量不等：注册 ${registered.length} ≠ 数据表 ${expected.length}`);
@@ -123,7 +123,7 @@ test('覆盖集与数据表严格相等：32 塔形态 + 14 敌人 + 3 首领变
 
   const families = new Set(entityRecords().map((record) => record.family));
   assert.deepEqual([...families].sort(), [...ENTITY_SPRITE_FAMILIES].sort(), '六类实体族都有登记');
-  assert.equal(registered.length, 57, '总数 57 个实体');
+  assert.equal(registered.length, 64, '总数 64 个实体');
 });
 
 test('覆盖守卫 coverageGaps 对缺失与多余实体双向报警', () => {

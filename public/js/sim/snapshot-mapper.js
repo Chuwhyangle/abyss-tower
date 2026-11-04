@@ -43,7 +43,7 @@ export class SnapshotMapper {
         modifier: meta.modifier || null,
         hpMul: meta.hpMul || 1,
       },
-      { endless }
+      { endless, chapters: this.sim.chapters }
     );
     const totals = new Map();
     for (const group of def.groups) {

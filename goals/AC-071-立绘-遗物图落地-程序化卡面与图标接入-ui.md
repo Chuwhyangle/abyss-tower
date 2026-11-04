@@ -1,7 +1,7 @@
 ---
 id: AC-071
 title: 立绘 + 遗物图落地：程序化卡面与图标接入 UI
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-013
 criterion: node --test tests/sprite-coverage.test.mjs tests/render-budget.test.mjs
@@ -14,6 +14,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-11-04T04:04:29.906Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"

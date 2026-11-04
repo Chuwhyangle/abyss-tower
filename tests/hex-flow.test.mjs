@@ -279,7 +279,7 @@ test('结算按 hex.scoreMul 乘分，回放与分享码 round-trip 带 hexId', 
     mode: 'normal',
     hexId: picked,
   });
-  assert.match(code, /^RTD3\./);
+  assert.match(code, /^RTD4\./);
   const decoded = decodeRun(code);
   assert.equal(decoded.ok, true);
   assert.equal(decoded.run.hexId, picked);

@@ -44,6 +44,8 @@ export class Simulation {
     this.difficulty = opts.difficulty || 'standard';
     this.runId = opts.runId || null;
     this.mode = opts.mode || 'normal';
+    // 章节开关（阶段 1 接线）：读 opts.ruleset?.chapters；老档无 ruleset → false → 旧波次。
+    this.chapters = !!opts.ruleset?.chapters;
     // 爬塔选路状态（docs/PHASE_TOWER.md §1.2）：仅爬塔模式持有，读档从 opts.tower 恢复，缺省回退起点。
     // 非爬塔模式为 null，不触碰 ${seed}:tower:* 随机流（确定性红线）。
     this.tower =
