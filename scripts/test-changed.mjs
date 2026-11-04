@@ -361,6 +361,7 @@ export const TEST_MAP = [
   { match: 'scripts/memory-check.mjs', tests: ['tests/memory-check.test.mjs'] },
   { match: 'scripts/ops.mjs', tests: ['tests/ops-cli.test.mjs'] },
   { match: 'scripts/perf-budget.mjs', tests: ['tests/perf-budget.test.mjs'] },
+  { match: 'scripts/play-analytics.mjs', tests: ['tests/play-analytics.test.mjs'] },
   { match: 'scripts/release.mjs', tests: ['tests/release-script.test.mjs'] },
   { match: 'scripts/settle-seasons.mjs', tests: ['tests/settle-seasons.test.mjs'] },
   // 结构预算门禁与两块「行为不变」见证：正/负对照与基线条目校验都在同一份测试里。

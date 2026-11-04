@@ -1,7 +1,7 @@
 ---
 id: feat-play-analytics
 title: 真人游玩分析脚本：report/check 双模式 + human-vs-bot 洞察
-status: ready
+status: done
 labels:
   - feat
 parent: null
