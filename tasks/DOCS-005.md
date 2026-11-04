@@ -1,7 +1,7 @@
 ---
 id: DOCS-005
 title: 关卡节点化 PHASE 冻结表：6 节点 × 5 波章节契约落 docs/PHASE_CHAPTERS.md
-status: todo
+status: ready
 labels:
   - docs
 parent: null
