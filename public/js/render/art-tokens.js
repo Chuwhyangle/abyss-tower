@@ -65,6 +65,13 @@ const BLUE_YELLOW_TOKENS = Object.freeze({
     caster: '#f5f5f5',
     wraith: '#7986cb',
     golem: '#8d6e63',
+    skywing: '#00838f',
+    bastion: '#ff8f00',
+    mender: '#283593',
+    bomber: '#ffc107',
+    stalker: '#4dd0e1',
+    riftcaller: '#7b1fa2',
+    shieldbreaker: '#b0bec5',
   }),
 });
 
@@ -96,6 +103,13 @@ const RED_GREEN_TOKENS = Object.freeze({
     caster: '#f5f5f5',
     wraith: '#ce93d8',
     golem: '#455a64',
+    skywing: '#00897b',
+    bastion: '#d32f2f',
+    mender: '#43a047',
+    bomber: '#fb8c00',
+    stalker: '#26a69a',
+    riftcaller: '#ad1457',
+    shieldbreaker: '#90a4ae',
   }),
 });
 

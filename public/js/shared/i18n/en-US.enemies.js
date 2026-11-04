@@ -14,4 +14,11 @@ export default {
   'data.enemy.caster.name': 'Hexbinder',
   'data.enemy.wraith.name': 'Phase Wraith',
   'data.enemy.golem.name': 'Rock Golem',
+  'data.enemy.skywing.name': 'Skywing Elite',
+  'data.enemy.bastion.name': 'Thorn Bastion',
+  'data.enemy.mender.name': 'Mending Totem',
+  'data.enemy.bomber.name': 'Boomling',
+  'data.enemy.stalker.name': 'Lurker',
+  'data.enemy.riftcaller.name': 'Rift Caller',
+  'data.enemy.shieldbreaker.name': 'Shieldbreaker',
 };

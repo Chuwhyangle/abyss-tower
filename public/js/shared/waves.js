@@ -50,6 +50,13 @@ const POOL = [
   { type: 'caster', weight: 1.1, countMult: 0.4, minWave: 13, interval: 1.3 },
   { type: 'wraith', weight: 1.4, countMult: 0.55, minWave: 10, interval: 0.8 },
   { type: 'golem', weight: 1.0, countMult: 0.3, minWave: 14, interval: 1.7 },
+  { type: 'skywing', weight: 1.2, countMult: 0.5, minWave: 6, interval: 0.7 },
+  { type: 'bastion', weight: 1.0, countMult: 0.35, minWave: 11, interval: 1.4 },
+  { type: 'mender', weight: 0.9, countMult: 0.3, minWave: 13, interval: 1.5 },
+  { type: 'bomber', weight: 1.3, countMult: 0.8, minWave: 16, interval: 0.5 },
+  { type: 'stalker', weight: 1.1, countMult: 0.5, minWave: 21, interval: 0.7 },
+  { type: 'riftcaller', weight: 0.8, countMult: 0.25, minWave: 26, interval: 1.6 },
+  { type: 'shieldbreaker', weight: 1.0, countMult: 0.45, minWave: 28, interval: 0.9 },
 ];
 
 // 无尽模式曲线硬上限：血量/移速/数量在封顶后不再增长，避免数值爆炸。

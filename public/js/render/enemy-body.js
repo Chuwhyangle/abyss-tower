@@ -424,6 +424,99 @@ export const enemyBodyMethods = {
       g.beginPath();
       g.arc(0, 0, r * 0.16, 0, Math.PI * 2);
       g.fill();
+    } else if (def.shape === 'skywing') {
+      // 穹翼精英：菱形躯干 + 一对大翼 + 精英光环。
+      const flap = animated ? Math.sin(t * 15 + enemy.id) * 0.5 : 0;
+      g.fillStyle = Palette.shade(body, -0.22);
+      primaryStroke(1.4);
+      g.beginPath();
+      g.ellipse(-r * 0.62, -flap * r * 0.5, r * 0.78, r * 0.3, -0.5 - flap, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.beginPath();
+      g.ellipse(r * 0.62, -flap * r * 0.5, r * 0.78, r * 0.3, 0.5 + flap, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+      g.fillStyle = body;
+      g.beginPath();
+      g.moveTo(r * 0.95, 0);
+      g.lineTo(0, -r * 0.52);
+      g.lineTo(-r * 0.95, 0);
+      g.lineTo(0, r * 0.52);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = '#ffe9a8';
+      g.beginPath();
+      g.arc(r * 0.16, -r * 0.1, r * 0.08, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = Palette.hexToRgba(body, 0.6);
+      g.lineWidth = 1.2;
+      g.beginPath();
+      g.arc(0, -r * 0.9, r * 0.24, Math.PI, Math.PI * 2);
+      g.stroke();
+    } else if (def.shape === 'bomber') {
+      // 自爆虫：多刺球体 + 引信火花，逼近基地即爆。
+      const spikes = 12;
+      g.fillStyle = body;
+      primaryStroke(1.6);
+      g.beginPath();
+      for (let i = 0; i < spikes; i++) {
+        const a = (i / spikes) * Math.PI * 2;
+        const rad = i % 2 === 0 ? r * 1.05 : r * 0.62;
+        const px = Math.cos(a) * rad;
+        const py = Math.sin(a) * rad;
+        i === 0 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = dark;
+      g.beginPath();
+      g.arc(0, 0, r * 0.34, 0, Math.PI * 2);
+      g.fill();
+      g.strokeStyle = dark;
+      g.lineWidth = 1.6;
+      g.beginPath();
+      g.moveTo(0, -r * 0.95);
+      g.quadraticCurveTo(r * 0.2, -r * 1.25, r * 0.12, -r * 1.5);
+      g.stroke();
+      const spark = animated ? (Math.sin(t * 22 + enemy.id) + 1) * 0.5 : 0.5;
+      g.fillStyle = Palette.hexToRgba('#fff3b0', 0.55 + spark * 0.45);
+      g.beginPath();
+      g.arc(r * 0.12, -r * 1.5, r * 0.14 + spark * r * 0.06, 0, Math.PI * 2);
+      g.fill();
+    } else if (def.shape === 'stalker') {
+      // 潜行者：兜帽斗篷轮廓 + 斜向幽光眼，冲刺时如隐身般半透明。
+      g.fillStyle = Palette.hexToRgba(body, 0.85);
+      primaryStroke(1.6);
+      g.beginPath();
+      g.moveTo(0, -r * 1.25);
+      g.bezierCurveTo(r * 0.9, -r * 0.75, r * 0.95, r * 0.5, 0, r * 1.05);
+      g.bezierCurveTo(-r * 0.95, r * 0.5, -r * 0.9, -r * 0.75, 0, -r * 1.25);
+      g.closePath();
+      g.fill();
+      g.stroke();
+      g.fillStyle = 'rgba(6, 14, 20, 0.6)';
+      g.beginPath();
+      g.moveTo(-r * 0.42, -r * 0.28);
+      g.lineTo(0, -r * 0.62);
+      g.lineTo(r * 0.42, -r * 0.28);
+      g.lineTo(r * 0.3, r * 0.18);
+      g.lineTo(-r * 0.3, r * 0.18);
+      g.closePath();
+      g.fill();
+      g.fillStyle = '#bff7ff';
+      g.beginPath();
+      g.moveTo(-r * 0.26, -r * 0.1);
+      g.lineTo(-r * 0.06, -r * 0.18);
+      g.lineTo(-r * 0.26, -r * 0.3);
+      g.closePath();
+      g.moveTo(r * 0.26, -r * 0.1);
+      g.lineTo(r * 0.06, -r * 0.18);
+      g.lineTo(r * 0.26, -r * 0.3);
+      g.closePath();
+      g.fill();
     } else if (def.shape === 'boss') {
       if (enemy.variant === 'armored') {
         // 磐岩渊主：八边重甲壳 + 双层护板 + 横条面甲。
