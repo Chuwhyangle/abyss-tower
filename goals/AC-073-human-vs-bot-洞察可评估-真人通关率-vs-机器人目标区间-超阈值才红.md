@@ -1,7 +1,7 @@
 ---
 id: AC-073
 title: human-vs-bot 洞察可评估：真人通关率 vs 机器人目标区间，超阈值才红
-status: active
+status: achieved
 kind: criterion
 goal: GOAL-014
 criterion: node scripts/play-analytics.mjs check human-vs-bot
@@ -14,6 +14,11 @@ statusLog:
     to: active
     actor: goal-driver
     reason: "triage: activate"
+  - at: 2026-11-04T10:30:13.715Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: criterion pass"
 fidelity:
   verdict: faithful
   reason: "fidelity judge: faithful"
