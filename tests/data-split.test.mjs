@@ -39,9 +39,10 @@ const EXPECTED_EXPORTS = [
 // V50-003：遗物扩容到 70 件并新增回合型效果，内容快照随之更新。
 // AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
+// feat-new-enemies：敌人扩容到 21 种（穹翼精英/反伤壁垒/回春图腾/自爆虫/潜行者/裂隙召唤师/破盾者），内容快照随之更新。
 // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
 // 内容快照哈希更新（行为本身无改动）。
-const BASELINE_HASH = '822a3f7f02bfeeecd02ed47a703790ca70079c47405d5d0b09d568974c43b27e';
+const BASELINE_HASH = 'b12ae297af613b852a3c3886252ef8b0cf85f3b81d3b905b9d8d912835f0e2c7';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -156,7 +157,7 @@ test('各主题模块的导出面保持单一职责', () => {
 test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
-  assert.equal(Object.keys(data.ENEMIES).length, 14);
+  assert.equal(Object.keys(data.ENEMIES).length, 21);
   assert.equal(data.RELICS.length, 70);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);

@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "public/js/render/enemy-body.js",
+      "maxLines": 700,
+      "owner": "feat-new-enemies"
+    }
+  ]
+}

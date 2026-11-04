@@ -31,6 +31,10 @@ export const ENEMY_WALK_PROFILES = Object.freeze({
   wraith: Object.freeze({ bob: 1.3, stride: 0.55, lean: 0.03 }),
   golem: Object.freeze({ bob: 0.5, stride: 0.35, lean: 0.015 }),
   boss: Object.freeze({ bob: 0.8, stride: 0.35, lean: 0.02 }),
+  // 新增敌人形体：飞行精英高悬浮、自爆虫轻快颠簸、潜行者贴地滑行。
+  skywing: Object.freeze({ bob: 1.7, stride: 0.5, lean: 0.03 }),
+  bomber: Object.freeze({ bob: 0.9, stride: 0.8, lean: 0.04 }),
+  stalker: Object.freeze({ bob: 0.6, stride: 0.75, lean: 0.06 }),
 });
 
 export function enemyWalkProfile(shape) {

@@ -36,6 +36,26 @@ export class EnemySystem {
       if (frozen || stasisActive) speed = 0;
       if (!stasisActive) {
         if (enemy.boss) speed = this.sim.updateBoss(enemy, dt, speed, now);
+        // 潜行者：周期性潜行冲刺（潜行 → 突进），只调移速、不换车道、不耗 RNG。
+        const lurk = !frozen ? ENEMIES[enemy.type]?.lurk : null;
+        if (lurk) {
+          if (!Number.isFinite(enemy.lurkTimer)) enemy.lurkTimer = lurk.interval;
+          enemy.lurkTimer -= dt;
+          if (enemy.lurkTimer <= 0) {
+            enemy.lurkTimer = lurk.interval;
+            enemy.lungeUntil = now + lurk.lungeDur;
+            this.sim.addEffect({
+              kind: 'ring',
+              x: enemy.x,
+              y: enemy.y,
+              r0: 0.05,
+              r1: enemy.r + 0.35,
+              ttl: 0.22,
+              color: ENEMIES[enemy.type].color,
+            });
+          }
+          if (now < enemy.lungeUntil) speed *= lurk.lungeSpeedMul;
+        }
         enemy.progress += speed * dt;
         // 相位幽魂：周期性短距闪烁，只推进路径进度、不换车道，也不消耗战斗 RNG。
         const blink = !frozen ? ENEMIES[enemy.type]?.blink : null;
@@ -63,6 +83,11 @@ export class EnemySystem {
       enemy.x = pos.x;
       enemy.y = pos.y;
       enemy.angle = pos.angle;
+
+      // 穹翼精英：护盾持续再生，破盾后缓慢恢复，再生速率固定。
+      if (!stasisActive && enemy.shieldRegen > 0 && enemy.shield < enemy.maxShield) {
+        enemy.shield = Math.min(enemy.maxShield, enemy.shield + enemy.shieldRegen * dt);
+      }
 
       if (!stasisActive && now < enemy.poisonUntil && enemy.poisonDps > 0) {
         this.sim.damage(enemy, enemy.poisonDps * dt, {
@@ -94,10 +119,62 @@ export class EnemySystem {
         }
       }
 
+      // 回春图腾：每 0.5 秒为光环内友军回复固定生命（不奶自己），与祭司的百分比治疗区分。
+      if (!stasisActive && enemy.healAura && !enemy.dead) {
+        enemy.healAuraTimer += dt;
+        if (enemy.healAuraTimer >= 0.5) {
+          enemy.healAuraTimer = 0;
+          let healed = false;
+          for (const other of this.sim.enemies) {
+            if (other.dead || other === enemy) continue;
+            if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= enemy.healAura.range) {
+              other.hp = Math.min(other.maxHp, other.hp + enemy.healAura.hps * 0.5);
+              healed = true;
+            }
+          }
+          if (healed) this.sim.addEffect({ kind: 'heal', x: enemy.x, y: enemy.y, ttl: 0.6 });
+        }
+      }
+
       // 远程敌人：冻结/时停期间无法开火。
       if (!stasisActive && !frozen && !enemy.dead) this.sim.updateRanged(enemy, dt, now);
+      // 反伤壁垒：破盾前周期性释放反伤脉冲停摆近身防御塔。
+      if (!stasisActive && !frozen && !enemy.dead) this.updateThorns(enemy, dt, now);
+      // 裂隙召唤师：周期性召唤噬虫小弟，一生召唤数有上限。
+      if (!stasisActive && enemy.summon && !enemy.dead) {
+        enemy.summonTimer += dt;
+        if (enemy.summonTimer >= enemy.summon.interval) {
+          enemy.summonTimer = 0;
+          if ((enemy.summoned || 0) < enemy.summon.maxTotal) {
+            const remaining = enemy.summon.maxTotal - (enemy.summoned || 0);
+            const count = Math.min(enemy.summon.count, remaining);
+            for (let i = 0; i < count; i++) {
+              this.sim.spawnEnemyAt(enemy.summon.type, enemy.lane, enemy.progress - 0.25 - i * 0.12);
+            }
+            enemy.summoned = (enemy.summoned || 0) + count;
+            this.sim.addEffect({ kind: 'bossSummon', x: enemy.x, y: enemy.y, ttl: 0.7, color: ENEMIES[enemy.type].color });
+          }
+        }
+      }
 
-      if (enemy.progress >= (this.sim.lanes[enemy.lane] || this.sim.lanes[0]).len) this.sim.leak(enemy);
+      // 自爆虫：逼近基地即自爆，直接伤害基地后死亡（不走常规漏怪结算）。
+      const lane = this.sim.lanes[enemy.lane] || this.sim.lanes[0];
+      if (!stasisActive && enemy.fuse && !enemy.fused && enemy.progress >= lane.len * enemy.fuse.laneFraction) {
+        enemy.fused = true;
+        enemy.dead = true;
+        this.sim.baseHp -= enemy.fuse.baseDamage;
+        this.sim.shake = Math.min(16, this.sim.shake + 8);
+        this.sim.addEffect({ kind: 'leak', x: enemy.x, y: enemy.y, ttl: 0.5, color: ENEMIES[enemy.type].color });
+        this.sim.addFloater(enemy.x, enemy.y - 0.4, `-${enemy.fuse.baseDamage}`, '#ff6b6b', true, { key: true });
+        this.sim.addCulmination('leak', {
+          damage: enemy.fuse.baseDamage,
+          baseHp: this.sim.baseHp,
+          x: enemy.x,
+          y: enemy.y,
+        });
+        this.sim.playSound('hurt');
+      }
+      if (enemy.progress >= lane.len) this.sim.leak(enemy);
     }
   }
 
@@ -151,6 +228,22 @@ export class EnemySystem {
       this.sim.addFloater(this.sim.map.base.x, this.sim.map.base.y - 0.4, `-${spec.dmg}`, '#ff6b6b', true, { key: true });
       this.sim.playSound('hurt');
       enemy.rangedTimer = spec.interval;
+    }
+  }
+
+  // 反伤壁垒：破盾前周期性释放反伤脉冲，停摆射程内的防御塔（AoE，区别于远程单点）。
+  updateThorns(enemy, dt, now) {
+    const spec = enemy.thorns;
+    if (!spec) return;
+    if (enemy.shield <= 0) return;
+    enemy.thornsTimer = Math.max(0, enemy.thornsTimer - dt);
+    if (enemy.thornsTimer > 0) return;
+    enemy.thornsTimer = spec.interval;
+    for (const tower of this.sim.towers) {
+      if (Math.hypot(tower.x - enemy.x, tower.y - enemy.y) <= spec.range) {
+        tower.disabledUntil = now + spec.disable;
+        this.sim.addEffect({ kind: 'towerDisable', x: tower.x, y: tower.y, ttl: spec.disable, color: ENEMIES[enemy.type].color });
+      }
     }
   }
 
@@ -295,8 +388,11 @@ export class EnemySystem {
     // 守护 T2：漏怪伤害 −N（下限 1）；守护 T1：漏怪概率免伤。0 点时二者都不生效，
     // 且只有免伤概率 >0 才消耗 RNG，保持「0 点 → 战斗字节一致」。
     let dmg = enemy.dmg;
-    if (setMods.leakDamageReduction) dmg = Math.max(1, dmg - setMods.leakDamageReduction);
-    if (setMods.leakIgnoreChance > 0 && this.sim.combatRng.float() < setMods.leakIgnoreChance) dmg = 0;
+    // 破盾者：护盾穿透，无视守护套装的漏怪减伤与免伤。
+    if (!enemy.pierce) {
+      if (setMods.leakDamageReduction) dmg = Math.max(1, dmg - setMods.leakDamageReduction);
+      if (setMods.leakIgnoreChance > 0 && this.sim.combatRng.float() < setMods.leakIgnoreChance) dmg = 0;
+    }
     this.sim.baseHp -= dmg;
     this.sim.shake = Math.min(16, this.sim.shake + 7);
     this.sim.addEffect({ kind: 'leak', x: enemy.x, y: enemy.y, ttl: 0.5 });

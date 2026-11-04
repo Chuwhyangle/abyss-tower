@@ -1,4 +1,4 @@
-// 敌人扩容：14 种敌人、机制行为（护盾/分裂/光环/远程/闪烁）、波次接入、渲染分派与模拟确定性。
+// 敌人扩容：21 种敌人、机制行为（护盾/分裂/光环/远程/闪烁 + 再生/反伤/治疗光环/自爆/潜行/召唤/穿透）、波次接入、渲染分派与模拟确定性。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../public/js/sim.js';
@@ -10,7 +10,11 @@ import { EnemyRenderer } from '../public/js/render/enemy-renderer.js';
 const STEP = 1 / 60;
 const REQUIRED_FIELDS = ['hp', 'speed', 'armor', 'gold', 'dmg'];
 const NEW_TYPES = ['shielder', 'splitter', 'splitling', 'herald', 'caster', 'wraith', 'golem'];
-const WAVE_TYPES = ['shielder', 'splitter', 'herald', 'caster', 'wraith', 'golem'];
+const MECHANIC_TYPES = ['skywing', 'bastion', 'mender', 'bomber', 'stalker', 'riftcaller', 'shieldbreaker'];
+const WAVE_TYPES = [
+  'shielder', 'splitter', 'herald', 'caster', 'wraith', 'golem',
+  'skywing', 'bastion', 'mender', 'bomber', 'stalker', 'riftcaller', 'shieldbreaker',
+];
 
 function makeSim(seed = 'enemies-depth-seed') {
   return new Simulation({
@@ -85,6 +89,23 @@ test('新敌人各有机制说明，五种机制齐备', () => {
   assert.ok(Object.values(ENEMIES).some((e) => e.aura), '缺少光环型敌人');
   assert.ok(Object.values(ENEMIES).some((e) => e.ranged), '缺少远程型敌人');
   assert.ok(Object.values(ENEMIES).some((e) => e.blink), '缺少闪烁型敌人');
+});
+
+test('七种新型敌人各有独特机制字段与说明', () => {
+  const mechanicFields = {
+    skywing: 'shieldRegen',
+    bastion: 'thorns',
+    mender: 'healAura',
+    bomber: 'fuse',
+    stalker: 'lurk',
+    riftcaller: 'summon',
+    shieldbreaker: 'pierce',
+  };
+  for (const [type, field] of Object.entries(mechanicFields)) {
+    assert.ok(ENEMIES[type], `缺少敌人 ${type}`);
+    assert.ok(ENEMIES[type][field] != null, `${type} 缺少机制字段 ${field}`);
+    assert.ok(ENEMIES[type].desc && ENEMIES[type].desc.trim(), `${type} 缺少机制说明`);
+  }
 });
 
 test('新敌人接入波次生成', () => {
@@ -223,9 +244,114 @@ test('远程敌人逼近基地时直接轰击基地', () => {
   assert.ok(sim.baseHp < baseHp, '基地应受到远程伤害');
 });
 
+test('穹翼精英护盾持续再生', () => {
+  const sim = makeWaveSim('skywing-seed');
+  sim.spawnEnemy('skywing', 0);
+  const enemy = lastEnemy(sim);
+  enemy.hp = enemy.maxHp = 1000;
+  enemy.shield = 10;
+  for (let i = 0; i < 60; i++) sim.update(STEP);
+  assert.ok(enemy.shield > 10, `护盾应再生：${enemy.shield}`);
+  assert.ok(enemy.shield <= enemy.maxShield, '再生不应超过护盾上限');
+});
+
+test('反伤壁垒破盾前周期性停摆近身塔，破盾后失效', () => {
+  const run = (breakShield) => {
+    const sim = makeWaveSim('bastion-seed');
+    sim.spawnEnemy('bastion', 0);
+    const enemy = lastEnemy(sim);
+    const tower = sim.makeTower('arrow', Math.max(0, Math.floor(enemy.x)), Math.max(0, Math.floor(enemy.y)), 0, 0);
+    sim.towers.push(tower);
+    sim.recomputeTowerStats();
+    // 拉高护盾上限，保证非破盾分支在测试窗口内始终有盾（塔的火力打不破）。
+    enemy.shield = enemy.maxShield = 100000;
+    if (breakShield) enemy.shield = 0;
+    let sawDisable = false;
+    for (let i = 0; i < 200; i++) {
+      sim.update(STEP);
+      if (tower.disabledUntil > sim.time) sawDisable = true;
+    }
+    return sawDisable;
+  };
+  assert.equal(run(false), true, '破盾前反伤脉冲应停摆近身塔');
+  assert.equal(run(true), false, '破盾后不应再释放反伤脉冲');
+});
+
+test('回春图腾治疗光环内友军', () => {
+  const run = (withMender) => {
+    const sim = makeWaveSim('mender-seed');
+    if (withMender) sim.spawnEnemy('mender', 0);
+    sim.spawnEnemy('grunt', 0);
+    const grunt = sim.enemies.find((e) => e.type === 'grunt');
+    grunt.hp = grunt.maxHp = 100;
+    grunt.hp = 20;
+    for (let i = 0; i < 120; i++) sim.update(STEP);
+    return grunt.hp;
+  };
+  const plain = run(false);
+  const healed = run(true);
+  assert.ok(healed > plain, '光环内友军应被治疗');
+});
+
+test('自爆虫逼近基地即自爆伤害基地', () => {
+  const sim = makeWaveSim('bomber-seed');
+  sim.spawnEnemy('bomber', 0);
+  const enemy = lastEnemy(sim);
+  const lane = sim.lanes[enemy.lane];
+  enemy.progress = lane.len * 0.9;
+  const baseHp = sim.baseHp;
+  sim.update(STEP);
+  assert.ok(sim.baseHp < baseHp, '基地应受到自爆伤害');
+  assert.equal(enemy.dead, true, '自爆虫应自爆死亡');
+});
+
+test('潜行者周期性冲刺：单帧位移突增，且不耗 RNG', () => {
+  const run = () => {
+    const sim = makeWaveSim('stalker-seed');
+    sim.spawnEnemy('stalker', 0);
+    const enemy = lastEnemy(sim);
+    let maxDelta = 0;
+    for (let i = 0; i < 300; i++) {
+      const before = enemy.progress;
+      sim.update(STEP);
+      maxDelta = Math.max(maxDelta, enemy.progress - before);
+    }
+    return maxDelta;
+  };
+  const first = run();
+  assert.ok(first >= 0.045, `冲刺单帧位移突增不足：${first}`);
+  assert.equal(run(), first, '同种子冲刺轨迹必须可复现');
+});
+
+test('裂隙召唤师周期性召唤噬虫', () => {
+  const sim = makeWaveSim('summoner-seed');
+  sim.spawnEnemy('riftcaller', 0);
+  const enemy = lastEnemy(sim);
+  for (let i = 0; i < 300; i++) sim.update(STEP);
+  const children = sim.enemies.filter((e) => e.type === 'swarm' && !e.dead);
+  assert.ok(children.length > 0, '应召唤噬虫小弟');
+  assert.equal(enemy.summoned, children.length, '召唤数与计数器一致');
+});
+
+test('破盾者漏怪无视守护套装减伤', () => {
+  const sim = makeWaveSim('pierce-seed');
+  sim.factions.setMods.leakDamageReduction = 3;
+  sim.spawnEnemy('tank', 0);
+  const tank = lastEnemy(sim);
+  const hpBeforeTank = sim.baseHp;
+  sim.leak(tank);
+  assert.equal(sim.baseHp, hpBeforeTank - 1, '普通敌人漏怪应被减伤到 1');
+
+  sim.spawnEnemy('shieldbreaker', 0);
+  const breaker = lastEnemy(sim);
+  const hpBeforeBreaker = sim.baseHp;
+  sim.leak(breaker);
+  assert.equal(sim.baseHp, hpBeforeBreaker - 2, '破盾者漏怪应无视减伤');
+});
+
 test('新敌人可通过类型分派渲染', () => {
   const sim = makeWaveSim();
-  for (const type of NEW_TYPES) sim.spawnEnemy(type);
+  for (const type of [...NEW_TYPES, ...MECHANIC_TYPES]) sim.spawnEnemy(type);
   const game = { enemies: sim.enemies, time: 0.5 };
   const renderer = new EnemyRenderer(game, { glow: null });
   const ctx = new Proxy({}, {
@@ -245,11 +371,18 @@ test('同种子两次模拟状态一致', () => {
   const run = () => {
     const sim = makeSim('determinism-seed');
     sim.beginWave(generateWave('determinism-seed', 12, 'standard', sim.map.meta || {}));
-    // 直接补入机制型敌人，确保护盾/分裂/闪烁也进入确定性轨迹。
+    // 直接补入机制型敌人，确保护盾/分裂/闪烁/再生/反伤/自爆/潜行/召唤也进入确定性轨迹。
     sim.spawnEnemy('splitter', 0);
     sim.spawnEnemy('shielder', 0);
     sim.spawnEnemy('wraith', 0);
     sim.spawnEnemy('golem', 0);
+    sim.spawnEnemy('skywing', 0);
+    sim.spawnEnemy('bastion', 0);
+    sim.spawnEnemy('mender', 0);
+    sim.spawnEnemy('bomber', 0);
+    sim.spawnEnemy('stalker', 0);
+    sim.spawnEnemy('riftcaller', 0);
+    sim.spawnEnemy('shieldbreaker', 0);
     const anchor = sim.posAt(sim.lanes[0].len * 0.35, 0);
     const tower = sim.makeTower(
       'cannon',
