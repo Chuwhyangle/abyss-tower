@@ -1,12 +1,14 @@
 // 分享码：把一局的种子、地图选择与关键决策编码成可导入的紧凑字符串。
-// 编码格式（版本 3）：RTD3.<base64url(JSON)>.<fnv1a32 十六进制>
+// 编码格式（版本 4）：RTD4.<base64url(JSON)>.<fnv1a32 十六进制>
 // JSON 字段：v 版本 / s 种子 / m 地图候选序号 / d 难度 / o 模式 /
 //            r [[遗物 id, 等级]] / e [[波次, 事件 id, 选项 id]] / h 主海克斯 id（可选）/
-//            t 爬塔选路 path（可选，仅 tower 模式；游标由 path 末位推导）
+//            t 爬塔选路 path（可选，仅 tower 模式；游标由 path 末位推导）/
+//            c 章节开关（可选，true 开启；缺省 = 关闭）
 //
 // 兼容策略：前缀 RTD<n> 中的 n 就是格式版本。编码只产出当前 REPLAY_VERSION；
-// 解码接受 v1（无主海克斯，hexId 为 null）与 v2（有主海克斯、无爬塔选路）与 v3，其它版本返回
-// REPLAY_UNSUPPORTED_VERSION。同一版本内既有字段语义不变，新增或修改字段必须递增版本号。
+// 解码接受 v1（无主海克斯，hexId 为 null）与 v2（有主海克斯、无爬塔选路）与
+// v3（有爬塔选路、无章节开关）与 v4，其它版本返回 REPLAY_UNSUPPORTED_VERSION。
+// 同一版本内既有字段语义不变，新增或修改字段必须递增版本号。
 // 解码器按版本拒绝未知字段，避免跨版本误读。
 // 完整性：base64url 段附带 FNV-1a 32 位校验和，任何字符损坏都会在解析 JSON 前被拒绝。
 import { DIFFICULTY_ORDER, RELICS, RELIC_BY_ID, RELIC_MAX_LEVEL } from './data.js';
@@ -14,9 +16,9 @@ import { EVENTS, EVENT_WAVES, isEventWave, findEventOption } from './events.js';
 import { HEX_BY_ID } from './hexes.js';
 import { normalizeTowerRoute } from './tower.js';
 
-export const REPLAY_VERSION = 3;
-// v1/v2 码仍可导入（旧分享链接不失效）；v1 没有 h 字段，v2 没有 t 字段。
-export const REPLAY_DECODE_VERSIONS = Object.freeze([1, 2, 3]);
+export const REPLAY_VERSION = 4;
+// v1/v2/v3 码仍可导入（旧分享链接不失效）；v1 没有 h，v2 没有 t，v3 没有 c。
+export const REPLAY_DECODE_VERSIONS = Object.freeze([1, 2, 3, 4]);
 export const MAX_REPLAY_CODE_LENGTH = 2048;
 
 const REPLAY_PREFIX = 'RTD';
@@ -27,11 +29,12 @@ const MAX_REPLAY_EVENTS = EVENT_WAVES.length;
 // 无尽模式事件无限延续，分享码仍按体积上限截断，避免超出 MAX_REPLAY_CODE_LENGTH。
 const MAX_REPLAY_ENDLESS_EVENTS = 12;
 const MODES = new Set(['normal', 'daily', 'endless', 'tower']);
-const PAYLOAD_KEYS = new Set(['v', 's', 'm', 'd', 'o', 'r', 'e', 'h', 't']);
-// v1 没有主海克斯字段，v2 没有爬塔选路字段；按版本收紧允许键，跨版本误读仍然会被拒绝。
+const PAYLOAD_KEYS = new Set(['v', 's', 'm', 'd', 'o', 'r', 'e', 'h', 't', 'c']);
+// v1 没有主海克斯字段，v2 没有爬塔选路字段，v3 没有章节开关；按版本收紧允许键，跨版本误读仍被拒绝。
 const PAYLOAD_KEYS_BY_VERSION = {
   1: new Set(['v', 's', 'm', 'd', 'o', 'r', 'e']),
   2: new Set(['v', 's', 'm', 'd', 'o', 'r', 'e', 'h']),
+  3: new Set(['v', 's', 'm', 'd', 'o', 'r', 'e', 'h', 't']),
 };
 const BASE64URL = /^[A-Za-z0-9_-]+$/;
 const CHECKSUM = /^[0-9a-f]{8}$/;
@@ -175,6 +178,13 @@ function readRoute(raw, mode) {
   return { ok: true, value: route };
 }
 
+// 章节开关（v4 起）：缺省为 false（关闭）；给出时必须是布尔值。
+function readChapters(raw) {
+  if (raw === undefined || raw === null) return { ok: true, value: false };
+  if (typeof raw !== 'boolean') return fail('REPLAY_INVALID_CHAPTERS', 'not-boolean');
+  return { ok: true, value: raw };
+}
+
 // 唯一的校验入口：编码与解码都走这里，保证两条路径接受完全相同的输入。
 export function validateRun(raw) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
@@ -201,6 +211,8 @@ export function validateRun(raw) {
   if (!hexId.ok) return hexId;
   const route = readRoute(raw.route, mode);
   if (!route.ok) return route;
+  const chapters = readChapters(raw.chapters);
+  if (!chapters.ok) return chapters;
 
   return {
     ok: true,
@@ -213,13 +225,18 @@ export function validateRun(raw) {
       events: events.value,
       hexId: hexId.value,
       route: route.value,
+      chapters: chapters.value,
     },
   };
 }
 
 /**
  * 生成分享码。非法输入抛出 ReplayError（带机器可读 code）。
- * @param {{seed:string,mapChoice:number,difficulty:string,mode:string,relics?:Array,events?:Array,hexId?:string|null,route?:{path:Array,node:string}|null}} raw
+ * @param {{
+ *   seed:string, mapChoice:number, difficulty:string, mode:string,
+ *   relics?:Array, events?:Array, hexId?:string|null,
+ *   route?:{path:Array,node:string}|null, chapters?:boolean
+ * }} raw
  * @returns {string}
  */
 export function encodeRun(raw) {
@@ -239,6 +256,8 @@ export function encodeRun(raw) {
   if (run.hexId) payload.h = run.hexId;
   // 有爬塔选路才写 t（只存 path，游标由末位推导）；非爬塔局不带。
   if (run.route) payload.t = run.route.path;
+  // 章节开关开启才写 c（缺省 false = 关闭，保持旧局最短编码）。
+  if (run.chapters) payload.c = true;
   const body = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(payload)));
   const code = `${REPLAY_PREFIX}${REPLAY_VERSION}.${body}.${checksumOf(body)}`;
   if (code.length > MAX_REPLAY_CODE_LENGTH) throw new ReplayError('REPLAY_TOO_LONG');
@@ -307,5 +326,7 @@ function decodeUnsafe(code) {
     hexId: payload.h,
     // v1/v2 没有 t：missing → null，旧码导入后按无爬塔选路处理。
     route: payload.t,
+    // v1-v3 没有 c：missing → false，旧码导入后按章节关闭处理。
+    chapters: payload.c,
   });
 }

@@ -242,7 +242,7 @@ export class WaveDirector {
       next,
       this.sim.difficulty,
       { portalCount: meta.portalCount || 1, modifier: meta.modifier || null, hpMul: meta.hpMul || 1 },
-      { endless }
+      { endless, chapters: this.sim.chapters }
     );
     return def?.hpMul ?? 1;
   }

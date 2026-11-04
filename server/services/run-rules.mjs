@@ -357,6 +357,8 @@ export function planRunStart({ token, profile, body, testSeed }) {
       difficultyMode: 'floor-equals-wave',
     };
   }
+  // 关卡节点化（阶段 1 接线）：非爬塔模式写 chapters 开关；老 run 无此字段 → chapters=false → 旧波次。
+  if (mode !== 'tower') ruleset.chapters = { v: 1 };
   // 固定地图池：所有模式（普通/每日/本周/无尽/变异）都是同一组三张图与固定 trait。
   const candidates = generateMapCandidates(seed, FIXED_MAP_COUNT);
   // 词缀即固定地图的 trait（无 trait 的 canyon 不参与）；不再做随机词缀一致性校验。
