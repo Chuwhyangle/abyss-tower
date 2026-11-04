@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-docs-consistency-angle-bracket-placeholder
 title: AC-007 复验：docs-consistency 尖括号占位符截断误报
-status: todo
+status: ready
 labels:
   - gap
   - defect
