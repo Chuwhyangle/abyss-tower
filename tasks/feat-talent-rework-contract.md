@@ -54,3 +54,11 @@ extra:
 - **死节点修复**：`skillCd`/`skillPower` 进 `EFFECT_REGISTRY`（capMode 'max' 同 costMul），`skill-system.js` 新增 `applyTalentSkillMods` 拷贝 `skillStats` 结果后乘进 `cd`（钳 ≥0）与 12 个幅度键，不改共享 `def.levels[lv-1]` 引用。
 - **快照/哈希更新**：`EFFECT_REGISTRY` 新增两键使 `createMods()` 多出 `skillCd:0`/`skillPower:0`，故 `tests/effects-registry.test.mjs` 与 `tests/data-split.test.mjs` 的固定哈希随内容更新；`sim.js` 保持在结构预算 700 行内（注释并进同一行）。
 - **balance 基线漂移（阶段 2 待办）**：`docs/BALANCE_META.json` 已按 40 种子重生成（满 meta 端点变为 27 点 / 15 节点全满），数值 +1%/级 + 技能接线使满 meta 远征 winRate 0.5417 超出目标 [0.25, 0.40] 且超过 ±5pp 容忍；`npm test` 因此剩 1 处红（`tests/meta-balance-targets.test.mjs` 的 balance witness）。这是提案显式 defer 给阶段 2 的「零 meta 基线重排 + balance 复测」范围，本任务不改数值、不改测试门禁、不伪造基线，DoD「npm test 全绿」留空待 manager 决策。
+
+## Blocker
+
+**2026-11-04T03:32:09.230Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 8/9，剩余未勾 1）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：902d9009-064f-45f0-ad02-a922b22531d9
