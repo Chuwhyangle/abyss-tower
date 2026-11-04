@@ -1,7 +1,7 @@
 ---
 id: feat-talent-rework-contract
 title: 天赋树重做·阶段0：三层节点表 + unlocks 正交通道 + 死节点修复（skillCd/skillPower 接线）
-status: todo
+status: ready
 labels:
   - feat
 parent: null
