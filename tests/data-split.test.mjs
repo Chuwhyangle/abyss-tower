@@ -40,7 +40,9 @@ const EXPECTED_EXPORTS = [
 // AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
 // feat-new-enemies：敌人扩容到 21 种（穹翼精英/反伤壁垒/回春图腾/自爆虫/潜行者/裂隙召唤师/破盾者），内容快照随之更新。
-const BASELINE_HASH = 'e5f8e1d6f90eaf9d0bd165c92bb4395cc7dae120f4514b51256eb8510efb2c4b';
+// 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
+// 内容快照哈希更新（行为本身无改动）。
+const BASELINE_HASH = 'b12ae297af613b852a3c3886252ef8b0cf85f3b81d3b905b9d8d912835f0e2c7';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);

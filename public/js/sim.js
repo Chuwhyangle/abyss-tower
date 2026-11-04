@@ -1,7 +1,7 @@
 // 纯战斗模拟：状态根与系统编排；不依赖 DOM / Canvas / 音频，浏览器与 Node 平衡模拟共用。
 // 具体职责下沉到 public/js/sim/ 下的系统对象，本类只保留状态字段与薄委派。
 import { MAX_WAVE, normalizeRelicStates, relicModsAtLevel } from './shared/data.js';
-import { normalizeTalent, talentMods } from './shared/data/meta.js';
+import { normalizeTalent, talentMods, talentUnlocks } from './shared/data/meta.js';
 import { applyEffect, clampMods } from './shared/effects.js';
 import {
   chainsFromHistory,
@@ -70,6 +70,7 @@ export class Simulation {
     this.relics = normalizeRelicStates(opts.relics || []);
     // 账号天赋被动：读档时由服务端从 player_kv 注入 opts.talent；零投入得到空 mods，不改变确定性。
     this.talentMods = talentMods(normalizeTalent(opts.talent));
+    this.talentUnlocks = talentUnlocks(opts.talent); // 天赋解锁通道：镜像 unlockedTowers，零 RNG，不进 sim.mods（阶段 1 消费）。
     // 派系层（§8.2）：points/tiers/setMods 由 recomputeFactions 重算；bonusPoints 仅契约写入。
     this.factions = { points: {}, bonusPoints: {}, tiers: {}, setMods: {} };
     // 契约/觉醒/教义局内状态（§8.2）：本任务只落 contracts/bonusPoints/doctrines/awakenings；
