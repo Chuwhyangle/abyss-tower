@@ -1,7 +1,7 @@
 ---
 id: feat-art-portraits-relic-icons
 title: 立绘 + 遗物图：程序化美术内容（塔/敌人/首领卡面 + 遗物图标）
-status: ready
+status: done
 labels:
   - feat
 parent: null
@@ -16,17 +16,17 @@ extra:
 
 ## AC
 
-- [ ] 8 塔 + 敌人 + 3 首领变体的程序化立绘（`portrait-draw.js`，确定性按实体 id 生成）
-- [ ] 全部遗物的程序化图标（`relic-art.js`，按稀有度/颜色/glyph）
-- [ ] 新 sprite/art kind 登记 `sprite-coverage.js`；`render-budget` 不红
-- [ ] `node --test tests/sprite-coverage.test.mjs tests/render-budget.test.mjs` exit 0
+- [x] 8 塔 + 敌人 + 3 首领变体的程序化立绘（`portrait-draw.js`，确定性按实体 id 生成）
+- [x] 全部遗物的程序化图标（`relic-art.js`，按稀有度/颜色/glyph）
+- [x] 新 sprite/art kind 登记 `sprite-coverage.js`；`render-budget` 不红
+- [x] `node --test tests/sprite-coverage.test.mjs tests/render-budget.test.mjs` exit 0
 
 ## DoD
 
-- [ ] 落地于 `public/js/render/portrait-draw.js`（新）、`public/js/render/relic-art.js`（新）、`public/js/render/sprite-coverage.js`，零第三方依赖
-- [ ] 立绘/图标接入 UI 展示（图鉴/卡面/遗物 chip 至少一处可见）
-- [ ] `npm test` 全绿；补跑 `node --test tests/sprite-coverage.test.mjs tests/render-budget.test.mjs tests/render-visuals.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于 `public/js/render/portrait-draw.js`（新）、`public/js/render/relic-art.js`（新）、`public/js/render/sprite-coverage.js`，零第三方依赖
+- [x] 立绘/图标接入 UI 展示（图鉴/卡面/遗物 chip 至少一处可见）
+- [x] `npm test` 全绿；补跑 `node --test tests/sprite-coverage.test.mjs tests/render-budget.test.mjs tests/render-visuals.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -34,6 +34,8 @@ extra:
 - `public/js/render/relic-art.js` (new)
 - `public/js/render/sprite-coverage.js`
 - `tests/sprite-coverage.test.mjs`
+- `scripts/test-changed.mjs`
+- `public/js/ui/shop.js`
 - `tasks/feat-art-portraits-relic-icons.md`
 
 ## Notes

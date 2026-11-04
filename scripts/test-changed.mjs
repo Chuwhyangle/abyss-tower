@@ -102,6 +102,7 @@ export const TEST_MAP = [
     'tests/panels-visual.test.mjs',
   ] },
   { match: 'public/js/shared/boss-core.js', tests: ['tests/boss-core.test.mjs'] },
+  { match: 'public/js/shared/chapters.js', tests: ['tests/nodes.test.mjs'] },
   { match: 'public/js/shared/contracts.js', tests: ['tests/contracts.test.mjs'] },
   { match: 'public/js/shared/doctrines.js', tests: ['tests/doctrines.test.mjs'] },
   { match: 'public/js/shared/awakenings.js', tests: ['tests/awakenings.test.mjs'] },
@@ -299,6 +300,8 @@ export const TEST_MAP = [
     'tests/sprite-coverage.test.mjs',
   ] },
   { match: 'public/js/render/sprite-coverage.js', tests: ['tests/sprite-coverage.test.mjs'] },
+  { match: 'public/js/render/portrait-draw.js', tests: ['tests/sprite-coverage.test.mjs'] },
+  { match: 'public/js/render/relic-art.js', tests: ['tests/sprite-coverage.test.mjs'] },
   { match: 'public/js/render/transition.js', tests: ['tests/transition.test.mjs'] },
 
   // 服务端

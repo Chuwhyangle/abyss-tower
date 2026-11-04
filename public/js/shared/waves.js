@@ -8,6 +8,7 @@ import {
   ENDLESS_BOSS_AFFIX_ROTATION,
 } from './data/enemies.js';
 import { BALANCE } from './config.js';
+import { BASELINE_ENEMIES, chapterForWave, normalizeTheme } from './chapters.js';
 
 // 首领变体：每 5 波轮换一次；波次本身就是种子的一部分，所以同种子必然同变体。
 export function selectBossVariant(wave) {
@@ -69,7 +70,7 @@ export const ENDLESS = {
   maxBosses: 3,         // 首领波同时出现的首领数量上限
 };
 
-export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, { endless = false } = {}) {
+export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, { endless = false, chapters = false } = {}) {
   const rawIndex = Math.max(1, Math.floor(wave));
   const index = endless
     ? Math.min(ENDLESS.maxIndex, rawIndex)
@@ -79,6 +80,10 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
   const modifier = mapMeta.modifier || null;
   const portalCount = Math.max(1, Math.min(3, Math.floor(mapMeta.portalCount || 1)));
   const isFinal = !endless && index === MAX_WAVE;
+  // 章节契约：chapters 开启时读取当前波所属章节；关闭时整段跳过（旧存档/回放字节不变）。
+  const chapter = chapters ? chapterForWave(index) : null;
+  const theme = chapter ? normalizeTheme(chapter.theme) : null;
+  const chapterPool = chapter ? new Set([...BASELINE_ENEMIES, ...chapter.enemyPool]) : null;
   // 无尽模式下曲线只推进到封顶波次，之后保持恒定难度。
   const hpIndex = endless ? Math.min(index, ENDLESS.hpCapWave) : index;
   const bossHpIndex = endless ? Math.min(index, ENDLESS.bossHpCapWave) : index;
@@ -87,21 +92,29 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
     diff.hpMul *
     (isFinal ? BALANCE.finalBossMul : 1) *
     (modifier?.hpMul || 1) *
-    (mapMeta.hpMul || 1);
+    (mapMeta.hpMul || 1) *
+    (theme?.hpMul ?? 1);
   // 首领使用独立血量曲线：普通敌人的 1.165 曲线到第 30 波会让首领血量失控。
   const bossHpMul = round3(
     Math.pow(BALANCE.bossHpGrowth, bossHpIndex - 1) *
       diff.hpMul *
       (isFinal ? BALANCE.bossFinalMul : 1) *
       (modifier?.hpMul || 1) *
-      (mapMeta.hpMul || 1)
+      (mapMeta.hpMul || 1) *
+      (theme?.hpMul ?? 1)
   );
   const rawSpeedMul =
-    (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1);
+    (1 + index * BALANCE.speedGrowth) * diff.speedMul * (modifier?.speedMul || 1) * (theme?.speedMul ?? 1);
   const speedMul = endless ? Math.min(ENDLESS.speedCap, rawSpeedMul) : rawSpeedMul;
   const isBoss = index % 5 === 0;
-  // 最终波固定狂暴型，其余首领波按每 5 波轮换。
-  const bossVariant = isBoss ? (isFinal ? 'berserk' : selectBossVariant(index)) : null;
+  // 最终波固定狂暴型；chapters 开启时其余首领波用章节变体，关闭时按每 5 波轮换。
+  const bossVariant = isBoss
+    ? isFinal
+      ? 'berserk'
+      : chapter
+        ? chapter.bossVariant
+        : selectBossVariant(index)
+    : null;
   // 深渊首领：仅无尽模式的首领波叠加词条，每 10 波一层且层数硬上限。
   const bossAffixes = endless && isBoss ? selectBossAffixes(index) : null;
   const bossAffixText = bossAffixes
@@ -130,7 +143,7 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
       groups.push({ type: 'caster', count: 1, interval: 1.7, delay: 13 });
     }
   } else {
-    const pool = POOL.filter((e) => index >= e.minWave);
+    const pool = POOL.filter((e) => index >= e.minWave && (!chapterPool || chapterPool.has(e.type)));
     const wanted = Math.min(pool.length, 2 + (index >= 10 ? 1 : 0) + (rng.float() < 0.35 ? 1 : 0));
     const chosen = [];
     while (chosen.length < wanted && pool.length) {
@@ -207,6 +220,7 @@ export function generateWave(seed, wave, difficulty = 'standard', mapMeta = {}, 
     portals: activePortals,
     modifierId: modifier?.id || null,
     ...(endless ? { endless: true } : {}),
+    ...(chapters ? { chapterId: chapter?.id ?? null } : {}),
     ...(bossAffixes ? { bossAffixes, bossAffixText } : {}),
     label: isFinal
       ? '最终首领'
