@@ -47,6 +47,7 @@ extra:
 - `docs/reviews/entity-sprite-states-contact-sheet.png`
 - `tests/enemies-depth.test.mjs`
 - `tests/data-split.test.mjs`
+- `tests/nodes.test.mjs`
 - `tests/sprite-coverage.test.mjs`
 - `scripts/structure-budget.allow.d/feat-new-enemies.json`
 - `tasks/feat-new-enemies.md`
@@ -64,4 +65,5 @@ extra:
 - 新敌人类型 id 用 `riftcaller`：原拟 `summoner` 与首领变体 `BOSS_VARIANTS.summoner` 撞名，会使 sprite 覆盖表因同名键去重到 63 实体（覆盖测试红）。中文名仍为「裂隙召唤师」。
 - 图集重生成（实体状态帧 164）；无障碍配色蓝黄/红绿两套敌人映射补 7 种（art-tokens.js）。
 - enemy-body.js 新增 3 个程序化造型后超 600 行预算，登记债务 `scripts/structure-budget.allow.d/feat-new-enemies.json`（maxLines 700）。
-- `npm test` 2001/2001 全绿；`node --test tests/enemies-depth.test.mjs tests/waves.test.mjs` 26/26 exit 0。
+- 合并 develop 后，本任务的 POOL 增补改变了 `tests/nodes.test.mjs` 的「chapters 默认关闭现状快照」（该快照由 feat-chapters-table 立案），已按新现状重生成快照并声明进 Touches。
+- `npm test` 2015/2015 全绿；`node --test tests/enemies-depth.test.mjs tests/waves.test.mjs` 26/26 exit 0。
