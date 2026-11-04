@@ -1,10 +1,16 @@
 ---
 id: GOAL-014
 title: 真人游玩分析闭环：report/check 双模式 + human-vs-bot 洞察
-status: active
+status: achieved
 kind: goal
 origin: 人 2026-11-04：真人游玩数据要反哺设计，建分析闭环替代「机器人自嗨」
 activatedAt: 2026-11-04T09:42:24.180Z
+statusLog:
+  - at: 2026-11-04T10:33:01.983Z
+    from: active
+    to: achieved
+    actor: goal-driver
+    reason: "I2: all ACs achieved + sufficiency covered"
 ---
 ## 背景
 
