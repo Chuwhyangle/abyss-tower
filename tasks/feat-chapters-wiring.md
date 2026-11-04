@@ -10,7 +10,8 @@ depends_on:
   - feat-chapters-table
 extra:
   schema: execution
-  acceptance: node --test tests/nodes.test.mjs tests/replay.test.mjs tests/run-lifecycle.test.mjs
+  acceptance: node --test tests/nodes.test.mjs tests/replay.test.mjs
+    tests/run-lifecycle.test.mjs
 ---
 ## Proposal
 
@@ -18,11 +19,11 @@ extra:
 
 ## AC
 
-- [ ] 服务端 `ruleset.chapters` presence-gate 落地，`serveWave` 透传 chapters
-- [ ] 客户端 `sim.js`/`wave-director`/`snapshot-mapper` 透传 chapters
-- [ ] `replay.js` REPLAY_VERSION 4 + `c` 字段编解码，旧码兼容
-- [ ] `CONTENT_VERSION` +1
-- [ ] `node --test tests/nodes.test.mjs tests/replay.test.mjs tests/run-lifecycle.test.mjs` exit 0
+- [x] 服务端 `ruleset.chapters` presence-gate 落地，`serveWave` 透传 chapters
+- [x] 客户端 `sim.js`/`wave-director`/`snapshot-mapper` 透传 chapters
+- [x] `replay.js` REPLAY_VERSION 4 + `c` 字段编解码，旧码兼容
+- [x] `CONTENT_VERSION` +1
+- [x] `node --test tests/nodes.test.mjs tests/replay.test.mjs tests/run-lifecycle.test.mjs` exit 0
 
 ## DoD
 
@@ -40,6 +41,10 @@ extra:
 - `public/js/sim/snapshot-mapper.js`
 - `public/js/shared/replay.js`
 - `server/config.mjs`
+- `tests/replay.test.mjs`
+- `tests/hex-flow.test.mjs`
+- `scripts/structure-budget.allow.d/gap-ac-058-contract-card.json`
+- `scripts/structure-budget.allow.d/gap-ac-063-meta-talent-tree.json`
 - `tasks/feat-chapters-wiring.md`
 
 ## Notes
