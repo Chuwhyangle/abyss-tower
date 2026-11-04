@@ -12,9 +12,35 @@ const SKILL_METEOR_CHAIN_RATIO = 0.35;
 const SKILL_STASIS_MAX_EXTEND = 1;
 const SKILL_STASIS_KILL_EXTEND = 0.1;
 
+// 技能效果幅度键（skillPower 乘进的字段）：冷却 cd、颗数 meteors 与固定乘法因子 atkSpeed/range
+// 不随幅度缩放（skills.js「攻击速度/射程这类乘法因子固定」）。skillCd 只乘进 cd。
+const SKILL_POWER_KEYS = [
+  'freeze', 'vuln', 'slow', 'slowDur', 'shatter',
+  'dmgPct', 'burnPct', 'radius',
+  'stop', 'overdrive', 'novaPct', 'vulnDur',
+];
+
 export class SkillSystem {
   constructor(sim) {
     this.sim = sim;
+  }
+
+  // 天赋技能接线（死节点修复）：把 sim.mods 里的 skillCd/skillPower 折叠进技能属性。
+  // skillCd（负值缩减）乘进 cd 并钳到 ≥0；skillPower（正值放大）乘进幅度键（SKILL_POWER_KEYS）。
+  // 返回浅拷贝，绝不改写 skillStats 返回的共享 def.levels[lv-1] 引用。
+  applyTalentSkillMods(stats) {
+    const out = { ...stats };
+    const skillCd = Number(this.sim.mods?.skillCd) || 0;
+    const skillPower = Number(this.sim.mods?.skillPower) || 0;
+    if (out.cd !== undefined) {
+      out.cd = Math.max(0, Number(out.cd) * (1 + skillCd));
+    }
+    if (skillPower) {
+      for (const key of SKILL_POWER_KEYS) {
+        if (out[key] !== undefined) out[key] = Number(out[key]) * (1 + skillPower);
+      }
+    }
+    return out;
   }
 
   initSkill(opts = {}) {
@@ -23,7 +49,7 @@ export class SkillSystem {
     const def = SKILLS[config.id];
     if (!def) return;
     const level = Math.max(1, Math.min(def.levels.length, Math.floor(Number(config.level) || 1)));
-    const stats = skillStats(def.id, level);
+    const stats = this.applyTalentSkillMods(skillStats(def.id, level));
     let cooldown = Number(config.cooldown);
     if (!Number.isFinite(cooldown)) cooldown = 0;
     const readyAt = Number(opts.skillReadyAt ?? config.readyAt);

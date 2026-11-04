@@ -153,7 +153,9 @@ test('固定种子结算哈希与重构前逐字一致', () => {
   // 全遗物结算基线随塔位更新（行为本身无改动）。
   // 资源矿脉落图：固定峡谷新增 3 个可攻击资源矿脉，塔在无敌人时攻击矿脉并结算金币，
   // 前 3 波的空窗期金币/节奏随矿脉改变，全遗物结算基线随之更新（行为本身无改动）。
-  assert.equal(hash, '22d2333edcafd7ae505d1130fede6b739baf32cd939cfe5aecd23d0a4a454ae6');
+  // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键（天赋技能节点接线），
+  // snap 的 mods 随之多出两个 0 值键，全遗物结算基线哈希更新（行为本身无改动）。
+  assert.equal(hash, '676d2f429f3d563f799fdb3678103f8cae65ac30b77fe8dd9e288f2de59ca202');
 });
 
 function round(n) {
