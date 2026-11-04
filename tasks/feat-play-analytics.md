@@ -46,11 +46,3 @@ extra:
 落地 2026-11-04：实际 Touches 与声明一致（scripts/play-analytics.mjs、tests/play-analytics.test.mjs 新增；scripts/test-changed.mjs、package.json 修改），无需修正。聚合口径：总体/海克斯/遗物/失败波次只统计 status='finished' 局；主海克斯选取率=选中/出现在三选一，遗物选取率=持有/出现在任一遗物三选一、胜率差=持有胜率−未持有胜率；mode 使用量统计所有状态。名称复用 shared 注册表（HEX_BY_ID/RELIC_BY_ID），未知 id 回退原文。
 
 report 样例（当前 game.db：仅 1 局 active、0 局 finished）——总体/海克斯/遗物三段输出「（无已结算对局）」，失败波次输出「（无失败对局）」，mode 使用量输出 1 行：v1.26.0 | normal | 1。check human-vs-bot 对当前 game.db exit 0（三档 n=0 < floor=30 样本不足）。npm test 全绿（2026 例，0 fail）。
-
-## Blocker
-
-**2026-11-04T10:02:55.735Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：step=suite: name: 'AssertionError'
-- run_id：wk-prod-anchor
-- session_id：fbca7e68-dd7c-4805-9c5d-b915abd5d506
