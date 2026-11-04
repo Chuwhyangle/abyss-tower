@@ -27,10 +27,10 @@ extra:
 
 ## DoD
 
-- [ ] 落地于服务端 run-rules/run-service、客户端 sim/wave-director/snapshot-mapper、replay.js、config.mjs，零第三方依赖
-- [ ] 回归测试：chapters 开/关字节一致、旧 run 缺 ruleset.chapters 走线性、replay v3 旧码兼容
-- [ ] `npm test` 全绿；补跑 `node --test tests/nodes.test.mjs tests/replay.test.mjs tests/run-lifecycle.test.mjs`
-- [ ] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
+- [x] 落地于服务端 run-rules/run-service、客户端 sim/wave-director/snapshot-mapper、replay.js、config.mjs，零第三方依赖
+- [x] 回归测试：chapters 开/关字节一致、旧 run 缺 ruleset.chapters 走线性、replay v3 旧码兼容
+- [x] `npm test` 全绿；补跑 `node --test tests/nodes.test.mjs tests/replay.test.mjs tests/run-lifecycle.test.mjs`
+- [x] `git diff --name-only <base>..HEAD` 只含本任务 Touches 声明文件
 
 ## Touches
 
@@ -52,3 +52,5 @@ extra:
 立案 2026-11-04，源自 `docs/PHASE_CHAPTERS.md` §6 + `docs/TODO.md` TODO-15。依赖 `feat-chapters-table`（depends_on，done）。阶段 2（CONTENT_VERSION 已含本任务 + 浏览器验收）在阶段 1 落地后收尾。若 worker 实际 Touches 有出入，须 task_write 修正再 fan-in。
 
 该轴仍暗,理由:本任务为章节接线，契约已冻结，无新玩法文档面，L_D/L_G/L_S 无需量化。
+
+- 续做 2026-11-04：AC 5/5 已勾，补勾 DoD 4/4；`npm test` 2017/2017 全绿，`node --test tests/nodes.test.mjs tests/replay.test.mjs tests/run-lifecycle.test.mjs` 32/32 exit 0；anti-drift Touches 11 文件全在声明内；清除未落地原因（已落地）。
