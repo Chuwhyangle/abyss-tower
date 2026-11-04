@@ -61,8 +61,10 @@ const pathPrefix = `(?:${REPO_DIRS.map((dir) => dir.replace(/[.*+?^${}()|[\]\\]/
 // 通配符 * 也纳入 token，好在 normalizeCodePath 里整段判为 glob 后跳过。
 // 非 ASCII 路径字符（CJK 统一表意文字：基本区 U+4E00–U+9FFF + 扩展 A U+3400–U+4DBF）也纳入 token，
 // 否则含中文的路径（如 docs/PHASE_爬塔.md）会在首个汉字处截断成 docs/PHASE_，存在与否都判错。
+// 尖括号 < > 同样纳入 token：占位符（如 docs/PHASE_<主题>.md、docs/<topic>）被整段捕获后由
+// UNSAFE_PATH_CHARS 判为 unsafe 跳过，而不是在 < 处截断成 docs/PHASE_ 前缀去查存在性而误报。
 const CJK_PATH_CHARS = String.raw`一-鿿㐀-䶿`;
-const REPO_PATH_RE = new RegExp(`(?:^|[\\s\`'"(（\\[=])(${pathPrefix}/[A-Za-z0-9._/*${CJK_PATH_CHARS}-]*)`, 'g');
+const REPO_PATH_RE = new RegExp(`(?:^|[\\s\`'"(（\\[=])(${pathPrefix}/[A-Za-z0-9._/*${CJK_PATH_CHARS}<>-]*)`, 'g');
 const TRAILING_PUNCTUATION = /[.,;:!?，。；：、）)\]}>]+$/;
 const UNSAFE_PATH_CHARS = /[<>*{}$:?#|]/;
 

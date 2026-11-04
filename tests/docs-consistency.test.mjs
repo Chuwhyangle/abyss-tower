@@ -249,6 +249,28 @@ test('含中文（CJK）路径整段捕获：存在不误报、缺失报全名�
   assert.ok(!missing.problems[0].endsWith('docs/PHASE_'), `不得截断：${missing.problems[0]}`);
 });
 
+test('尖括号占位符整段捕获后跳过：不误报，真实缺失路径仍报', (t) => {
+  const root = makeFixture(t, {
+    'package.json': PACKAGE,
+    'README.md': [
+      '# 示例',
+      '计划正本 `docs/PHASE_<主题>.md` 与通用示例 `docs/<topic>`。',
+      '真实缺失路径 `docs/PHASE_不存在.md` 照旧报。',
+      '',
+    ].join('\n'),
+    'docs/GUIDE.md': '# 手册\n',
+  });
+
+  const result = analyzeDocs(root);
+  // 占位符（含尖括号）整段被 UNSAFE_PATH_CHARS 拒绝，不再截断成 docs/PHASE_ 前缀误报；
+  // 唯一红的是真实缺失路径，且报全名而非截断。
+  assert.equal(result.ok, false, '真实缺失路径必须让 check:docs 转红');
+  assert.equal(result.problems.length, 1, result.problems.join('\n'));
+  assert.match(result.problems[0], /README\.md:3: 代码路径不存在 -> docs\/PHASE_不存在\.md$/);
+  assert.ok(!result.problems.some((p) => p.includes('docs/PHASE_<')), `占位符不得误报：${result.problems.join('\n')}`);
+  assert.ok(!result.problems.some((p) => p.includes('docs/<topic>')), `占位符不得误报：${result.problems.join('\n')}`);
+});
+
 // 计划正本（docs/PHASE_<主题>.md）的块外必须保持真实校验：把不在 planned 块内的行取出来。
 function outsidePlannedLines(text) {
   const outside = [];
