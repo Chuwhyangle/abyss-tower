@@ -52,6 +52,7 @@
     "balance:write": "node tests/balance-sim.mjs 40 --write --baseline",
     "sweep": "node tests/balance-sweep.mjs 20",
     "backup": "node --no-warnings scripts/backup.mjs",
+    "analytics": "node --no-warnings scripts/play-analytics.mjs",
     "docs:preview": "node --no-warnings scripts/docs-preview.mjs"
   },
   "engines": {
