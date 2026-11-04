@@ -34,6 +34,8 @@ extra:
 - `public/js/render/relic-art.js` (new)
 - `public/js/render/sprite-coverage.js`
 - `tests/sprite-coverage.test.mjs`
+- `scripts/test-changed.mjs`
+- `public/js/ui/shop.js`
 - `tasks/feat-art-portraits-relic-icons.md`
 
 ## Notes
