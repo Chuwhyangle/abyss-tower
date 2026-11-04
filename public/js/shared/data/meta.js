@@ -36,8 +36,9 @@ export function legacyYield(runResult) {
 
 // 天赋树与永久强化：账号级技能点投入 → 永久被动（纯数据/纯函数，不 import 运行时模块）。
 // 与 cores/achievements/pass/bounties 完全分离，独立持久化在 player_kv('meta','talent')。
-// 只有 EFFECT_REGISTRY 已声明的键会被 sim 折叠；skillCd/skillPower 留给技能层消费，
-// 因此 talentMods 会把未注册的键过滤掉，绝不越界写进 mods。
+// 三层结构（TODO-14 §2）：数值（effects，+1%/级，maxRank 2~3）+ 解锁（unlocks 机制永驻，maxRank 1）+
+// 质变（unlocks 机制永驻，maxRank 1）。只有 EFFECT_REGISTRY 已声明的键会被 sim 折叠进 mods；
+// unlocks 走独立的 TALENT_MECHANICS 注册表，经 talentUnlocks 聚合为 sim.talentUnlocks（不进 mods）。
 import { EFFECT_REGISTRY } from '../effects.js';
 
 export const TALENT_CATEGORIES = {
@@ -46,20 +47,66 @@ export const TALENT_CATEGORIES = {
   economy: { id: 'economy', name: '经济' },
 };
 
+// 三层分类（TODO-14 §2）：数值（浅层、可多级）/ 解锁（暴击·利息·破甲·连锁，永驻）/ 质变（塔上限+1·
+// 技能二次施放·信物可控，永驻）。tier 与 category（塔/技能/经济三系）正交：category 决定 build 身份，
+// tier 决定投资深度与成本分档。
+export const TALENT_TIERS = {
+  numeric: { id: 'numeric', name: '数值' },
+  unlock: { id: 'unlock', name: '解锁' },
+  qualitative: { id: 'qualitative', name: '质变' },
+};
+
+// 机制注册表：unlocks 通道的唯一声明处（与 EFFECT_REGISTRY 正交）。节点 unlocks 只有命中这里的键
+// 才会被 talentUnlocks 聚合；阶段 1 读 sim.talentUnlocks 落地机制行为（baseInterest / 二次施放 /
+// 塔上限等），本任务只落契约与死节点修复。
+export const TALENT_MECHANICS = {
+  crit: { name: '暴击', desc: '解锁暴击机制（永驻）' },
+  interest: { name: '利息', desc: '解锁利息机制（永驻，阶段 1 消费为 baseInterest）' },
+  armorPierce: { name: '破甲', desc: '解锁破甲机制（永驻）' },
+  chain: { name: '连锁', desc: '解锁连锁机制（永驻）' },
+  towerCap: { name: '塔上限 +1', desc: '质变：可建造塔数上限 +1' },
+  skillDoubleCast: { name: '技能二次施放', desc: '质变：主动技能可二次施放' },
+  relicControl: { name: '信物可控', desc: '质变：遗物选择可控' },
+};
+
+// 成本阶梯（TODO-14 §3 冻结）：数值 Tier1 1~2 核、rank2 3~5 核、机制叶子 12~20 核，整树 ~150~250 核。
+// 阶段 0 只落 Tier1 标量 cost（数值 1~2、新节点 cost=1 保 investTalent 的 points/spent 等价 + 零迁移）；
+// rank2 递增 cost 与机制叶子 12~20 核由阶段 1 路由读本表落地（本任务不重排经济，见 Notes）。
+export const TALENT_COST_LADDER = {
+  numeric: { tier1: [1, 2], rank2: [3, 5] },
+  leaf: [12, 20],
+};
+
 // 每项 effects 的值是「每级增量」；cost/maxRank 固定，rank ∈ [0, maxRank]。
-// 数值克制（PHASE_META §4.1）：单项 ≤ +8%，每类累计 ≤ +24%，hpMul 0.85/1.10/1.34 不在此列。
-// AC-065 平衡复测后下调：满 meta（全节点满投入）首轮复测把远征顶到 52%、深渊顶到 23%（目标 25–40 / 5–12），
-// 经济系（killGold/interest/goldMul/costMul）与塔系（dmgAll/range）的确定性乘数复利过强，故压到 §4.1
-// 表示精度下限（约原值 1/40，单项 ≤ +0.1%/级），见 docs/PHASE_META.md §4.1 取舍记录。
+// 数值节点按 TODO-14 拉到「有意义的成长」：+1%/级（约原 +0.1%/级 的 10×），maxRank 2~3、cost 1~2 分档；
+// 解锁/质变节点无 effects（effects 为空，talentEffect 有 null 防护），只有 unlocks 机制键，maxRank 1、
+// cost 1（阶段 0 占位，最终叶子成本见 TALENT_COST_LADDER）。保留旧 8 节点 id 不变，旧玩家零迁移。
+// 最终 % 与叶子成本依赖阶段 2 零 meta 基线重排 + balance 复测（见 docs/TODO.md TODO-14）。
 export const TALENT_NODES = [
-  { id: 'tower_atk', name: '百炼锋刃', category: 'tower', cost: 1, maxRank: 2, effects: { dmgAll: 0.001 }, desc: '所有防御塔伤害 +0.1%（每级）' },
-  { id: 'tower_range', name: '鹰隼之眼', category: 'tower', cost: 1, maxRank: 2, effects: { range: 0.01 }, desc: '所有防御塔射程 +0.01 格（每级）' },
-  { id: 'tower_cost', name: '精工图纸', category: 'tower', cost: 1, maxRank: 2, effects: { costMul: -0.001 }, desc: '建造与升级费用 -0.1%（每级）' },
-  { id: 'skill_cd', name: '冥想专注', category: 'skill', cost: 1, maxRank: 2, effects: { skillCd: -0.001 }, desc: '主动技能冷却 -0.1%（每级）' },
-  { id: 'skill_power', name: '奥能增幅', category: 'skill', cost: 1, maxRank: 2, effects: { skillPower: 0.001 }, desc: '主动技能效果幅度 +0.1%（每级）' },
-  { id: 'economy_gold', name: '敛财术', category: 'economy', cost: 1, maxRank: 2, effects: { goldMul: 0.001 }, desc: '金币收入 +0.1%（每级）' },
-  { id: 'economy_interest', name: '复利精算', category: 'economy', cost: 1, maxRank: 2, effects: { interest: 0.001 }, desc: '波末利息 +0.1%（每级）' },
-  { id: 'economy_kill', name: '战利品学', category: 'economy', cost: 1, maxRank: 2, effects: { killGold: 0.02 }, desc: '击杀金币 +0.02（每级）' },
+  // —— 数值层 · 塔系（保留旧 id） ——
+  { id: 'tower_atk', name: '百炼锋刃', category: 'tower', tier: 'numeric', cost: 2, maxRank: 3, effects: { dmgAll: 0.01 }, desc: '所有防御塔伤害 +1%（每级）' },
+  { id: 'tower_range', name: '鹰隼之眼', category: 'tower', tier: 'numeric', cost: 1, maxRank: 2, effects: { range: 0.1 }, desc: '所有防御塔射程 +0.1 格（每级）' },
+  { id: 'tower_cost', name: '精工图纸', category: 'tower', tier: 'numeric', cost: 1, maxRank: 2, effects: { costMul: -0.01 }, desc: '建造与升级费用 -1%（每级）' },
+
+  // —— 数值层 · 技能系（保留旧 id；skillCd/skillPower 已在 EFFECT_REGISTRY 注册，由 skill-system 消费） ——
+  { id: 'skill_cd', name: '冥想专注', category: 'skill', tier: 'numeric', cost: 2, maxRank: 3, effects: { skillCd: -0.01 }, desc: '主动技能冷却 -1%（每级）' },
+  { id: 'skill_power', name: '奥能增幅', category: 'skill', tier: 'numeric', cost: 2, maxRank: 3, effects: { skillPower: 0.01 }, desc: '主动技能效果幅度 +1%（每级）' },
+
+  // —— 数值层 · 经济系（保留旧 id） ——
+  { id: 'economy_gold', name: '敛财术', category: 'economy', tier: 'numeric', cost: 1, maxRank: 2, effects: { goldMul: 0.01 }, desc: '金币收入 +1%（每级）' },
+  { id: 'economy_interest', name: '复利精算', category: 'economy', tier: 'numeric', cost: 1, maxRank: 2, effects: { interest: 0.01 }, desc: '波末利息 +1%（每级）' },
+  { id: 'economy_kill', name: '战利品学', category: 'economy', tier: 'numeric', cost: 2, maxRank: 3, effects: { killGold: 0.2 }, desc: '击杀金币 +0.2（每级）' },
+
+  // —— 解锁层（机制永驻，maxRank 1） ——
+  { id: 'unlock_crit', name: '会心一击', category: 'tower', tier: 'unlock', cost: 1, maxRank: 1, unlocks: ['crit'], desc: '解锁暴击机制（永驻）' },
+  { id: 'unlock_armor_pierce', name: '破甲专精', category: 'tower', tier: 'unlock', cost: 1, maxRank: 1, unlocks: ['armorPierce'], desc: '解锁破甲机制（永驻）' },
+  { id: 'unlock_chain', name: '连锁反应', category: 'tower', tier: 'unlock', cost: 1, maxRank: 1, unlocks: ['chain'], desc: '解锁连锁机制（永驻）' },
+  { id: 'unlock_interest', name: '生财有道', category: 'economy', tier: 'unlock', cost: 1, maxRank: 1, unlocks: ['interest'], desc: '解锁利息机制（永驻）' },
+
+  // —— 质变层（机制永驻，maxRank 1） ——
+  { id: 'qual_tower_cap', name: '千军万马', category: 'tower', tier: 'qualitative', cost: 1, maxRank: 1, unlocks: ['towerCap'], desc: '可建造塔数上限 +1' },
+  { id: 'qual_skill_double_cast', name: '回响共鸣', category: 'skill', tier: 'qualitative', cost: 1, maxRank: 1, unlocks: ['skillDoubleCast'], desc: '主动技能可二次施放' },
+  { id: 'qual_relic_control', name: '信物契约', category: 'economy', tier: 'qualitative', cost: 1, maxRank: 1, unlocks: ['relicControl'], desc: '遗物选择可控' },
 ];
 
 export const TALENT_ORDER = TALENT_NODES.map((node) => node.id);
@@ -68,12 +115,13 @@ export const TALENT_BY_ID = Object.fromEntries(TALENT_NODES.map((node) => [node.
 const round = (value) => Math.round(value * 1000) / 1000;
 
 // 单节点在指定 rank 下的效果（每个键 = 每级增量 × 等级）；rank 越界时安全收敛。
+// 解锁/质变节点无 effects（只有 unlocks），null 防护返回空对象，绝不抛错。
 export function talentEffect(nodeId, rank = 0) {
   const node = TALENT_BY_ID[nodeId];
   if (!node) return {};
   const level = Math.max(0, Math.min(node.maxRank, Math.floor(Number(rank) || 0)));
   const effect = {};
-  for (const [key, perRank] of Object.entries(node.effects)) {
+  for (const [key, perRank] of Object.entries(node.effects || {})) {
     effect[key] = round(perRank * level);
   }
   return effect;
@@ -109,6 +157,7 @@ export function investTalent(talent, nodeId) {
 
 // 汇总天赋带来的全部被动乘数，只保留 EFFECT_REGISTRY 已声明的键（sim 直接折叠）。
 // 顺序固定（TALENT_NODES 表序），零投入时返回空对象，不影响既有 mods 逐字节一致。
+// skillCd/skillPower 已在 EFFECT_REGISTRY 注册，故一并折叠进 mods，由 skill-system.js 消费。
 export function talentMods(talent) {
   const state = normalizeTalent(talent);
   const mods = {};
@@ -121,4 +170,20 @@ export function talentMods(talent) {
     }
   }
   return mods;
+}
+
+// 汇总天赋已解锁的机制（unlocks 通道，镜像 talentMods）。只保留 TALENT_MECHANICS 已声明的键；
+// 顺序固定（TALENT_NODES 表序、去重），零投入返回空数组。纯函数、零 RNG，不进 sim.mods。
+export function talentUnlocks(talent) {
+  const state = normalizeTalent(talent);
+  const unlocks = [];
+  for (const node of TALENT_NODES) {
+    const rank = state.nodes[node.id] || 0;
+    if (rank <= 0) continue;
+    for (const key of node.unlocks || []) {
+      if (!(key in TALENT_MECHANICS)) continue;
+      if (!unlocks.includes(key)) unlocks.push(key);
+    }
+  }
+  return unlocks;
 }
