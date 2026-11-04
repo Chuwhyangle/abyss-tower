@@ -1,7 +1,7 @@
 ---
 id: feat-art-portraits-relic-icons
 title: 立绘 + 遗物图：程序化美术内容（塔/敌人/首领卡面 + 遗物图标）
-status: todo
+status: ready
 labels:
   - feat
 parent: null
