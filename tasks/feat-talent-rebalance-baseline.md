@@ -49,3 +49,14 @@ extra:
 实现落地 2026-11-04：`difficulties.js` hpMul 重排为 深渊 1.34→1.50、远征 1.10→1.22、漫游 0.85→0.90（+1%/级 天赋数值不动）。40 种子复测（`node tests/balance-sim.mjs 40 --write`）：零 meta 深渊 8.33%、远征 25%、漫游 77.5%；满 meta 深渊 11.67%（≤12%）、远征 40%（≤40%）、漫游 80.83%（≤85%），三档均落目标区间，零 meta 三档仍有区分度（77.5%/25%/8.33%）。`npm test` 2007 例全绿；`node --test tests/meta-balance-targets.test.mjs tests/meta-tree.test.mjs` 19 例全绿。同步更新 data-split/nodes 内容快照与 meta-balance-targets 断言。
 
 该轴仍暗,理由:本任务为平衡基线重排，数值口径由 balance 脚本收口，无新玩法文档面，L_D/L_G/L_S 无需量化。
+
+## Blocker
+
+**2026-11-04T04:34:45.029Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=merge-develop: error: Merging is not possible because you have unmerged files.
+hint: Fix them up in the work tree, and then use 'git add/rm <file>'
+hint: as appropriate to mark resolution and make a commit.
+fatal: Exiting because of an unresolved conflict.
+- run_id：wk-prod-anchor
+- session_id：76ec7968-53d4-4716-9c8c-d74acb6d5377
