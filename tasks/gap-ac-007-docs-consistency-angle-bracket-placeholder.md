@@ -9,6 +9,7 @@ parent: null
 children: []
 extra:
   schema: execution
+  acceptance: node scripts/check-stability.mjs
 goal_ac: AC-007
 ---
 ## Proposal
