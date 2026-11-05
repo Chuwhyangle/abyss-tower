@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-contract
 title: 抽卡·阶段0 契约/数据层：塔稀有度映射 + 抽卡配置 + 拥有判定护栏 + unlock 增量修复 + 迁移 0012
-status: needs-human
+status: ready
 labels:
   - feat
 parent: null
