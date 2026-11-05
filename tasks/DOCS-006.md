@@ -1,7 +1,7 @@
 ---
 id: DOCS-006
 title: 文档 lane：迁移 TECH_DESIGN.md 的 styles.css 引用（解锁 refactor-css-partition）
-status: ready
+status: done
 labels:
   - docs
 parent: null
