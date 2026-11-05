@@ -1,7 +1,7 @@
 ---
 id: feat-enemy-variety
 title: 敌人节奏扩充：后期专属敌人 + 首领变体
-status: todo
+status: ready
 labels:
   - feat
   - gameplay
