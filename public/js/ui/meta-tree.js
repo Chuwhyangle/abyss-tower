@@ -2,13 +2,14 @@
 // 视觉沿用成就面板的既有样式，只补少量节点专用规则（meta-tree-*），不新增第三方依赖。
 import { api } from '../api.js';
 import { escapeHtml } from './kit/dom.js';
-import { createPanel } from './kit/panel.js';
 import { t, tData } from '../i18n.js';
+import { iconSvg } from '../render/canvas-shapes.js';
+import { ui } from '../ui.js';
 import { TALENT_BY_ID, TALENT_CATEGORIES, TALENT_NODES } from '../shared/data/meta.js';
 
-const PANEL_ID = 'meta-tree-panel';
 const LIST_ID = 'meta-tree-list';
 const BUTTON_ID = 'btn-meta-tree';
+const CLOSE_ID = 'btn-meta-tree-close';
 const BALANCE_ID = 'meta-tree-balance';
 const SUMMARY_ID = 'meta-tree-summary';
 
@@ -124,16 +125,28 @@ async function load(panel) {
   }
 }
 
+function shell() {
+  const closeLabel = t('shell.closeMetaTree');
+  return `
+    <div class="meta-tree">
+      <div class="achievements-head">
+        <h2>${escapeHtml(t('talent.title'))}</h2>
+        <span id="${SUMMARY_ID}" class="achievements-progress"></span>
+        <span id="${BALANCE_ID}" class="achievements-progress meta-tree-balance"></span>
+        <button id="${CLOSE_ID}" class="icon-btn" type="button" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${iconSvg('close')}</button>
+      </div>
+      <div id="${LIST_ID}" class="achievements-list"></div>
+    </div>`;
+}
+
 function install() {
   const button = document.getElementById(BUTTON_ID);
-  const panel = document.getElementById(PANEL_ID);
-  if (!button || !panel) return;
+  if (!button) return;
 
-  createPanel({
-    id: PANEL_ID,
-    trigger: button,
-    closeSelector: '#btn-meta-tree-close',
-    onOpen: (node) => load(node),
+  button.addEventListener('click', () => {
+    const modal = ui.openModal(shell(), { className: 'meta-tree-modal panel-modal', closable: true });
+    modal.querySelector(`#${CLOSE_ID}`).addEventListener('click', () => ui.closeModal());
+    load(modal);
   });
 }
 

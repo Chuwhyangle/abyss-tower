@@ -1268,6 +1268,15 @@ button {
   flex-wrap: wrap;
 }
 
+/* 大厅功能弹窗（feat-modal-navigation）：六个标题页隐藏面板改为居中可关闭弹窗，
+   内容复用各自面板样式，这里只补弹窗内的通用宽度/滚动约束，不新增弹窗基础设施。 */
+.panel-modal {
+  min-width: 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
 /* 三选一 */
 
 .draft-cards {

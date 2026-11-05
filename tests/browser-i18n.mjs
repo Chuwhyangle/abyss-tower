@@ -95,8 +95,8 @@ async function lobbyAudit(browser) {
   });
   await openPanel(browser, {
     click: '#btn-bounties',
-    selector: '#bounties-panel',
-    close: '#btn-bounties-close',
+    selector: '.bounties-modal',
+    close: '.bounties-modal #btn-bounties-close',
     label: '悬赏',
   });
   await openPanel(browser, {
