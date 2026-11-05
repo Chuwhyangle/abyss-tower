@@ -50,3 +50,13 @@ extra: {}
 - 确定性：计数器挂塔（arrowShotPierce）/挂敌人（frostHitFreeze），击杀传播走既有 poisonHop 单槽语义，均不消耗 combatRng、不改 RNG 调用顺序。
 - 存档兼容：快照 relics 仍只写 {id, level}，行为词条按等级补挂，旧档等级不变。
 - 基础数值未动（只加 behaviors 字段），零第三方依赖。
+
+## Blocker
+
+**2026-11-05T20:22:12.890Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (1881c60f) is NOT a continuation of the project's default branch 'main' (b43bc44b) — it is 2 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-relic-behaviors's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：02c84578-4627-42fe-b9f1-56b7e36ef744
