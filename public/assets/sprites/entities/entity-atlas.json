@@ -3,7 +3,7 @@
   "image": "entity-atlas@1x",
   "size": {
     "w": 1008,
-    "h": 384
+    "h": 432
   },
   "pivot": {
     "x": 0.5,
@@ -2790,7 +2790,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.armored.move": {
+    "enemy.obsidian.move": {
       "x": 624,
       "y": 288,
       "w": 48,
@@ -2810,7 +2810,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.armored.hit": {
+    "enemy.obsidian.hit": {
       "x": 672,
       "y": 288,
       "w": 48,
@@ -2830,7 +2830,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.armored.cast": {
+    "enemy.regenerator.move": {
       "x": 720,
       "y": 288,
       "w": 48,
@@ -2850,7 +2850,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.summoner.move": {
+    "enemy.regenerator.hit": {
       "x": 768,
       "y": 288,
       "w": 48,
@@ -2870,7 +2870,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.summoner.hit": {
+    "enemy.warden.move": {
       "x": 816,
       "y": 288,
       "w": 48,
@@ -2890,7 +2890,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.summoner.cast": {
+    "enemy.warden.hit": {
       "x": 864,
       "y": 288,
       "w": 48,
@@ -2910,7 +2910,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.berserk.move": {
+    "enemy.armored.move": {
       "x": 912,
       "y": 288,
       "w": 48,
@@ -2930,7 +2930,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.berserk.hit": {
+    "enemy.armored.hit": {
       "x": 960,
       "y": 288,
       "w": 48,
@@ -2950,7 +2950,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "enemy.berserk.cast": {
+    "enemy.armored.cast": {
       "x": 0,
       "y": 336,
       "w": 48,
@@ -2970,7 +2970,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "summon.skeleton.idle": {
+    "enemy.summoner.move": {
       "x": 48,
       "y": 336,
       "w": 48,
@@ -2990,7 +2990,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "summon.skeleton.attack": {
+    "enemy.summoner.hit": {
       "x": 96,
       "y": 336,
       "w": 48,
@@ -3010,7 +3010,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.vein.alive": {
+    "enemy.summoner.cast": {
       "x": 144,
       "y": 336,
       "w": 48,
@@ -3030,7 +3030,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.vein.ruined": {
+    "enemy.berserk.move": {
       "x": 192,
       "y": 336,
       "w": 48,
@@ -3050,7 +3050,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.obelisk.alive": {
+    "enemy.berserk.hit": {
       "x": 240,
       "y": 336,
       "w": 48,
@@ -3070,7 +3070,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.obelisk.ruined": {
+    "enemy.berserk.cast": {
       "x": 288,
       "y": 336,
       "w": 48,
@@ -3090,7 +3090,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.cache.alive": {
+    "summon.skeleton.idle": {
       "x": 336,
       "y": 336,
       "w": 48,
@@ -3110,7 +3110,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.cache.ruined": {
+    "summon.skeleton.attack": {
       "x": 384,
       "y": 336,
       "w": 48,
@@ -3130,7 +3130,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.nest.alive": {
+    "destructible.vein.alive": {
       "x": 432,
       "y": 336,
       "w": 48,
@@ -3150,7 +3150,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.nest.ruined": {
+    "destructible.vein.ruined": {
       "x": 480,
       "y": 336,
       "w": 48,
@@ -3170,7 +3170,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.totem.alive": {
+    "destructible.obelisk.alive": {
       "x": 528,
       "y": 336,
       "w": 48,
@@ -3190,7 +3190,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "destructible.totem.ruined": {
+    "destructible.obelisk.ruined": {
       "x": 576,
       "y": 336,
       "w": 48,
@@ -3210,7 +3210,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "portal.spawn.idle": {
+    "destructible.cache.alive": {
       "x": 624,
       "y": 336,
       "w": 48,
@@ -3230,7 +3230,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "portal.spawn.charge": {
+    "destructible.cache.ruined": {
       "x": 672,
       "y": 336,
       "w": 48,
@@ -3250,7 +3250,7 @@
       "trimmed": false,
       "rotated": false
     },
-    "base.crystal.idle": {
+    "destructible.nest.alive": {
       "x": 720,
       "y": 336,
       "w": 48,
@@ -3270,9 +3270,129 @@
       "trimmed": false,
       "rotated": false
     },
-    "base.crystal.hurt": {
+    "destructible.nest.ruined": {
       "x": 768,
       "y": 336,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.totem.alive": {
+      "x": 816,
+      "y": 336,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "destructible.totem.ruined": {
+      "x": 864,
+      "y": 336,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "portal.spawn.idle": {
+      "x": 912,
+      "y": 336,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "portal.spawn.charge": {
+      "x": 960,
+      "y": 336,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "base.crystal.idle": {
+      "x": 0,
+      "y": 384,
+      "w": 48,
+      "h": 48,
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "sourceSize": {
+        "w": 48,
+        "h": 48
+      },
+      "offset": {
+        "x": 0,
+        "y": 0
+      },
+      "trimmed": false,
+      "rotated": false
+    },
+    "base.crystal.hurt": {
+      "x": 48,
+      "y": 384,
       "w": 48,
       "h": 48,
       "pivot": {

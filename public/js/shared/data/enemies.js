@@ -109,6 +109,24 @@ export const ENEMIES = {
     r: 0.36, color: '#9fb3c8', shape: 'hex', pierce: true,
     desc: '护盾穿透者：漏怪时无视守护套装的漏怪减伤与免伤。',
   },
+  obsidian: {
+    id: 'obsidian', name: '黑曜魔像', hp: 380, speed: 0.6, armor: 10, gold: 26, dmg: 3,
+    r: 0.46, color: '#7f96a6', shape: 'golem',
+    damageCap: 12,
+    desc: '黑曜石躯体：单次受到的伤害上限为 12 点，压制暴击与狙击的爆发。',
+  },
+  regenerator: {
+    id: 'regenerator', name: '再生者', hp: 170, speed: 1.05, armor: 3, gold: 20, dmg: 2,
+    r: 0.34, color: '#46c9a6', shape: 'priest',
+    regen: { interval: 1.0, amount: 14 },
+    desc: '周期性自愈固定生命，不治疗友军，与回春图腾的群体治疗区分。',
+  },
+  warden: {
+    id: 'warden', name: '守望者', hp: 200, speed: 0.85, armor: 6, gold: 23, dmg: 2,
+    r: 0.42, color: '#b39ddb', shape: 'shield',
+    guard: { range: 2.6, interval: 1.5, shield: 16, maxShield: 32 },
+    desc: '周期性为光环内友军施加护盾，护盾优先吸收伤害。',
+  },
 };
 
 // 首领技能：名称/颜色/预警半径由服务端与渲染层共用。

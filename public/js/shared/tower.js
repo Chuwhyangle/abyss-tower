@@ -3,6 +3,7 @@
 // 命名空间，不触碰 sim.js / events.js 既有 RNG 调用顺序（§6.2 红线 4）。
 import { RNG } from './rng.js';
 import { RELICS, rarityWeightForMode } from './data/relics.js';
+import { towerEliteModifier } from './data/tower-elite.js';
 
 // 30 层 DAG（覆盖既有 1..30 波难度阶梯）。
 export const TOWER_LAYERS = 30;
@@ -102,6 +103,9 @@ export function generateTowerGraph(seed) {
     for (let column = 0; column < columns; column++) {
       const key = nodeKey(layer, column);
       const node = { key, layer, column, type: nodeTypeFor(seed, layer, column) };
+      // 精英节点装饰词缀展示条目（只露 id/名称/描述/配色，不携带数值倍率）；
+      // 数值（hpMul/speedMul/goldMul）由服务端从 towerEliteModifier 重新派生，不落进节点 JSON。
+      if (node.type === 'elite') node.affixes = towerEliteModifier(seed, key).affixes;
       nodes.push(node);
       byKey.set(key, node);
     }

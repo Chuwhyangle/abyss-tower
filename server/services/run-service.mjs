@@ -299,8 +299,8 @@ export class RunService {
   }
 
   relicOffers(run, profile, { reroll = false } = {}) {
-    // 爬塔：只有 fight 节点清波后给免费遗物；event/merchant 无战斗无遗物，抵达即完成。
-    if (isTowerRun(run)) tower.ensureTowerFightRelicNode(run);
+    // 爬塔：fight/elite 清波后给免费遗物（elite 用更高稀有档位）；event/merchant 无战斗无遗物，抵达即完成。
+    if (isTowerRun(run)) tower.ensureTowerRelicNode(run);
     if (run.clearedWaves !== run.wavesServed) {
       throw new RunError(409, '当前波次尚未结算完成');
     }
@@ -311,7 +311,7 @@ export class RunService {
     const offerCount = hexRuntime.relicOfferCount(RELIC_OFFER_COUNT);
     const rerollCost = hexRuntime.relicRerollCost(RELIC_REROLL_COST, run.rerollsUsed);
     // 赌徒之骰：跳过稀有度权重，走完全随机池（与 run.mode 分离，无尽模式同样生效）。
-    const relicMode = hexRuntime.gamblerRelicMode ? 'gambler' : run.mode;
+    const relicMode = hexRuntime.gamblerRelicMode ? 'gambler' : isTowerRun(run) ? tower.towerRelicMode(run) : run.mode;
     let rerollsUsed = run.rerollsUsed;
     const offers = run.offers || {};
 

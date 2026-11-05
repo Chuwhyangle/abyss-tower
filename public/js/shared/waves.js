@@ -97,6 +97,9 @@ const POOL = [
   { type: 'stalker', weight: 1.1, countMult: 0.5, minWave: 21, interval: 0.7 },
   { type: 'riftcaller', weight: 0.8, countMult: 0.25, minWave: 26, interval: 1.6 },
   { type: 'shieldbreaker', weight: 1.0, countMult: 0.45, minWave: 28, interval: 0.9 },
+  { type: 'obsidian', weight: 1.1, countMult: 0.3, minWave: 15, interval: 1.7 },
+  { type: 'regenerator', weight: 0.9, countMult: 0.35, minWave: 19, interval: 1.5 },
+  { type: 'warden', weight: 0.8, countMult: 0.3, minWave: 24, interval: 1.6 },
 ];
 
 // 无尽模式曲线硬上限：血量/移速/数量在封顶后不再增长，避免数值爆炸。
