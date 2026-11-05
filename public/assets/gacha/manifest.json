@@ -1,0 +1,454 @@
+{
+  "version": 1,
+  "generator": "scripts/build-gacha-assets.mjs",
+  "entries": [
+    {
+      "id": "fx/gacha-starburst",
+      "path": "public/assets/gacha/starburst.png",
+      "src": "/assets/gacha/starburst.png",
+      "size": {
+        "w": 160,
+        "h": 160
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "第三方素材",
+        "author": "OpenGameArt.org — Item Popup Starburst (by Tiny Speck / Glitch)",
+        "license": "CC0-1.0",
+        "url": "https://opengameart.org/content/item-popup-starburst",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "CC0-1.0",
+      "generator": "hand"
+    },
+    {
+      "id": "ui/gacha-summon-button",
+      "path": "public/assets/gacha/summon-button.png",
+      "src": "/assets/gacha/summon-button.png",
+      "size": {
+        "w": 128,
+        "h": 64
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/gacha-summon-button-ten",
+      "path": "public/assets/gacha/summon-button-ten.png",
+      "src": "/assets/gacha/summon-button-ten.png",
+      "size": {
+        "w": 128,
+        "h": 64
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/gacha-sparkle",
+      "path": "public/assets/gacha/sparkle.png",
+      "src": "/assets/gacha/sparkle.png",
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/gacha-rarity-border-1",
+      "path": "public/assets/gacha/rarity-border-1.png",
+      "src": "/assets/gacha/rarity-border-1.png",
+      "size": {
+        "w": 96,
+        "h": 128
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/gacha-rarity-glow-1",
+      "path": "public/assets/gacha/rarity-glow-1.png",
+      "src": "/assets/gacha/rarity-glow-1.png",
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/gacha-rarity-border-3",
+      "path": "public/assets/gacha/rarity-border-3.png",
+      "src": "/assets/gacha/rarity-border-3.png",
+      "size": {
+        "w": 96,
+        "h": 128
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/gacha-rarity-glow-3",
+      "path": "public/assets/gacha/rarity-glow-3.png",
+      "src": "/assets/gacha/rarity-glow-3.png",
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/gacha-rarity-border-4",
+      "path": "public/assets/gacha/rarity-border-4.png",
+      "src": "/assets/gacha/rarity-border-4.png",
+      "size": {
+        "w": 96,
+        "h": 128
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/gacha-rarity-glow-4",
+      "path": "public/assets/gacha/rarity-glow-4.png",
+      "src": "/assets/gacha/rarity-glow-4.png",
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/gacha-rarity-border-5",
+      "path": "public/assets/gacha/rarity-border-5.png",
+      "src": "/assets/gacha/rarity-border-5.png",
+      "size": {
+        "w": 96,
+        "h": 128
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/gacha-rarity-glow-5",
+      "path": "public/assets/gacha/rarity-glow-5.png",
+      "src": "/assets/gacha/rarity-glow-5.png",
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "ui/gacha-rarity-border-6",
+      "path": "public/assets/gacha/rarity-border-6.png",
+      "src": "/assets/gacha/rarity-border-6.png",
+      "size": {
+        "w": 96,
+        "h": 128
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    },
+    {
+      "id": "fx/gacha-rarity-glow-6",
+      "path": "public/assets/gacha/rarity-glow-6.png",
+      "src": "/assets/gacha/rarity-glow-6.png",
+      "size": {
+        "w": 96,
+        "h": 96
+      },
+      "anchor": "center",
+      "pivot": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "frames": 1,
+      "states": [
+        "idle"
+      ],
+      "status": "ready",
+      "dpr": [
+        1
+      ],
+      "compression": "lossless",
+      "provenance": {
+        "source": "自带程序生成",
+        "author": "abyss-tower gacha art (procedural-canvas2d, 同 build-entity-sprites.mjs 风格)",
+        "license": "proprietary-internal",
+        "url": "-",
+        "retrievedAt": "2026-11-06"
+      },
+      "license": "proprietary-internal",
+      "generator": "procedural-canvas2d"
+    }
+  ]
+}

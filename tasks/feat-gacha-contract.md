@@ -21,18 +21,18 @@ extra: {}
 
 ## AC
 
-- [ ] `towers-rarity.js` 的 8 塔映射与 `docs/PHASE_抽卡.md` §1 一致（6★sniper/5★arc/4★banner/3★poison+shock/1★免费三塔）
-- [ ] `gacha.js` 概率/价格/保底/碎片常量与 §2-3 一致，`rollGacha` 用注入 RNG 可确定性复现（权重正确、软/硬保底、十连保底、首 6★ 必新）
-- [ ] `unlock.mjs` 改为增量 `grantUnlock`（不再 DELETE-all 清掉塔拥有）
-- [ ] 迁移 `0012_gacha.mjs` 可 apply 且幂等；`gacha_history` 有 `(account_id, id DESC)` 索引
-- [ ] `npm test` 全绿；新增数据层单测覆盖 rollGacha 概率/保底边界
+- [x] `towers-rarity.js` 的 8 塔映射与 `docs/PHASE_抽卡.md` §1 一致（6★sniper/5★arc/4★banner/3★poison+shock/1★免费三塔）
+- [x] `gacha.js` 概率/价格/保底/碎片常量与 §2-3 一致，`rollGacha` 用注入 RNG 可确定性复现（权重正确、软/硬保底、十连保底、首 6★ 必新）
+- [x] `unlock.mjs` 改为增量 `grantUnlock`（不再 DELETE-all 清掉塔拥有）
+- [x] 迁移 `0012_gacha.mjs` 可 apply 且幂等；`gacha_history` 有 `(account_id, id DESC)` 索引
+- [x] `npm test` 全绿；新增数据层单测覆盖 rollGacha 概率/保底边界
 
 ## DoD
 
-- [ ] 落地于 `towers-rarity.js`(新)、`gacha.js`(新)、`unlocks.js`、`unlock.mjs`、`db.mjs`、`0012_gacha.mjs`(新)，零第三方依赖
-- [ ] 抽卡 RNG 不进 `sim.js` 确定性流（账号级状态，与单局回放/分享码无关）
-- [ ] 塔局内数值不变（稀有度只影响展示/边框，不碰 `towers.js` 战斗数值）
-- [ ] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches；设计增量已在 `docs/PHASE_抽卡.md`
+- [x] 落地于 `towers-rarity.js`(新)、`gacha.js`(新)、`unlocks.js`、`unlock.mjs`、`db.mjs`、`0012_gacha.mjs`(新)，零第三方依赖
+- [x] 抽卡 RNG 不进 `sim.js` 确定性流（账号级状态，与单局回放/分享码无关）
+- [x] 塔局内数值不变（稀有度只影响展示/边框，不碰 `towers.js` 战斗数值）
+- [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches；设计增量已在 `docs/PHASE_抽卡.md`
 
 ## Touches
 
@@ -44,9 +44,23 @@ extra: {}
 - `server/db.mjs`
 - `server/db/migrations/0012_gacha.mjs` (new)
 - `tests/gacha.test.mjs` (new)
+- `tests/system-status.test.mjs`
+- `docs/PHASE_抽卡.md`
 - `scripts/test-changed.mjs`
 - `tasks/feat-gacha-contract.md`
 
 ## Notes
 
 立案 2026-11-06，源自用户「对标明日方舟做抽塔」需求，三路子代理论证（玩法/经济/实现）收敛后 manager 裁定，冻结表 `docs/PHASE_抽卡.md`。关键裁定：免费三塔下放 1★ 不进池（否则首抽 50% 负反馈）；价格砍到 15 核（30 核对「一局 ~105 核」是十倍黑洞）；重复转碎片（复用遗物「重复=升级」心智）而非返星核；unlock.mjs 的 DELETE-all 覆写是必须修的 lost-update 地雷。升星（碎片消耗）为阶段 2，本任务只攒碎片。
+
+落地补充：`tests/system-status.test.mjs` 迁移版本 11→12（新迁移使 latestVersion 前进）；`docs/PHASE_抽卡.md` 仅补阶段1 路径（`server/routes/gacha.mjs`、`public/assets/gacha/`）的 docs-consistency planned 块——冻结表定稿时漏标这些计划态路径，docs-consistency 全量 red，本任务补机械标注（非设计增量）。
+
+## Blocker
+
+**2026-11-05T17:33:37.954Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (6908cc76) is NOT a continuation of the project's default branch 'main' (4c58b67d) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-gacha-contract's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：12759b09-f58c-4dd2-aa86-348ca1db816b
