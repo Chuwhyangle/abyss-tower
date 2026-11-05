@@ -4,7 +4,7 @@ import { t, tData } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { createPanel } from './ui/kit/panel.js';
+import { ui } from './ui.js';
 
 const RECENT_LIMIT = 10;
 
@@ -140,20 +140,53 @@ function showFailure(panel, error) {
   body.innerHTML = `<p class="career-hint">${escapeHtml(error?.message || t('career.error'))}</p>`;
 }
 
+function shell() {
+  const closeLabel = t('title.closeStats');
+  return `
+    <div class="career-panel">
+      <div class="career-head">
+        <h2>${escapeHtml(t('title.stats'))}</h2>
+        <button id="btn-stats-close" class="icon-btn" type="button" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${iconSvg('close')}</button>
+      </div>
+      <div id="stats-body" class="career-body"></div>
+    </div>`;
+}
+
+let open = false;
+
+async function populateStats(modal) {
+  modal.innerHTML = shell();
+  modal.querySelector('#btn-stats-close').addEventListener('click', () => ui.closeModal());
+  showLoading(modal);
+  try {
+    const data = await loadStats();
+    render(modal.querySelector('#stats-body'), data);
+  } catch (error) {
+    showFailure(modal, error);
+  }
+}
+
 function install() {
   const button = document.getElementById('btn-stats');
-  const panel = document.getElementById('stats-panel');
-  if (!button || !panel) return;
+  if (!button) return;
 
-  createPanel({
-    id: 'stats-panel',
-    trigger: button,
-    closeSelector: '#btn-stats-close',
-    refreshOnLocale: true,
-    load: loadStats,
-    render: (node, data) => render(node.querySelector('#stats-body'), data),
-    loading: showLoading,
-    failed: showFailure,
+  button.addEventListener('click', () => {
+    open = true;
+    populateStats(
+      ui.openModal('', {
+        className: 'stats-modal panel-modal',
+        closable: true,
+        onClose: () => {
+          open = false;
+        },
+      })
+    );
+  });
+
+  document.addEventListener('i18n:change', () => {
+    if (!open) return;
+    const modal = document.querySelector('.stats-modal');
+    if (modal) populateStats(modal);
   });
 }
 

@@ -1166,6 +1166,16 @@ button {
   font-size: var(--text-min);
 }
 
+/* 塔卡属性行：移动端直接显示伤害/射程/对空对地，桌面仍由悬浮提示承担。 */
+.tower-card .stats {
+  display: none;
+  grid-column: 1 / -1;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: var(--text-min);
+  line-height: 1.25;
+}
+
 .tower-card:disabled .cost {
   color: var(--muted);
 }
@@ -1202,6 +1212,11 @@ button {
   color: var(--muted-dim);
   font-size: var(--text-min);
   letter-spacing: 0.05em;
+}
+
+/* 移动端横滚提示：与 .shop-hint 同款样式，紧凑视口显示、桌面隐藏。 */
+.shop-scroll-hint {
+  display: none;
 }
 
 /* ============ 弹窗 ============ */
@@ -1266,6 +1281,15 @@ button {
   gap: var(--space-3);
   margin-top: var(--space-5);
   flex-wrap: wrap;
+}
+
+/* 大厅功能弹窗（feat-modal-navigation）：六个标题页隐藏面板改为居中可关闭弹窗，
+   内容复用各自面板样式，这里只补弹窗内的通用宽度/滚动约束，不新增弹窗基础设施。 */
+.panel-modal {
+  min-width: 0;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 /* 三选一 */
@@ -2688,11 +2712,28 @@ kbd {
   }
 
   .stage {
-    width: min(100%, calc((100dvh - 140px) * 1.8333));
+    /* 175px 而非 140px：移动端塔卡新增属性行 + 横滚提示后商店更高，
+       需为 HUD + 商店预留更多垂直空间，避免战场压住商店。 */
+    width: min(100%, calc((100dvh - 175px) * 1.8333));
   }
 
   .stage canvas {
     border-radius: 8px;
+  }
+
+  /* 下一波情报（紧凑）：挂到战场左上角，不必打开遗物抽屉即可见。 */
+  .stage > .next-wave-panel {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 5;
+    margin-top: 0;
+    padding: 6px 8px;
+    border: 1px solid rgba(120, 160, 175, 0.18);
+    border-radius: var(--radius-sm);
+    background: rgba(7, 12, 16, 0.78);
+    backdrop-filter: blur(6px);
+    max-width: min(240px, 46vw);
   }
 
   .relic-panel {
@@ -2741,14 +2782,33 @@ kbd {
 
   .tower-card {
     flex: 0 0 auto;
-    width: 104px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    align-content: flex-start;
+    row-gap: 0;
+    column-gap: 6px;
+    width: 196px;
     min-height: 44px;
-    grid-template-columns: 26px 1fr;
     padding: 6px 8px;
     scroll-snap-align: start;
   }
 
+  .tower-card .name {
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+
+  .tower-card .cost {
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
   .tp-actions .btn {
+    min-height: 44px;
+  }
+
+  .confirm-modal .modal-actions .btn {
     min-height: 44px;
   }
 
@@ -2775,9 +2835,26 @@ kbd {
     display: none;
   }
 
+  .shop-scroll-hint {
+    display: block;
+    margin-top: 4px;
+    text-align: center;
+    color: var(--muted-dim);
+    font-size: var(--text-min);
+    line-height: 1.25;
+    letter-spacing: 0.05em;
+  }
+
+  .tower-card .stats {
+    display: block;
+    flex: 1 1 100%;
+    margin-top: 0;
+  }
+
   .shop-list {
     flex-wrap: nowrap;
     justify-content: flex-start;
+    align-items: flex-start;
     overflow-x: auto;
     gap: 6px;
     padding-bottom: 2px;

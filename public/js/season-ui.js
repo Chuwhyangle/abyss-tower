@@ -4,10 +4,9 @@ import { t } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { createPanel } from './ui/kit/panel.js';
+import { ui } from './ui.js';
 import { fmt } from './ui/shared.js';
 
-const PANEL_ID = 'season-panel';
 const STYLE_ID = 'season-ui-style';
 const BODY_ID = 'season-body';
 const SEASON_KEY_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -203,7 +202,7 @@ function buildShell() {
     <div class="season-head">
       <h2>${escapeHtml(t('season.title'))}</h2>
       <span class="season-tag">${escapeHtml(t('season.current'))}</span>
-      <button id="btn-season-close" class="icon-btn" data-panel-close type="button" title="${escapeHtml(
+      <button id="btn-season-close" class="icon-btn" type="button" title="${escapeHtml(
         t('season.close')
       )}" aria-label="${escapeHtml(t('season.close'))}">${iconSvg('close')}</button>
     </div>
@@ -249,22 +248,50 @@ function renderSeason(panel, { board, season, result }) {
   });
 }
 
-function install() {
-  const panel = document.getElementById(PANEL_ID);
-  const trigger = document.getElementById('btn-season');
-  if (!panel || !trigger) return;
+function ensureStyle() {
+  if (document.getElementById(STYLE_ID)) return;
+  const style = document.createElement('style');
+  style.id = STYLE_ID;
+  style.textContent = STYLE;
+  document.head.appendChild(style);
+}
 
-  createPanel({
-    id: PANEL_ID,
-    trigger,
-    style: STYLE,
-    styleId: STYLE_ID,
-    html: buildShell(),
-    refreshOnLocale: true,
-    load: loadSeason,
-    render: renderSeason,
-    loading: showLoading,
-    failed: showFailure,
+let open = false;
+
+async function populateSeason(modal) {
+  modal.innerHTML = buildShell();
+  modal.querySelector('#btn-season-close').addEventListener('click', () => ui.closeModal());
+  showLoading(modal);
+  try {
+    const data = await loadSeason();
+    renderSeason(modal, data);
+  } catch (error) {
+    showFailure(modal, error);
+  }
+}
+
+function install() {
+  const trigger = document.getElementById('btn-season');
+  if (!trigger) return;
+
+  trigger.addEventListener('click', () => {
+    ensureStyle();
+    open = true;
+    populateSeason(
+      ui.openModal('', {
+        className: 'season-modal panel-modal',
+        closable: true,
+        onClose: () => {
+          open = false;
+        },
+      })
+    );
+  });
+
+  document.addEventListener('i18n:change', () => {
+    if (!open) return;
+    const modal = document.querySelector('.season-modal');
+    if (modal) populateSeason(modal);
   });
 }
 

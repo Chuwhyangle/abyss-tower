@@ -5,7 +5,7 @@ import { seasonPanelView } from './ui/panels.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { createPanel } from './ui/kit/panel.js';
+import { ui } from './ui.js';
 
 function progressBar(item) {
   const progress = item.progress;
@@ -177,20 +177,54 @@ function showFailure(panel, error) {
   list.innerHTML = `<p class="achievement-hint">${escapeHtml(error?.message || t('achievements.error'))}</p>`;
 }
 
+function shell() {
+  const closeLabel = t('title.closeAchievements');
+  return `
+    <div class="achievements-panel">
+      <div class="achievements-head">
+        <h2>${escapeHtml(t('title.achievements'))}</h2>
+        <span id="achievements-progress" class="achievements-progress"></span>
+        <button id="btn-achievements-close" class="icon-btn" type="button" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${iconSvg('close')}</button>
+      </div>
+      <div id="achievements-list" class="achievements-list"></div>
+    </div>`;
+}
+
+let open = false;
+
+async function populateAchievements(modal) {
+  modal.innerHTML = shell();
+  modal.querySelector('#btn-achievements-close').addEventListener('click', () => ui.closeModal());
+  showLoading(modal);
+  try {
+    const data = await loadAchievements();
+    render(modal, data);
+  } catch (error) {
+    showFailure(modal, error);
+  }
+}
+
 function install() {
   const button = document.getElementById('btn-achievements');
-  const panel = document.getElementById('achievements-panel');
-  if (!button || !panel) return;
+  if (!button) return;
 
-  createPanel({
-    id: 'achievements-panel',
-    trigger: button,
-    closeSelector: '#btn-achievements-close',
-    refreshOnLocale: true,
-    load: loadAchievements,
-    render: (node, data) => render(node, data),
-    loading: showLoading,
-    failed: showFailure,
+  button.addEventListener('click', () => {
+    open = true;
+    populateAchievements(
+      ui.openModal('', {
+        className: 'achievements-modal panel-modal',
+        closable: true,
+        onClose: () => {
+          open = false;
+        },
+      })
+    );
+  });
+
+  document.addEventListener('i18n:change', () => {
+    if (!open) return;
+    const modal = document.querySelector('.achievements-modal');
+    if (modal) populateAchievements(modal);
   });
 }
 

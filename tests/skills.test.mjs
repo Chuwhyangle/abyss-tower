@@ -108,9 +108,9 @@ test('初始状态：极光可用、其余锁定、费用与数值来自共享�
   assert.equal(listed.status, 200);
   assert.equal(listed.data.wallet.cores, 0);
   assert.equal(listed.data.selected, null);
-  assert.equal(listed.data.skills.length, 3);
+  assert.equal(listed.data.skills.length, 6);
 
-  const [aurora, meteor, chrono] = listed.data.skills;
+  const [aurora, meteor, chrono, storm, plague, reignite] = listed.data.skills;
   assert.equal(aurora.id, 'aurora');
   assert.equal(aurora.unlocked, true);
   assert.equal(aurora.level, 1);
@@ -126,6 +126,19 @@ test('初始状态：极光可用、其余锁定、费用与数值来自共享�
   }
   assert.equal(meteor.unlockHint, '首次通关「漫游」');
   assert.equal(chrono.unlockHint, '首次通关「远征」');
+
+  // 新增技能默认解锁，角色/颜色/数值来自共享数据。
+  for (const skill of [storm, plague, reignite]) {
+    assert.equal(skill.unlocked, true, `${skill.id} 默认解锁`);
+    assert.equal(skill.level, 1);
+    assert.equal(skill.nextCost, 10);
+    assert.equal(skill.canUpgrade, false);
+    assert.deepEqual(skill.stats, skillStats(skill.id, 1));
+    assert.equal(skill.color, SKILLS[skill.id].color);
+  }
+  assert.equal(storm.role, 'burst');
+  assert.equal(plague.role, 'control');
+  assert.equal(reignite.role, 'ultimate');
 
   const upgradeLocked = await api('/api/skills/upgrade', {
     method: 'POST',

@@ -89,6 +89,20 @@ export class ProjectileSystem {
       if (tower.arrowShots % SHARP_PIERCE_INTERVAL === 0) pierce2 = true;
     }
 
+    // 遗物行为词条（feat-relic-behaviors）：弩塔每第 every 发穿透 pierce 个目标（damageMul 伤害）。
+    // 发数计数挂在塔上（命中结算在 impact 读取 relicPierce 标记）；未拥有相关遗物时不计数，保持原行为。
+    let relicPierce = null;
+    if (tower.type === 'arrow') {
+      for (const behavior of this.sim.relicSystem.behaviorsFor('arrow', 'arrowShotPierce')) {
+        const counter = 'bh:' + behavior.id;
+        tower[counter] = (tower[counter] || 0) + 1;
+        if (tower[counter] >= behavior.every) {
+          relicPierce = { pierce: behavior.pierce, damageMul: behavior.damageMul };
+          tower[counter] = 0;
+        }
+      }
+    }
+
     // 触发当次的投射物属性改写：震荡溅射/击退/减速，狙击 250% 处决伤害与全图索敌。
     let dmg = stats.dmg;
     let splash = stats.splash || 0;
@@ -143,6 +157,7 @@ export class ProjectileSystem {
       knockback,
       ignoreArmor: !!def.ignoreArmor,
       pierce2,
+      relicPierce,
       ultimate,
       ultimateSpec,
       ttl: 4,
@@ -299,6 +314,38 @@ export class ProjectileSystem {
           }
           if (!pierce) break;
           this.sim.dealDamage(pierce, proj.dmg * 0.6, proj.towerType, {
+            ignoreArmor: proj.ignoreArmor,
+            tower: proj.tower || null,
+          });
+          this.sim.addEffect({
+            kind: 'spark',
+            x: pierce.x,
+            y: pierce.y,
+            ttl: 0.15,
+            color: '#ffe4b0',
+            weapon: proj.towerType,
+          });
+          current = pierce;
+        }
+      }
+      // 遗物行为词条（feat-relic-behaviors）：每第 every 发命中后向近邻依次穿透 pierce 个目标（damageMul 伤害）；
+      // 与穿透教义、觉醒 sharp-pierce 独立，未拥有相关遗物时 relicPierce 恒 null，保持原行为。
+      if (proj.relicPierce && proj.towerType === 'arrow') {
+        const spec = proj.relicPierce;
+        let current = target;
+        for (let i = 0; i < (spec.pierce || 0); i++) {
+          let pierce = null;
+          let bestDist = Infinity;
+          for (const enemy of this.sim.enemies) {
+            if (enemy.dead || enemy === current || enemy === target) continue;
+            const d = Math.hypot(enemy.x - current.x, enemy.y - current.y);
+            if (d <= PIERCE_RANGE + enemy.r && d < bestDist) {
+              bestDist = d;
+              pierce = enemy;
+            }
+          }
+          if (!pierce) break;
+          this.sim.dealDamage(pierce, proj.dmg * (spec.damageMul || 0.6), proj.towerType, {
             ignoreArmor: proj.ignoreArmor,
             tower: proj.tower || null,
           });

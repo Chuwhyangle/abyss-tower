@@ -10,6 +10,7 @@ export class SeasonPassRoutes {
     router.add('GET', '/api/season-pass', (ctx) => this.list(ctx));
     router.add('POST', '/api/season-pass/claim', (ctx) => this.claim(ctx));
     router.add('POST', '/api/season-pass/claim-all', (ctx) => this.claimAll(ctx));
+    router.add('POST', '/api/season-pass/shop', (ctx) => this.shop(ctx));
   }
 
   list(ctx) {
@@ -37,6 +38,17 @@ export class SeasonPassRoutes {
     return this.respond(
       ctx,
       this.service.claimAllSeasonPassMilestones(ctx.token, { season: body.season })
+    );
+  }
+
+  async shop(ctx) {
+    const body = (await ctx.readJson()) || {};
+    return this.respond(
+      ctx,
+      this.service.buySeasonShopOffer(ctx.token, {
+        offerId: body.offerId ?? body.id ?? null,
+        season: body.season,
+      })
     );
   }
 
