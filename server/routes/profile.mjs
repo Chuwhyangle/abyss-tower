@@ -1,5 +1,5 @@
 // 玩家档案接口：会话初始化、档案读取、进度查询、数据导出与账号删除。
-import { updateProfile } from '../db.mjs';
+import { transaction, updateProfile } from '../db.mjs';
 import {
   DELETION_COOLDOWN_MS,
   findAccountById,
@@ -13,6 +13,7 @@ import {
   writePlayerKv,
 } from '../db/accounts.mjs';
 import { cosmeticSummary, setSelectedCosmetics } from '../db/achievements.mjs';
+import { getSeasonShards, spendSeasonShardsInTx } from '../db/season_pass.mjs';
 import {
   AUDIT_ACTIONS,
   AUDIT_PAGE_SIZE,
@@ -30,13 +31,17 @@ import { clearSessionCookie } from '../auth/cookies.mjs';
 import { recentDailyChallenges } from '../../public/js/shared/scoring.js';
 import {
   DEFAULT_SKIN_BY_TARGET,
+  SKIN_UPGRADE_MAX_LEVEL,
   SKINS,
   SKIN_TARGETS,
   isSkinUnlocked,
   normalizeSkinSelection,
+  normalizeSkinUpgrades,
   resolveSkin,
   skinCatalog,
   skinSetCatalog,
+  skinUpgradeCost,
+  skinUpgradeLevel,
 } from '../../public/js/shared/skins.js';
 import { cleanName, dailyAttemptsLeft, dailyState, today } from './support.mjs';
 
@@ -180,10 +185,23 @@ function selectedSkins(accountId, unlocked) {
 
 function skinSummary(accountId) {
   const unlocked = readUnlockedAchievementIds(accountId);
+  const upgrades = readSkinUpgrades(accountId);
   return {
     selected: selectedSkins(accountId, unlocked),
-    skins: skinCatalog(unlocked),
+    skins: skinCatalog(unlocked).map((skin) => {
+      const level = skinUpgradeLevel(upgrades, skin.id);
+      const cost = skinUpgradeCost(level);
+      return {
+        ...skin,
+        level,
+        maxLevel: SKIN_UPGRADE_MAX_LEVEL,
+        upgradeCost: cost,
+        upgradable: !!SKINS[skin.id]?.transform && skin.unlocked && cost != null,
+      };
+    }),
     sets: skinSetCatalog(unlocked),
+    upgrades: upgrades.levels,
+    wallet: { shards: getSeasonShards(accountId) },
   };
 }
 
@@ -194,6 +212,26 @@ function writeSkinSelection(accountId, selection) {
     SELECTED_SKIN_KEY,
     JSON.stringify(normalizeSkinSelection(selection))
   );
+}
+
+// 皮肤升级：账号级等级存 player_kv('cosmetics','skin_upgrades')，消耗皮肤碎片。
+const SKIN_UPGRADES_KEY = 'skin_upgrades';
+
+function readSkinUpgrades(accountId) {
+  const row = readPlayerKv(accountId, COSMETICS_NAMESPACE, SKIN_UPGRADES_KEY);
+  let parsed = null;
+  try {
+    parsed = JSON.parse(row?.value_json || 'null');
+  } catch {
+    parsed = null;
+  }
+  return normalizeSkinUpgrades(parsed);
+}
+
+function writeSkinUpgrades(accountId, state) {
+  const normalized = normalizeSkinUpgrades(state);
+  writePlayerKv(accountId, COSMETICS_NAMESPACE, SKIN_UPGRADES_KEY, JSON.stringify(normalized));
+  return normalized;
 }
 
 export class ProfileRoutes {
@@ -209,6 +247,7 @@ export class ProfileRoutes {
     router.add('PUT', '/api/profile/cosmetics', (ctx) => this.selectCosmetics(ctx));
     router.add('GET', '/api/profile/skins', (ctx) => ctx.json(200, skinSummary(ctx.token)));
     router.add('PUT', '/api/profile/skins', (ctx) => this.selectSkins(ctx));
+    router.add('POST', '/api/profile/skins/upgrade', (ctx) => this.upgradeSkin(ctx));
     router.add('GET', '/api/profile/export', (ctx) => this.exportData(ctx));
     router.add('GET', '/api/profile/audit', (ctx) => this.auditLog(ctx));
     router.add('GET', '/api/profile/audit/export', (ctx) => this.auditExport(ctx));
@@ -340,6 +379,38 @@ export class ProfileRoutes {
     }
     if (!changed) return ctx.fail(400, '没有需要更新的皮肤', 'NO_SKIN_CHANGES');
     writeSkinSelection(ctx.token, selection);
+    return ctx.json(200, skinSummary(ctx.token));
+  }
+
+  // 皮肤升级：消耗皮肤碎片逐级升级，等级只做收藏展示，不改变配色/渲染。
+  async upgradeSkin(ctx) {
+    const body = await ctx.readJson();
+    const skinId = String(body.skinId || '');
+    const skin = SKINS[skinId];
+    if (!skin) return ctx.fail(400, '未知皮肤', 'UNKNOWN_SKIN');
+    if (!skin.transform) return ctx.fail(400, '默认皮肤不可升级', 'SKIN_NOT_UPGRADABLE');
+    const unlocked = readUnlockedAchievementIds(ctx.token);
+    if (!isSkinUnlocked(skin, unlocked)) return ctx.fail(403, '皮肤尚未解锁', 'SKIN_LOCKED');
+
+    const upgrades = readSkinUpgrades(ctx.token);
+    const current = skinUpgradeLevel(upgrades, skinId);
+    const cost = skinUpgradeCost(current);
+    if (cost == null) return ctx.fail(409, '皮肤已达最高等级', 'SKIN_MAXED');
+
+    const result = transaction(() => {
+      // 先扣皮肤碎片：余额不足返回 false 且一行不改，整段回滚，绝不白扣。
+      if (!spendSeasonShardsInTx(ctx.token, cost)) return { ok: false };
+      const next = writeSkinUpgrades(ctx.token, { levels: { ...upgrades.levels, [skinId]: current + 1 } });
+      return { ok: true, state: next };
+    });
+    if (!result.ok) return ctx.fail(400, '皮肤碎片不足', 'INSUFFICIENT_SHARDS');
+
+    recordPlayerEvent(ctx.token, 'skin_upgraded', {
+      skinId,
+      from: current,
+      to: current + 1,
+      cost,
+    });
     return ctx.json(200, skinSummary(ctx.token));
   }
 

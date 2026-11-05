@@ -445,3 +445,40 @@ export function resetActiveSkins() {
     enemy: DEFAULT_SKIN_BY_TARGET.enemy,
   });
 }
+
+// —— 皮肤升级（皮肤碎片长期消耗出口）——
+// 账号级皮肤等级：非默认皮肤可从 1 级升到 SKIN_UPGRADE_MAX_LEVEL 级，逐级消耗皮肤碎片。
+// 纯数据 + 纯函数，不 import 运行时模块；等级只做收藏展示，不改变配色/渲染（不碰 sim/渲染确定性）。
+export const SKIN_UPGRADE_MAX_LEVEL = 5;
+
+// 升到对应等级所需皮肤碎片（从低到高逐级累加）。
+export const SKIN_UPGRADE_COST = Object.freeze({ 2: 10, 3: 20, 4: 40, 5: 80 });
+
+// 从 currentLevel 升到下一级的花费；已满级或非法等级返回 null。
+export function skinUpgradeCost(currentLevel) {
+  const level = Math.max(1, Math.floor(Number(currentLevel) || 1));
+  const next = level + 1;
+  return next <= SKIN_UPGRADE_MAX_LEVEL ? SKIN_UPGRADE_COST[next] : null;
+}
+
+// 可升级皮肤 id：有配色变换（transform）的皮肤即非默认外观，默认皮肤不参与升级。
+export function upgradableSkinIds() {
+  return SKIN_ORDER.filter((id) => SKINS[id].transform);
+}
+
+// 归一化账号皮肤等级：脏输入收敛到 { levels: { skinId: level } }，level ∈ [1, SKIN_UPGRADE_MAX_LEVEL]。
+export function normalizeSkinUpgrades(raw) {
+  const levels = {};
+  if (raw && raw.levels && typeof raw.levels === 'object') {
+    for (const id of upgradableSkinIds()) {
+      const level = Math.max(1, Math.min(SKIN_UPGRADE_MAX_LEVEL, Math.floor(Number(raw.levels[id]) || 1)));
+      if (level > 1) levels[id] = level;
+    }
+  }
+  return { levels };
+}
+
+// 指定皮肤的当前等级；未升过返回 1。
+export function skinUpgradeLevel(state, skinId) {
+  return Math.max(1, Math.floor(Number(state?.levels?.[skinId]) || 1));
+}
