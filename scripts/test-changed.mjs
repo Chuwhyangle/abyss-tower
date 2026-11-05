@@ -381,6 +381,7 @@ export const TEST_MAP = [
   { match: 'scripts/test-stability.mjs', tests: ['tests/test-stability.test.mjs'] },
   { match: 'scripts/check-stability.mjs', tests: ['tests/check-stability.test.mjs'] },
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
+  { match: 'scripts/touches-conflict.mjs', tests: ['tests/touches-conflict.test.mjs'] },
   { match: 'scripts/ui-animation-audit.mjs', tests: ['tests/ui-animation-audit.test.mjs'] },
   { match: 'scripts/visual-check.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/visual-parity.mjs', tests: ['tests/structure-budget.test.mjs'] },
