@@ -1,7 +1,7 @@
 ---
 id: gap-ac-047-visual-boot-retry
 title: AC-047 复红：视觉会话 reload 后 waitBoot 无重试，负载抖动使 criterion 假红；给 boot 加带 reload 的重试
-status: ready
+status: done
 labels:
   - gap
   - defect

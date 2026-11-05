@@ -29,6 +29,26 @@ export const SCENE_VIEWPORTS = Object.freeze({
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// boot 等待带 reload 重试：首次裸 `waitBoot()` 若在 bootTimeoutMs 内未置位，`Page.reload` 后再等，
+// 最多 `attempts` 次总尝试（默认 3，与 launchBrowser 对首次 boot 的 `retries:1` 口径至少对齐）。
+// reload 重放同一 initScript（同 seed / 同 settings），逐帧确定性不变——只把「负载下本可启动、
+// 却恰好没在时限内置位」的瞬态失败自愈。纯函数：browser 只需 `waitBoot()` 与 `send()`，可 stub 单测。
+export async function bootWithRetry(browser, { attempts = 3, reload = true } = {}) {
+  let lastError;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await browser.waitBoot();
+      return;
+    } catch (error) {
+      lastError = error;
+      if (reload && attempt < attempts - 1) {
+        await browser.send('Page.reload', { ignoreCache: true });
+      }
+    }
+  }
+  throw lastError;
+}
+
 // 画质解析：auto 交给页面按设备能力解析（首次进入的默认路径），显式档位原样写入。
 // 显式档位必须标 qualityMode: 'manual'，否则 loadSettings 会把它当成自动档再解析一次。
 export function resolveQuality(name = 'high') {
@@ -540,7 +560,7 @@ export class VisualSceneSession {
       await this.browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
     }
     await this.browser.send('Page.reload', { ignoreCache: true });
-    await this.browser.waitBoot();
+    await bootWithRetry(this.browser, { attempts: 3 });
     await this.browser.evaluate(FREEZE_UI_SCRIPT);
     this.stage = 'title';
     return this;
