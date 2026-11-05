@@ -44,3 +44,11 @@ extra: {}
 ## Notes
 
 立案 2026-11-06，源自 P2-12「技能扩展：3 技能两胜全解锁，改 6+ 或每局变异分支」。⚠️ 改 skill-system 须守 sim 确定性；数值需 balance 复测。新增技能机制/数值需在实现中补 Notes。
+
+## Blocker
+
+**2026-11-05T21:26:09.869Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 0/7，剩余未勾 7）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：42c5dfab-c9b8-4839-8647-a1f573b24df2
