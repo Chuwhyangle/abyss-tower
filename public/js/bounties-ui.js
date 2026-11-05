@@ -2,8 +2,9 @@
 // 视觉沿用成就面板的既有样式，不新增样式表。
 import { api } from './api.js';
 import { t, tData } from './i18n.js';
+import { iconSvg } from './render/canvas-shapes.js';
+import { ui } from './ui.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { createPanel } from './ui/kit/panel.js';
 
 // 池子条目的 id 形如 `<模板键>` 或 `<模板键>:<档位>`；词典按模板键收录。
 function templateKey(item) {
@@ -110,7 +111,7 @@ async function claim(panel, bountyId) {
     });
     const cores = document.getElementById('cores');
     if (cores && Number.isFinite(Number(data?.balance))) cores.textContent = String(data.balance);
-    await controller?.reload();
+    await reloadPanel(panel);
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
@@ -124,7 +125,7 @@ async function refreshBoard(panel) {
   const list = panel.querySelector('#bounties-list');
   try {
     await api.request('/api/bounties/refresh', { method: 'POST' });
-    await controller?.reload();
+    await reloadPanel(panel);
   } catch (error) {
     const note = document.createElement('p');
     note.className = 'achievement-hint';
@@ -154,21 +155,50 @@ function showFailure(panel, error) {
   )}</p>`;
 }
 
-let controller = null;
+async function reloadPanel(panel) {
+  try {
+    const data = await loadBounties();
+    render(panel, data);
+  } catch (error) {
+    showFailure(panel, error);
+  }
+}
+
+function shell() {
+  const closeLabel = t('shell.closeBounties');
+  return `
+    <div class="achievements-panel bounties-panel">
+      <div class="achievements-head">
+        <h2>${escapeHtml(t('shell.bountiesTitle'))}</h2>
+        <button id="btn-bounties-close" class="icon-btn" type="button" title="${escapeHtml(closeLabel)}" aria-label="${escapeHtml(closeLabel)}">${iconSvg('close')}</button>
+      </div>
+      <div id="bounties-list" class="achievements-list"></div>
+    </div>`;
+}
+
+async function populateBounties(modal) {
+  modal.innerHTML = shell();
+  modal.querySelector('#btn-bounties-close').addEventListener('click', () => ui.closeModal());
+  showLoading(modal);
+  try {
+    const data = await loadBounties();
+    render(modal, data);
+  } catch (error) {
+    showFailure(modal, error);
+  }
+}
 
 function install() {
   const button = document.getElementById('btn-bounties');
-  const panel = document.getElementById('bounties-panel');
-  if (!button || !panel) return;
+  if (!button) return;
 
-  controller = createPanel({
-    id: 'bounties-panel',
-    trigger: button,
-    closeSelector: '#btn-bounties-close',
-    load: loadBounties,
-    render: (node, data) => render(node, data),
-    loading: showLoading,
-    failed: showFailure,
+  button.addEventListener('click', () => {
+    populateBounties(
+      ui.openModal('', {
+        className: 'bounties-modal panel-modal',
+        closable: true,
+      })
+    );
   });
 }
 
