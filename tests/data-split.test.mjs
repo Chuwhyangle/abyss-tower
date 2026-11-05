@@ -216,6 +216,7 @@ test('data/ 模块之间单向依赖，无循环', () => {
   assert.deepEqual(cycles, []);
   // 依赖方向固定：relics/unlocks -> towers，其余只依赖上游基础模块。
   assert.deepEqual(graph.get('towers.js'), []);
-  assert.deepEqual(graph.get('relics.js').sort(), ['towers.js']);
+  // relics.js 已改为纯门面（export...from './relics/index.js'），不再有 import...from 直连。
+  assert.deepEqual(graph.get('relics.js'), []);
   assert.deepEqual(graph.get('unlocks.js').sort(), ['towers.js']);
 });

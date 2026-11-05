@@ -37,7 +37,7 @@ depends_on:
 - `public/js/sim/combat-system.js`
 - `public/js/sim/relic-system.js`
 - `tests/lib/seams.mjs`
-- `tests/` (hook 测试)
+- `tests/sim-hooks.test.mjs` (new)
 - `scripts/test-changed.mjs`
 - `tasks/refactor-sim-hooks.md`
 
