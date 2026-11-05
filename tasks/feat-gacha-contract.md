@@ -57,8 +57,10 @@ extra: {}
 
 ## Blocker
 
-**2026-11-05T22:06:29.341Z — worker 未落地（exited-not-landed）**
+**2026-11-05T22:49:26.915Z — worker 未落地（exited-not-landed）**
 
-- 未落地原因：step=suite: name: 'AssertionError'
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (14659f23) is NOT a continuation of the project's default branch 'main' (20c91dad) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-gacha-contract's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：8a9ea69d-2597-4efd-a41c-6230979b6861
+- session_id：dda5421d-ebc8-4fdc-8de2-674c9a51b0fe
