@@ -52,7 +52,7 @@ import {
   toScreenPoints,
   uiMetrics,
 } from './lib/visual/metrics.mjs';
-import { VIEWPORTS, resolveQuality } from './lib/visual/session.mjs';
+import { VIEWPORTS, bootWithRetry, resolveQuality } from './lib/visual/session.mjs';
 import {
   CONTACT_CELL_HEIGHT,
   CONTACT_CELL_WIDTH,
@@ -107,6 +107,47 @@ test('harness 模块：session / plan / metrics / contact-sheet 的纯函数可�
   const sheet = buildContactSheet([{ image: makeImage(10, 10), file: 'x.png' }]);
   assert.ok(sheet.width >= CONTACT_CELL_WIDTH && sheet.width < CONTACT_CELL_WIDTH * 2);
   assert.ok(sheet.height >= CONTACT_CELL_HEIGHT && sheet.height < CONTACT_CELL_HEIGHT * 2);
+});
+
+test('bootWithRetry：首次超时 reload 一次后成功；全部超时 reload attempts−1 次并抛末错', async () => {
+  // 首次 waitBoot 抛「等待超时：页面启动」、再次成功 ⇒ 返回成功，send('Page.reload', …) 恰 1 次。
+  {
+    let bootCalls = 0;
+    const reloads = [];
+    const browser = {
+      async waitBoot() {
+        bootCalls += 1;
+        if (bootCalls === 1) throw new Error('等待超时：页面启动');
+      },
+      async send(method, params) {
+        reloads.push({ method, params });
+      },
+    };
+    await bootWithRetry(browser, { attempts: 3 });
+    assert.equal(bootCalls, 2);
+    assert.equal(reloads.length, 1);
+    assert.deepEqual(reloads[0], { method: 'Page.reload', params: { ignoreCache: true } });
+  }
+  // waitBoot 全部超时 ⇒ 抛最后一次错误，reload 次数 = attempts−1。
+  {
+    let call = 0;
+    const reloads = [];
+    const browser = {
+      async waitBoot() {
+        call += 1;
+        throw new Error(`等待超时：页面启动 #${call}`);
+      },
+      async send(method, params) {
+        reloads.push({ method, params });
+      },
+    };
+    await assert.rejects(bootWithRetry(browser, { attempts: 3 }), /等待超时：页面启动 #3$/);
+    assert.equal(reloads.length, 2);
+    assert.deepEqual(
+      reloads.map((r) => r.method),
+      ['Page.reload', 'Page.reload']
+    );
+  }
 });
 
 test('PNG 编解码往返保持像素不变', () => {

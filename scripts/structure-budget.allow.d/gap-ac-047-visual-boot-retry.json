@@ -1,0 +1,9 @@
+{
+  "entries": [
+    {
+      "path": "tests/visual-check.test.mjs",
+      "maxLines": 900,
+      "owner": "gap-ac-047-visual-boot-retry"
+    }
+  ]
+}
