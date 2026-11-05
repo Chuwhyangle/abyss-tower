@@ -33,9 +33,10 @@
 
 ## GitHub 与网络
 
-- 远端：`git@github.com:Chuwhyangle/abyss-tower.git`（SSH）
-- 本服务器 **HTTPS 访问 github.com 会超时**（api.github.com 可直连）；`gh auth login --web` 也会超时。
-- 推送/拉取一律走 SSH：`~/.ssh/config` 已绑定 `~/.ssh/id_ed25519_github`。
+- 远端：`https://github.com/Chuwhyangle/abyss-tower.git`（HTTPS + classic PAT）
+- 本服务器 **HTTPS 到 github.com 已通**（实测 push/fetch 秒回）；`api.github.com` 可直连；未装 `gh`，`gh auth login --web` 超时。
+- 推送/拉取走 HTTPS：classic PAT 存在 `~/.git-credentials`（全局 `credential.helper=store`，600 权限）。旧 SSH key `id_ed25519_github` 已在 GitHub 侧过期作废，勿再走 SSH。
+- ⚠️ 该 PAT 无 `workflow` scope：改 `.github/workflows/ci.yml` 的提交需先给 token 加 `workflow` scope，否则 push 被拒。
 - CI：`.github/workflows/ci.yml`（84 个模块语法检查 + `npm test`），push/PR 自动运行。
 
 ## 提交前检查
