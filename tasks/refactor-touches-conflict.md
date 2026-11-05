@@ -17,16 +17,16 @@ extra: {}
 
 ## AC
 
-- [ ] `scripts/touches-conflict.mjs` 能解析 Touches、输出重叠矩阵、冲突时 exit 1
-- [ ] `docs/OWNERSHIP.md` 有单 owner 表，覆盖主要 lane
-- [ ] `node scripts/touches-conflict.mjs` 对当前 open 任务集 exit 1（存在重叠，正确报出）
-- [ ] `npm test` 全绿；新脚本登记 `scripts/test-changed.mjs` TEST_MAP
+- [x] `scripts/touches-conflict.mjs` 能解析 Touches、输出重叠矩阵、冲突时 exit 1
+- [x] `docs/OWNERSHIP.md` 有单 owner 表，覆盖主要 lane
+- [x] `node scripts/touches-conflict.mjs` 对当前 open 任务集 exit 1（存在重叠，正确报出）
+- [x] `npm test` 全绿；新脚本登记 `scripts/test-changed.mjs` TEST_MAP
 
 ## DoD
 
-- [ ] 落地于 `scripts/touches-conflict.mjs`(新)、`docs/OWNERSHIP.md`(新)、`scripts/test-changed.mjs`、`tests/`，零第三方依赖
-- [ ] 纯只读，不改游戏代码
-- [ ] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches
+- [x] 落地于 `scripts/touches-conflict.mjs`(新)、`docs/OWNERSHIP.md`(新)、`scripts/test-changed.mjs`、`tests/`，零第三方依赖
+- [x] 纯只读，不改游戏代码
+- [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches
 
 ## Touches
 
@@ -39,3 +39,5 @@ extra: {}
 ## Notes
 
 立案 2026-11-06，源自用户「重构优化 + 提高并发吞吐」需求，三路架构论证（耦合/竞争热点/并发方案）收敛的路线图阶段 0。关键裁定：这是阶段 4/5（确定性高危拆分）的安全网，必须先做。
+
+落地补充：`(new)` 标注口径与 anti-drift 的 tagFromAnnotation 一致（仅半角 `(new)` 判新建）；冲突集 = `status: ready` 任务，同一非 new 文件被 ≥2 个 ready 任务申明即报串行。
