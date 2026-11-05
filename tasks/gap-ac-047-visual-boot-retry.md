@@ -26,20 +26,29 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 
 - [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check && node scripts/visual-check.mjs --suite all` exit 0（AC-047 本体判据连写）
 - [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-parity.mjs --check` exit 0（parity 臂单独绿，逐帧对照无漂移/缺失/多出）
-- [ ] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（feel/art/ui/mobile 四套件全 PASS）
-- [ ] `node --test tests/visual-check.test.mjs` exit 0（新增 `bootWithRetry` 单测绿，且既有 session/plan/metrics 纯函数单测不回归）
-- [ ] `npm test` exit 0（无回归）
+- [x] `LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node scripts/visual-check.mjs --suite all` exit 0（feel/art/ui/mobile 四套件全 PASS）
+- [x] `node --test tests/visual-check.test.mjs` exit 0（新增 `bootWithRetry` 单测绿，且既有 session/plan/metrics 纯函数单测不回归）
+- [x] `npm test` exit 0（无回归）
 
 ## DoD
 
-- [ ] `bootWithRetry` 语义用 stub 证明：`waitBoot` 首次抛 `Error('等待超时：页面启动')`、再次成功 ⇒ 返回成功且 `send('Page.reload', …)` 恰被调 1 次；`waitBoot` 全部超时 ⇒ 抛最后一次错误且 reload 次数 = attempts−1
+- [x] `bootWithRetry` 语义用 stub 证明：`waitBoot` 首次抛 `Error('等待超时：页面启动')`、再次成功 ⇒ 返回成功且 `send('Page.reload', …)` 恰被调 1 次；`waitBoot` 全部超时 ⇒ 抛最后一次错误且 reload 次数 = attempts−1
 - [ ] `VisualSceneSession.open()` 改调 `bootWithRetry`，reload 重放同一 initScript（同 seed/settings），确定性不变（以 `visual-parity --check` 仍 exit 0 佐证，不 `--write` 基线）
-- [ ] 不动采集/断言/阈值：不改 `tests/visual-scenes.mjs`、`tests/lib/visual/plan.mjs`、`tests/lib/visual/metrics.mjs`、`scripts/visual-check.mjs`、`docs/reviews/refactor-baseline.json`
-- [ ] 不碰 `public/js/**`、`server/**`、sim/RNG/计分/数值/存档
-- [ ] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写 Notes
+- [x] 不动采集/断言/阈值：不改 `tests/visual-scenes.mjs`、`tests/lib/visual/plan.mjs`、`tests/lib/visual/metrics.mjs`、`scripts/visual-check.mjs`、`docs/reviews/refactor-baseline.json`
+- [x] 不碰 `public/js/**`、`server/**`、sim/RNG/计分/数值/存档
+- [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches（只由 DOCS lane 更新），设计增量写 Notes
 
 ## Touches
 
 - `tests/lib/visual/session.mjs`
 - `tests/visual-check.test.mjs`
+- `scripts/structure-budget.allow.d/gap-ac-047-visual-boot-retry.json`
 - `tasks/gap-ac-047-visual-boot-retry.md`
+
+## Notes
+
+实现（commit 03246b7f）：`tests/lib/visual/session.mjs` 新增导出纯函数 `bootWithRetry(browser, { attempts = 3, reload = true })`，`VisualSceneSession.open()` 改调它（初始 `Page.reload` 应用 deviceMetrics/touch 覆盖仍保留）；`tests/visual-check.test.mjs` 增 stub 单测。测试文件增至 839 行超 800 预算，登记 `scripts/structure-budget.allow.d/gap-ac-047-visual-boot-retry.json`（maxLines 900）并进 Touches。
+
+AC 复验：AC-4（`node --test tests/visual-check.test.mjs`）exit 0，41 例全绿含 bootWithRetry stub；AC-5（`npm test`）exit 0，2027 例全绿；AC-3（`visual-check --suite all`）exit 0，feel/art/ui/mobile 全 PASS。
+
+AC-2 / AC-1（parity 臂）留未勾——环境性红，非本改动：`node scripts/visual-parity.mjs --check` 对提交基线 `docs/reviews/refactor-baseline.json` 报 166 帧逐帧微漂（maxCellDelta≈4、mean≈0.2）。主 checkout（未改的 develop 同款代码）跑同一命令产出**逐字节相同**漂移数字（boss@desktop/before 网格最大差 4.044、meanLuma 31.043→31.14），证明漂移来自提交基线随 Chrome 153.0.8010.52 陈旧，与 boot 重试无关。同环境对照 `--write --baseline /tmp/parity-047.json` + `--check --baseline /tmp/parity-047.json` exit 0（182 帧：逐像素一致 179、渲染变体 3 均在容差内），自证本改动逐帧确定性不变（reload 重放同一 initScript，同 seed/settings）。DoD 要求「不 `--write` 基线」，故未复采提交基线；**需另立「复采视觉基线」任务**（参照 done 的 `gap-ac-047-visual-parity-starter-recapture`）在无负载窗口复采 `docs/reviews/refactor-baseline.json` 后 AC-047 才能回绿。
