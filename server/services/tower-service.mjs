@@ -2,6 +2,7 @@
 // 由 run-service.mjs 委托，独立成模块以守住 run-service 的行数预算（PHASE_REFACTOR §5）。
 import { generateWave } from '../../public/js/shared/waves.js';
 import { generateTowerGraph, isStep, merchantInventory, nodeKey, parseNodeKey, successors } from '../../public/js/shared/tower.js';
+import { towerEliteModifier } from '../../public/js/shared/data/tower-elite.js';
 import { RELIC_MAX_LEVEL, normalizeRelicStates } from '../../public/js/shared/data.js';
 import { setOffers, setRelics, setRuleset, setWavesServed } from '../db/runs.mjs';
 import { RunError } from './run-error.mjs';
@@ -71,16 +72,27 @@ export function chooseTowerNode(run, { node }) {
 }
 
 // 爬塔战斗波次：难度映射「楼层=波次」，直接复用 generateWave(seed, 层)；战斗类节点才可放行。
+// 精英节点叠加 seed 派生的精英词缀（hpMul/speedMul baked 进波次）并乘奖励（金币 ×1.5），服务端权威。
 export function serveTowerWaveFor(run) {
   const node = currentTowerNode(run);
   if (!isTowerCombatType(node.type)) {
     throw new RunError(409, '当前节点不是战斗节点', 'NOT_COMBAT_NODE');
   }
   const hex = hexFor(run);
+  // 精英词缀只作用于 hpMul/speedMul（generateWave 认识的字段）；金币 ×1.5 乘在最终奖励上。
+  const elite = node.type === 'elite' ? towerEliteModifier(run.seed, node.key) : null;
+  const meta = elite
+    ? { modifier: { id: elite.id, hpMul: elite.hpMul, speedMul: elite.speedMul } }
+    : {};
+  const buildWave = (layer) => {
+    const wave = generateWave(run.seed, layer, run.difficulty, meta, { endless: false });
+    if (elite) wave.reward = Math.round(wave.reward * elite.goldMul);
+    return wave;
+  };
   // 有未结算波次时重放当前波，不推进、不重复发奖。
   if (run.clearedWaves < run.wavesServed) {
     return {
-      wave: generateWave(run.seed, run.wavesServed, run.difficulty, {}, { endless: false }),
+      wave: buildWave(run.wavesServed),
       replay: true,
       clearedWaves: run.clearedWaves,
       wavesServed: run.wavesServed,
@@ -92,7 +104,7 @@ export function serveTowerWaveFor(run) {
   }
   setWavesServed(run.id, node.layer);
   return {
-    wave: generateWave(run.seed, node.layer, run.difficulty, {}, { endless: false }),
+    wave: buildWave(node.layer),
     replay: false,
     clearedWaves: run.clearedWaves,
     wavesServed: node.layer,
@@ -100,11 +112,17 @@ export function serveTowerWaveFor(run) {
   };
 }
 
-// 只有 fight 节点清波后给免费遗物；event/merchant 无战斗无遗物，抵达即完成。
-export function ensureTowerFightRelicNode(run) {
-  if (currentTowerNode(run).type !== 'fight') {
+// fight/elite 清波后给免费遗物（elite 用更高稀有档位）；event/merchant 无战斗无遗物，抵达即完成。
+export function ensureTowerRelicNode(run) {
+  const type = currentTowerNode(run).type;
+  if (type !== 'fight' && type !== 'elite') {
     throw new RunError(409, '只有战斗节点给遗物', 'NO_RELIC_NODE');
   }
+}
+
+// 爬塔遗物稀有度档位：elite 节点用 elite 权重（高稀有），其余沿用 run.mode（tower 落到 normal 权重）。
+export function towerRelicMode(run) {
+  return currentTowerNode(run).type === 'elite' ? 'elite' : run.mode;
 }
 
 // 事件波次：爬塔取当前事件节点层，非事件节点拒绝。

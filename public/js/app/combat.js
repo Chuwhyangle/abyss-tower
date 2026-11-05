@@ -109,7 +109,7 @@ export class CombatController {
     // 清波未确认时不覆盖波前快照，避免刷新后重复领取奖励。
     if (clearOk) sim.save();
 
-    // 爬塔：清波后按节点类型分流（fight→遗物、elite→无、boss→首领核心）；
+    // 爬塔：清波后按节点类型分流（fight/elite→遗物、boss→首领核心）；
     // event/merchant/treasure 抵达即完成、不经过战斗清波，此处只处理战斗类节点。
     const towerNode = this.currentTowerNode();
     if (towerNode) {
@@ -119,14 +119,8 @@ export class CombatController {
         if (!handled) this.openNodeMap();
         return;
       }
-      if (towerNode.type !== 'fight') {
-        // elite 等战斗节点：无遗物、无首领核心，直接推进节点地图。
-        sim.pendingDraft = false;
-        if (clearOk) sim.save();
-        this.openNodeMap();
-        return;
-      }
-      // fight：唯一免费遗物来源，落到下方遗物三选一；选完后由 pickOffer 转入选路。
+      // fight / elite：免费遗物来源（elite 由服务端用更高稀有档位发放），
+      // 落到下方遗物三选一；选完后由 pickOffer 转入选路。
     }
 
     // 每 5 波的事件节点先于遗物三选一结算。

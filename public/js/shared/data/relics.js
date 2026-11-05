@@ -22,6 +22,8 @@ export const MODE_RARITY_WEIGHTS = Object.freeze({
   }),
   endless: Object.freeze({ common: 46, rare: 34, epic: 20 }),
   gambler: Object.freeze({ common: 1, rare: 1, epic: 1 }),
+  // 爬塔精英节点（P0-6）：高风险高收益，稀有/史诗占比显著抬升（高稀有遗物概率提升）。
+  elite: Object.freeze({ common: 30, rare: 42, epic: 28 }),
 });
 
 export function rarityWeightForMode(rarity, mode = 'normal') {
