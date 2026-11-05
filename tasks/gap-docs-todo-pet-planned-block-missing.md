@@ -46,19 +46,20 @@ AC-053 上一轮达成（2026-10-30）后，萌宠化转型设计章节于 2026-
 
 ## AC
 
-- [ ] `grep -n "docs-consistency:planned-start" docs/TODO.md` 命中本任务新增的起始标记，且三个计划态路径（`docs/PHASE_萌宠.md` 在 L337/L346、`public/js/shared/data/pets.js` 在 L345）全部位于该起始标记与紧邻其后的 `docs-consistency:planned-end` 之间
-- [ ] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过，零 problem）
-- [ ] `node --test tests/docs-consistency.test.mjs` exit 0（「真实仓库文档一致：check:docs 的判定为通过」用例绿）
-- [ ] `npm test` exit 0（即 AC-053 的 criterion 本身）
+- [x] `grep -n "docs-consistency:planned-start" docs/TODO.md` 命中本任务新增的起始标记，且三个计划态路径（`docs/PHASE_萌宠.md` 在 L337/L346、`public/js/shared/data/pets.js` 在 L345）全部位于该起始标记与紧邻其后的 `docs-consistency:planned-end` 之间
+- [x] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过，零 problem）
+- [x] `node --test tests/docs-consistency.test.mjs` exit 0（「真实仓库文档一致：check:docs 的判定为通过」用例绿）
+- [x] `npm test` exit 0（即 AC-053 的 criterion 本身）
 
 ## DoD
 
-- [ ] `docs/TODO.md` 用 `docs-consistency:planned-start/end` 块标记萌宠化转型章节的计划态路径（块内只豁免代码路径存在性，链接与 npm 脚本照旧校验；不删路径、不提前创建空壳产物、不整篇 ignore、不逐行 ignore）
-- [ ] 在改动所在 HEAD 上连续两次 `npm test` 均为 exit 0（不靠重跑掩盖偶发失败）
-- [ ] `git diff --name-only <base>..HEAD` 只含 `docs/TODO.md` + `tasks/gap-docs-todo-pet-planned-block-missing.md`（self-touch）
+- [x] `docs/TODO.md` 用 `docs-consistency:planned-start/end` 块标记萌宠化转型章节的计划态路径（块内只豁免代码路径存在性，链接与 npm 脚本照旧校验；不删路径、不提前创建空壳产物、不整篇 ignore、不逐行 ignore）
+- [x] 在改动所在 HEAD 上连续两次 `npm test` 均为 exit 0（不靠重跑掩盖偶发失败）
+- [x] `git diff --name-only <base>..HEAD` 只含 `docs/TODO.md` + `tasks/gap-docs-todo-pet-planned-block-missing.md`（self-touch）
 
 ## Notes
 
 - 复现与判定命令均以仓库根为 cwd；AC-053 的 criterion 与 `package.json` 的 `scripts.test` 逐字一致。
 - 方向是「补 planned 块标记」而不是「删掉计划路径」或「提前创建产物」：这些路径是萌宠化转型的既定交付物（冻结表 + 数据契约），属于计划态，planned 块正是为「计划正文写出将要在 X 创建 Y」而设。
 - 该章节本身是工作树未提交改动；本任务落地时随修复一并提交，不额外带回其他无关脏文件。
+- 落地复验（2026-11-05）：AC-1 grep 命中 L337/L348 标记且三处计划态路径均落块内；AC-2 `npm run check:docs` exit 0（27 文件）；AC-3 `node --test tests/docs-consistency.test.mjs` exit 0（13/13）；AC-4 `npm test` 连续两次 exit 0（各 2027/2027 pass）。
