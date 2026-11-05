@@ -1,7 +1,7 @@
 ---
 id: feat-relic-behaviors
 title: 遗物升级行为词条：Ⅱ/Ⅲ 级解锁机制（非纯数值）
-status: ready
+status: done
 labels:
   - feat
   - gameplay
