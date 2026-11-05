@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { startServer } from './test-server.mjs';
 import { generateTowerGraph, successors } from '../public/js/shared/tower.js';
+import { generateWave } from '../public/js/shared/waves.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DB = path.join(os.tmpdir(), `rtd-tower-server-${process.pid}-${Date.now()}.db`);
@@ -47,6 +48,7 @@ async function clearNode(runId, layer) {
   const cleared = await api(`/api/runs/${runId}/clear`, { method: 'POST', body: { wave: layer } });
   assert.equal(cleared.status, 200, `第 ${layer} 层清波失败`);
   assert.equal(cleared.data.clearedWaves, layer);
+  return served.data.wave;
 }
 
 before(async () => {
@@ -152,6 +154,7 @@ test('节点分流：fight 清波给遗物，event/merchant 无战斗无遗物�
 
   let route = { path: ['1:0'], node: '1:0' };
   let sawFightRelic = false;
+  let sawElite = false;
   let sawEvent = false;
   let sawMerchant = false;
   let sawBoss = false;
@@ -161,19 +164,29 @@ test('节点分流：fight 清波给遗物，event/merchant 无战斗无遗物�
     assert.equal(node.layer, layer);
 
     if (node.type === 'fight' || node.type === 'elite' || node.type === 'boss') {
-      await clearNode(runId, layer);
-      if (node.type === 'fight') {
-        sawFightRelic = true;
+      const wave = await clearNode(runId, layer);
+      if (node.type === 'fight' || node.type === 'elite') {
+        if (node.type === 'fight') sawFightRelic = true;
+        else sawElite = true;
         const relics = await api(`/api/runs/${runId}/relics`, { method: 'POST', body: {} });
-        assert.equal(relics.status, 200, `第 ${layer} 层 fight 应给遗物`);
+        assert.equal(relics.status, 200, `第 ${layer} 层 ${node.type} 应给遗物`);
         assert.equal(relics.data.offers.length, 3);
         const picked = await api(`/api/runs/${runId}/relic`, { method: 'POST', body: { index: 0 } });
         assert.equal(picked.status, 200);
       } else {
-        // elite/boss 不给免费遗物（只有 fight 是唯一免费来源）。
+        // boss 不给免费遗物（首领核心是它的掉落；遗物只有 fight/elite）。
         const relics = await api(`/api/runs/${runId}/relics`, { method: 'POST', body: {} });
         assert.equal(relics.status, 409);
         assert.equal(relics.data.code, 'NO_RELIC_NODE');
+      }
+      if (node.type === 'elite') {
+        // 服务端权威：词缀 baked 进波次（hpMul/speedMul 至少一项强于基线），奖励 ×1.5。
+        const base = generateWave(`test-${SEED}`, layer, 'standard', {}, { endless: false });
+        assert.ok(
+          wave.hpMul > base.hpMul || wave.speedMul > base.speedMul,
+          `第 ${layer} 层 elite 波次应 baked 词缀强化`
+        );
+        assert.equal(wave.reward, Math.round(base.reward * 1.5), `第 ${layer} 层 elite 奖励应为 ×1.5`);
       }
       if (node.type === 'boss') {
         sawBoss = true;
@@ -220,6 +233,7 @@ test('节点分流：fight 清波给遗物，event/merchant 无战斗无遗物�
   }
 
   assert.equal(sawFightRelic, true);
+  assert.equal(sawElite, true);
   assert.equal(sawBoss, true);
   assert.equal(sawEvent, true);
   assert.equal(sawMerchant, true);
