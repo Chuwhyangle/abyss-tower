@@ -36,7 +36,7 @@ extra: {}
 - `public/js/sim/enemy-system.js`
 - `public/js/render/enemy-renderer.js`
 - `public/js/shared/waves.js`
-- `tests/` (敌人测试)
+- `tests/enemies-depth.test.mjs`
 - `scripts/test-changed.mjs`
 - `tasks/feat-enemy-variety.md`
 
