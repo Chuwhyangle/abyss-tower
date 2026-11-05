@@ -23,7 +23,7 @@
 | `public/js/render.js`、`public/js/render/` | render 外壳 lane | Canvas 渲染层 |
 | `public/js/ui.js`、`public/js/ui/`、`public/js/app/` | UI 外壳 lane | DOM 界面与页面编排 |
 | `public/js/main.js`、`public/js/api.js`、`public/js/*-ui.js` | UI 外壳 lane | 编排、接口、各面板 UI |
-| `public/styles.css`、`public/index.html` | UI 外壳 lane | 样式与入口 |
+| `public/css/`、`public/index.html` | UI 外壳 lane | 样式与入口 |
 | `public/js/shared/i18n/` | i18n lane | 中英文案表 |
 | `server/`（`server/data/` 运行时数据除外） | 服务端 lane | HTTP 路由、认证、持久化 |
 | `scripts/`、`tests/`、`tasks/` | 共享（中性） | 工具/测试/任务库；跨 lane 改动须在 Touches 精确声明 |
