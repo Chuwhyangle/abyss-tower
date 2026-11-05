@@ -1,7 +1,7 @@
 ---
 id: feat-daily-weekly-rules
 title: 每日/每周挑战加新规则：每日轮换 + 每周复合规则
-status: todo
+status: ready
 labels:
   - feat
   - gameplay
