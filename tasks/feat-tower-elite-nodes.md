@@ -33,9 +33,9 @@ extra: {}
 ## Touches
 
 - `public/js/shared/tower.js`
-- `public/js/shared/data/` (elite 词缀/奖励数据，new)
+- `public/js/shared/data/tower-elite.js` (new)
 - `server/services/run-service.mjs`
-- `tests/` (爬塔 elite 测试)
+- `tests/tower-elite.test.mjs` (new)
 - `scripts/test-changed.mjs`
 - `tasks/feat-tower-elite-nodes.md`
 
