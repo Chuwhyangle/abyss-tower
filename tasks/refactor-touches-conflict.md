@@ -1,7 +1,7 @@
 ---
 id: refactor-touches-conflict
 title: 并发重构·阶段0 安全网：touches-conflict 冲突预检 + OWNERSHIP 单 owner 表
-status: todo
+status: ready
 labels:
   - refactor
 parent: null

@@ -34,7 +34,20 @@ extra: {}
 
 - `public/styles.css`
 - `public/index.html`
-- `public/css/` (新分区)
+- `public/css/tokens.css` (new)
+- `public/css/base.css` (new)
+- `public/css/title.css` (new)
+- `public/css/shop.css` (new)
+- `public/css/hud.css` (new)
+- `public/css/modals.css` (new)
+- `public/css/nodes.css` (new)
+- `public/css/mobile.css` (new)
+- `public/css/skills.css` (new)
+- `public/css/achievements.css` (new)
+- `public/css/meta.css` (new)
+- `public/css/transitions.css` (new)
+- `public/css/hex.css` (new)
+- `public/css/a11y.css` (new)
 - `tests/ui-styles.test.mjs`
 - `tasks/refactor-css-partition.md`
 
