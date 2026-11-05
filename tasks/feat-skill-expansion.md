@@ -36,7 +36,8 @@ extra: {}
 - `public/js/sim/skill-system.js`
 - `public/js/shared/i18n/zh-CN.ui.js`
 - `public/js/shared/i18n/en-US.ui.js`
-- `tests/` (技能测试)
+- `tests/skills.test.mjs`
+- `tests/sim-skills.test.mjs`
 - `scripts/test-changed.mjs`
 - `tasks/feat-skill-expansion.md`
 
