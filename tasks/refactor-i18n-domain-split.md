@@ -35,7 +35,34 @@ extra: {}
 - `public/js/shared/i18n/zh-CN.ui.js`
 - `public/js/shared/i18n/en-US.js`
 - `public/js/shared/i18n/zh-CN.js`
-- `public/js/shared/i18n/` (新片段文件)
+- `public/js/shared/i18n/en-US.ui.common.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.common.js` (new)
+- `public/js/shared/i18n/en-US.ui.data.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.data.js` (new)
+- `public/js/shared/i18n/en-US.ui.title.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.title.js` (new)
+- `public/js/shared/i18n/en-US.ui.hud.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.hud.js` (new)
+- `public/js/shared/i18n/en-US.ui.shop.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.shop.js` (new)
+- `public/js/shared/i18n/en-US.ui.tower.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.tower.js` (new)
+- `public/js/shared/i18n/en-US.ui.draft.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.draft.js` (new)
+- `public/js/shared/i18n/en-US.ui.hex.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.hex.js` (new)
+- `public/js/shared/i18n/en-US.ui.skill.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.skill.js` (new)
+- `public/js/shared/i18n/en-US.ui.achievements.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.achievements.js` (new)
+- `public/js/shared/i18n/en-US.ui.settings.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.settings.js` (new)
+- `public/js/shared/i18n/en-US.ui.result.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.result.js` (new)
+- `public/js/shared/i18n/en-US.ui.share.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.share.js` (new)
+- `public/js/shared/i18n/en-US.ui.meta.js` (new)
+- `public/js/shared/i18n/zh-CN.ui.meta.js` (new)
 - `tests/i18n-coverage.test.mjs`
 - `tasks/refactor-i18n-domain-split.md`
 
