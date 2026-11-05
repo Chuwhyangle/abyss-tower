@@ -1,7 +1,7 @@
 ---
 id: feat-skill-expansion
 title: 技能扩展：3 技能 → 5-6 技能（或每局变异分支）
-status: ready
+status: done
 labels:
   - feat
   - gameplay
