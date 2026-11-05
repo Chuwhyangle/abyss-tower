@@ -104,9 +104,7 @@
 <!-- docs-consistency:planned-start -->
 - **阶段 0（串行，契约/数据层）**：`towers-rarity.js` + `unlocks.js` 判定护栏 + `unlock.mjs` 增量修复 + `db.mjs` 抽卡读写 + 迁移 `0012_gacha.mjs` + gacha 配置（池/概率/价格/碎片）。
 - **阶段 1（并行，依赖阶段0）**：
-<!-- docs-consistency:planned-start -->
   - 服务端：`server/routes/gacha.mjs`（pool/draw/history）+ request_id 幂等 + 单事务。
-<!-- docs-consistency:planned-end -->
   - 前端 UI：`#gacha-screen` + `ui.js` 三态翻转 + `gacha-ui.js`（页面/动画/结果/公示/历史）+ styles + i18n。
   - 美术：拉取 CC0 资源到 `public/assets/gacha/` + 集成。
 - **阶段 2（集成，后置）**：塔升星（碎片消耗）、i18n 收口、`npm test` 全绿、`npm run balance` 复测、文档同步。
