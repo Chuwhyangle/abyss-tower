@@ -15,6 +15,11 @@ export const UNLOCKS = [
 
 export const UNLOCK_BY_ID = Object.fromEntries(UNLOCKS.map((u) => [u.id, u]));
 
+// 可建造塔判定（拥有护栏）：
+// - 免费基础塔无 `unlock` 字段（`!TOWERS[id].unlock`）恒可用，绝不要求拥有记录；
+// - 其余塔的拥有判定与 `player_unlocks` 里的 `tower_<id>` 记录对齐——抽卡走
+//   `grantUnlock(accountId, 'tower_<id>')` 写入的 key 与此处 `TOWERS[id].unlock` 完全一致，
+//   因此抽到的塔无需任何额外判定即可进入可建造集合。
 export function unlockedTowerIds(unlocks) {
   return TOWER_ORDER.filter((id) => !TOWERS[id].unlock || unlocks.includes(TOWERS[id].unlock));
 }

@@ -85,8 +85,8 @@ test('摘要字段完整且来自真实数据库', () => {
 
   const migrations = status.database.migrations;
   assert.ok(Number.isInteger(migrations.applied));
-  assert.ok(migrations.applied >= 11);
-  assert.equal(migrations.latestVersion, 11);
+  assert.ok(migrations.applied >= 12);
+  assert.equal(migrations.latestVersion, 12);
   assert.ok(Number.isInteger(migrations.total));
   assert.ok(migrations.total >= migrations.applied);
   assert.equal(migrations.pending, 0);
