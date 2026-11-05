@@ -157,6 +157,47 @@ async function main() {
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-02-landscape.png`);
 
+    // AC-1：塔卡在移动端直接显示伤害/射程/对空对地，无需悬浮提示。
+    const cardStats = await browser.evaluate(`(() => {
+      const card = document.querySelector('.tower-card[data-type="arrow"]');
+      const stats = card.querySelector('.stats');
+      const hint = document.querySelector('.shop-scroll-hint');
+      return {
+        statsText: stats ? stats.textContent : null,
+        statsDisplay: stats ? getComputedStyle(stats).display : null,
+        hintText: hint ? hint.textContent : null,
+        hintDisplay: hint ? getComputedStyle(hint).display : null,
+      };
+    })()`);
+    if (!cardStats.statsText || cardStats.statsDisplay === 'none') {
+      throw new Error('移动端塔卡未显示属性行');
+    }
+    if (
+      !/伤害/.test(cardStats.statsText) ||
+      !/射程/.test(cardStats.statsText) ||
+      !/对空/.test(cardStats.statsText)
+    ) {
+      throw new Error(`塔卡属性行文案缺失：${cardStats.statsText}`);
+    }
+    if (!cardStats.hintText || cardStats.hintDisplay === 'none') {
+      throw new Error('移动端商店缺少横滚提示');
+    }
+
+    // AC-2：下一波情报在横屏无需打开遗物抽屉即可见（挂在战场左上角）。
+    const nextWaveReachable = await browser.evaluate(`(() => {
+      const panel = document.getElementById('next-wave-panel');
+      const rect = panel.getBoundingClientRect();
+      return {
+        hidden: panel.hidden,
+        h: rect.height,
+        inStage: !!panel.closest('.stage'),
+        drawerOpen: document.querySelector('.relic-panel').classList.contains('open'),
+      };
+    })()`);
+    if (nextWaveReachable.hidden || nextWaveReachable.h <= 0 || !nextWaveReachable.inStage) {
+      throw new Error(`下一波情报横屏不可达：${JSON.stringify(nextWaveReachable)}`);
+    }
+
     // 设置与遗物弹窗（横屏）
     await browser.evaluate(`document.querySelector('#btn-settings-game').click()`);
     await browser.waitFor(`!!document.querySelector('.settings-modal')`, '设置弹窗');
@@ -307,6 +348,37 @@ async function main() {
     }
     await browser.screenshot(`${OUT_DIR}/rtd-mobile-05b-tower-panel.png`);
 
+    // 出售确认（AC-2）：点出售先弹确认框，取消不卖、确认才卖，按钮 ≥44px。
+    await browser.evaluate(`window.__rtd.ui.showTowerPanel(window.__rtd.state.sim.towers[0])`);
+    await browser.evaluate(`document.querySelector('#tower-panel .sell').click()`);
+    await browser.waitFor(`!!document.querySelector('.confirm-modal')`, '出售确认弹窗');
+    // 弹窗入场动画（scale 0.99 → 1）未结束时按钮只有 43.5px；等动画走完再量触控目标。
+    await browser.waitFor(`document.getElementById('btn-confirm-yes').getBoundingClientRect().height >= 44`, '出售确认按钮入场动画结束');
+    const sellConfirm = await browser.evaluate(`(() => {
+      const yes = document.getElementById('btn-confirm-yes');
+      const no = document.getElementById('btn-confirm-no');
+      return {
+        text: document.querySelector('.confirm-modal').textContent,
+        yes: { w: yes.getBoundingClientRect().width, h: yes.getBoundingClientRect().height },
+        no: { w: no.getBoundingClientRect().width, h: no.getBoundingClientRect().height },
+      };
+    })()`);
+    if (sellConfirm.yes.w < 44 || sellConfirm.yes.h < 44 || sellConfirm.no.w < 44 || sellConfirm.no.h < 44) {
+      throw new Error(`出售确认按钮触控目标不足 44px：${JSON.stringify(sellConfirm)}`);
+    }
+    await browser.evaluate(`document.getElementById('btn-confirm-no').click()`);
+    if ((await browser.evaluate(`window.__rtd.state.sim.towers.length`)) !== 1) {
+      throw new Error('取消出售仍卖掉了塔');
+    }
+    await browser.evaluate(`window.__rtd.ui.showTowerPanel(window.__rtd.state.sim.towers[0])`);
+    await browser.evaluate(`document.querySelector('#tower-panel .sell').click()`);
+    await browser.waitFor(`!!document.querySelector('.confirm-modal')`, '再次出售确认弹窗');
+    await browser.evaluate(`document.getElementById('btn-confirm-yes').click()`);
+    if ((await browser.evaluate(`window.__rtd.state.sim.towers.length`)) !== 0) {
+      throw new Error('确认出售未卖掉塔');
+    }
+    await browser.screenshot(`${OUT_DIR}/rtd-mobile-05b2-sell-confirm.png`);
+
     // offer 弹窗（遗物三选一，AC-3）：三张卡在视口内可读，选卡后确定可用。
     const offers = [
       { kind: 'relic', id: 'sharp', fromLevel: 1, toLevel: 2 },
@@ -447,24 +519,6 @@ async function main() {
       throw new Error(`控制台错误：${browser.pageErrors.join(' | ')}`);
     }
     console.log('[mobile] 通过');
-    console.log(JSON.stringify({
-      hint,
-      settingsRect,
-      landscape,
-      chosenMap,
-      mapSetup,
-      target,
-      towers,
-      builtMap,
-      towerPanel,
-      evolveTargets,
-      speedTargets,
-      offerInfo,
-      skillTarget,
-      mobileSkill,
-      landscapeMapModal,
-      resultText,
-    }, null, 2));
   } finally {
     if (browser) await browser.close();
     await server.stop();
