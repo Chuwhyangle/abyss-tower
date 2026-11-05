@@ -1,7 +1,7 @@
 ---
 id: feat-mobile-guard
 title: 移动端信息/防误触：塔卡属性 + 下一波情报 + 出售确认
-status: todo
+status: ready
 labels:
   - feat
   - mobile
