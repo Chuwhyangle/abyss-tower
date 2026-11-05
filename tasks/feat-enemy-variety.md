@@ -54,3 +54,13 @@ extra: {}
 ## Notes
 
 立案 2026-11-06，源自 P1-11。实现：新增 3 种后期专属敌人，全部 `minWave ≥ 15` 进波次池——`obsidian`（黑曜魔像，w15，单次伤害上限 12 封顶，压制暴击/狙击）、`regenerator`（再生者，w19，周期性自愈自身、不奶友军）、`warden`（守望者，w24，光环内友军护盾封顶）。首领变体沿用既有 3 变体轮换（feat-tower-elite-nodes 已落），未新增骨架。确定性：新机制走时间/状态惰性计时器（`regenTimer`/`guardTimer`，首帧 `=0` 延迟首触发），零新增 RNG，不改 sim.js RNG 顺序。形状复用 golem/priest/shield 图元，enemy-renderer.js 数据驱动无需逐敌注册，sprite-coverage 自动登记并重生成图集/manifest/contact-sheet。敌人总数 14→24。黑曜魔像色 `#7f96a6`（亮灰蓝），敌人/地形最小对比度 ≥3.0（grunt 仍为全群系最差 3.80）。`npm test` 2037 例全绿。
+
+## Blocker
+
+**2026-11-05T18:58:36.435Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (2e69148c) is NOT a continuation of the project's default branch 'main' (4242e1b4) — it is 2 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-enemy-variety's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：c5925073-1f31-4737-bd3e-5ddfb1adeb18
