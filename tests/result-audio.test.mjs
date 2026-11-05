@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { readCss } from './lib/css-source.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const readSource = (relative) => readFileSync(join(root, relative), 'utf8');
@@ -183,7 +184,7 @@ test('减少动效时分数直接落定，动效不超过 600ms', () => {
 });
 
 test('结算动效在系统减少动效时关闭且不超过 600ms', () => {
-  const css = readSource('public/styles.css');
+  const css = readCss();
 
   const fadeMs = Number(css.match(/animation:\s*result-fade\s+(\d+)ms/)?.[1]);
   assert.ok(Number.isFinite(fadeMs) && fadeMs <= 600, '结算入场动效应 ≤600ms');

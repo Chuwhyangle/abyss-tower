@@ -7,11 +7,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
-const CSS = read('public/styles.css');
+const CSS = readCss();
 // UI 已拆分为门面 + 面板模块，源码级约束按整体读取。
 const UI_MODULES = [
   'public/js/ui.js',

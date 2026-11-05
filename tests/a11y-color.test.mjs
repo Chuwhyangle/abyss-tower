@@ -26,9 +26,10 @@ import { ENEMIES, RARITY, TOWERS } from '../public/js/shared/data.js';
 import { Simulation } from '../public/js/sim.js';
 import { generateMap } from '../public/js/shared/mapgen.js';
 import { generateWave } from '../public/js/shared/waves.js';
+import { readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const CSS = fs.readFileSync(path.join(ROOT, 'public/styles.css'), 'utf8');
+const CSS = readCss();
 // UI 已拆分为门面 + 面板模块，源码级约束按整体读取。
 const UI_SRC = [
   'public/js/ui.js',

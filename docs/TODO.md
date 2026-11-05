@@ -87,7 +87,7 @@
 
 - **查证**：无「全部加成汇总」面板（只有逐件 tooltip，`shop.js` 的 `relicEffectText`）；`sim.mods` 聚合后的最终加成（伤害/攻速/射程/金币/减速/暴击等）无处总览。遗物栏桌面常驻不可收（`styles.css:660-674`），移动端直接隐藏。
 - **方案**：新增「加成一览」面板（汇总 `sim.mods` 最终加成并标注来源：遗物/海克斯/契约/教义/天赋）；遗物栏加折叠按钮（桌面）+ 移动端抽屉，与 TODO-7 联动。
-- **文件**：`public/js/ui/hud.js`、`public/js/ui/shop.js`、`public/index.html`、`public/styles.css`。
+- **文件**：`public/js/ui/hud.js`、`public/js/ui/shop.js`、`public/index.html`、`public/css/*`。
 - **状态**：[ ] 未开始
 
 ### TODO-9 局外升级系统（肉鸽感不足、难度偏低）

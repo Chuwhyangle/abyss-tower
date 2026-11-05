@@ -1,0 +1,237 @@
+/* 天赋树面板：复用成就卡片，节点专用规则只补投入按钮布局与等级/余额展示。 */
+.meta-tree-balance {
+  color: var(--gold);
+}
+
+.talent-node-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.talent-cost {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.achievement-hint,
+.career-hint {
+  padding: var(--space-3) 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.achievement-complete-banner {
+  margin-bottom: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--green);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--green);
+}
+
+.career-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.career-cell {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.career-cell.primary {
+  border-color: var(--line-strong);
+  background: var(--surface-glass);
+}
+
+.career-cell span {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.career-cell b {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+}
+
+.career-meter {
+  height: 4px;
+  margin-top: var(--space-1);
+}
+
+.career-subtitle {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 var(--space-2);
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.career-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  opacity: 0.8;
+}
+
+.career-diffs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-2);
+}
+
+.career-diff {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+
+.career-diff.empty {
+  opacity: 0.62;
+}
+
+.career-diff h3 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-md);
+}
+
+.career-diff-meter {
+  height: 3px;
+  margin-bottom: var(--space-2);
+}
+
+.career-diff dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.career-diff dd {
+  margin: 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.career-recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 32vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.career-run {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  font-size: var(--text-sm);
+}
+
+.career-run-line {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.career-run .tag {
+  padding: 1px 6px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+
+.career-run.win .tag {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.career-run small {
+  font-family: var(--font-mono);
+  color: var(--muted);
+}
+
+.notification-bell {
+  position: relative;
+}
+
+.notifications-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-pill);
+  background: var(--red);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 16px;
+  text-align: center;
+}
+
+.notification-card.unread {
+  border-color: color-mix(in srgb, var(--gold) 45%, transparent);
+}
+
+.notification-card.unread .achievement-state {
+  color: var(--gold);
+}
+
+@media (max-width: 560px) {
+  .achievements-panel,
+  .career-panel {
+    padding: var(--space-4);
+  }
+
+  .achievement-group-grid,
+  .career-diffs {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .career-totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .career-run {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .career-run small {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+
+  .achievements-list,
+  .career-recent {
+    max-height: 52vh;
+  }
+}
+/* PANEL-TOKENS-END */
+
