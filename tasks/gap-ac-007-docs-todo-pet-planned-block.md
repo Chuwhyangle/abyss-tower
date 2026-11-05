@@ -46,17 +46,17 @@ AC-007（GOAL-002「测试稳定性与并发隔离」退出条件：稳定性门
 
 ## AC
 
-- [ ] `node scripts/check-stability.mjs` exit 0（AC-007 criterion 本身）
-- [ ] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过，零 problem）
+- [x] `node scripts/check-stability.mjs` exit 0（AC-007 criterion 本身）
+- [x] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过，零 problem）
 
 ## DoD
 
-- [ ] 真实仓库 `node scripts/check-stability.mjs` exit 0（214 测试文件三轮全绿，docs-consistency 用例不再报 docs/TODO.md 萌宠化转型三处路径缺失）
-- [ ] `docs/TODO.md` 萌宠化转型章节的三处计划态路径（`docs/PHASE_萌宠.md` ×2、`public/js/shared/data/pets.js` ×1）已位于 `docs-consistency:planned-start/end` 块内
-- [ ] 本任务 Touches 只含自身文件（只读见证，不重复编辑 `docs/TODO.md`）
+- [x] 真实仓库 `node scripts/check-stability.mjs` exit 0（214 测试文件三轮全绿，docs-consistency 用例不再报 docs/TODO.md 萌宠化转型三处路径缺失）
+- [x] `docs/TODO.md` 萌宠化转型章节的三处计划态路径（`docs/PHASE_萌宠.md` ×2、`public/js/shared/data/pets.js` ×1）已位于 `docs-consistency:planned-start/end` 块内
+- [x] 本任务 Touches 只含自身文件（只读见证，不重复编辑 `docs/TODO.md`）
 
 ## Notes
 
 - 复现与判定命令均以仓库根为 cwd；AC-007 的 criterion 与 `scripts/check-stability.mjs` 逐字一致。
 - 本任务是 AC-007 的只读见证：修复动作归 peer `gap-docs-todo-pet-planned-block-missing`（认领 AC-053），本任务只负责把 AC-007 的 gap 归属挂到 `goal_ac: AC-007`，并在修复合入后复验 criterion。
-- peer 已把该修复写进其 AC/DoD 并 tick，但其工作树改动尚未随 task_write 提交（末次提交仅任务文件，工作树仍 `M docs/TODO.md`、测试仍红）——所以 AC-007 本轮直接量到的 criterion 仍为假。
+- 复验（2026-11-05）：peer 修复已随 commit `82aea41d`（fix(docs): docs/TODO.md 萌宠化转型计划态路径补 planned 块标记）fan-in 落 develop；本任务只读见证零 delta，直接量 `node scripts/check-stability.mjs` exit 0（3 轮 × 2027 项全绿）、`npm run check:docs` exit 0（27 文件），AC-007 criterion 已变真。
