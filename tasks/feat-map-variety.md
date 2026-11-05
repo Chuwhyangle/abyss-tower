@@ -34,7 +34,7 @@ extra: {}
 - `public/js/shared/mapgen.js`
 - `server/services/run-rules.mjs`
 - `server/services/run-service.mjs`
-- `tests/` (地图词缀测试)
+- `tests/map-variety.test.mjs` (new)
 - `scripts/test-changed.mjs`
 - `tasks/feat-map-variety.md`
 
