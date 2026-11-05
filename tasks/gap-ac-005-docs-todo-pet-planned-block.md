@@ -42,19 +42,22 @@ AC-005（GOAL-001「上游基线合并与开发基线确认」退出条件：全
 
 ## AC
 
-- [ ] `grep -n "docs-consistency:planned-start" docs/TODO.md` 命中本任务新增的起始标记（行号 < 337），`grep -n "docs-consistency:planned-end" docs/TODO.md` 命中紧邻其后的结束标记（行号 ≥ 346），且 L337/L345/L346 三处计划态路径（`docs/PHASE_萌宠.md` ×2、`public/js/shared/data/pets.js` ×1）全部位于这对标记之间
-- [ ] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过，零 problem）
-- [ ] `node --test tests/docs-consistency.test.mjs` exit 0（「真实仓库文档一致：check:docs 的判定为通过」用例绿）
-- [ ] `node --test --test-concurrency=2 tests/*.test.mjs` exit 0（即 AC-005 的 criterion 本身）
+- [x] `grep -n "docs-consistency:planned-start" docs/TODO.md` 命中本任务新增的起始标记（行号 < 337），`grep -n "docs-consistency:planned-end" docs/TODO.md` 命中紧邻其后的结束标记（行号 ≥ 346），且 L337/L345/L346 三处计划态路径（`docs/PHASE_萌宠.md` ×2、`public/js/shared/data/pets.js` ×1）全部位于这对标记之间
+- [x] `npm run check:docs` exit 0（`scripts/docs-consistency.mjs` 判定通过，零 problem）
+- [x] `node --test tests/docs-consistency.test.mjs` exit 0（「真实仓库文档一致：check:docs 的判定为通过」用例绿）
+- [x] `node --test --test-concurrency=2 tests/*.test.mjs` exit 0（即 AC-005 的 criterion 本身）
 
 ## DoD
 
-- [ ] `docs/TODO.md` 用 `docs-consistency:planned-start/end` 块标记萌宠化转型章节的计划态路径（块内只豁免代码路径存在性，链接与 npm 脚本照旧校验；不删路径、不提前创建空壳产物、不整篇 ignore、不逐行 ignore）
-- [ ] 在改动所在 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不靠重跑掩盖偶发失败）
-- [ ] `git diff --name-only <base>..HEAD` 只含 `docs/TODO.md` + `tasks/gap-ac-005-docs-todo-pet-planned-block.md`（self-touch）
+- [x] `docs/TODO.md` 用 `docs-consistency:planned-start/end` 块标记萌宠化转型章节的计划态路径（块内只豁免代码路径存在性，链接与 npm 脚本照旧校验；不删路径、不提前创建空壳产物、不整篇 ignore、不逐行 ignore）
+- [x] 在改动所在 HEAD 上连续两次 `node --test --test-concurrency=2 tests/*.test.mjs` 均为 exit 0（不靠重跑掩盖偶发失败）
+- [x] `git diff --name-only <base>..HEAD` 只含 `docs/TODO.md` + `tasks/gap-ac-005-docs-todo-pet-planned-block.md`（self-touch）
 
 ## Notes
 
 - 复现与判定命令均以仓库根为 cwd；AC-005 的 criterion 与 `package.json` 的 `scripts.test` 逐字一致。
 - 方向是「补 planned 块标记」而不是「删掉计划路径」或「提前创建产物」：这些路径是萌宠化转型的既定交付物（冻结表 + 数据契约），属于计划态，planned 块正是为「计划正文写出将要在 X 创建 Y」而设。
 - 本任务不改动 `scripts/docs-consistency.mjs` 与 `tests/docs-consistency.test.mjs` 的判定逻辑，仅补文档标记。
+- **零 delta（2026-11-05 复验）**：机制已随先行任务落地 develop，本任务无需新增变更。commit `82aea41d`（`fix(docs): docs/TODO.md 萌宠化转型计划态路径补 planned 块标记`）是 develop HEAD `8d0618d4` 的祖先，已把 `<!-- docs-consistency:planned-start -->` 落在 `docs/TODO.md:337`、`<!-- docs-consistency:planned-end -->` 落在 `:348`，三处计划态路径（`docs/PHASE_萌宠.md` ×2 于 L338/L347、`public/js/shared/data/pets.js` ×1 于 L346）全部位于块内。
+- 复验全绿（在 develop HEAD `8d0618d4` 上）：`npm run check:docs` exit 0；`node --test tests/docs-consistency.test.mjs` 13/13 pass；`node --test --test-concurrency=2 tests/*.test.mjs` 2027/2027 pass 连续两次 exit 0（满足 AC-005 criterion 与 DoD2）。
+- 本任务仅 tick AC/DoD + 记此 Notes，工作树相对 develop 零代码增量（除 self-touch 任务文件外），anti-drift 应判零 delta。
