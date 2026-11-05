@@ -44,7 +44,8 @@ const EXPECTED_EXPORTS = [
 // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
 // 内容快照哈希更新（行为本身无改动）。
 // TODO-14 §5：重排零 meta 基线 hpMul（深渊 1.34→1.50、远征 1.10→1.22、漫游 0.85→0.90），内容快照随之更新。
-const BASELINE_HASH = 'cc03fc475f13ff0132066ff87a427edb2ec3aff96c16cd83befdd8ea82bde72e';
+// feat-relic-behaviors：8 件遗物新增 behaviors 字段（Ⅱ/Ⅲ 级机制词条）+ relicBehaviorsAtLevel 导出，内容快照随之更新。
+const BASELINE_HASH = '472fda1ac15a397211eebed1fd8c1bb4cd97d09e80e67d2577b0b95f6d0f3259';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -156,7 +157,7 @@ test('各主题模块的导出面保持单一职责', () => {
   assert.deepEqual(Object.keys(relics).sort(), [
     'MODE_RARITY_WEIGHTS', 'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
     'fallbackOffers', 'normalizeRelicState', 'normalizeRelicStates', 'rarityWeightForMode',
-    'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers', 'rollStarterOffers',
+    'relicBehaviorsAtLevel', 'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers', 'rollStarterOffers',
   ]);
 });
 

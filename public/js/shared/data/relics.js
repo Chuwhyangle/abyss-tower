@@ -45,14 +45,23 @@ export const RELICS = [
   { id: 'thrifty', faction: 'neutral', name: '精打细算', rarity: 'common', set: 'guild', desc: '防御塔建造与升级费用 -8%', mods: { costMul: -0.08 } },
   { id: 'crystal', faction: 'warden', name: '生命结晶', rarity: 'common', desc: '立即恢复并提高 5 点基地生命', mods: { baseHp: 5 } },
   { id: 'velocity', faction: 'fire', name: '弹道加速', rarity: 'common', set: 'hunter', desc: '投射物速度 +50%，全体伤害 +6%', mods: { projSpeed: 0.5, dmgAll: 0.06 } },
-  { id: 'frostglint', faction: 'frost', name: '霜纹刻印', rarity: 'common', set: 'frost', desc: '霜塔伤害 +18%', mods: { dmg: { frost: 0.18 } } },
-  { id: 'venomfang', faction: 'venom', name: '淬毒护符', rarity: 'common', desc: '毒雾塔伤害 +18%', mods: { dmg: { poison: 0.18 } } },
-  { id: 'sparkplug', faction: 'storm', name: '火花塞', rarity: 'common', desc: '电弧塔伤害 +15%', mods: { dmg: { arc: 0.15 } } },
-  { id: 'steadyaim', faction: 'fire', name: '稳定瞄准', rarity: 'common', set: 'hunter', desc: '所有防御塔射程 +0.6 格', mods: { range: 0.6 } },
+  { id: 'frostglint', faction: 'frost', name: '霜纹刻印', rarity: 'common', set: 'frost', desc: '霜塔伤害 +18%', mods: { dmg: { frost: 0.18 } },
+    behaviors: { 'Ⅲ': [{ id: 'frostglint-freeze-3', kind: 'frostHitFreeze', towerType: 'frost', hits: 5, duration: 0.5 }] } },
+  { id: 'venomfang', faction: 'venom', name: '淬毒护符', rarity: 'common', desc: '毒雾塔伤害 +18%', mods: { dmg: { poison: 0.18 } },
+    behaviors: {
+      'Ⅱ': [{ id: 'venomfang-spread-2', kind: 'poisonHitSpread', towerType: 'poison', radius: 0.8, targets: 1, dpsMul: 0.3 }],
+      'Ⅲ': [{ id: 'venomfang-kill-spread-3', kind: 'poisonKillSpread', towerType: 'poison', radius: 1.5, hops: 3 }],
+    } },
+  { id: 'sparkplug', faction: 'storm', name: '火花塞', rarity: 'common', desc: '电弧塔伤害 +15%', mods: { dmg: { arc: 0.15 } },
+    behaviors: { 'Ⅲ': [{ id: 'sparkplug-zap-3', kind: 'arcKillZap', towerType: 'arc', radius: 1.2, damageMul: 0.6 }] } },
+  { id: 'steadyaim', faction: 'fire', name: '稳定瞄准', rarity: 'common', set: 'hunter', desc: '所有防御塔射程 +0.6 格', mods: { range: 0.6 },
+    behaviors: { 'Ⅲ': [{ id: 'steadyaim-pierce-3', kind: 'arrowShotPierce', towerType: 'arrow', every: 6, pierce: 2, damageMul: 0.6 }] } },
   { id: 'coinpurse', faction: 'neutral', name: '鼓胀钱袋', rarity: 'common', set: 'guild', desc: '每次击杀额外获得 1 金币', mods: { killGold: 1 } },
   { id: 'sandbag', faction: 'warden', name: '沙袋工事', rarity: 'common', desc: '立即恢复并提高 3 点基地生命', mods: { baseHp: 3 } },
-  { id: 'frostedge', faction: 'frost', name: '霜刃磨石', rarity: 'common', set: 'frost', desc: '霜塔伤害 +10%，减速强度 +5%', mods: { dmg: { frost: 0.1 }, slow: 0.05 } },
-  { id: 'venomvial', faction: 'venom', name: '毒液小瓶', rarity: 'common', desc: '毒雾塔伤害 +10%，毒伤 +10%', mods: { dmg: { poison: 0.1 }, dot: 0.1 } },
+  { id: 'frostedge', faction: 'frost', name: '霜刃磨石', rarity: 'common', set: 'frost', desc: '霜塔伤害 +10%，减速强度 +5%', mods: { dmg: { frost: 0.1 }, slow: 0.05 },
+    behaviors: { 'Ⅱ': [{ id: 'frostedge-freeze-2', kind: 'frostHitFreeze', towerType: 'frost', hits: 6, duration: 0.3 }] } },
+  { id: 'venomvial', faction: 'venom', name: '毒液小瓶', rarity: 'common', desc: '毒雾塔伤害 +10%，毒伤 +10%', mods: { dmg: { poison: 0.1 }, dot: 0.1 },
+    behaviors: { 'Ⅲ': [{ id: 'venomvial-spread-3', kind: 'poisonHitSpread', towerType: 'poison', radius: 0.8, targets: 1, dpsMul: 0.5 }] } },
   { id: 'spareparts', faction: 'neutral', name: '备用零件', rarity: 'common', set: 'guild', desc: '建造与升级费用 -5%，每次击杀额外获得 1 金币', mods: { costMul: -0.05, killGold: 1 } },
   { id: 'scouthorn', faction: 'storm', name: '侦察号角', rarity: 'common', desc: '所有防御塔射程 +0.4 格，攻击速度 +5%', mods: { range: 0.4, fireRate: 0.05 } },
   { id: 'bloodpact', faction: 'warden', name: '血誓木牌', rarity: 'common', desc: '基地生命低于 40% 时全体伤害 +12%，暴击率 +5%', mods: { lowHpDmg: 0.12, crit: 0.05 } },
@@ -70,14 +79,16 @@ export const RELICS = [
 
   { id: 'powder', faction: 'fire', name: '火药桶', rarity: 'rare', desc: '炮台伤害 +20%，溅射范围 +35%', mods: { dmg: { cannon: 0.2 }, splash: 0.35 } },
   { id: 'frostheart', faction: 'frost', name: '极寒之心', rarity: 'rare', set: 'frost', desc: '减速效果 +15%，持续时间 +30%', mods: { slow: 0.15, slowDur: 0.3 } },
-  { id: 'static', faction: 'storm', name: '静电过载', rarity: 'rare', desc: '电弧塔伤害 +25%，连锁 +1 个目标', mods: { dmg: { arc: 0.25 }, chain: 1 } },
+  { id: 'static', faction: 'storm', name: '静电过载', rarity: 'rare', desc: '电弧塔伤害 +25%，连锁 +1 个目标', mods: { dmg: { arc: 0.25 }, chain: 1 },
+    behaviors: { 'Ⅱ': [{ id: 'static-zap-2', kind: 'arcKillZap', towerType: 'arc', radius: 1.0, damageMul: 0.4 }] } },
   { id: 'toxin', faction: 'venom', name: '毒性催化', rarity: 'rare', desc: '毒伤 +45%', mods: { dot: 0.45 } },
   { id: 'usury', faction: 'neutral', name: '利滚利', rarity: 'rare', set: 'guild', desc: '每波结束获得当前金币 5% 的利息', mods: { interest: 0.05 } },
   { id: 'pierce', faction: 'fire', name: '破甲弹头', rarity: 'rare', desc: '无视 50% 护甲', mods: { armorPierce: 0.5 } },
   { id: 'crit', faction: 'fire', name: '致命一击', rarity: 'rare', set: 'hunter', desc: '攻击有 20% 概率造成双倍伤害', mods: { crit: 0.2 } },
   { id: 'bosslayer', faction: 'fire', name: '泰坦杀手', rarity: 'rare', desc: '对首领伤害 +50%', mods: { bossDmg: 0.5 } },
   { id: 'alchemy', faction: 'venom', name: '炼金秘方', rarity: 'rare', desc: '毒雾塔伤害 +25%，毒伤 +30%', mods: { dmg: { poison: 0.25 }, dot: 0.3 } },
-  { id: 'siege', faction: 'fire', name: '攻城配重', rarity: 'rare', desc: '炮台伤害 +30%，射程 +0.6 格', mods: { dmg: { cannon: 0.3 }, range: 0.6 } },
+  { id: 'siege', faction: 'fire', name: '攻城配重', rarity: 'rare', desc: '炮台伤害 +30%，射程 +0.6 格', mods: { dmg: { cannon: 0.3 }, range: 0.6 },
+    behaviors: { 'Ⅲ': [{ id: 'siege-burst-3', kind: 'cannonKillBurst', towerType: 'cannon', radius: 1.0, ratio: 0.5 }] } },
   { id: 'cartel', faction: 'neutral', name: '黑市商会', rarity: 'rare', set: 'guild', desc: '所有金币收入 +15%，建造与升级费用 -5%', mods: { goldMul: 0.15, costMul: -0.05 } },
   { id: 'auroraveil', faction: 'frost', name: '极光帷幕', rarity: 'rare', set: 'frost', desc: '被减速的敌人受到的所有伤害 +10%，减速持续 +20%', mods: { frostDmgBonus: 0.1, slowDur: 0.2 } },
   { id: 'skyfall', faction: 'fire', name: '天火共鸣', rarity: 'rare', desc: '溅射范围 +25%，全体伤害 +5%', mods: { splash: 0.25, dmgAll: 0.05 } },
@@ -143,6 +154,19 @@ export function relicModsAtLevel(relicOrId, level = 1) {
       out[key] = capEffect(key, roundEffect(key, raw * factor));
     }
   }
+  return out;
+}
+
+// 遗物等级行为词条（P1-9）：Ⅱ/Ⅲ 级解锁的机制型效果（非纯数值），数据驱动、sim 按等级消费。
+// 每条词条自描述 { id, kind, towerType, ...params }：kind 决定 sim 结算点，params 是纯数据。
+// Ⅱ 级词条在 Ⅲ 级仍生效（按等级累积补挂）；无 behaviors 字段的遗物返回空数组。
+export function relicBehaviorsAtLevel(relicOrId, level = 1) {
+  const relic = typeof relicOrId === 'string' ? RELIC_BY_ID[relicOrId] : relicOrId;
+  if (!relic || !relic.behaviors) return [];
+  const lv = clampLevel(level);
+  const out = [];
+  if (lv >= 2) out.push(...(relic.behaviors['Ⅱ'] || []));
+  if (lv >= 3) out.push(...(relic.behaviors['Ⅲ'] || []));
   return out;
 }
 

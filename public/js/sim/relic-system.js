@@ -1,5 +1,6 @@
 // 遗物与奖励：等级读写、遗物获得、金币/修复 offer 与 mod 聚合。
 import { RELIC_BY_ID, RELIC_MAX_LEVEL, relicModsAtLevel } from '../shared/data.js';
+import { relicBehaviorsAtLevel } from '../shared/data/relics.js';
 import { applyEffect, clampMods, createMods, relicSetTierBonuses } from '../shared/effects.js';
 import { applyContract as applyContractEffect } from '../shared/contracts.js';
 import { applyAwakening as applyAwakeningEffect } from '../shared/awakenings.js';
@@ -128,8 +129,35 @@ export class RelicSystem {
     return result;
   }
 
+  // 等级行为词条（feat-relic-behaviors）：按当前遗物等级累积 Ⅱ+Ⅲ 词条，供结算点按 kind+towerType 查询。
+  // 纯派生状态，不进快照——旧档遗物等级不变，行为词条按等级补挂（存档兼容）。
+  collectBehaviors() {
+    const out = [];
+    for (const relic of this.sim.relics) {
+      for (const behavior of relicBehaviorsAtLevel(relic.id, relic.level)) {
+        out.push({ relicId: relic.id, ...behavior });
+      }
+    }
+    return out;
+  }
+
+  // 某塔类型（+可选 kind）当前生效的行为词条列表。
+  behaviorsFor(towerType, kind = null) {
+    return this.sim.relicBehaviors.filter(
+      (behavior) => behavior.towerType === towerType && (!kind || behavior.kind === kind)
+    );
+  }
+
+  // 某 kind（+可选塔类型）是否生效；未拥有相关遗物时恒 false，不改变结算与 RNG 顺序。
+  hasBehavior(kind, towerType = null) {
+    return this.sim.relicBehaviors.some(
+      (behavior) => behavior.kind === kind && (!towerType || behavior.towerType === towerType)
+    );
+  }
+
   // 聚合与封顶完全由效果注册表驱动：未注册的键会在 relicModsAtLevel/applyEffect 中报错。
   recomputeMods() {
+    this.sim.relicBehaviors = this.collectBehaviors();
     const mods = createMods();
     for (const relic of this.sim.relics) {
       const levelMods = relicModsAtLevel(relic.id, relic.level);
