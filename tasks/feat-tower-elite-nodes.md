@@ -1,7 +1,7 @@
 ---
 id: feat-tower-elite-nodes
 title: 爬塔 elite 节点补内容：词缀强化 + 高稀有奖励
-status: todo
+status: ready
 labels:
   - feat
   - gameplay
