@@ -2,7 +2,7 @@
 id: gap-ac-064-meta-legacy-reverify
 title: AC-064 复验：meta.js legacy 已落地（commit 0226c80），criterion 现 exit 0，台账 fail 为
   BASELINE-MISMATCH 分叉误读
-status: ready
+status: done
 labels:
   - gap
 parent: null
