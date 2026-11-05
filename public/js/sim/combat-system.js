@@ -28,9 +28,7 @@ export class CombatSystem {
       towerId: opts.tower?.id ?? null,
     });
     // 命中钩子：只有塔的攻击会带上出手的塔；盟友/技能命中以 tower = null 传入。
-    if (this.sim.hexRuntime.active) {
-      this.sim.hexCall('onHit', enemy, opts.tower || null, dealt, this.sim.hexCtx);
-    }
+    this.sim.hooks.emit('onHit', enemy, opts.tower || null, dealt);
     return dealt;
   }
 
@@ -205,25 +203,6 @@ export class CombatSystem {
           }
         }
       }
-      // 遗物行为词条（feat-relic-behaviors）：毒雾塔命中向半径内最近 targets 名敌人传播 dpsMul 毒伤（单槽取高）。
-      if (proj.towerType === 'poison') {
-        for (const behavior of this.sim.relicSystem.behaviorsFor('poison', 'poisonHitSpread')) {
-          const spreadDps = dps * behavior.dpsMul;
-          const spreadUntil = this.sim.time + (proj.dotDur || 3);
-          const candidates = [];
-          for (const other of this.sim.enemies) {
-            if (other.dead || other === enemy) continue;
-            if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= behavior.radius) candidates.push(other);
-          }
-          for (let i = 0; i < Math.min(behavior.targets, candidates.length); i++) {
-            const other = candidates[i];
-            if (spreadDps >= other.poisonDps || this.sim.time > other.poisonUntil) {
-              other.poisonDps = Math.max(spreadDps, this.sim.time > other.poisonUntil ? 0 : other.poisonDps);
-              other.poisonUntil = Math.max(other.poisonUntil, spreadUntil);
-            }
-          }
-        }
-      }
     }
     if (proj.knockback > 0) {
       // 击退只回退路径进度，位置在下个模拟步由 posAt 重新求得，不引入额外随机数。
@@ -237,18 +216,8 @@ export class CombatSystem {
         enemy.frostHits = 0;
       }
     }
-    // 遗物行为词条（feat-relic-behaviors）：霜塔每第 hits 次命中冻结目标 duration 秒（首领减半）。
-    if (proj.towerType === 'frost') {
-      for (const behavior of this.sim.relicSystem.behaviorsFor('frost', 'frostHitFreeze')) {
-        const counter = 'bh:' + behavior.id;
-        enemy[counter] = (enemy[counter] || 0) + 1;
-        if (enemy[counter] >= behavior.hits) {
-          const dur = enemy.boss ? behavior.duration / 2 : behavior.duration;
-          enemy.freezeUntil = Math.max(enemy.freezeUntil || 0, this.sim.time + dur);
-          enemy[counter] = 0;
-        }
-      }
-    }
+    // 遗物命中词条（feat-relic-behaviors）：命中类行为统一走 hook 总线，词条在各自模块声明。
+    this.sim.hooks.emit('onProjectileHit', enemy, proj);
   }
 
   // ---------- 伤害 ----------
@@ -293,14 +262,14 @@ export class CombatSystem {
       this.sim.playSound('kill');
     }
     // 里程碑击杀钩子（极光终章 / 终章延时）
-    this.sim.hexCall('onEnemyKilled', enemy, this.sim.hexCtx);
+    this.sim.hooks.emit('onEnemyKilled', enemy);
     this.sim.onSkillKill(enemy);
     // 派系击杀钩子（§3.2）：火力 T3 击杀爆炸 / 蚀毒 T3 中毒传播。
     this.applyKillSetMods(enemy, killingDamage, opts);
     // 觉醒击杀钩子（§7）：frostheart-shatter 减速死亡霜爆、toxin-spread 中毒死亡传播。
     this.applyKillAwakenings(enemy);
-    // 遗物行为词条击杀钩子（feat-relic-behaviors）：Ⅱ/Ⅲ 级机制型效果，按 kind+towerType 消费。
-    this.applyKillBehaviors(enemy, killingDamage, opts);
+    // 遗物击杀词条（feat-relic-behaviors）：击杀类行为统一走 hook 总线，词条在各自模块声明。
+    this.sim.hooks.emit('onKillSettle', enemy, killingDamage, opts);
   }
 
   // 击杀派生效果（独立于技能与海克斯钩子，结算在击杀尾部）。
@@ -400,72 +369,6 @@ export class CombatSystem {
           ttl: 0.3,
           color: '#9be15d',
         });
-      }
-    }
-  }
-
-  // 遗物行为词条击杀钩子（feat-relic-behaviors）：传播/冻结类非致命（无需 noExplosion），
-  // zap/burst 走常规伤害入口并带 noExplosion 防递归。
-  applyKillBehaviors(enemy, killingDamage, opts = {}) {
-    // poisonKillSpread：中毒死亡向半径内最近敌人传播当前毒层（复用 poisonHop 限制跳数，非致命）。
-    for (const behavior of this.sim.relicSystem.behaviorsFor('poison', 'poisonKillSpread')) {
-      if (enemy.poisonDps <= 0 || this.sim.time >= (enemy.poisonUntil || 0)) continue;
-      if ((enemy.poisonHop || 0) >= behavior.hops) continue;
-      let nearest = null;
-      let bestDist = Infinity;
-      for (const other of this.sim.enemies) {
-        if (other.dead || other === enemy) continue;
-        const d = Math.hypot(other.x - enemy.x, other.y - enemy.y);
-        if (d <= behavior.radius && d < bestDist) {
-          bestDist = d;
-          nearest = other;
-        }
-      }
-      if (nearest) {
-        nearest.poisonDps = Math.max(nearest.poisonDps || 0, enemy.poisonDps);
-        nearest.poisonUntil = Math.max(nearest.poisonUntil || 0, enemy.poisonUntil);
-        nearest.poisonHop = (enemy.poisonHop || 0) + 1;
-        this.sim.addEffect({
-          kind: 'poisonSpread',
-          x: nearest.x,
-          y: nearest.y,
-          r0: 0.05,
-          r1: 0.6,
-          ttl: 0.3,
-          color: '#9be15d',
-        });
-      }
-    }
-
-    if (opts.noExplosion) return;
-
-    // arcKillZap：电弧击杀对半径内敌人造成 killingDamage × damageMul（走常规伤害入口）。
-    for (const behavior of this.sim.relicSystem.behaviorsFor('arc', 'arcKillZap')) {
-      if (killingDamage <= 0) continue;
-      for (const other of this.sim.enemies) {
-        if (other.dead || other === enemy) continue;
-        if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= behavior.radius) {
-          this.sim.damage(other, killingDamage * behavior.damageMul, {
-            noExplosion: true,
-            weapon: 'arcKillZap',
-            source: 'relic',
-          });
-        }
-      }
-    }
-
-    // cannonKillBurst：炮台击杀对半径内敌人造成 killingDamage × ratio（走常规伤害入口）。
-    for (const behavior of this.sim.relicSystem.behaviorsFor('cannon', 'cannonKillBurst')) {
-      if (killingDamage <= 0) continue;
-      for (const other of this.sim.enemies) {
-        if (other.dead || other === enemy) continue;
-        if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= behavior.radius) {
-          this.sim.damage(other, killingDamage * behavior.ratio, {
-            noExplosion: true,
-            weapon: 'cannonKillBurst',
-            source: 'relic',
-          });
-        }
       }
     }
   }

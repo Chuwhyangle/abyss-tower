@@ -1,7 +1,7 @@
 ---
 id: refactor-sim-hooks
 title: 并发重构·阶段5：sim 战斗 hook 总线（最高风险）
-status: ready
+status: done
 labels:
   - refactor
 parent: null
