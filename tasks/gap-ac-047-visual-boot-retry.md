@@ -52,3 +52,11 @@ AC-047（视觉像素与重构前逐帧一致且视觉套件通过）criterion `
 AC 复验：AC-4（`node --test tests/visual-check.test.mjs`）exit 0，41 例全绿含 bootWithRetry stub；AC-5（`npm test`）exit 0，2027 例全绿；AC-3（`visual-check --suite all`）exit 0，feel/art/ui/mobile 全 PASS。
 
 AC-2 / AC-1（parity 臂）留未勾——环境性红，非本改动：`node scripts/visual-parity.mjs --check` 对提交基线 `docs/reviews/refactor-baseline.json` 报 166 帧逐帧微漂（maxCellDelta≈4、mean≈0.2）。主 checkout（未改的 develop 同款代码）跑同一命令产出**逐字节相同**漂移数字（boss@desktop/before 网格最大差 4.044、meanLuma 31.043→31.14），证明漂移来自提交基线随 Chrome 153.0.8010.52 陈旧，与 boot 重试无关。同环境对照 `--write --baseline /tmp/parity-047.json` + `--check --baseline /tmp/parity-047.json` exit 0（182 帧：逐像素一致 179、渲染变体 3 均在容差内），自证本改动逐帧确定性不变（reload 重放同一 initScript，同 seed/settings）。DoD 要求「不 `--write` 基线」，故未复采提交基线；**需另立「复采视觉基线」任务**（参照 done 的 `gap-ac-047-visual-parity-starter-recapture`）在无负载窗口复采 `docs/reviews/refactor-baseline.json` 后 AC-047 才能回绿。
+
+## Blocker
+
+**2026-11-05T02:44:37.522Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：AC 未全勾（checked 7/10，剩余未勾 3）——续做只需验证并勾选 AC
+- run_id：wk-prod-anchor
+- session_id：395bc1df-f1c9-4a7e-a87e-c3c9c911d626
