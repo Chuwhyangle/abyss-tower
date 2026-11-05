@@ -62,13 +62,3 @@ AC-2 / AC-1（parity 臂）留未勾——环境性红，非本改动：`node sc
 - 同环境对照 `--write --baseline /tmp/parity-047-recheck.json`（182 帧）+ `--check` → **exit 0（逐像素一致 179，渲染变体 3 全在容差内）**，自证 bootWithRetry reload 重放同一 initScript、逐帧确定性不变。
 
 **判定**：AC-1 / AC-2 / DoD-2 三条标注 `（待外部）`——它们被「提交基线陈旧」阻塞，需**另立「复采视觉基线」任务**（参照 done 的 `gap-ac-047-visual-parity-starter-recapture`）在无负载窗口 `--write` 复采 `docs/reviews/refactor-baseline.json` 后回绿；本任务 DoD 明令「不 `--write` 基线」，机制修复（bootWithRetry）已完整落地并自证中性。另注：AC-047 goal criterion 现为 `not-evaluated (timeout, 60000ms killed)`——连写命令 >60s，goal-driver 需给 AC-047 设 `timeoutMs` 才能重判并立案复采任务（goal-driver 侧配置，不在本任务 Touches）。
-
-## Blocker
-
-**2026-11-05T02:44:37.522Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：AC 未全勾（checked 7/10，剩余未勾 3）——续做只需验证并勾选 AC
-- run_id：wk-prod-anchor
-- session_id：395bc1df-f1c9-4a7e-a87e-c3c9c911d626
-
-**2026-11-05 第二轮 worker — 已解决**：剩余未勾 3 条（AC-1/AC-2/DoD-2）经复核均为「提交基线随 Chrome 153 陈旧」所致（非本改动），已按仓库惯例标注 `（待外部）`，回绿由另立的「复采视觉基线」任务负责。
