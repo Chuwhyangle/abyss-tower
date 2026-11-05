@@ -44,3 +44,11 @@ extra: {}
 立案 2026-11-06，独立于数据层/服务端，可与 `feat-gacha-ui` 并行。用户明确要求「抽卡动画等美术资源，网上很多，可以拉取，也可以开子代理一起做」。资源来源（CC0）：Summer Engine（summon/challenge button、pixel sparkle burst）、itch.io FX collection、AutoSprite、freegameui.net。注意：抽卡动画若没有现成完整 sprite sheet，则「召唤按钮 + 爆闪光效」组合 + 程序化粒子补足。语义验收交玩家（不读图评审，用户已定）。
 
 实现（2026-11-06）：落地 `public/assets/gacha/`。CC0 拉取：OpenGameArt「Item Popup Starburst」（CC0-1.0，by Tiny Speck）→ `starburst.png`（出货爆光）。Proposal 点名的 Summer Engine / itch.io FX / freegamesprites 经实测为 AI 生成（CDN 路径含 `fal.media` / `ai-sprites/generated`）或主站 403，按 ASSET_PIPELINE「AI 生成无法确权不收」拒收，改为程序化生成（同 build-entity-sprites.mjs 的暗黑霓虹几何像素管线）：召唤按钮（单抽紫蓝/十连金）、sparkle、5 档稀有度边框+光效（1/3/4/5/6★，配色对齐冻结表 §6 与遗物 RARITY）。全部资源 HTTP 200 静态服务已验证；零第三方依赖；总量 92K。SOURCES.md 记录每项来源+许可（CC0-1.0 / proprietary-internal 可商用）。
+
+## Blocker
+
+**2026-11-05T17:24:47.233Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=suite: name: 'AssertionError'
+- run_id：wk-prod-anchor
+- session_id：b1e2d28f-bf55-4438-8ba3-9ace362d9e90
