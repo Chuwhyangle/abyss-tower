@@ -33,8 +33,8 @@ extra: {}
 ## Touches
 
 - `public/js/shared/waves.js`
-- `public/js/shared/data/` (词缀/首领循环数据，new)
-- `tests/` (新增无尽测试)
+- `public/js/shared/data/endless.js` (new)
+- `tests/endless-post-60.test.mjs` (new)
 - `scripts/test-changed.mjs`
 - `tasks/feat-endless-post-60.md`
 
