@@ -33,7 +33,7 @@ extra: {}
 
 - `public/js/shared/data/relics.js`
 - `public/js/sim.js` (或 sim 子模块消费)
-- `tests/` (遗物行为词条测试)
+- `tests/relics-behaviors.test.mjs` (遗物行为词条测试)
 - `scripts/test-changed.mjs`
 - `tasks/feat-relic-behaviors.md`
 
