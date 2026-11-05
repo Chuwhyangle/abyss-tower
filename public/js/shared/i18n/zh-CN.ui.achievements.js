@@ -190,9 +190,9 @@ export default {
   'achievement.skill_unlock_chrono.title': '时间的主人',
   'achievement.skill_unlock_chrono.desc': '解锁主动技能「时之终章·星海回响」。',
   'achievement.skill_unlock_chrono.condition': '解锁终章',
-  'achievement.skill_all_unlocked.title': '三式齐备',
+  'achievement.skill_all_unlocked.title': '六式齐备',
   'achievement.skill_all_unlocked.desc': '解锁全部主动技能。',
-  'achievement.skill_all_unlocked.condition': '解锁全部 3 个主动技能',
+  'achievement.skill_all_unlocked.condition': '解锁全部 6 个主动技能',
   'achievement.skill_level_5.title': '渐入佳境',
   'achievement.skill_level_5.desc': '把任意主动技能提升到 5 级。',
   'achievement.skill_level_5.condition': '任意技能达到 5 级',
@@ -213,5 +213,5 @@ export default {
   'achievement.skill_levels_20.condition': '技能等级总和 20',
   'achievement.skill_all_max.title': '万法归一',
   'achievement.skill_all_max.desc': '把全部主动技能提升到满级。',
-  'achievement.skill_all_max.condition': '全部 3 个技能达到满级',
+  'achievement.skill_all_max.condition': '全部 6 个技能达到满级',
 };

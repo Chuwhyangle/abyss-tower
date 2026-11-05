@@ -113,13 +113,13 @@ before(async () => {
   insertRun.run('d2-r2', account.id, 'normal', 'abyss', 's2', `${seasonKey}-02`, 1, 13000, 30, 300, 600000, ruleset(17, 'chrono'), result(17), now, now);
   insertRun.run('d2-r3', account.id, 'normal', 'standard', 's3', `${seasonKey}-03`, 0, 2000, 8, 100, 300000, ruleset(20, 'aurora'), result(5), now, now);
 
-  // 技能养成：三技能全部满级（10 级）。
+  // 技能养成：六技能全部满级（10 级）。
   const insertSkill = db.prepare(
     `INSERT INTO player_progress
        (account_id, progress_type, progress_key, value_num, state_json, updated_at)
      VALUES (?, 'skill', ?, 10, '{}', ?)`
   );
-  for (const id of ['aurora', 'meteor', 'chrono']) insertSkill.run(account.id, id, now);
+  for (const id of ['aurora', 'meteor', 'chrono', 'storm', 'plague', 'reignite']) insertSkill.run(account.id, id, now);
 
   // 赛季榜单：本人 1000 分，对手 5000 分 → 本人赛季最佳排名第 2。
   const insertEntry = db.prepare(
@@ -189,7 +189,7 @@ test('新进度计算：技能 / 赛季 / 无伤 / 深渊极值，并封顶到�
   });
   assert.deepEqual(achievementProgress(ACHIEVEMENT_BY_ID.skill_all_max, ctx), {
     current: 1,
-    target: 3,
+    target: 6,
   });
   assert.deepEqual(achievementProgress(ACHIEVEMENT_BY_ID.season_runs_10, ctx), {
     current: 4,
@@ -235,8 +235,8 @@ test('新成就按上下文解锁', () => {
       },
     },
     skills: {
-      levels: { aurora: 10, meteor: 10, chrono: 10 },
-      unlocked: { aurora: true, meteor: true, chrono: true },
+      levels: { aurora: 10, meteor: 10, chrono: 10, storm: 10, plague: 10, reignite: 10 },
+      unlocked: { aurora: true, meteor: true, chrono: true, storm: true, plague: true, reignite: true },
       selected: 'aurora',
     },
     skillAbyssWins: 5,
@@ -268,8 +268,8 @@ test('服务端统计：无伤 / 赛季 / 技能进度来自数据库，隐藏�
   assert.deepEqual(byId.get('season_runs_10').progress, { current: 3, target: 10 });
   assert.deepEqual(byId.get('season_days_7').progress, { current: 3, target: 7 });
   assert.deepEqual(byId.get('season_score_12000').progress, { current: 12000, target: 12000 });
-  // 技能三件满级、等级总和 30（封顶 20）。
-  assert.deepEqual(byId.get('skill_all_max').progress, { current: 3, target: 3 });
+  // 技能六件满级、等级总和 60（封顶 20）。
+  assert.deepEqual(byId.get('skill_all_max').progress, { current: 6, target: 6 });
   assert.deepEqual(byId.get('skill_levels_20').progress, { current: 20, target: 20 });
   // 深渊最高分 13000（封顶 12000）。
   assert.deepEqual(byId.get('abyss_score_12000').progress, { current: 12000, target: 12000 });

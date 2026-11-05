@@ -83,9 +83,87 @@ export const SKILLS = {
       { stop: 3, overdrive: 7, atkSpeed: 0.5, range: 1, novaPct: 0.16, vuln: 0.12, vulnDur: 9, cd: 50 },
     ],
   },
+  storm: {
+    id: 'storm',
+    name: '风暴·链雷',
+    role: 'burst',
+    color: '#ffe66d',
+    unlock: 'default',
+    desc: '召唤链式闪电，在敌群间跳跃传导，逐跳衰减。',
+    bossFactor: 0.35,
+    milestones: {
+      4: { id: 'heated', name: '炽链', desc: '主目标处于灼烧时，连锁次数 +1。' },
+      7: { id: 'forked', name: '分叉', desc: '每次连锁有 25% 概率分叉一条 50% 伤害的旁支闪电。' },
+      10: { id: 'stormFinale', name: '链雷终章', desc: '被链雷击杀的敌人，在 0.8 格内爆发 3% 最大生命的静电。' },
+    },
+    levels: [
+      { dmgPct: 0.16, chains: 3, falloff: 0.65, radius: 2.2, cd: 50 },
+      { dmgPct: 0.1778, chains: 3, falloff: 0.65, radius: 2.244, cd: 47.22 },
+      { dmgPct: 0.1956, chains: 3, falloff: 0.65, radius: 2.289, cd: 44.44 },
+      { dmgPct: 0.2133, chains: 3, falloff: 0.65, radius: 2.333, cd: 41.67 },
+      { dmgPct: 0.2311, chains: 3, falloff: 0.65, radius: 2.378, cd: 38.89 },
+      { dmgPct: 0.2489, chains: 3, falloff: 0.65, radius: 2.422, cd: 36.11 },
+      { dmgPct: 0.2667, chains: 3, falloff: 0.65, radius: 2.467, cd: 33.33 },
+      { dmgPct: 0.2844, chains: 3, falloff: 0.65, radius: 2.511, cd: 30.56 },
+      { dmgPct: 0.3022, chains: 3, falloff: 0.65, radius: 2.556, cd: 27.78 },
+      { dmgPct: 0.32, chains: 3, falloff: 0.65, radius: 2.6, cd: 25 },
+    ],
+  },
+  plague: {
+    id: 'plague',
+    name: '疫病·腐潮',
+    role: 'control',
+    color: '#7bd88f',
+    unlock: 'default',
+    desc: '腐潮席卷全场，持续腐蚀并减速所有敌人。',
+    bossFactor: 0.4,
+    milestones: {
+      4: { id: 'lingering', name: '弥留', desc: '腐潮减速时长 +2 秒。' },
+      7: { id: 'outbreak', name: '爆发', desc: '场上敌人 ≥10 时，腐潮总伤害 ×1.5。' },
+      10: { id: 'blight', name: '疫爆', desc: '腐潮期间被击杀的敌人，向 1 格内另一名敌人传播 30% 减速 3 秒。' },
+    },
+    levels: [
+      { dmgPct: 0.15, dotDur: 6, slow: 0.3, slowDur: 4, cd: 70 },
+      { dmgPct: 0.1667, dotDur: 6, slow: 0.3222, slowDur: 4, cd: 66.11 },
+      { dmgPct: 0.1833, dotDur: 6, slow: 0.3444, slowDur: 4, cd: 62.22 },
+      { dmgPct: 0.2, dotDur: 6, slow: 0.3667, slowDur: 4, cd: 58.33 },
+      { dmgPct: 0.2167, dotDur: 6, slow: 0.3889, slowDur: 4, cd: 54.44 },
+      { dmgPct: 0.2333, dotDur: 6, slow: 0.4111, slowDur: 4, cd: 50.56 },
+      { dmgPct: 0.25, dotDur: 6, slow: 0.4333, slowDur: 4, cd: 46.67 },
+      { dmgPct: 0.2667, dotDur: 6, slow: 0.4556, slowDur: 4, cd: 42.78 },
+      { dmgPct: 0.2833, dotDur: 6, slow: 0.4778, slowDur: 4, cd: 38.89 },
+      { dmgPct: 0.3, dotDur: 6, slow: 0.5, slowDur: 4, cd: 35 },
+    ],
+  },
+  reignite: {
+    id: 'reignite',
+    name: '重燃·熔炉',
+    role: 'ultimate',
+    color: '#ff9f80',
+    unlock: 'default',
+    desc: '重燃基地核心，回复生命并使所有防御塔短暂过载。',
+    bossFactor: 1,
+    milestones: {
+      4: { id: 'emberVeins', name: '余烬脉络', desc: '过载期间防御塔射程 +0.5 格。' },
+      7: { id: 'reforge', name: '重铸', desc: '基地生命低于 50% 时，回复量 ×1.5。' },
+      10: { id: 'eternalFlame', name: '永燃', desc: '过载期间防御塔攻击速度额外 +20%。' },
+    },
+    levels: [
+      { healPct: 0.25, overdrive: 3, atkSpeed: 0.4, cd: 80 },
+      { healPct: 0.2778, overdrive: 3.333, atkSpeed: 0.4, cd: 75.56 },
+      { healPct: 0.3056, overdrive: 3.667, atkSpeed: 0.4, cd: 71.11 },
+      { healPct: 0.3333, overdrive: 4, atkSpeed: 0.4, cd: 66.67 },
+      { healPct: 0.3611, overdrive: 4.333, atkSpeed: 0.4, cd: 62.22 },
+      { healPct: 0.3889, overdrive: 4.667, atkSpeed: 0.4, cd: 57.78 },
+      { healPct: 0.4167, overdrive: 5, atkSpeed: 0.4, cd: 53.33 },
+      { healPct: 0.4444, overdrive: 5.333, atkSpeed: 0.4, cd: 48.89 },
+      { healPct: 0.4722, overdrive: 5.667, atkSpeed: 0.4, cd: 44.44 },
+      { healPct: 0.5, overdrive: 6, atkSpeed: 0.4, cd: 40 },
+    ],
+  },
 };
 
-export const SKILL_ORDER = ['aurora', 'meteor', 'chrono'];
+export const SKILL_ORDER = ['aurora', 'meteor', 'chrono', 'storm', 'plague', 'reignite'];
 
 export function skillStats(id, level = 1) {
   const def = SKILLS[id];

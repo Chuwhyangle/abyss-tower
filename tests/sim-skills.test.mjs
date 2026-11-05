@@ -1,4 +1,4 @@
-// 主动技能 sim 契约：冷却/阶段、三个技能效果与里程碑、快照兼容、确定性。
+// 主动技能 sim 契约：冷却/阶段、六个技能效果与里程碑、快照兼容、确定性。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../public/js/sim.js';
@@ -512,6 +512,143 @@ test('终章：stop 数值上调且随等级线性插值（L10 = 2×L1）', () =
   }
 });
 
+// ---------- 风暴·链雷 / 疫病·腐潮 / 重燃·熔炉 ----------
+
+test('风暴：链式闪电从最深入敌人起跳，逐跳衰减，首领效率 ×0.35', () => {
+  const sim = makeSim({ skill: { id: 'storm', level: 1 } });
+  enterWave(sim);
+  sim.time = 5;
+  const a = spawn(sim, { x: 5, y: 5, progress: 9, hp: 100000, maxHp: 100000 });
+  const b = spawn(sim, { x: 6, y: 5, progress: 8, hp: 100000, maxHp: 100000 });
+  const c = spawn(sim, { x: 7, y: 5, progress: 7, hp: 100000, maxHp: 100000 });
+  sim.castSkill();
+  const s1 = skillStats('storm', 1);
+  near(100000 - a.hp, 100000 * s1.dmgPct, '主目标吃满伤害');
+  near(100000 - b.hp, 100000 * s1.dmgPct * s1.falloff, '第二跳衰减');
+  near(100000 - c.hp, 100000 * s1.dmgPct * s1.falloff * s1.falloff, '第三跳再衰减');
+
+  const bossSim = makeSim({ skill: { id: 'storm', level: 1 } });
+  enterWave(bossSim);
+  bossSim.time = 2;
+  const boss = spawnBoss(bossSim, { x: 5, y: 5, progress: 9, hp: 100000, maxHp: 100000 });
+  bossSim.castSkill();
+  near(100000 - boss.hp, 100000 * s1.dmgPct * 0.35, '首领链雷 ×0.35');
+});
+
+test('风暴 L4：主目标灼烧时连锁 +1', () => {
+  const sim = makeSim({ skill: { id: 'storm', level: 4 } });
+  enterWave(sim);
+  sim.time = 5;
+  spawn(sim, { x: 5, y: 5, progress: 9, hp: 1e7, maxHp: 1e7, burnUntil: 10, burnDps: 1 });
+  for (let i = 1; i <= 4; i++) spawn(sim, { x: 5 + i, y: 5, progress: 8 - i, hp: 1e7, maxHp: 1e7 });
+  sim.castSkill();
+  const hit = sim.enemies.filter((enemy) => enemy.hp < 1e7);
+  assert.equal(hit.length, 4, '主目标 + 3 跳 = 4 名命中');
+});
+
+test('风暴 L10：链雷击杀爆发 3% 最大生命静电', () => {
+  const sim = makeSim({ skill: { id: 'storm', level: 10 } });
+  enterWave(sim);
+  sim.time = 4;
+  const victim = spawn(sim, { x: 5, y: 5, progress: 9, hp: 1000, maxHp: 1000 });
+  const neighbor = spawn(sim, { x: 5.6, y: 5, progress: 8, hp: 100000, maxHp: 100000 });
+  victim.stormMarked = true; // 模拟死于链雷命中
+  const hpBefore = neighbor.hp;
+  sim.skillDamage(victim, 2000);
+  assert.equal(victim.dead, true);
+  near(hpBefore - neighbor.hp, 100000 * 0.03, '静电 3% 最大生命');
+});
+
+test('疫病：全场腐毒 + 减速，逐帧跳伤', () => {
+  const sim = makeSim({ skill: { id: 'plague', level: 1 } });
+  enterWave(sim);
+  sim.time = 10;
+  const enemy = spawn(sim, { progress: 5, hp: 100000, maxHp: 100000 });
+  sim.castSkill();
+  const p1 = skillStats('plague', 1);
+  near(enemy.plagueDps, (100000 * p1.dmgPct) / p1.dotDur, '每秒腐毒与数据一致');
+  near(enemy.plagueUntil, 10 + p1.dotDur, '腐潮持续 dotDur');
+  near(enemy.slowAmt, p1.slow, '腐潮减速');
+  const hpBefore = enemy.hp;
+  sim.update(1 / 60);
+  near(hpBefore - enemy.hp, enemy.plagueDps * (1 / 60), '逐帧跳伤');
+});
+
+test('疫病 L4：减速时长 +2s；L7：场上 ≥10 敌总伤害 ×1.5', () => {
+  const sim4 = makeSim({ skill: { id: 'plague', level: 4 } });
+  enterWave(sim4);
+  sim4.time = 10;
+  const one = spawn(sim4, { progress: 5, hp: 1e6, maxHp: 1e6 });
+  sim4.castSkill();
+  near(one.slowUntil, 10 + skillStats('plague', 4).slowDur + 2, 'L4 减速时长 +2s');
+
+  const sim7 = makeSim({ skill: { id: 'plague', level: 7 } });
+  enterWave(sim7);
+  sim7.time = 10;
+  for (let i = 0; i < 10; i++) spawn(sim7, { progress: i * 0.3, hp: 1e6, maxHp: 1e6 });
+  sim7.castSkill();
+  const enemy = sim7.enemies[0];
+  near(
+    enemy.plagueDps,
+    (1e6 * skillStats('plague', 7).dmgPct * 1.5) / skillStats('plague', 7).dotDur,
+    'L7 ≥10 敌总伤害 ×1.5'
+  );
+});
+
+test('疫病 L10：腐潮期间击杀向 1 格内另一名敌人传播 30% 减速 3 秒', () => {
+  const sim = makeSim({ skill: { id: 'plague', level: 10 } });
+  enterWave(sim);
+  sim.time = 5;
+  const victim = spawn(sim, { x: 5, y: 5, progress: 9, hp: 1000, maxHp: 1000 });
+  const neighbor = spawn(sim, { x: 5.6, y: 5, progress: 8, hp: 100000, maxHp: 100000 });
+  victim.plagueUntil = 8;
+  sim.skillDamage(victim, 2000);
+  assert.equal(victim.dead, true);
+  near(neighbor.slowAmt, 0.3, '疫爆减速 30%');
+  near(neighbor.slowUntil, sim.time + 3, '疫爆减速 3s');
+});
+
+test('重燃：回复基地生命 + 全塔过载', () => {
+  const sim = makeSim({ skill: { id: 'reignite', level: 1 } });
+  enterWave(sim);
+  sim.time = 10;
+  sim.baseHp = 5;
+  sim.maxBaseHp = 20;
+  const tower = addTower(sim, 'arrow');
+  near(sim.statsFor(tower).rate, 1.15, '基础攻速');
+  const hpBefore = sim.baseHp;
+  sim.castSkill();
+  const r1 = skillStats('reignite', 1);
+  near(sim.baseHp - hpBefore, 20 * r1.healPct, '回复与数据一致');
+  near(sim.statsFor(tower).rate, 1.15 * (1 + r1.atkSpeed), '过载攻速');
+  near(sim.statsFor(tower).range, 3.2, 'L1 无射程加成');
+});
+
+test('重燃 L4：过载射程 +0.5；L7：低血回复 ×1.5；L10：攻速额外 +20%', () => {
+  const sim4 = makeSim({ skill: { id: 'reignite', level: 4 } });
+  enterWave(sim4);
+  sim4.time = 10;
+  const tower4 = addTower(sim4, 'arrow');
+  sim4.castSkill();
+  near(sim4.statsFor(tower4).range, 3.2 + 0.5, 'L4 射程 +0.5');
+
+  const sim7 = makeSim({ skill: { id: 'reignite', level: 7 } });
+  enterWave(sim7);
+  sim7.time = 10;
+  sim7.baseHp = 5;
+  sim7.maxBaseHp = 20;
+  const hpBefore = sim7.baseHp;
+  sim7.castSkill();
+  near(sim7.baseHp - hpBefore, 20 * skillStats('reignite', 7).healPct * 1.5, 'L7 低血回复 ×1.5');
+
+  const sim10 = makeSim({ skill: { id: 'reignite', level: 10 } });
+  enterWave(sim10);
+  sim10.time = 10;
+  const tower10 = addTower(sim10, 'arrow');
+  sim10.castSkill();
+  near(sim10.statsFor(tower10).rate, 1.15 * (1 + skillStats('reignite', 10).atkSpeed + 0.2), 'L10 攻速额外 +20%');
+});
+
 // ---------- 快照 ----------
 
 test('快照：v4 含 skill；无技能仍写 v3；normalize 兼容 v2/v3/v4/v5', () => {
@@ -614,8 +751,8 @@ function deterministicScenario(id, level) {
   return skillFingerprint(sim);
 }
 
-test('确定性：同 seed 两次结果一致（三技能）', () => {
-  for (const id of ['aurora', 'meteor', 'chrono']) {
+test('确定性：同 seed 两次结果一致（六技能）', () => {
+  for (const id of ['aurora', 'meteor', 'chrono', 'storm', 'plague', 'reignite']) {
     assert.deepEqual(
       deterministicScenario(id, 10),
       deterministicScenario(id, 10),
