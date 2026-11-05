@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-art
 title: 抽卡·阶段1 美术：拉取 CC0 召唤/出货/稀有度资源到 public/assets/gacha/
-status: ready
+status: done
 labels:
   - feat
 parent: null
