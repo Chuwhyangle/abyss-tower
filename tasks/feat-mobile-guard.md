@@ -53,3 +53,13 @@ extra: {}
 - **`input.js` 未改动**：触控吸附/点按与 `layoutForViewport` 断点原样复用，故从 Touches 移除（无实际 diff）。
 
 验收：`npm test` 2034 例全绿；`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN npm run test:mobile` 通过。
+
+## Blocker
+
+**2026-11-05T19:18:05.259Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (0bc828ea) is NOT a continuation of the project's default branch 'main' (8f90e8ef) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-mobile-guard's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：c99665d7-b8d7-44f9-b856-fa964b5c49dc
