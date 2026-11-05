@@ -25,15 +25,15 @@ extra:
 
 ## AC
 
-- [ ] `node --test tests/docs-consistency.test.mjs tests/docs-phase-sync.test.mjs` exit 0
-- [ ] `node scripts/check-doc-ownership.mjs` exit 0
-- [ ] `grep -n "public/styles.css" docs/TECH_DESIGN.md` 无命中
+- [x] `node --test tests/docs-consistency.test.mjs tests/docs-phase-sync.test.mjs` exit 0
+- [x] `node scripts/check-doc-ownership.mjs` exit 0
+- [x] `grep -n "public/styles.css" docs/TECH_DESIGN.md` 无命中
 
 ## DoD
 
-- [ ] TECH_DESIGN.md 的 styles.css 引用已迁移（或改写去路径），`grep -n "public/styles.css" docs/TECH_DESIGN.md` 无命中
-- [ ] 迁移后 docs-consistency / docs-phase-sync 全绿，refactor-css-partition 的 fan-in 不再被 docs 打红
-- [ ] 只碰 `docs/TECH_DESIGN.md` 与 `tasks/DOCS-006.md`
+- [x] TECH_DESIGN.md 的 styles.css 引用已迁移（或改写去路径），`grep -n "public/styles.css" docs/TECH_DESIGN.md` 无命中
+- [x] 迁移后 docs-consistency / docs-phase-sync 全绿，refactor-css-partition 的 fan-in 不再被 docs 打红
+- [x] 只碰 `docs/TECH_DESIGN.md` 与 `tasks/DOCS-006.md`
 
 ## Touches
 
@@ -43,3 +43,5 @@ extra:
 ## Notes
 
 立案 2026-11-06：解锁 refactor-css-partition 的 docs 红（该任务 worker 已确认 2107/2109 绿、唯 2 红即 TECH_DESIGN.md:354 的 stale `public/styles.css` 引用）。跨 lane 鸡生蛋口径见 Plan §2。
+
+实现 2026-11-06：选 Plan §2 (b) 改写去路径——`public/styles.css` → 「样式表」通用镜像表述，不引入新代码路径、无 planned 块残留；docs-consistency/docs-phase-sync 全绿。注：refactor-css-partition 已 ready→needs-human（归因不出机械停派），`public/styles.css` 在 develop 仍存在、该引用暂未实际 stale；本次去路径改写为稳健解，css 分区无论以何文件名落地都不再回红。
