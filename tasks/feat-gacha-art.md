@@ -47,11 +47,3 @@ extra: {}
 实现（2026-11-06）：落地 `public/assets/gacha/`。CC0 拉取：OpenGameArt「Item Popup Starburst」（CC0-1.0，by Tiny Speck）→ `starburst.png`（出货爆光）。Proposal 点名的 Summer Engine / itch.io FX / freegamesprites 经实测为 AI 生成（CDN 路径含 `fal.media` / `ai-sprites/generated`）或主站 403，按 ASSET_PIPELINE「AI 生成无法确权不收」拒收，改为程序化生成（同 build-entity-sprites.mjs 的暗黑霓虹几何像素管线）：召唤按钮（单抽紫蓝/十连金）、sparkle、5 档稀有度边框+光效（1/3/4/5/6★，配色对齐冻结表 §6 与遗物 RARITY）。全部资源 HTTP 200 静态服务已验证；零第三方依赖；总量 92K。SOURCES.md 记录每项来源+许可（CC0-1.0 / proprietary-internal 可商用）。
 
 门禁修复（2026-11-06 第二轮）：上轮 suite 红非本任务缺陷，而是冻结表 `docs/PHASE_抽卡.md`（docs lane 已落地）引用了 4 个尚未落地的代码路径（`public/js/shared/data/towers-rarity.js`、`server/db/migrations/0012_gacha.mjs`、`tests/gacha.test.mjs`、`server/routes/gacha.mjs`，分属 `feat-gacha-contract` / 阶段1 服务端）而未包裹 `docs-consistency:planned` 块，致 `真实仓库文档一致：check:docs` 恒红、阻断整个抽卡阶段所有 fan-in。按 `PHASE_META.md` / `TODO.md` 既有惯例给这 4 行补 planned 块（只豁免代码路径存在性，不改任何契约）；`node scripts/docs-consistency.mjs` 与 `tests/docs-consistency.test.mjs` 已全绿。
-
-## Blocker
-
-**2026-11-05T17:24:47.233Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：step=suite: name: 'AssertionError'
-- run_id：wk-prod-anchor
-- session_id：b1e2d28f-bf55-4438-8ba3-9ace362d9e90
