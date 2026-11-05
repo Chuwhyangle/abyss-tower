@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-contract
 title: 抽卡·阶段0 契约/数据层：塔稀有度映射 + 抽卡配置 + 拥有判定护栏 + unlock 增量修复 + 迁移 0012
-status: ready
+status: needs-human
 labels:
   - feat
 parent: null
@@ -64,3 +64,15 @@ extra: {}
   Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
 - session_id：dda5421d-ebc8-4fdc-8de2-674c9a51b0fe
+
+## Needs-Human
+
+**执行 2026-11-05T22:49:28.890Z — 连续修满重试上限仍不合格（标 needs-human）**
+
+- 阻碍原因：worker-driver 连续 3 次 exited-not-landed 未落地（重试上限）
+- 失败步/判词：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (14659f23) is NOT a continuation of the project's default branch 'main' (20c91dad) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-gacha-contract's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：dda5421d-ebc8-4fdc-8de2-674c9a51b0fe
+- fan-in 日志：/data/home/wenhao/abyss-tower/.quay/fan-in-feat-gacha-contract-wk-prod-anchor.log
