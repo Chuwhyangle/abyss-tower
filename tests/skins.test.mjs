@@ -7,9 +7,12 @@ import {
   SKINS,
   SKIN_ORDER,
   SKIN_TARGETS,
+  SKIN_UPGRADE_COST,
+  SKIN_UPGRADE_MAX_LEVEL,
   activeSkin,
   isSkinUnlocked,
   normalizeSkinSelection,
+  normalizeSkinUpgrades,
   resetActiveSkins,
   resolveSkin,
   setActiveSkins,
@@ -17,6 +20,9 @@ import {
   skinById,
   skinCatalog,
   skinColorFor,
+  skinUpgradeCost,
+  skinUpgradeLevel,
+  upgradableSkinIds,
 } from '../public/js/shared/skins.js';
 import { ACHIEVEMENT_BY_ID } from '../public/js/shared/achievements.js';
 import { ENEMIES, TOWERS } from '../public/js/shared/data.js';
@@ -84,6 +90,20 @@ function openDb() {
   const db = new DatabaseSync(server.dbPath);
   db.exec('PRAGMA busy_timeout = 5000');
   return db;
+}
+
+function grantShards(accountId, amount) {
+  const db = openDb();
+  try {
+    db.prepare(
+      `INSERT INTO player_wallets (account_id, currency_id, balance, updated_at)
+       VALUES (?, 'skin_shards', ?, ?)
+       ON CONFLICT(account_id, currency_id) DO UPDATE SET
+         balance = balance + excluded.balance, updated_at = excluded.updated_at`
+    ).run(accountId, Math.max(0, Math.floor(amount)), Date.now());
+  } finally {
+    db.close();
+  }
 }
 
 before(async () => {
@@ -369,4 +389,114 @@ test('解锁成就后皮肤可选，选择写入 cosmetics 存储并可回退默
   const fallback = await jsonApi('/api/profile/skins');
   assert.equal(fallback.status, 200);
   assert.deepEqual(fallback.data.selected, { tower: 'default_tower', enemy: 'default_enemy' });
+});
+
+test('皮肤升级纯函数：花费逐级递增、满级封顶、只升非默认皮肤', () => {
+  assert.deepEqual(SKIN_UPGRADE_COST, { 2: 10, 3: 20, 4: 40, 5: 80 });
+  assert.equal(SKIN_UPGRADE_MAX_LEVEL, 5);
+  assert.equal(skinUpgradeCost(1), 10);
+  assert.equal(skinUpgradeCost(4), 80);
+  assert.equal(skinUpgradeCost(5), null);
+  assert.equal(skinUpgradeCost(0), 10, '非法等级回退 1 级后按 1 级计费');
+  assert.equal(skinUpgradeCost('x'), 10);
+
+  const ids = upgradableSkinIds();
+  assert.ok(ids.includes('ember_tower'));
+  assert.ok(!ids.includes('default_tower'), '默认皮肤不可升级');
+  assert.ok(ids.every((id) => SKINS[id].transform), '可升级皮肤必须有配色变换');
+
+  assert.deepEqual(normalizeSkinUpgrades(null), { levels: {} });
+  assert.deepEqual(normalizeSkinUpgrades('junk'), { levels: {} });
+  assert.deepEqual(normalizeSkinUpgrades({ levels: { ember_tower: 9 } }), {
+    levels: { ember_tower: 5 },
+  });
+  assert.deepEqual(normalizeSkinUpgrades({ levels: { ember_tower: 2, default_tower: 5 } }), {
+    levels: { ember_tower: 2 },
+  });
+  assert.equal(skinUpgradeLevel({ levels: { ember_tower: 3 } }, 'ember_tower'), 3);
+  assert.equal(skinUpgradeLevel({ levels: {} }, 'ember_tower'), 1);
+  assert.equal(skinUpgradeLevel(null, 'ember_tower'), 1);
+});
+
+test('皮肤升级接口：未登录 401，未知/默认/未解锁皮肤被拒', async () => {
+  const saved = cookie;
+  cookie = '';
+  assert.equal(
+    (await api('/api/profile/skins/upgrade', { method: 'POST', body: { skinId: 'ember_tower' } })).status,
+    401
+  );
+  cookie = saved;
+
+  const unknown = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'no_such_skin' },
+  });
+  assert.equal(unknown.status, 400);
+  assert.equal(unknown.data.code, 'UNKNOWN_SKIN');
+
+  const base = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'default_tower' },
+  });
+  assert.equal(base.status, 400);
+  assert.equal(base.data.code, 'SKIN_NOT_UPGRADABLE');
+
+  const locked = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'abyss_tower' },
+  });
+  assert.equal(locked.status, 403);
+  assert.equal(locked.data.code, 'SKIN_LOCKED');
+});
+
+test('皮肤升级消耗碎片、余额不足回滚、满级封顶', async () => {
+  await playOneRun();
+
+  const before = await jsonApi('/api/profile/skins');
+  const ember = before.data.skins.find((item) => item.id === 'ember_tower');
+  assert.equal(ember.unlocked, true);
+  assert.equal(ember.level, 1);
+  assert.equal(ember.upgradeCost, 10);
+  assert.equal(ember.upgradable, true);
+
+  const broke = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'ember_tower' },
+  });
+  assert.equal(broke.status, 400);
+  assert.equal(broke.data.code, 'INSUFFICIENT_SHARDS');
+
+  grantShards(accountId, 10);
+  const first = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'ember_tower' },
+  });
+  assert.equal(first.status, 200);
+  assert.equal(first.data.upgrades.ember_tower, 2);
+  assert.equal(first.data.wallet.shards, 0);
+
+  const broke2 = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'ember_tower' },
+  });
+  assert.equal(broke2.status, 400);
+  assert.equal(broke2.data.code, 'INSUFFICIENT_SHARDS');
+
+  // 从 2 级升到 5 级需 20 + 40 + 80 = 140。
+  grantShards(accountId, 140);
+  for (const expected of [3, 4, 5]) {
+    const upgraded = await jsonApi('/api/profile/skins/upgrade', {
+      method: 'POST',
+      body: { skinId: 'ember_tower' },
+    });
+    assert.equal(upgraded.status, 200);
+    assert.equal(upgraded.data.upgrades.ember_tower, expected);
+  }
+
+  const maxed = await jsonApi('/api/profile/skins/upgrade', {
+    method: 'POST',
+    body: { skinId: 'ember_tower' },
+  });
+  assert.equal(maxed.status, 409);
+  assert.equal(maxed.data.code, 'SKIN_MAXED');
 });

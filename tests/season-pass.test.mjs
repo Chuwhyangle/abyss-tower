@@ -12,8 +12,10 @@ import {
   SEASON_PASS_BY_ID,
   SEASON_PASS_MAX_POINTS,
   SEASON_PASS_MILESTONES,
+  SEASON_SHOP_OFFERS,
   seasonPassProgress,
   seasonPassRewardText,
+  seasonShopAvailable,
 } from '../public/js/shared/season-pass.js';
 import { COSMETIC_TITLES } from '../public/js/shared/achievements.js';
 
@@ -36,6 +38,7 @@ let createProfile = null;
 let getCores = null;
 let seasonPassSummary = null;
 let claimSeasonPassMilestone = null;
+let buySeasonShopOffer = null;
 let getSeasonShards = null;
 let seasonOf = null;
 let seasonBounds = null;
@@ -107,6 +110,7 @@ before(async () => {
   ({ seasonPassSummary, claimSeasonPassMilestone, getSeasonShards } = await import(
     '../server/db/season_pass.mjs'
   ));
+  ({ buySeasonShopOffer } = await import('../server/db/season-shop.mjs'));
   ({ seasonOf, seasonBounds } = await import('../server/db/leaderboard-sql.mjs'));
   ({ unlockedCosmetics } = await import('../server/db/achievements.mjs'));
 
@@ -343,6 +347,83 @@ test('接口：未登录 401，登录后返回轨道，非法/未完成领取被
     again.data.milestones.map((milestone) => milestone.id),
     listed.data.milestones.map((milestone) => milestone.id)
   );
+});
+
+test('赛季商店兑换项集中定义，可用余额按已兑换积分递减', () => {
+  assert.equal(SEASON_SHOP_OFFERS.length, 2);
+  for (const offer of SEASON_SHOP_OFFERS) {
+    assert.ok(offer.id);
+    assert.ok(offer.costPoints > 0);
+    assert.ok(offer.reward.shards > 0);
+  }
+  assert.equal(seasonShopAvailable(180000, 0), 180000);
+  assert.equal(seasonShopAvailable(180000, 5000), 175000);
+  assert.equal(seasonShopAvailable(5000, 5000), 0);
+  assert.equal(seasonShopAvailable(5000, 9000), 0, '负余额钳到 0');
+  assert.equal(seasonShopAvailable('x', 0), 0);
+});
+
+test('赛季商店可重复兑换并累计已兑换积分，重复购买发放对应碎片', () => {
+  const offer = SEASON_SHOP_OFFERS[0];
+  const startShards = getSeasonShards(TOKEN);
+  const summary = seasonPassSummary(TOKEN);
+  assert.equal(summary.points, 180000);
+  assert.equal(summary.shopAvailable, summary.points);
+  assert.equal(summary.shop.length, SEASON_SHOP_OFFERS.length);
+
+  const first = buySeasonShopOffer(TOKEN, offer.id);
+  assert.equal(first.ok, true);
+  assert.equal(first.offerId, offer.id);
+  assert.equal(first.spent, offer.costPoints);
+  assert.equal(first.available, summary.points - offer.costPoints);
+  assert.deepEqual(first.awarded, { shards: offer.reward.shards });
+  assert.equal(getSeasonShards(TOKEN), startShards + offer.reward.shards);
+
+  const second = buySeasonShopOffer(TOKEN, offer.id);
+  assert.equal(second.ok, true);
+  assert.equal(second.spent, offer.costPoints * 2);
+  assert.equal(getSeasonShards(TOKEN), startShards + offer.reward.shards * 2);
+
+  const after = seasonPassSummary(TOKEN);
+  assert.equal(after.spent, offer.costPoints * 2);
+  assert.equal(after.shopAvailable, summary.points - offer.costPoints * 2);
+});
+
+test('赛季商店拒绝未知兑换项与余额不足，且不动钱包', () => {
+  const before = getSeasonShards(EMPTY_TOKEN);
+
+  const unknown = buySeasonShopOffer(EMPTY_TOKEN, 'not-an-offer');
+  assert.equal(unknown.ok, false);
+  assert.equal(unknown.code, 'UNKNOWN_OFFER');
+
+  const insufficient = buySeasonShopOffer(EMPTY_TOKEN, SEASON_SHOP_OFFERS[0].id);
+  assert.equal(insufficient.ok, false);
+  assert.equal(insufficient.code, 'SEASON_SHOP_INSUFFICIENT');
+  assert.equal(getSeasonShards(EMPTY_TOKEN), before, '余额不足时不得发放碎片');
+});
+
+test('接口：赛季商店未登录 401，未知/不足被拒', async () => {
+  const anonymous = await api('/api/season-pass/shop', {
+    method: 'POST',
+    token: null,
+    body: { offerId: SEASON_SHOP_OFFERS[0].id },
+  });
+  assert.equal(anonymous.status, 401);
+
+  const unknown = await api('/api/season-pass/shop', {
+    method: 'POST',
+    body: { offerId: 'not-an-offer' },
+  });
+  assert.equal(unknown.status, 404);
+  assert.equal(unknown.data.code, 'UNKNOWN_OFFER');
+
+  const insufficient = await api('/api/season-pass/shop', {
+    method: 'POST',
+    token: EMPTY_TOKEN,
+    body: { offerId: SEASON_SHOP_OFFERS[0].id },
+  });
+  assert.equal(insufficient.status, 400);
+  assert.equal(insufficient.data.code, 'SEASON_SHOP_INSUFFICIENT');
 });
 
 test('面板与路由接线齐备', () => {

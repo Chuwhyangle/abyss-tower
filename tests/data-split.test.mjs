@@ -148,7 +148,11 @@ test('各主题模块的导出面保持单一职责', () => {
     'SKILLS', 'SKILL_LEVEL_COSTS', 'SKILL_ORDER', 'isSkillUnlocked',
     'skillStats', 'skillUnlockText', 'skillUpgradeCost',
   ]);
-  assert.deepEqual(Object.keys(unlocks).sort(), ['UNLOCKS', 'UNLOCK_BY_ID', 'unlockedTowerIds']);
+  assert.deepEqual(Object.keys(unlocks).sort(), [
+    'TOWER_STAR_COST', 'TOWER_STAR_MAX', 'UNLOCKS', 'UNLOCK_BY_ID',
+    'normalizeTowerStars', 'towerStarOf', 'towerStarTowerIds', 'towerStarUpCost',
+    'unlockedTowerIds',
+  ]);
   assert.deepEqual(Object.keys(relics).sort(), [
     'MODE_RARITY_WEIGHTS', 'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
     'fallbackOffers', 'normalizeRelicState', 'normalizeRelicStates', 'rarityWeightForMode',
