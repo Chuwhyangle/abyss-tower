@@ -54,3 +54,13 @@ extra: {}
 立案 2026-11-06，源自用户「对标明日方舟做抽塔」需求，三路子代理论证（玩法/经济/实现）收敛后 manager 裁定，冻结表 `docs/PHASE_抽卡.md`。关键裁定：免费三塔下放 1★ 不进池（否则首抽 50% 负反馈）；价格砍到 15 核（30 核对「一局 ~105 核」是十倍黑洞）；重复转碎片（复用遗物「重复=升级」心智）而非返星核；unlock.mjs 的 DELETE-all 覆写是必须修的 lost-update 地雷。升星（碎片消耗）为阶段 2，本任务只攒碎片。
 
 落地补充：`tests/system-status.test.mjs` 迁移版本 11→12（新迁移使 latestVersion 前进）；`docs/PHASE_抽卡.md` 仅补阶段1 路径（`server/routes/gacha.mjs`、`public/assets/gacha/`）的 docs-consistency planned 块——冻结表定稿时漏标这些计划态路径，docs-consistency 全量 red，本任务补机械标注（非设计增量）。
+
+## Blocker
+
+**2026-11-05T17:33:37.954Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (6908cc76) is NOT a continuation of the project's default branch 'main' (4c58b67d) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-gacha-contract's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
+- run_id：wk-prod-anchor
+- session_id：12759b09-f58c-4dd2-aa86-348ca1db816b
