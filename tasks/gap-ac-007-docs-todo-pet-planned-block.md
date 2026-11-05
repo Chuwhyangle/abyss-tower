@@ -1,7 +1,7 @@
 ---
 id: gap-ac-007-docs-todo-pet-planned-block
 title: docs/TODO.md 萌宠化转型 计划态路径缺 planned 块标记，check:docs 判红（AC-007 稳定性门禁 exit 1）
-status: todo
+status: ready
 labels:
   - gap
   - defect
