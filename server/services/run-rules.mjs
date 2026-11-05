@@ -12,10 +12,12 @@ import { readTalent } from '../db/accounts.mjs';
 import { CONTENT_VERSION } from '../config.mjs';
 import { boardKeyFor } from '../db/leaderboard-sql.mjs';
 import {
+  applySeedModifier,
   buildCandidate,
   candidatePlan,
   generateMapCandidates,
   legacyGenerateMap,
+  seedMapModifier,
 } from '../../public/js/shared/mapgen.js';
 import {
   DIFFICULTIES,
@@ -142,9 +144,13 @@ function legacyMapCandidates(seed, count = FIXED_MAP_COUNT) {
 
 // 地图候选的唯一入口：新 run 读固定池，旧 ruleset 只读回退 legacy carve。
 // 同一 run 的 serialize/chooseMap/serveWave/replaySummary/settle 都从这里取图，避免字段再次分叉。
+// 本局随机词缀（ruleset.mapModifier）在固定池候选上叠加；旧 run 无该字段时返回原始候选（向后兼容）。
 export function mapCandidatesFor(run) {
   if (run?.ruleset?.mapPool === FIXED_MAP_POOL) {
-    return generateMapCandidates(run.seed, FIXED_MAP_COUNT);
+    const candidates = generateMapCandidates(run.seed, FIXED_MAP_COUNT);
+    const seedModifier = run.ruleset?.mapModifier;
+    if (!seedModifier?.id) return candidates;
+    return candidates.map((candidate) => applySeedModifier(candidate, seedModifier));
   }
   return legacyMapCandidates(run.seed, FIXED_MAP_COUNT);
 }
@@ -343,6 +349,10 @@ export function planRunStart({ token, profile, body, testSeed }) {
     skill: { id: skillId, level: skillLevel },
     meta: { startGold: startingGold, baseHp, maxRerolls },
   };
+  // 本局随机词缀（§P1-10）：服务端按 seed 派生并落库，客户端只渲染、不自行派生。
+  // 与固定 trait 是两回事：trait 是地图身份，词缀是每局随机增益/代价，二者数值相乘生效。
+  const mapModifier = seedMapModifier(seed);
+  ruleset.mapModifier = { ...mapModifier };
   if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
   if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
   if (mutationInfo) ruleset.mutations = mutationInfo;
@@ -416,6 +426,8 @@ export function planRunStart({ token, profile, body, testSeed }) {
       startingGold,
       baseHp,
       relics: [],
+      // 本局随机词缀：服务端派生，客户端据此渲染开局词缀文案（数值生效已在选图后由 mapCandidatesFor 叠加）。
+      mapModifier: { ...mapModifier },
       // 信物三选一：candidate 由服务端派生；选中前 picked 为 null，选中后由选择动作写入。
       starter: { offers: starterOffers, picked: null },
       // 每日/本周挑战开放全部塔，保证同一规则集下的榜单公平；变异会收窄可用塔。
