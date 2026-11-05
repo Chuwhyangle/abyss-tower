@@ -106,6 +106,16 @@
   --font-sans: "Inter", "Noto Sans SC", "Noto Sans CJK SC", "PingFang SC",
     "Microsoft YaHei", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --font-display: "Orbitron", "Inter", "Noto Sans SC", system-ui, sans-serif;
+}
+
+/* ============ 显示字体（OFL 开源，本地化） ============ */
+
+@font-face {
+  font-family: "Orbitron";
+  src: url("assets/fonts/Orbitron.ttf") format("truetype");
+  font-weight: 400 900;
+  font-display: swap;
 }
 
 * {
@@ -160,11 +170,12 @@ button {
   position: absolute;
   inset: -30% -10%;
   background:
-    radial-gradient(420px 260px at 22% 38%, rgba(92, 226, 208, 0.13), transparent 70%),
-    radial-gradient(380px 240px at 78% 30%, rgba(180, 140, 255, 0.12), transparent 70%),
-    radial-gradient(520px 320px at 55% 85%, rgba(255, 211, 107, 0.08), transparent 70%);
+    radial-gradient(560px 320px at 22% 38%, rgba(92, 226, 208, 0.2), transparent 70%),
+    radial-gradient(460px 300px at 78% 30%, rgba(180, 140, 255, 0.18), transparent 70%),
+    radial-gradient(620px 380px at 55% 85%, rgba(255, 211, 107, 0.14), transparent 70%),
+    radial-gradient(360px 220px at 50% 10%, rgba(255, 140, 90, 0.09), transparent 70%);
   pointer-events: none;
-  animation: drift 14s ease-in-out infinite alternate;
+  animation: drift 12s ease-in-out infinite alternate;
 }
 
 @keyframes drift {
@@ -179,14 +190,28 @@ button {
   text-align: center;
 }
 
+.title-inner::before {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 18px;
+  border: 1px solid var(--gold-border);
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, rgba(255, 211, 107, 0.18), rgba(255, 211, 107, 0.02));
+  box-shadow: 0 0 22px rgba(255, 211, 107, 0.35), inset 0 0 10px rgba(255, 211, 107, 0.2);
+}
+
 .logo-kicker {
   margin: 0 0 12px;
   color: var(--gold);
-  font-family: var(--font-mono);
-  font-size: var(--text-min);
-  /* 0.36em 而不是 0.52em：字号抬到 12px 后，0.52em 在 390px 竖屏会横向溢出。 */
-  letter-spacing: 0.36em;
-  opacity: 0.85;
+  font-family: var(--font-display);
+  font-size: 13px;
+  /* Orbitron 字形更宽，字距比 mono 略收，避免 390px 竖屏横向溢出。 */
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  opacity: 0.92;
+  text-shadow: 0 0 22px rgba(255, 211, 107, 0.4);
 }
 
 .title-inner h1 {
@@ -237,7 +262,7 @@ button {
 .cores-badge {
   margin-left: auto;
   color: var(--gold);
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: var(--text-md);
   padding: var(--space-1) 10px;
   border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent);
@@ -279,9 +304,10 @@ button {
 }
 
 .stat-cell b {
-  font-family: var(--font-mono);
+  font-family: var(--font-display);
   font-size: 17px;
   color: #dfeaf2;
+  letter-spacing: 0.02em;
 }
 
 .footnote {
@@ -309,19 +335,37 @@ button {
 }
 
 .btn:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   border-color: var(--line-hover);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(120, 160, 175, 0.12);
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.97);
 }
 
 .btn.primary {
+  position: relative;
   border-color: var(--gold-border);
   background: linear-gradient(180deg, var(--gold-bright), var(--gold-deep));
   color: var(--ink-on-gold);
   box-shadow: var(--shadow-glow-gold);
+}
+
+.btn.primary::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  box-shadow: 0 0 26px rgba(255, 211, 107, 0.4);
+  opacity: 0.5;
+  pointer-events: none;
+  animation: primary-glow 3s ease-in-out infinite;
+}
+
+@keyframes primary-glow {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.95; }
 }
 
 .btn.primary:hover:not(:disabled) {
@@ -1205,9 +1249,9 @@ button {
 .eyebrow {
   margin: 0;
   color: var(--gold);
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.36em;
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.3em;
   text-transform: uppercase;
 }
 
