@@ -1,7 +1,7 @@
 ---
 id: refactor-css-partition
 title: 并发重构·阶段2：拆 styles.css 为 ~15 个分区 css
-status: todo
+status: ready
 labels:
   - refactor
 parent: null
