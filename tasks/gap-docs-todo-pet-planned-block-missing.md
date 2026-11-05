@@ -1,7 +1,7 @@
 ---
 id: gap-docs-todo-pet-planned-block-missing
 title: docs/TODO.md 萌宠化转型 计划态路径缺 planned 块标记，check:docs 判红（AC-053 全量测试 exit 1）
-status: todo
+status: ready
 labels:
   - gap
   - defect
