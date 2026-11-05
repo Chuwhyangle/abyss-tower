@@ -1,7 +1,7 @@
 ---
 id: feat-map-variety
 title: 单局地图变化：复用 12 条词缀池 + 布局变体
-status: ready
+status: done
 labels:
   - feat
   - gameplay
