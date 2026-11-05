@@ -727,7 +727,7 @@ export const ACHIEVEMENTS = [
   }),
   define({
     id: 'skill_all_unlocked',
-    title: '三式齐备',
+    title: '六式齐备',
     desc: '解锁全部主动技能。',
     condition: `解锁全部 ${SKILL_ORDER.length} 个主动技能`,
     group: 'build',

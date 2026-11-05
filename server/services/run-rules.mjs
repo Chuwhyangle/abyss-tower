@@ -142,15 +142,55 @@ function legacyMapCandidates(seed, count = FIXED_MAP_COUNT) {
   );
 }
 
+function round3(value) {
+  return Math.round(value * 1000) / 1000;
+}
+
+// 每日/每周规则的生效词缀：从 ruleset.daily/weekly.rules 读取（开局已落库），
+// 旧 run 无该字段时返回 null，规则不叠加（向后兼容）。
+function dailyWeeklyModifierFor(run) {
+  const rule = run?.ruleset?.daily?.rules?.[0] ?? run?.ruleset?.weekly?.rules?.[0] ?? null;
+  return rule ?? null;
+}
+
+// 把每日/每周规则叠加到地图候选：词缀数值（hpMul/speedMul/goldMul/rangeMul）相乘，
+// trait id/name/desc/color 保持不变（规则是每局代价，不是地图身份）。
+// 只改 modifier 与 meta.modifier，不碰 meta.seedModifier 与 meta.scoreMul。
+function applyRuleModifier(map, rule) {
+  const trait = map.modifier || null;
+  const combined = {
+    id: trait?.id ?? null,
+    name: trait?.name ?? '',
+    color: trait?.color ?? '',
+    desc: trait?.desc ?? '',
+    hpMul: round3((trait?.hpMul ?? 1) * (rule.hpMul ?? 1)),
+    speedMul: round3((trait?.speedMul ?? 1) * (rule.speedMul ?? 1)),
+    goldMul: round3((trait?.goldMul ?? 1) * (rule.goldMul ?? 1)),
+    rangeMul: round3((trait?.rangeMul ?? 1) * (rule.rangeMul ?? 1)),
+    scoreMul: trait?.scoreMul ?? 1,
+    extraPortal: trait?.extraPortal ?? 0,
+  };
+  return {
+    ...map,
+    modifier: combined,
+    trait: combined,
+    meta: { ...map.meta, modifier: combined },
+  };
+}
+
 // 地图候选的唯一入口：新 run 读固定池，旧 ruleset 只读回退 legacy carve。
 // 同一 run 的 serialize/chooseMap/serveWave/replaySummary/settle 都从这里取图，避免字段再次分叉。
-// 本局随机词缀（ruleset.mapModifier）在固定池候选上叠加；旧 run 无该字段时返回原始候选（向后兼容）。
+// 本局随机词缀（ruleset.mapModifier）在固定池候选上叠加，每日/每周规则词缀再叠加一层；
+// 旧 run 缺字段时返回原始候选（向后兼容）。
 export function mapCandidatesFor(run) {
   if (run?.ruleset?.mapPool === FIXED_MAP_POOL) {
     const candidates = generateMapCandidates(run.seed, FIXED_MAP_COUNT);
     const seedModifier = run.ruleset?.mapModifier;
-    if (!seedModifier?.id) return candidates;
-    return candidates.map((candidate) => applySeedModifier(candidate, seedModifier));
+    const ruleModifier = dailyWeeklyModifierFor(run);
+    return candidates.map((candidate) => {
+      const withSeed = seedModifier?.id ? applySeedModifier(candidate, seedModifier) : candidate;
+      return ruleModifier ? applyRuleModifier(withSeed, ruleModifier) : withSeed;
+    });
   }
   return legacyMapCandidates(run.seed, FIXED_MAP_COUNT);
 }
@@ -353,8 +393,8 @@ export function planRunStart({ token, profile, body, testSeed }) {
   // 与固定 trait 是两回事：trait 是地图身份，词缀是每局随机增益/代价，二者数值相乘生效。
   const mapModifier = seedMapModifier(seed);
   ruleset.mapModifier = { ...mapModifier };
-  if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET };
-  if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET };
+  if (daily) ruleset.daily = { date: day, ruleset: DAILY_RULESET, rules: [daily.rule] };
+  if (weekly) ruleset.weekly = { week: weekly.week, ruleset: WEEKLY_RULESET, rules: [weekly.ruleGroup] };
   if (mutationInfo) ruleset.mutations = mutationInfo;
   // 信物三选一（§9）：候选由服务端按 ${seed}:starter:${mode} 派生并持久化到 ruleset，
   // 客户端不得自造候选。取代既有的 start_relic 随机送 1 件。
@@ -387,6 +427,7 @@ export function planRunStart({ token, profile, body, testSeed }) {
         day,
         seed,
         modifiers: mapModifiers,
+        rule: daily.rule,
         // 连胜由参与天数派生，必须在开局落库之后由服务层补齐。
         streak: null,
       }
@@ -397,6 +438,7 @@ export function planRunStart({ token, profile, body, testSeed }) {
         seed,
         modifiers: mapModifiers.slice(0, weekly.modifiers.length),
         rules: weekly.rules,
+        ruleGroup: weekly.ruleGroup,
       }
     : null;
 

@@ -190,9 +190,9 @@ export default {
   'achievement.skill_unlock_chrono.title': 'Master of Time',
   'achievement.skill_unlock_chrono.desc': 'Unlock the active skill "Final Chapter · Starsea Echo".',
   'achievement.skill_unlock_chrono.condition': 'Unlock Final Chapter',
-  'achievement.skill_all_unlocked.title': 'All Three Ready',
+  'achievement.skill_all_unlocked.title': 'All Six Ready',
   'achievement.skill_all_unlocked.desc': 'Unlock every active skill.',
-  'achievement.skill_all_unlocked.condition': 'Unlock all 3 active skills',
+  'achievement.skill_all_unlocked.condition': 'Unlock all 6 active skills',
   'achievement.skill_level_5.title': 'Getting the Hang of It',
   'achievement.skill_level_5.desc': 'Raise any active skill to level 5.',
   'achievement.skill_level_5.condition': 'Any skill reaches level 5',
@@ -213,5 +213,5 @@ export default {
   'achievement.skill_levels_20.condition': 'Combined skill level 20',
   'achievement.skill_all_max.title': 'All Paths Converge',
   'achievement.skill_all_max.desc': 'Raise every active skill to max level.',
-  'achievement.skill_all_max.condition': 'All 3 skills at max level',
+  'achievement.skill_all_max.condition': 'All 6 skills at max level',
 };

@@ -79,3 +79,11 @@ extra: {}
 - 测试/脚本侧：所有读 styles.css 的测试改经 `tests/lib/css-source.mjs` 的 `readCss()` 按级联顺序拼接；`scripts/ui-animation-audit.mjs` 无参数默认整体审计 `CSS_CASCADE_ORDER`；`scripts/test-changed.mjs` TEST_MAP 增 `public/css/` 目录规则。
 - 文档侧：ART_DIRECTION/PROGRESSION_DESIGN/TODO/OWNERSHIP 的 `public/styles.css` 路径迁移为 `public/css/*`（机械路径同步）。
 - ⚠️ 文档 lane 跟进：`docs/TECH_DESIGN.md:354` 仍引用 `public/styles.css`（总文档，本文档 lane 不得入 Touches），导致 `tests/docs-consistency.test.mjs`、`tests/docs-phase-sync.test.mjs` 各红 1 条；需 DOCS-* 任务把该行迁移为 `public/css/tokens.css`。
+
+## Blocker
+
+**2026-11-05T20:56:55.201Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=suite: name: 'AssertionError'
+- run_id：wk-prod-anchor
+- session_id：da32c4b7-df7d-473b-a471-f63d1cd183a5

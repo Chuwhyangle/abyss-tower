@@ -2,6 +2,7 @@
 import { MAX_WAVE, getDifficulty } from './data.js';
 import { FIXED_MAPS } from './maps/index.js';
 import { HEX_BY_ID } from './hexes.js';
+import { dailyRule, weeklyRuleGroup } from './data/daily-weekly-rules.js';
 
 export const VICTORY_BONUS = 10000;
 export const VICTORY_CORES = 25;
@@ -123,11 +124,12 @@ function fixedMapModifiers() {
     .map(({ id, name, desc, color }) => ({ id, name, desc, color }));
 }
 
-// 当日种子固定；词缀为固定地图的固定 trait。
+// 当日种子固定；词缀为固定地图的固定 trait；规则为按日期轮换的一条词缀。
 export function dailyChallenge(day = dayKey()) {
   const seed = dailySeed(day);
   const modifiers = fixedMapModifiers();
-  return { day, seed, modifiers };
+  const rule = dailyRule(day);
+  return { day, seed, modifiers, rule };
 }
 
 // ---------- 本周挑战：ISO 周键、种子与周词缀 ----------
@@ -174,16 +176,19 @@ export function weeklySeed(week) {
   return `weekly-${week}`;
 }
 
-// 每周固定规则集：周词缀取固定地图的首个 trait，与开局候选保持一致。
+// 每周固定规则集：周词缀取固定地图的首个 trait，与开局候选保持一致；
+// 规则为按周轮换的一组复合词缀。
 export function weeklyChallenge(date = new Date()) {
   const week = weekKey(date);
   const seed = weeklySeed(week);
   const modifiers = fixedMapModifiers().slice(0, WEEKLY_MODIFIER_COUNT);
+  const ruleGroup = weeklyRuleGroup(week);
   return {
     week,
     seed,
     modifiers,
     rules: { towers: 'all', skillLevel: WEEKLY_SKILL_LEVEL, maxRerolls: 1 },
+    ruleGroup,
   };
 }
 

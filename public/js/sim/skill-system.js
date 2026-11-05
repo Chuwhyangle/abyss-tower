@@ -11,6 +11,21 @@ const SKILL_METEOR_CHAIN_MAX = 4;
 const SKILL_METEOR_CHAIN_RATIO = 0.35;
 const SKILL_STASIS_MAX_EXTEND = 1;
 const SKILL_STASIS_KILL_EXTEND = 0.1;
+const SKILL_STORM_HEATED_CHAINS = 1;
+const SKILL_STORM_FORK_CHANCE = 0.25;
+const SKILL_STORM_FORK_RATIO = 0.5;
+const SKILL_STORM_FINALE_RANGE = 0.8;
+const SKILL_STORM_FINALE_PCT = 0.03;
+const SKILL_PLAGUE_OUTBREAK_MIN = 10;
+const SKILL_PLAGUE_OUTBREAK_MUL = 1.5;
+const SKILL_PLAGUE_LINGERING_BONUS = 2;
+const SKILL_PLAGUE_BLIGHT_RANGE = 1;
+const SKILL_PLAGUE_BLIGHT_SLOW = 0.3;
+const SKILL_PLAGUE_BLIGHT_DUR = 3;
+const SKILL_REIGNITE_REFORGE_THRESHOLD = 0.5;
+const SKILL_REIGNITE_REFORGE_MUL = 1.5;
+const SKILL_REIGNITE_EMBER_RANGE = 0.5;
+const SKILL_REIGNITE_ETERNAL_ATK = 0.2;
 
 // 技能效果幅度键（skillPower 乘进的字段）：冷却 cd、颗数 meteors 与固定乘法因子 atkSpeed/range
 // 不随幅度缩放（skills.js「攻击速度/射程这类乘法因子固定」）。skillCd 只乘进 cd。
@@ -18,6 +33,7 @@ const SKILL_POWER_KEYS = [
   'freeze', 'vuln', 'slow', 'slowDur', 'shatter',
   'dmgPct', 'burnPct', 'radius',
   'stop', 'overdrive', 'novaPct', 'vulnDur',
+  'healPct',
 ];
 
 export class SkillSystem {
@@ -88,6 +104,9 @@ export class SkillSystem {
     if (skill.id === 'aurora') this.sim.castAurora(stats, now);
     else if (skill.id === 'meteor') this.sim.castMeteor(stats, now);
     else if (skill.id === 'chrono') this.sim.castChrono(stats, now);
+    else if (skill.id === 'storm') this.castStorm(stats, now);
+    else if (skill.id === 'plague') this.castPlague(stats, now);
+    else if (skill.id === 'reignite') this.castReignite(stats, now);
 
     // 外层立即落一份含 skill.cooldown 的快照并补 skillReadyAt（epoch）。
     const snapshot = this.sim.toSnapshot();
@@ -124,11 +143,15 @@ export class SkillSystem {
     if (stasisActive) {
       if (enemy.burnUntil > now) enemy.burnUntil += dt;
       if (enemy.poisonUntil > now) enemy.poisonUntil += dt;
+      if (enemy.plagueUntil > now) enemy.plagueUntil += dt;
       return;
     }
 
     if (enemy.burnUntil > now && enemy.burnDps > 0) {
       this.sim.skillDamage(enemy, enemy.burnDps * dt, { dot: true });
+    }
+    if (enemy.plagueUntil > now && enemy.plagueDps > 0) {
+      this.sim.skillDamage(enemy, enemy.plagueDps * dt, { dot: true });
     }
   }
 
@@ -361,6 +384,108 @@ export class SkillSystem {
     this.sim.addSkillFx({ kind: 'stasis', x: field.x, y: field.y, r: field.r, ttl: stats.stop, color: SKILLS.chrono.color });
   }
 
+  // 风暴·链雷：从最深入敌群的敌人起跳，逐跳衰减地向半径内最近敌人传导。
+  castStorm(stats, now) {
+    const level = this.sim.skill.level;
+    const bossFactor = SKILLS.storm.bossFactor;
+    const targets = this.sim.skillTargets();
+    if (!targets.length) return;
+    const primary = targets[0];
+    // L4 炽链：主目标处于灼烧时，连锁次数 +1。
+    const chainCount =
+      stats.chains + (level >= 4 && primary.burnUntil > now && primary.burnDps > 0 ? SKILL_STORM_HEATED_CHAINS : 0);
+    const hitIds = new Set();
+
+    this.stormBolt(primary, stats.dmgPct, bossFactor, hitIds);
+    let prev = primary;
+    for (let hop = 1; hop < chainCount; hop++) {
+      const next = this.nearestStormTarget(prev.x, prev.y, stats.radius, hitIds);
+      if (!next) break;
+      const hopPct = stats.dmgPct * Math.pow(stats.falloff, hop);
+      this.stormBolt(next, hopPct, bossFactor, hitIds);
+      // L7 分叉：25% 概率分叉一条 50% 伤害的旁支闪电。
+      if (level >= 7) {
+        const roll = this.sim.skillRng ? this.sim.skillRng.float() : 1;
+        if (roll < SKILL_STORM_FORK_CHANCE) {
+          const fork = this.nearestStormTarget(next.x, next.y, stats.radius, hitIds);
+          if (fork) this.stormBolt(fork, hopPct * SKILL_STORM_FORK_RATIO, bossFactor, hitIds);
+        }
+      }
+      prev = next;
+    }
+
+    const field = this.sim.skillField();
+    this.sim.addSkillFx({ kind: 'storm', x: field.x, y: field.y, r: field.r, ttl: 0.9, color: SKILLS.storm.color });
+  }
+
+  // 单次链雷命中：打满一跳伤害并记录命中 id；stormMarked 供 L10 静电爆发判「死于链雷」。
+  stormBolt(enemy, pct, bossFactor, hitIds) {
+    const amount = this.sim.skillPctDamage(enemy, pct, bossFactor);
+    enemy.stormMarked = true;
+    this.sim.skillDamage(enemy, amount);
+    enemy.stormMarked = false;
+    hitIds.add(enemy.id);
+    this.sim.addSkillFx({ kind: 'stormBolt', x: enemy.x, y: enemy.y, r: 0.5, ttl: 0.3, color: SKILLS.storm.color });
+  }
+
+  // 半径内距 (x,y) 最近的、未命中敌人；平手按 progress 降序 / id 升序（skillTargets 已排序）。
+  nearestStormTarget(x, y, radius, excludeIds) {
+    let best = null;
+    let bestDistance = Infinity;
+    for (const enemy of this.sim.skillTargets()) {
+      if (excludeIds.has(enemy.id)) continue;
+      const distance = Math.hypot(enemy.x - x, enemy.y - y);
+      if (distance <= radius + (enemy.r || 0) && distance < bestDistance) {
+        best = enemy;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  // 疫病·腐潮：全场腐蚀（DoT 6s）+ 减速；L4 减速时长 +2s、L7 ≥10 敌总伤害 ×1.5。
+  castPlague(stats, now) {
+    const level = this.sim.skill.level;
+    const targets = this.sim.skillTargets();
+    // L7 爆发：场上敌人 ≥10 时，腐潮总伤害 ×1.5（总伤害摊进 dotDur，不改变时长）。
+    const dmgMul = level >= 7 && targets.length >= SKILL_PLAGUE_OUTBREAK_MIN ? SKILL_PLAGUE_OUTBREAK_MUL : 1;
+    const slowDur = stats.slowDur + (level >= 4 ? SKILL_PLAGUE_LINGERING_BONUS : 0);
+    for (const enemy of targets) {
+      if (enemy.dead) continue;
+      enemy.plagueDps = (enemy.maxHp * stats.dmgPct * dmgMul) / stats.dotDur;
+      enemy.plagueUntil = now + stats.dotDur;
+      enemy.slowAmt = Math.max(enemy.slowAmt, stats.slow);
+      enemy.slowUntil = Math.max(enemy.slowUntil, now + slowDur);
+    }
+    const field = this.sim.skillField();
+    this.sim.addSkillFx({ kind: 'plague', x: field.x, y: field.y, r: field.r, ttl: stats.dotDur, color: SKILLS.plague.color });
+  }
+
+  // 重燃·熔炉：回复基地生命 + 全塔过载；L4 射程 +0.5、L7 低血回复 ×1.5、L10 攻速额外 +20%。
+  castReignite(stats, now) {
+    const level = this.sim.skill.level;
+    // L7 重铸：基地生命低于 50% 时，回复量 ×1.5。
+    const healMul =
+      level >= 7 && this.sim.baseHp < this.sim.maxBaseHp * SKILL_REIGNITE_REFORGE_THRESHOLD
+        ? SKILL_REIGNITE_REFORGE_MUL
+        : 1;
+    const heal = this.sim.maxBaseHp * stats.healPct * healMul;
+    const base = this.sim.map.base || { x: this.sim.map.cols / 2, y: this.sim.map.rows / 2 };
+    const before = this.sim.baseHp;
+    this.sim.baseHp = Math.min(this.sim.maxBaseHp, this.sim.baseHp + heal);
+    const amount = this.sim.baseHp - before;
+    if (amount > 0) {
+      this.sim.addEffect({ kind: 'heal', x: base.x, y: base.y, ttl: 0.8 });
+      this.sim.addFloater(base.x, base.y - 0.7, `+${Math.round(amount)}`, '#7ef0a5', true);
+    }
+    // L4 余烬脉络：过载期间射程 +0.5 格；L10 永燃：攻速额外 +20%。
+    const atk = stats.atkSpeed + (level >= 10 ? SKILL_REIGNITE_ETERNAL_ATK : 0);
+    const range = level >= 4 ? SKILL_REIGNITE_EMBER_RANGE : 0;
+    this.sim.applyTowerOverdrive(now + stats.overdrive, atk, range);
+    const field = this.sim.skillField();
+    this.sim.addSkillFx({ kind: 'reignite', x: field.x, y: field.y, r: field.r, ttl: 0.9, color: SKILLS.reignite.color });
+  }
+
   isStasisActive() {
     return !!this.sim.stasis && this.sim.time < this.sim.stasis.until;
   }
@@ -470,6 +595,31 @@ export class SkillSystem {
           }
         }
       }
+    }
+
+    // 链雷终章：死于链雷的敌人（stormMarked 由 stormBolt 在命中当帧置位）爆发静电。
+    if (skill.id === 'storm' && skill.level >= 10 && enemy.stormMarked) {
+      const x = enemy.x;
+      const y = enemy.y;
+      const bossFactor = SKILLS.storm.bossFactor;
+      for (const other of this.sim.skillTargets()) {
+        if (other.dead) continue;
+        if (Math.hypot(other.x - x, other.y - y) > SKILL_STORM_FINALE_RANGE + (other.r || 0)) continue;
+        this.sim.skillDamage(other, this.sim.skillPctDamage(other, SKILL_STORM_FINALE_PCT, bossFactor));
+      }
+      this.sim.addSkillFx({ kind: 'stormBurst', x, y, r: SKILL_STORM_FINALE_RANGE, ttl: 0.4, color: SKILLS.storm.color });
+    }
+
+    // 疫爆：腐潮期间被击杀的敌人，向 1 格内另一名敌人传播 30% 减速 3 秒。
+    if (skill.id === 'plague' && skill.level >= 10 && now < (enemy.plagueUntil || 0)) {
+      const x = enemy.x;
+      const y = enemy.y;
+      const other = this.sim.nearestSkillTarget(x, y, SKILL_PLAGUE_BLIGHT_RANGE, enemy.id);
+      if (other) {
+        other.slowAmt = Math.max(other.slowAmt, SKILL_PLAGUE_BLIGHT_SLOW);
+        other.slowUntil = Math.max(other.slowUntil, now + SKILL_PLAGUE_BLIGHT_DUR);
+      }
+      this.sim.addSkillFx({ kind: 'blight', x, y, r: SKILL_PLAGUE_BLIGHT_RANGE, ttl: 0.4, color: SKILLS.plague.color });
     }
   }
 

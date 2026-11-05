@@ -89,6 +89,27 @@ export function skillSummary(id, level) {
       cd: Math.round(stats.cd),
     });
   }
+  if (id === 'storm') {
+    return tOr(`skill.${id}.summary`, '', {
+      chains: stats.chains,
+      dmg: Math.round(stats.dmgPct * 100),
+      cd: Math.round(stats.cd),
+    });
+  }
+  if (id === 'plague') {
+    return tOr(`skill.${id}.summary`, '', {
+      dmg: Math.round(stats.dmgPct * 100),
+      slow: Math.round(stats.slow * 100),
+      cd: Math.round(stats.cd),
+    });
+  }
+  if (id === 'reignite') {
+    return tOr(`skill.${id}.summary`, '', {
+      heal: Math.round(stats.healPct * 100),
+      overdrive: stats.overdrive.toFixed(1),
+      cd: Math.round(stats.cd),
+    });
+  }
   return tOr(`skill.${id}.summary`, '', {
     stop: stats.stop.toFixed(1),
     overdrive: stats.overdrive.toFixed(1),
