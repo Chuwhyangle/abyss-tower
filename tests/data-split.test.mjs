@@ -40,10 +40,11 @@ const EXPECTED_EXPORTS = [
 // AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
 // feat-new-enemies：敌人扩容到 21 种（穹翼精英/反伤壁垒/回春图腾/自爆虫/潜行者/裂隙召唤师/破盾者），内容快照随之更新。
+// feat-enemy-variety：敌人扩容到 24 种（黑曜魔像/再生者/守望者），内容快照随之更新。
 // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
 // 内容快照哈希更新（行为本身无改动）。
 // TODO-14 §5：重排零 meta 基线 hpMul（深渊 1.34→1.50、远征 1.10→1.22、漫游 0.85→0.90），内容快照随之更新。
-const BASELINE_HASH = 'd39df3c32065e85e495b790e9cb276de1aea0bf911a3c36d60a40af9593ab0a2';
+const BASELINE_HASH = 'cc03fc475f13ff0132066ff87a427edb2ec3aff96c16cd83befdd8ea82bde72e';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -158,7 +159,7 @@ test('各主题模块的导出面保持单一职责', () => {
 test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
-  assert.equal(Object.keys(data.ENEMIES).length, 21);
+  assert.equal(Object.keys(data.ENEMIES).length, 24);
   assert.equal(data.RELICS.length, 70);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);

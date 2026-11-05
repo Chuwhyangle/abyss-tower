@@ -102,6 +102,9 @@ export class CombatSystem {
     if (this.sim.time < (enemy.skillVulnUntil || 0) && enemy.skillVuln > 0) {
       final *= 1 + enemy.skillVuln;
     }
+    // 黑曜魔像：单次命中伤害上限（护甲后、护盾前），压制暴击/狙击的爆发。
+    const damageCap = ENEMIES[enemy.type]?.damageCap;
+    if (damageCap && final > damageCap) final = damageCap;
     // 护盾先于本体吸收伤害；本体在盾破前不掉血。
     let shieldAbsorbed = 0;
     if (enemy.shield > 0) {
