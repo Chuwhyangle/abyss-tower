@@ -32,8 +32,12 @@ extra: {}
 
 - `public/js/shared/data/unlocks.js`
 - `public/js/shared/season-pass.js`
-- `server/routes/` (新消耗路由或改现有)
-- `tests/` (经济测试)
+- `server/routes/unlock.mjs` (星核升星消耗)
+- `server/routes/season-pass.mjs` (赛季可重复消耗)
+- `server/routes/profile.mjs` (皮肤/cosmetics 消耗)
+- `tests/season-pass.test.mjs` (赛季消耗测试)
+- `tests/cosmetics.test.mjs` (皮肤/称号消耗测试)
+- `tests/skins.test.mjs` (皮肤测试)
 - `scripts/test-changed.mjs`
 - `tasks/feat-meta-sinks.md`
 
