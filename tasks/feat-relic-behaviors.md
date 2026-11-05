@@ -18,25 +18,35 @@ extra: {}
 
 ## AC
 
-- [ ] 至少 N 件遗物（≥6）有 Ⅱ/Ⅲ 级行为词条，Ⅲ 级必给机制（非纯数值）
-- [ ] 词条在 sim 层生效、确定性保持（seed 派生，不改 RNG 顺序）
-- [ ] 存档兼容：旧档遗物等级不变，行为词条按等级补挂
-- [ ] `npm test` 全绿；遗物行为词条有测试覆盖
+- [x] 至少 N 件遗物（≥6）有 Ⅱ/Ⅲ 级行为词条，Ⅲ 级必给机制（非纯数值）
+- [x] 词条在 sim 层生效、确定性保持（seed 派生，不改 RNG 顺序）
+- [x] 存档兼容：旧档遗物等级不变，行为词条按等级补挂
+- [x] `npm test` 全绿；遗物行为词条有测试覆盖
 
 ## DoD
 
-- [ ] 落地于 `relics.js` + `sim` 消费，零第三方依赖
-- [ ] 不碰遗物基础数值（只加等级行为词条）
-- [ ] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches；设计增量写 Notes
+- [x] 落地于 `relics.js` + `sim` 消费，零第三方依赖
+- [x] 不碰遗物基础数值（只加等级行为词条）
+- [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches；设计增量写 Notes
 
 ## Touches
 
 - `public/js/shared/data/relics.js`
-- `public/js/sim.js` (或 sim 子模块消费)
-- `tests/relics-behaviors.test.mjs` (遗物行为词条测试)
-- `scripts/test-changed.mjs`
+- `public/js/sim/relic-system.js`
+- `public/js/sim/combat-system.js`
+- `public/js/sim/projectile-system.js`
+- `tests/data-split.test.mjs`
+- `tests/relics-behaviors.test.mjs`
 - `tasks/feat-relic-behaviors.md`
 
 ## Notes
 
-立案 2026-11-06，源自 P1-9「遗物升级行为词条」。⚠️ 改 sim 层须守住确定性（RNG 调用顺序不能变）。数值改动需 balance 复测。设计细节（哪 6+ 件遗物、各自 Ⅲ 级词条）需在实现中补 Notes 或 PHASE 增量。
+立案 2026-11-06，源自 P1-9「遗物升级行为词条」。⚠️ 改 sim 层须守住确定性（RNG 调用顺序不能变）。数值改动需 balance 复测。
+
+实现增量（设计落 Notes，不入 PRD/TECH_DESIGN）：
+- 8 件遗物新增 `behaviors` 字段：frostglint(Ⅲ frostHitFreeze)、venomfang(Ⅱ poisonHitSpread / Ⅲ poisonKillSpread)、sparkplug(Ⅲ arcKillZap)、steadyaim(Ⅲ arrowShotPierce)、frostedge(Ⅱ frostHitFreeze)、venomvial(Ⅲ poisonHitSpread)、static(Ⅱ arcKillZap)、siege(Ⅲ cannonKillBurst)。
+- 6 种机制 kind（全部非纯数值）：poisonHitSpread / frostHitFreeze / poisonKillSpread / arcKillZap / cannonKillBurst / arrowShotPierce。
+- `relicBehaviorsAtLevel` 纯函数按等级累积 Ⅱ+Ⅲ（Ⅱ 级词条在 Ⅲ 级仍生效）；RelicSystem.recomputeMods 派生 `sim.relicBehaviors`（纯派生、不进快照），combat/projectile 结算点按 kind+towerType 消费。
+- 确定性：计数器挂塔（arrowShotPierce）/挂敌人（frostHitFreeze），击杀传播走既有 poisonHop 单槽语义，均不消耗 combatRng、不改 RNG 调用顺序。
+- 存档兼容：快照 relics 仍只写 {id, level}，行为词条按等级补挂，旧档等级不变。
+- 基础数值未动（只加 behaviors 字段），零第三方依赖。
