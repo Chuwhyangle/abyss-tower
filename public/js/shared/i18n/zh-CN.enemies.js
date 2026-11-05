@@ -21,4 +21,7 @@ export default {
   'data.enemy.stalker.name': '潜行者',
   'data.enemy.riftcaller.name': '裂隙召唤师',
   'data.enemy.shieldbreaker.name': '破盾者',
+  'data.enemy.obsidian.name': '黑曜魔像',
+  'data.enemy.regenerator.name': '再生者',
+  'data.enemy.warden.name': '守望者',
 };

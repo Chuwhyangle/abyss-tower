@@ -72,6 +72,9 @@ const BLUE_YELLOW_TOKENS = Object.freeze({
     stalker: '#4dd0e1',
     riftcaller: '#7b1fa2',
     shieldbreaker: '#b0bec5',
+    obsidian: '#78909c',
+    regenerator: '#4db6ac',
+    warden: '#5c6bc0',
   }),
 });
 
@@ -110,6 +113,9 @@ const RED_GREEN_TOKENS = Object.freeze({
     stalker: '#26a69a',
     riftcaller: '#ad1457',
     shieldbreaker: '#90a4ae',
+    obsidian: '#8aa2b4',
+    regenerator: '#00695c',
+    warden: '#8e24aa',
   }),
 });
 

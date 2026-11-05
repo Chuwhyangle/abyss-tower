@@ -21,4 +21,7 @@ export default {
   'data.enemy.stalker.name': 'Lurker',
   'data.enemy.riftcaller.name': 'Rift Caller',
   'data.enemy.shieldbreaker.name': 'Shieldbreaker',
+  'data.enemy.obsidian.name': 'Obsidian Colossus',
+  'data.enemy.regenerator.name': 'Regenerator',
+  'data.enemy.warden.name': 'Warden',
 };

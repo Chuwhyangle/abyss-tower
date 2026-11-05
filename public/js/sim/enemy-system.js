@@ -136,6 +136,51 @@ export class EnemySystem {
         }
       }
 
+      // 再生者：周期性自愈固定生命（只奶自己，与回春图腾/祭司的群体治疗区分）。
+      const regen = ENEMIES[enemy.type]?.regen;
+      if (!stasisActive && regen && !enemy.dead) {
+        if (!Number.isFinite(enemy.regenTimer)) enemy.regenTimer = 0;
+        enemy.regenTimer += dt;
+        if (enemy.regenTimer >= regen.interval) {
+          enemy.regenTimer = 0;
+          if (enemy.hp < enemy.maxHp) {
+            enemy.hp = Math.min(enemy.maxHp, enemy.hp + regen.amount);
+            this.sim.addEffect({ kind: 'heal', x: enemy.x, y: enemy.y, ttl: 0.6 });
+          }
+        }
+      }
+
+      // 守望者：周期性为光环内友军施加护盾（单目标护盾上限 maxShield 封顶）。
+      const guard = ENEMIES[enemy.type]?.guard;
+      if (!stasisActive && guard && !enemy.dead) {
+        if (!Number.isFinite(enemy.guardTimer)) enemy.guardTimer = 0;
+        enemy.guardTimer += dt;
+        if (enemy.guardTimer >= guard.interval) {
+          enemy.guardTimer = 0;
+          let guarded = false;
+          for (const other of this.sim.enemies) {
+            if (other.dead || other === enemy) continue;
+            if (Math.hypot(other.x - enemy.x, other.y - enemy.y) <= guard.range) {
+              if ((other.shield || 0) < guard.maxShield) {
+                other.shield = Math.min(guard.maxShield, (other.shield || 0) + guard.shield);
+                guarded = true;
+              }
+            }
+          }
+          if (guarded) {
+            this.sim.addEffect({
+              kind: 'ring',
+              x: enemy.x,
+              y: enemy.y,
+              r0: 0.05,
+              r1: enemy.r + 0.5,
+              ttl: 0.25,
+              color: ENEMIES[enemy.type].color,
+            });
+          }
+        }
+      }
+
       // 远程敌人：冻结/时停期间无法开火。
       if (!stasisActive && !frozen && !enemy.dead) this.sim.updateRanged(enemy, dt, now);
       // 反伤壁垒：破盾前周期性释放反伤脉冲停摆近身防御塔。

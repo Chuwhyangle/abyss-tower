@@ -143,9 +143,9 @@ const REFERENCE = {
         "portal": 0
       },
       {
-        "type": "caster",
+        "type": "golem",
         "count": 2,
-        "interval": 1.3,
+        "interval": 1.7,
         "delay": 6.070938251819462,
         "hpMul": 12.857240181135,
         "portal": 0
