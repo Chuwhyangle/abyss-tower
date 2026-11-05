@@ -33,8 +33,8 @@ extra: {}
 
 - `server/services/run-rules.mjs`
 - `public/js/shared/scoring.js`
-- `public/js/shared/data/` (每日/每周规则数据，new)
-- `tests/` (每日/每周规则测试)
+- `public/js/shared/data/daily-weekly-rules.js` (每日/每周规则数据，new)
+- `tests/daily-weekly-rules.test.mjs` (每日/每周规则测试)
 - `scripts/test-changed.mjs`
 - `tasks/feat-daily-weekly-rules.md`
 
