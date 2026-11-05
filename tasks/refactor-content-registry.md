@@ -1,7 +1,7 @@
 ---
 id: refactor-content-registry
 title: 并发重构·阶段4：内容注册表拆分（relics/effects，确定性高危串行）
-status: ready
+status: done
 labels:
   - refactor
 parent: null
