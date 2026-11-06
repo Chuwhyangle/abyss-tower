@@ -1,7 +1,7 @@
 ---
 id: feat-true-fullscreen
 title: 电脑版真全屏：canvas 填满视口 + HUD 覆盖停靠
-status: ready
+status: done
 labels:
   - feat
   - ui
