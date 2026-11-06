@@ -13,11 +13,12 @@ import {
   relicIconName,
   CanvasShapes,
 } from '../public/js/render/canvas-shapes.js';
+import { readCss } from './lib/css-source.mjs';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const INDEX_HTML = read('public/index.html');
-const STYLES = read('public/styles.css');
+const STYLES = readCss();
 const UI_SOURCE_PATHS = [
   'public/index.html',
   'public/js/ui.js',

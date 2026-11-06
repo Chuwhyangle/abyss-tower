@@ -138,9 +138,16 @@ export const TEST_MAP = [
   { match: 'public/js/i18n.js', tests: ['tests/i18n.test.mjs'] },
   { match: 'public/js/leaderboard-ui.js', tests: ['tests/leaderboard.test.mjs'] },
   { match: 'public/index.html', tests: ['tests/ui-styles.test.mjs', 'tests/leaderboard.test.mjs'] },
-  { match: 'public/styles.css', tests: [
+  { match: 'public/css/', tests: [
     'tests/ui-animation-audit.test.mjs',
     'tests/ui-styles.test.mjs',
+    'tests/panels-visual.test.mjs',
+    'tests/a11y-color.test.mjs',
+    'tests/transition.test.mjs',
+    'tests/mobile-input.test.mjs',
+    'tests/hex-flow.test.mjs',
+    'tests/result-audio.test.mjs',
+    'tests/icon-system.test.mjs',
   ] },
 
   // 渲染层

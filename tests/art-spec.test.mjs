@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { ART_TOKENS, MOTION_TOKENS } from '../public/js/render/art-tokens.js';
 import { Palette } from '../public/js/render/palette.js';
+import { readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -307,7 +308,7 @@ test('palette.js 消费 art-tokens.js，且不再散落字面色值', () => {
 });
 
 test('UI 令牌是 styles.css :root 与字号阶梯的镜像', () => {
-  const css = fs.readFileSync(path.join(ROOT, 'public/styles.css'), 'utf8');
+  const css = readCss();
   const rootBlock = /:root\s*\{([\s\S]*?)\n\}/.exec(css);
   assert.ok(rootBlock, 'styles.css 缺少 :root 块');
   const declarations = new Map();

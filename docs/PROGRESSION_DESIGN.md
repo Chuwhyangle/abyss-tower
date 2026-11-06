@@ -438,6 +438,6 @@ k = (L-1)/9
 |---|---|
 | A 服务端/数据 | `server/**`、`public/js/shared/scoring.js`、`tests/skills.test.mjs`、`tests/api.test.mjs`、`tests/scoring.test.mjs` |
 | B sim | `public/js/sim.js`、`public/js/shared/save.js`、`tests/sim-skills.test.mjs`、`tests/balance-sim.mjs` |
-| C 渲染/UI | `public/js/render/**`、`public/js/ui.js`、`public/js/app/**`、`public/index.html`、`public/styles.css`、`tests/browser-*.mjs` |
+| C 渲染/UI | `public/js/render/**`、`public/js/ui.js`、`public/js/app/**`、`public/index.html`、`public/css/*`、`tests/browser-*.mjs` |
 
 `public/js/shared/data.js` 已冻结，A/B/C 只读；如需修改，先回报协调者。

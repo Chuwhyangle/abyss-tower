@@ -13,6 +13,7 @@ import {
   resolvePointerTile,
   resolveTouchTile,
 } from '../public/js/app/input.js';
+import { readCss } from './lib/css-source.mjs';
 
 function makeSim({ buildable = [], towers = [], placementType = 'arrow' } = {}) {
   const buildSet = new Set(buildable.map(([c, r]) => `${c},${r}`));
@@ -106,7 +107,7 @@ test('横屏/竖屏断点映射与移动端样式一致', () => {
   assert.equal(VIEWPORT_BREAKPOINTS.compactWidth, 900);
   assert.equal(VIEWPORT_BREAKPOINTS.compactHeight, 520);
 
-  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const css = readCss();
   assert.match(css, /@media \(max-width: 900px\), \(max-height: 520px\)/);
   assert.match(css, /@media \(orientation: landscape\) and \(max-height: 520px\)/);
   assert.match(css, /@media \(orientation: portrait\) and \(max-width: 900px\)/);
@@ -116,7 +117,7 @@ test('横屏/竖屏断点映射与移动端样式一致', () => {
 });
 
 test('iOS 安全区与 ≥44px 触控目标在样式表中生效', () => {
-  const css = readFileSync(new URL('../public/styles.css', import.meta.url), 'utf8');
+  const css = readCss();
   for (const inset of ['top', 'right', 'bottom', 'left']) {
     assert.match(css, new RegExp(`env\\(safe-area-inset-${inset}`), `缺少 safe-area-inset-${inset}`);
   }
