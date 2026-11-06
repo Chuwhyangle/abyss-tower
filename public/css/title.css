@@ -1,0 +1,161 @@
+/* ============ 标题页 ============ */
+
+.title-screen {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 40px 20px;
+  overflow: hidden;
+}
+
+.title-glow {
+  position: absolute;
+  inset: -30% -10%;
+  background:
+    radial-gradient(560px 320px at 22% 38%, rgba(92, 226, 208, 0.2), transparent 70%),
+    radial-gradient(460px 300px at 78% 30%, rgba(180, 140, 255, 0.18), transparent 70%),
+    radial-gradient(620px 380px at 55% 85%, rgba(255, 211, 107, 0.14), transparent 70%),
+    radial-gradient(360px 220px at 50% 10%, rgba(255, 140, 90, 0.09), transparent 70%);
+  pointer-events: none;
+  animation: drift 12s ease-in-out infinite alternate;
+}
+
+@keyframes drift {
+  from { transform: translate3d(-1.5%, -1%, 0) scale(1); }
+  to { transform: translate3d(1.5%, 1.5%, 0) scale(1.04); }
+}
+
+.title-inner {
+  position: relative;
+  z-index: 1;
+  width: min(620px, 100%);
+  text-align: center;
+}
+
+.title-inner::before {
+  content: "";
+  display: block;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto 18px;
+  border: 1px solid var(--gold-border);
+  transform: rotate(45deg);
+  background: linear-gradient(135deg, rgba(255, 211, 107, 0.18), rgba(255, 211, 107, 0.02));
+  box-shadow: 0 0 22px rgba(255, 211, 107, 0.35), inset 0 0 10px rgba(255, 211, 107, 0.2);
+}
+
+.logo-kicker {
+  margin: 0 0 12px;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 13px;
+  /* Orbitron 字形更宽，字距比 mono 略收，避免 390px 竖屏横向溢出。 */
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  opacity: 0.92;
+  text-shadow: 0 0 22px rgba(255, 211, 107, 0.4);
+}
+
+.title-inner h1 {
+  margin: 0;
+  font-size: clamp(48px, 9vw, 88px);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  line-height: 1;
+  background: linear-gradient(180deg, #fff6d8 8%, #ffd36b 42%, #c98a2e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 10px 40px rgba(255, 196, 80, 0.18));
+}
+
+.logo-sub {
+  margin: 18px 0 32px;
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+
+.title-card {
+  padding: var(--space-5);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-overlay));
+  box-shadow: var(--shadow-card);
+  backdrop-filter: blur(10px);
+  text-align: left;
+}
+
+.profile-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--line-muted);
+}
+
+.player-name {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cores-badge {
+  margin-left: auto;
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  padding: var(--space-1) 10px;
+  border: 1px solid color-mix(in srgb, var(--gold) 25%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--gold) 6%, transparent);
+}
+
+.title-actions {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+
+.title-actions .row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.title-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-2);
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line-muted);
+}
+
+.stat-cell {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+}
+
+.stat-cell span {
+  color: var(--muted);
+  font-size: var(--text-min);
+  letter-spacing: 0.06em;
+}
+
+.stat-cell b {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: #dfeaf2;
+  letter-spacing: 0.02em;
+}
+
+.footnote {
+  margin: 20px 0 0;
+  color: #5c707e;
+  font-size: var(--text-min);
+  letter-spacing: 0.08em;
+}
+

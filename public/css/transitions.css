@@ -1,0 +1,123 @@
+/* ============ UI 动效预算 ============ */
+/* 一次性动效 ≤800ms；无限循环只跑 transform/opacity（总数 ≤4）；reduced-motion 全关闭。
+   审计：node scripts/ui-animation-audit.mjs。确需更久的一次性动效，
+   在 animation 上一行写 `ui-motion-budget: allow-long — 理由`。 */
+
+/* ============ 界面转场与首领横幅 ============ */
+/* 轻量转场：只改透明度与位移，时长 ≤400ms；reduced-motion 下直接显示。 */
+.view-enter {
+  animation: view-enter 320ms var(--ease-standard) both;
+}
+
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 结算入场：淡入 + 极轻的推进，模拟镜头向结算页靠近。 */
+.result-fade {
+  animation: result-fade 360ms var(--ease-standard) both;
+}
+
+@keyframes result-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 首领预警横幅：居中显示 1.5s；pointer-events: none 保证不拦截任何操作。 */
+.boss-banner {
+  position: fixed;
+  top: 38%;
+  left: 50%;
+  z-index: 350;
+  margin: 0;
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-deep) 88%, transparent);
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-lg);
+  letter-spacing: 0.12em;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  /* ui-motion-budget: allow-long — 首领预警需要完整停留 1.5s（见 tests/ui-transitions.test.mjs） */
+  animation: boss-banner 1500ms var(--ease-standard) both;
+}
+
+@keyframes boss-banner {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.98);
+  }
+  12%,
+  78% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -6px) scale(0.99);
+  }
+}
+
+/* ============ 大厅→战斗过场 ============ */
+/* 程序化遮罩：淡出大厅 → 地图轮廓展开 → 揭开战场；不加载素材，也不拦截输入。 */
+.battle-transition {
+  position: fixed;
+  inset: 0;
+  z-index: 420;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--surface-deep) 94%, transparent);
+  opacity: 0;
+  transition: opacity var(--duration-slow) var(--ease-standard);
+}
+
+.battle-transition[data-phase="fade"],
+.battle-transition[data-phase="expand"] {
+  opacity: 1;
+}
+
+.battle-transition[data-phase="reveal"] {
+  opacity: 0;
+  transition-duration: var(--duration-base);
+}
+
+.battle-transition-map {
+  width: min(78vmin, 620px);
+  aspect-ratio: 11 / 6;
+  border: 1px solid color-mix(in srgb, var(--gold) 55%, transparent);
+  border-radius: var(--radius-md);
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--gold) 22%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--gold) 22%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+  box-shadow: 0 0 40px color-mix(in srgb, var(--gold) 12%, transparent);
+  opacity: 0.25;
+  transform: scale(0.55);
+  transition:
+    transform 360ms var(--ease-standard),
+    opacity var(--duration-slow) var(--ease-standard);
+}
+
+.battle-transition[data-phase="expand"] .battle-transition-map,
+.battle-transition[data-phase="reveal"] .battle-transition-map {
+  opacity: 0.85;
+  transform: scale(1);
+}
+

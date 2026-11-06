@@ -450,7 +450,7 @@ export class EnemySystem {
       y: enemy.y,
     });
     this.sim.playSound('hurt');
-    this.sim.hooks.emit('onLeak', enemy);
+    this.sim.hexCall('onLeak', enemy, this.sim.hexCtx);
   }
 
   // ---------- 友方单位 ----------

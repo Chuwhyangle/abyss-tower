@@ -9,7 +9,7 @@
 //    循环动效的时长不设上限（循环成本取决于每帧属性，而不是单次时长）；
 // 4) 必须存在 prefers-reduced-motion 覆盖，把 animation / transition 压到 ≤1ms。
 //
-// 用法：node scripts/ui-animation-audit.mjs [css 文件...]（默认 public/styles.css）
+// 用法：node scripts/ui-animation-audit.mjs [css 文件...]（默认 public/css/* 分区拼接）
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -545,12 +545,41 @@ export function formatViolation(file, violation) {
   return `${file}:${violation.line}: [${violation.rule}] ${violation.property} — ${violation.message}`;
 }
 
+// 分区 css 的级联顺序（tokens 最先；a11y 的 reduced-motion 块必须保持最后）。
+const CSS_CASCADE_ORDER = [
+  'tokens.css',
+  'title.css',
+  'base.css',
+  'hud.css',
+  'shop.css',
+  'modals.css',
+  'nodes.css',
+  'mobile.css',
+  'skills.css',
+  'achievements.css',
+  'meta.css',
+  'transitions.css',
+  'hex.css',
+  'gacha.css',
+  'a11y.css',
+];
+
+function readDefaultCss() {
+  const dir = path.resolve('public/css');
+  return CSS_CASCADE_ORDER
+    .map((name) => fs.readFileSync(path.join(dir, name), 'utf8'))
+    .join('\n');
+}
+
 function main(argv) {
   const files = argv.filter((argument) => !argument.startsWith('-'));
-  const targets = files.length ? files : ['public/styles.css'];
+  // 无参数：审计 public/css 分区的整体拼接（styles.css 已拆为 public/css/*，级联顺序见 CSS_CASCADE_ORDER）。
+  // 逐文件分别审计会因 reduced-motion 块只在 a11y.css 末尾而误报，故必须按级联顺序拼接后整体审计。
+  const targets = files.length
+    ? files.map((file) => ({ file, source: fs.readFileSync(path.resolve(file), 'utf8') }))
+    : [{ file: 'public/css/*.css', source: readDefaultCss() }];
   const violations = [];
-  for (const file of targets) {
-    const source = fs.readFileSync(path.resolve(file), 'utf8');
+  for (const { file, source } of targets) {
     for (const violation of auditCss(source).violations) {
       violations.push(formatViolation(file, violation));
     }
@@ -560,7 +589,7 @@ function main(argv) {
     console.error(`动效预算审计未通过：${violations.length} 个问题`);
     return 1;
   }
-  console.log(`动效预算审计通过：${targets.join(', ')}`);
+  console.log(`动效预算审计通过：${targets.map((target) => target.file).join(', ')}`);
   return 0;
 }
 

@@ -1,7 +1,7 @@
 ---
 id: refactor-sim-hooks
-title: 并发重构·阶段5：sim 战斗 hook 总线（最高风险）
-status: done
+title: 并发重构·阶段5（需重做）：sim 战斗 hook 总线——上一版破坏确定性已回滚
+status: ready
 labels:
   - refactor
 parent: null
