@@ -233,3 +233,155 @@ test('非 git 目录以退出码 2 拒绝', (t) => {
   assert.equal(result.status, 2);
   assert.match(result.stderr, /不是 git 仓库/);
 });
+
+// ── post-commit：维持 main ⊆ develop，消除 fan-in 的 BASELINE-MISMATCH 竞态 ──
+
+const postCommitPath = (root) => path.join(root, '.git', 'hooks', 'post-commit');
+
+const GIT_ENV = {
+  GIT_AUTHOR_NAME: '测试',
+  GIT_AUTHOR_EMAIL: 'test@example.com',
+  GIT_COMMITTER_NAME: '测试',
+  GIT_COMMITTER_EMAIL: 'test@example.com',
+};
+
+function gitRun(root, args) {
+  const result = spawnSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, ...GIT_ENV },
+  });
+  assert.equal(result.status, 0, `git ${args.join(' ')} 失败：${result.stderr}`);
+  return result.stdout.trim();
+}
+
+// 与 quay task_store 的提交方式一致：--no-verify 只跳过 pre-commit/commit-msg，
+// post-commit 仍会运行 —— 这正是钩子能覆盖自动提交路径的原因。
+function commitFile(root, file, content, message) {
+  const target = path.join(root, file);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, content);
+  gitRun(root, ['add', file]);
+  gitRun(root, ['commit', '--no-verify', '-m', message]);
+}
+
+// main 与 develop 各自有独有提交：develop 领先 main 的常见态。
+function repoWithDevelop(t) {
+  const root = gitRepo(t);
+  fs.mkdirSync(path.join(root, '.quay'), { recursive: true });
+  commitFile(root, 'base.txt', 'base\n', 'base');
+  gitRun(root, ['checkout', '-b', 'develop']);
+  commitFile(root, 'develop-only.txt', 'develop\n', 'develop only');
+  gitRun(root, ['checkout', 'main']);
+  return root;
+}
+
+function baselineEvents(root) {
+  const file = path.join(root, '.quay', 'baseline-sync.jsonl');
+  if (!fs.existsSync(file)) return [];
+  return fs
+    .readFileSync(file, 'utf8')
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+}
+
+test('安装会同时写出可执行的 post-commit 钩子', (t) => {
+  const root = gitRepo(t);
+  assert.equal(run(root).status, 0);
+
+  const content = fs.readFileSync(postCommitPath(root), 'utf8');
+  assert.match(content, /^#!\/bin\/sh/);
+  assert.match(content, /managed by scripts\/install-hooks\.mjs/);
+  assert.match(content, /main ⊆ develop/);
+  assert.match(content, /merge-tree --write-tree/);
+  const mode = fs.statSync(postCommitPath(root)).mode & 0o777;
+  assert.ok(mode & 0o111, `钩子应可执行，实际权限 ${mode.toString(8)}`);
+});
+
+test('post-commit：main 领先时（--no-verify 自动提交）把 main 合进 develop 且不丢 develop 独有提交', (t) => {
+  const root = repoWithDevelop(t);
+  assert.equal(run(root).status, 0);
+
+  commitFile(root, 'tasks/fix-x.md', '- [ ] AC\n', 'tasks: fix-x task_write');
+
+  gitRun(root, ['merge-base', '--is-ancestor', 'refs/heads/main', 'refs/heads/develop']);
+  const parents = gitRun(root, ['rev-list', '--parents', '-n', '1', 'develop']).split(' ').slice(1);
+  assert.equal(parents.length, 2, '对齐应产生合并提交（两个父提交）而非 reset');
+  const tree = gitRun(root, ['ls-tree', '-r', '--name-only', 'develop']);
+  assert.match(tree, /^develop-only\.txt$/m, 'develop 独有文件必须保留');
+  assert.match(tree, /^tasks\/fix-x\.md$/m, 'main 的任务提交必须进入 develop');
+
+  const events = baselineEvents(root);
+  assert.equal(events.at(-1)?.event, 'baseline-sync-merged', JSON.stringify(events));
+  assert.equal(events.at(-1)?.main, gitRun(root, ['rev-parse', 'refs/heads/main']));
+});
+
+test('post-commit：已对齐时是 no-op，不再追加合并提交', (t) => {
+  const root = repoWithDevelop(t);
+  assert.equal(run(root).status, 0);
+
+  gitRun(root, ['checkout', 'develop']);
+  const before = gitRun(root, ['rev-parse', 'develop']);
+  commitFile(root, 'develop-2.txt', 'more\n', 'develop only 2');
+
+  const after = gitRun(root, ['rev-parse', 'develop']);
+  assert.equal(gitRun(root, ['rev-list', '--count', `${before}..${after}`]), '1');
+  assert.equal(gitRun(root, ['rev-list', '--parents', '-n', '1', 'develop']).split(' ').length, 2, '不应追加合并提交');
+  assert.deepEqual(baselineEvents(root), []);
+});
+
+test('post-commit：合并冲突时保持 develop 不动、不阻塞提交，并留证据', (t) => {
+  const root = gitRepo(t);
+  fs.mkdirSync(path.join(root, '.quay'), { recursive: true });
+  commitFile(root, 'shared.txt', 'base\n', 'base');
+  gitRun(root, ['checkout', '-b', 'develop']);
+  commitFile(root, 'shared.txt', 'develop\n', 'develop change');
+  gitRun(root, ['checkout', 'main']);
+  assert.equal(run(root).status, 0);
+
+  const developBefore = gitRun(root, ['rev-parse', 'develop']);
+  commitFile(root, 'shared.txt', 'main\n', 'main change');
+
+  assert.equal(gitRun(root, ['rev-parse', 'develop']), developBefore, '冲突时不得改动 develop');
+  assert.equal(gitRun(root, ['log', '-1', '--format=%s', 'main']), 'main change');
+  const events = baselineEvents(root);
+  assert.equal(events.at(-1)?.event, 'baseline-sync-conflict', JSON.stringify(events));
+});
+
+test('post-commit：仓库没有 develop 分支时不报错也不影响提交', (t) => {
+  const root = gitRepo(t);
+  assert.equal(run(root).status, 0);
+
+  commitFile(root, 'only-main.txt', 'x\n', 'main only');
+
+  assert.equal(gitRun(root, ['log', '-1', '--format=%s', 'main']), 'main only');
+});
+
+test('--only post-commit 只装对齐钩子，不启用 pre-push 门禁', (t) => {
+  const root = gitRepo(t);
+  const result = run(root, ['--only', 'post-commit']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(fs.existsSync(hookPath(root)), false, '未指定的 pre-push 不应被安装');
+  assert.ok(fs.existsSync(postCommitPath(root)));
+});
+
+test('--only 收到未知钩子名时以退出码 2 拒绝', (t) => {
+  const root = gitRepo(t);
+  const result = run(root, ['--only', 'pre-push,post-merge']);
+
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /未知钩子名：post-merge/);
+  assert.equal(fs.existsSync(hookPath(root)), false);
+  assert.equal(fs.existsSync(postCommitPath(root)), false);
+});
+
+test('重复安装不会改写已安装的 post-commit 钩子', (t) => {
+  const root = gitRepo(t);
+  assert.equal(run(root).status, 0);
+  const before = fs.readFileSync(postCommitPath(root), 'utf8');
+
+  assert.equal(run(root).status, 0);
+  assert.equal(fs.readFileSync(postCommitPath(root), 'utf8'), before);
+});
