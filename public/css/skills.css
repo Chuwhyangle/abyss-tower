@@ -277,6 +277,14 @@
   display: none;
 }
 
+/* 桌面真全屏（P0-1）：商店改为覆盖停靠后，技能钮上移到停靠条之上，
+   否则会被半透明商店条压住、点不到。 */
+@media (min-width: 1200px) and (min-height: 521px) {
+  .btn-skill {
+    bottom: calc(var(--dock-bottom) + 16px);
+  }
+}
+
 /* 光晕放在伪元素上：待机呼吸只跑 opacity/transform，避免每帧重绘 box-shadow。 */
 .btn-skill::after {
   content: "";

@@ -557,3 +557,71 @@
   transform: translate(-50%, 0);
 }
 
+
+/* ============ 桌面真全屏（P0-1） ============ */
+/* canvas 等比铺满视口，HUD / 商店改为覆盖停靠。
+   --dock-top / --dock-bottom 是停靠条的最大高度（HUD 中文 59px、英文 93px；
+   商店中文 98px、英文 117px），场内浮层据此避让，避免被停靠条压住。
+   1200px 是 HUD 单行 + 8 张塔卡单行都还放得下的最小宽度；
+   移动端与紧凑桌面继续走文档流布局（见 CSS 顶部的基础规则）。
+   本块放在 hud.css 末尾：.relic-panel / .tower-panel / .toast 的基线规则都在上面。 */
+@media (min-width: 1200px) and (min-height: 521px) {
+  .game-screen {
+    position: relative;
+    --dock-top: 100px;
+    --dock-bottom: 124px;
+  }
+
+  .stage-wrap {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+  }
+
+  .stage {
+    /* 去掉 1200px 硬顶与 190px HUD 预留：宽度取视口与「视口高度 × 画布宽高比」的较小值。 */
+    width: min(100%, calc(100dvh * 1.8333));
+  }
+
+  .stage canvas {
+    /* 铺满视口后不再需要边框、圆角与外投影。 */
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    border-bottom-color: transparent;
+    background: linear-gradient(
+      180deg,
+      var(--surface-glass) 0%,
+      var(--surface-glass) 62%,
+      transparent 100%
+    );
+  }
+
+  .relic-panel {
+    top: calc(var(--dock-top) + 6px);
+    max-height: calc(100% - var(--dock-top) - 16px);
+  }
+
+  .tower-panel {
+    bottom: calc(var(--dock-bottom) + 10px);
+  }
+
+  .toast {
+    bottom: calc(var(--dock-bottom) + 8px);
+  }
+}
+
+/* ≥1440px：中英文 HUD 都稳定单行（59px），停靠条高度回落到实际值。 */
+@media (min-width: 1440px) and (min-height: 521px) {
+  .game-screen {
+    --dock-top: 64px;
+  }
+}

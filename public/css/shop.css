@@ -10,6 +10,25 @@
   background: linear-gradient(180deg, var(--surface-overlay), var(--surface-deep));
 }
 
+/* 桌面真全屏（P0-1）：商店从文档流底栏改为覆盖在战场下沿的半透明停靠条，
+   底部不透明、向上淡出，塔卡与提示保持原有对比度。 */
+@media (min-width: 1200px) and (min-height: 521px) {
+  .shop {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 20;
+    border-top-color: transparent;
+    background: linear-gradient(
+      0deg,
+      var(--surface-overlay) 0%,
+      var(--surface-overlay) 60%,
+      transparent 100%
+    );
+  }
+}
+
 .shop-list {
   display: flex;
   justify-content: center;
