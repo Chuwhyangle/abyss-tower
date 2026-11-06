@@ -17,7 +17,7 @@ depends_on:
 1. `index.html`：加第 3 个 `.screen` section `#gacha-screen`（含返回按钮、余额、碎片条、Banner 区、单抽/十连按钮、结果区）；标题页 `.row` 加 `btn-gacha`。
 2. `ui.js`：`el` 注册 gacha 屏/按钮；`showGacha()/hideGacha()` 做**三态对称翻转**（`title/game/gacha` 三屏 `hidden` 互斥）；⚠️ `showTitle`/`showGame` 都要补 `gacha.hidden=true`；进抽卡页 `stopMenuBackground()`；`refreshLocale()` 加 gacha 分支。
 3. 新增 `public/js/ui/gacha-ui.js`：页面渲染 + 单抽/十连交互 + 出货动画（3★普通过场/4★蓝光/5★紫光延迟/6★金光全屏闪；十连逐张翻开 4★+ 高亮）+ 「概率公示」弹窗 + 「抽卡历史」弹窗（复用 `#modal-root`）。动画计时器纳入切屏清理（防孤儿定时器）。
-4. `styles.css`：`.gacha-screen` 及组件样式（复用 token + `.btn`/`.modal`）。
+4. CSS：抽卡页及组件样式（复用 token + `.btn`/`.modal`）。`refactor-css-partition` 已把 `styles.css` 拆为 `public/css/*`，本任务样式落在新分区 `public/css/gacha.css`（a11y 之前加载，reduced-motion 仍由 a11y 兜底）。
 5. i18n：`zh-CN.ui.js`/`en-US.ui.js` 加抽卡文案。
 
 ## AC
@@ -31,7 +31,7 @@ depends_on:
 
 ## DoD
 
-- [x] 落地于 `index.html`、`ui.js`、`gacha-ui.js`(新)、`styles.css`、`zh-CN.ui.js`、`en-US.ui.js`，零第三方依赖
+- [x] 落地于 `index.html`、`ui.js`、`gacha-ui.js`(新)、`public/css/gacha.css`(新)、`zh-CN.ui.js`、`en-US.ui.js`，零第三方依赖
 - [x] 复用设计 token 与 `.btn`/`.modal`/`.screen` 模式，不新增全局魔法值
 - [x] 抽卡页触控/移动端不溢出（参照现有 mobile 验收口径）
 - [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches
@@ -41,7 +41,9 @@ depends_on:
 - `public/index.html`
 - `public/js/ui.js`
 - `public/js/ui/gacha-ui.js` (new)
-- `public/styles.css`
+- `public/css/gacha.css` (new)
+- `tests/lib/css-source.mjs`
+- `scripts/ui-animation-audit.mjs`
 - `public/js/shared/i18n/zh-CN.ui.js`
 - `public/js/shared/i18n/en-US.ui.js`
 - `public/js/shared/i18n/zh-CN.ui.gacha.js` (new)
@@ -59,14 +61,15 @@ depends_on:
 - 服务端 gacha 路由由 `feat-gacha-server` 落地；本任务的浏览器验收 `tests/browser-gacha.mjs` 用注入脚本按冻结契约模拟 `/api/gacha/*`（其余请求透传真实测试服务端），聚焦前端行为：三态互斥、余额/碎片/保底刷新、单抽与十连、分档动画、公示/历史弹窗、切屏计时器清理、切语言刷新。
 - 三态翻转在 UI 层直接完成（抽卡是纯大厅功能，不绕 controller）；`showTitle`/`showGame` 都调用 `stopGacha()` 并隐藏 gacha 屏，动画计时器统一登记在 `GachaPage.timers`，切屏时 `clearTimers()`；6★ 全屏闪为纯 CSS 动画，不挂清理计时器。
 - 抽卡 API 走 `public/js/api.js` 的通用 `request()`，不改 `api.js` 文件本身（不在 Touches）。
+- 合并 develop 时 `refactor-css-partition` 已落地：`public/styles.css` 删除，抽卡样式迁到 `public/css/gacha.css`，并在 `index.html` 按级联顺序（hex 之后、a11y 之前）加 link；同步把新分区登记进 `tests/lib/css-source.mjs` 的 `CSS_PARTS` 与 `scripts/ui-animation-audit.mjs` 的 `CSS_CASCADE_ORDER`，否则分区数量/顺序与动效审计会红。
 
-验收记录（2026-11-06，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node tests/browser-gacha.mjs` 通过）：
+验收记录（2026-11-06，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node tests/browser-gacha.mjs` 通过；合并 develop 后复跑仍通过）：
 
-- 三态互斥：进抽卡页后 `title/game` 均 hidden、`gacha` 可见；返回后 `gacha` hidden、标题页可见。
+- 三态互斥：进抽卡页后 `title/game` 均 hidden、`gacha` 可见；返回后 `gacha` hidden、标题页可见；进抽卡页时 `_menuBackground.running === false`。
 - 页面读数：余额 300、碎片 5、保底剩余 48 抽、单抽 15 / 十连 150 星核、卡池 5 塔。
 - 概率公示 4 档（5%/12%/28%/55%）与 `/api/gacha/pool` 的 rates 一致；历史 3 行、snake_case 行归一化后显示塔名。
 - 单抽：请求体 `{count:1, request_id}`，结果卡 data-star=5/data-rarity=epic，余额刷新为 285。
 - 十连：请求体 `{count:10, request_id}`，10 张卡逐张翻开（pending 清零），6★/5★/4★ 分档、6★ 触发全屏金光、网格布局，余额刷新为 135。
 - 动画中途返回标题页：`_gachaPage.timers` 清零、busy 复位；移动端 390×844 无横向溢出（`scrollWidth <= innerWidth`）。
 - 语言切换：en-US 下抽卡页动态区零 CJK（卡池塔名/保底/空态文案全部刷新），切回 zh-CN 恢复。
-- 同时通过：`tests/i18n-coverage.test.mjs`、`tests/ui-styles.test.mjs`、`scripts/style-check.mjs`、`scripts/structure-budget.mjs --check`、`scripts/import-graph.mjs`。
+- 同时通过：`tests/i18n-coverage.test.mjs`、`tests/ui-styles.test.mjs`（含分区 link 顺序）、`scripts/ui-animation-audit.mjs`、`scripts/style-check.mjs`、`scripts/structure-budget.mjs --check`、`scripts/import-graph.mjs`、`scripts/check-doc-ownership.mjs`。
