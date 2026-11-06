@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-contract
 title: 抽卡·阶段0 契约/数据层：塔稀有度映射 + 抽卡配置 + 拥有判定护栏 + unlock 增量修复 + 迁移 0012
-status: ready
+status: done
 labels:
   - feat
 parent: null
@@ -55,10 +55,14 @@ extra: {}
 
 落地补充：`tests/system-status.test.mjs` 迁移版本 11→12（新迁移使 latestVersion 前进）；`docs/PHASE_抽卡.md` 仅补阶段1 路径（`server/routes/gacha.mjs`、`public/assets/gacha/`）的 docs-consistency planned 块——冻结表定稿时漏标这些计划态路径，docs-consistency 全量 red，本任务补机械标注（非设计增量）。
 
-## Blocker
+## Needs-Human
 
-**2026-11-05T22:06:29.341Z — worker 未落地（exited-not-landed）**
+**执行 2026-11-05T22:49:28.890Z — 连续修满重试上限仍不合格（标 needs-human）**
 
-- 未落地原因：step=suite: name: 'AssertionError'
+- 阻碍原因：worker-driver 连续 3 次 exited-not-landed 未落地（重试上限）
+- 失败步/判词：step=anti-drift: BASELINE-MISMATCH: merge target 'develop' is not a continuation of the project's default branch 'main' — 'develop' (14659f23) is NOT a continuation of the project's default branch 'main' (20c91dad) — it is 1 commit(s) behind and shares only an old merge base, so a task diff against it is meaningless.
+  The develop...HEAD diff is therefore the mainline's divergence, NOT task feat-gacha-contract's own work; no declaration of ## Touches can satisfy it. This is a BASELINE defect, not an out-of-declared write by the task.
+  Remedy: `quay init --force --adopt-branch-model` (preserves the old tip as 'develop-pre-quay-init-<sha>' and re-points 'develop' at 'main'), then re-dispatch the task.
 - run_id：wk-prod-anchor
-- session_id：8a9ea69d-2597-4efd-a41c-6230979b6861
+- session_id：dda5421d-ebc8-4fdc-8de2-674c9a51b0fe
+- fan-in 日志：/data/home/wenhao/abyss-tower/.quay/fan-in-feat-gacha-contract-wk-prod-anchor.log

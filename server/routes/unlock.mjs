@@ -1,5 +1,6 @@
-// 解锁商店接口：扣除星核并写入解锁项；塔升星：消耗星核逐级升星（星核长期消耗出口）。
-import { getCores, spendCoresInTx, transaction, updateProfile } from '../db.mjs';
+// 解锁商店接口：事务内条件扣费 + 幂等授予；塔升星：消耗星核逐级升星（星核长期消耗出口）。
+// 解锁不再走 updateProfile({ unlocks }) 的 DELETE-all 全量重写——那会清掉抽卡授予的塔（lost-update 地雷）。
+import { purchaseUnlock, getProfile, getCores, spendCoresInTx, transaction } from '../db.mjs';
 import { readPlayerKv, writePlayerKv } from '../db/accounts.mjs';
 import { recordPlayerEvent } from '../db/events.mjs';
 import { TOWERS, UNLOCK_BY_ID, unlockedTowerIds } from '../../public/js/shared/data.js';
@@ -46,15 +47,14 @@ export class UnlockRoutes {
     if (!unlock) return ctx.fail(404, '未知解锁项');
     if (profile.unlocks.includes(unlock.id)) return ctx.fail(409, '已经解锁');
     if (profile.cores < unlock.cost) return ctx.fail(400, '星核不足');
-    const updated = updateProfile(token, {
-      cores: profile.cores - unlock.cost,
-      unlocks: [...profile.unlocks, unlock.id],
-    });
+    const result = purchaseUnlock(token, unlock.id, unlock.cost);
+    if (result.status === 'ALREADY_UNLOCKED') return ctx.fail(409, '已经解锁');
+    if (result.status === 'INSUFFICIENT_CORES') return ctx.fail(400, '星核不足');
     recordPlayerEvent(token, 'unlock_bought', {
       unlockId: unlock.id,
       cost: unlock.cost,
     });
-    return ctx.json(200, { profile: updated });
+    return ctx.json(200, { profile: getProfile(token) });
   }
 
   // 塔升星视图：账号星级 + 可升星塔清单（含当前星级/拥有/升星花费/可否升星）。

@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-server
 title: 抽卡·阶段1 服务端：gacha 路由 pool/draw/history + request_id 幂等 + 单事务
-status: todo
+status: ready
 labels:
   - feat
 parent: null

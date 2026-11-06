@@ -1,6 +1,7 @@
 // 玩家档案/对局的兼容读写层：对上层保持旧接口形状，底层使用新的可扩展表。
 import { db, transaction } from './db/index.mjs';
 import { DIFFICULTY_ORDER, normalizeRelicStates } from '../public/js/shared/data.js';
+import { rollGacha, GACHA_PRICE } from '../public/js/shared/data/gacha.js';
 
 export { db, transaction };
 export { DB_PATH } from './db/index.mjs';
@@ -251,6 +252,148 @@ export function grantUnlock(accountId, unlockId) {
     )
     .run(accountId, String(unlockId), Date.now());
   return result.changes === 1;
+}
+
+// 增量购买：重查已拥有 → 条件扣费 → 幂等授予，同一事务内完成，避免并发双花与 lost-update。
+// 供路由层调用，SQL 不内联进路由（架构约束：路由只做 HTTP 适配）。
+export function purchaseUnlock(accountId, unlockId, cost) {
+  return transaction(() => {
+    const owned = db
+      .prepare('SELECT 1 AS ok FROM player_unlocks WHERE account_id = ? AND unlock_id = ?')
+      .get(accountId, unlockId);
+    if (owned) return { ok: false, status: 'ALREADY_UNLOCKED' };
+    if (!spendCoresInTx(accountId, cost)) return { ok: false, status: 'INSUFFICIENT_CORES' };
+    grantUnlock(accountId, unlockId);
+    return { ok: true, status: 'OK' };
+  });
+}
+
+// ---------- 抽卡（账号级养成，独立于单局确定性流） ----------
+
+const GACHA_NAMESPACE = 'gacha';
+const GACHA_PITY_KEY = 'pity6';
+const GACHA_SHARDS_KEY = 'shards';
+
+export function readGachaPity6(accountId) {
+  const row = db
+    .prepare('SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?')
+    .get(accountId, GACHA_NAMESPACE, GACHA_PITY_KEY);
+  const pity = Math.floor(Number(safeParse(row?.value_json, 0)));
+  return Number.isFinite(pity) && pity >= 0 ? pity : 0;
+}
+
+export function readGachaShards(accountId) {
+  const row = db
+    .prepare('SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?')
+    .get(accountId, GACHA_NAMESPACE, GACHA_SHARDS_KEY);
+  const raw = safeParse(row?.value_json, {});
+  const shards = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [towerId, count] of Object.entries(raw)) {
+      const n = Math.floor(Number(count));
+      if (Number.isFinite(n) && n > 0) shards[towerId] = n;
+    }
+  }
+  return shards;
+}
+
+function writeGachaPity6InTx(accountId, pity, now) {
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json, updated_at = excluded.updated_at`
+  ).run(accountId, GACHA_NAMESPACE, GACHA_PITY_KEY, JSON.stringify(pity), now);
+}
+
+function writeGachaShardsInTx(accountId, shards, now) {
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json, updated_at = excluded.updated_at`
+  ).run(accountId, GACHA_NAMESPACE, GACHA_SHARDS_KEY, JSON.stringify(shards), now);
+}
+
+function writeGachaHistoryInTx(accountId, entry, now) {
+  db.prepare(
+    `INSERT INTO gacha_history (account_id, drawn_at, tower_id, rarity, is_new, shards, request_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(
+    accountId,
+    now,
+    entry.towerId,
+    entry.rarity,
+    entry.isNew ? 1 : 0,
+    entry.shards,
+    entry.requestId ?? null
+  );
+}
+
+export function readGachaHistory(accountId, limit = 20) {
+  return db
+    .prepare(
+      `SELECT tower_id, rarity, is_new, shards, drawn_at FROM gacha_history
+        WHERE account_id = ? ORDER BY id DESC LIMIT ?`
+    )
+    .all(accountId, Math.max(1, Math.min(100, Math.floor(Number(limit) || 20))));
+}
+
+export function readGachaHistoryByRequest(accountId, requestId) {
+  return db
+    .prepare(
+      `SELECT tower_id, rarity, is_new, shards, drawn_at FROM gacha_history
+        WHERE account_id = ? AND request_id = ? ORDER BY id ASC`
+    )
+    .all(accountId, String(requestId));
+}
+
+function readOwnedTowerIds(accountId) {
+  return db
+    .prepare('SELECT unlock_id FROM player_unlocks WHERE account_id = ?')
+    .all(accountId)
+    .map((row) => row.unlock_id)
+    .filter((id) => typeof id === 'string' && id.startsWith('tower_'))
+    .map((id) => id.slice('tower_'.length));
+}
+
+// 单事务抽卡：条件扣费 → 注入随机源抽取 → 落库（历史/保底/拥有/碎片），要么全成要么全滚。
+// 随机源必须由调用方注入（账号级 node:crypto 播种的 RNG），绝不复用 sim.js 确定性流。
+export function drawGachaInTx(accountId, { count = 1, requestId = null, rng } = {}) {
+  if (!rng || typeof rng.float !== 'function') {
+    throw new Error('drawGachaInTx 需要注入 { float() } 随机源');
+  }
+  const draws = Math.floor(Number(count) || 1);
+  const price = draws === 10 ? GACHA_PRICE.ten : GACHA_PRICE.single * draws;
+  return transaction(() => {
+    const now = Date.now();
+    if (!spendCoresInTx(accountId, price, now)) {
+      return { ok: false, status: 'INSUFFICIENT_CORES' };
+    }
+    const owned = readOwnedTowerIds(accountId);
+    const pity = readGachaPity6(accountId);
+    const roll = rollGacha(rng, draws, owned, pity);
+    for (const entry of roll.results) {
+      writeGachaHistoryInTx(accountId, { ...entry, requestId }, now);
+    }
+    writeGachaPity6InTx(accountId, roll.pity6, now);
+    const shards = readGachaShards(accountId);
+    for (const entry of roll.results) {
+      if (entry.isNew) {
+        grantUnlock(accountId, `tower_${entry.towerId}`);
+      } else {
+        shards[entry.towerId] = (shards[entry.towerId] || 0) + entry.shards;
+      }
+    }
+    writeGachaShardsInTx(accountId, shards, now);
+    return {
+      ok: true,
+      status: 'OK',
+      results: roll.results,
+      pity6: roll.pity6,
+      balance: getCores(accountId),
+    };
+  });
 }
 
 export function getRun(id) {

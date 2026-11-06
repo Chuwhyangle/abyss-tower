@@ -1,7 +1,7 @@
 ---
 id: refactor-css-partition
 title: 并发重构·阶段2：拆 styles.css 为 ~15 个分区 css
-status: ready
+status: needs-human
 labels:
   - refactor
 parent: null
@@ -87,3 +87,14 @@ extra: {}
 - 未落地原因：step=suite: name: 'AssertionError'
 - run_id：wk-prod-anchor
 - session_id：da32c4b7-df7d-473b-a471-f63d1cd183a5
+
+## Needs-Human
+
+**执行 2026-11-05T22:44:58.901Z — 停派终止（失败无法归因，⛔ 不再重派）**
+
+- 阻碍原因：exited-not-landed 失败无法归因（基建/契约疑似，非实现缺陷）——停止重派，⛔ 不再拿新会话撞同一堵墙：suite red could not be attributed to any failing test file in 2 consecutive rounds (bounded to at most one retry) — infra/contract suspected, not an implementable defect (parser extracted 0 of 2 failing lines and attributed none to a file; unrecognized tokens: 真实仓库文档一致：check, 三份文档的链接、代码路径与 npm 脚本都可达（check); stopping instead of spending another worker session
+- 失败步/判词：step=suite: name: 'AssertionError'
+- run_id：wk-prod-anchor
+- session_id：4a418a85-d3ff-45f1-84f0-fccd9cd2ede6
+- suite 日志：/data/home/wenhao/abyss-tower/.quay/fan-in-suite-refactor-css-partition~wk-prod-anchor~1793918655071-1b5190.log
+- fan-in 日志：/data/home/wenhao/abyss-tower/.quay/fan-in-refactor-css-partition-wk-prod-anchor.log
