@@ -22,19 +22,19 @@ depends_on:
 
 ## AC
 
-- [ ] `btn-gacha` 从标题页进抽卡页，返回按钮回标题页；`title/game/gacha` 三屏不叠显（showTitle/showGame 也翻 gacha）
-- [ ] 单抽/十连调 `/api/gacha/draw`，结果区展示塔卡 + 稀有度边框/光效；余额/碎片条刷新
-- [ ] 出货动画分档（4★/5★/6★ 有区分度），十连逐张翻开；切屏后无孤儿定时器/动画
-- [ ] 「概率公示」「抽卡历史」弹窗可开可关，概率与 `/api/gacha/pool` 一致
-- [ ] 进抽卡页停止菜单背景动画，切语言抽卡文案刷新
-- [ ] 浏览器验收（smoke/flow 或新增 gacha 页验收）通过
+- [x] `btn-gacha` 从标题页进抽卡页，返回按钮回标题页；`title/game/gacha` 三屏不叠显（showTitle/showGame 也翻 gacha）
+- [x] 单抽/十连调 `/api/gacha/draw`，结果区展示塔卡 + 稀有度边框/光效；余额/碎片条刷新
+- [x] 出货动画分档（4★/5★/6★ 有区分度），十连逐张翻开；切屏后无孤儿定时器/动画
+- [x] 「概率公示」「抽卡历史」弹窗可开可关，概率与 `/api/gacha/pool` 一致
+- [x] 进抽卡页停止菜单背景动画，切语言抽卡文案刷新
+- [x] 浏览器验收（smoke/flow 或新增 gacha 页验收）通过
 
 ## DoD
 
-- [ ] 落地于 `index.html`、`ui.js`、`gacha-ui.js`(新)、`styles.css`、`zh-CN.ui.js`、`en-US.ui.js`，零第三方依赖
-- [ ] 复用设计 token 与 `.btn`/`.modal`/`.screen` 模式，不新增全局魔法值
-- [ ] 抽卡页触控/移动端不溢出（参照现有 mobile 验收口径）
-- [ ] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches
+- [x] 落地于 `index.html`、`ui.js`、`gacha-ui.js`(新)、`styles.css`、`zh-CN.ui.js`、`en-US.ui.js`，零第三方依赖
+- [x] 复用设计 token 与 `.btn`/`.modal`/`.screen` 模式，不新增全局魔法值
+- [x] 抽卡页触控/移动端不溢出（参照现有 mobile 验收口径）
+- [x] `docs/PRD.md` / `docs/TECH_DESIGN.md` 不入 Touches
 
 ## Touches
 
@@ -59,3 +59,14 @@ depends_on:
 - 服务端 gacha 路由由 `feat-gacha-server` 落地；本任务的浏览器验收 `tests/browser-gacha.mjs` 用注入脚本按冻结契约模拟 `/api/gacha/*`（其余请求透传真实测试服务端），聚焦前端行为：三态互斥、余额/碎片/保底刷新、单抽与十连、分档动画、公示/历史弹窗、切屏计时器清理、切语言刷新。
 - 三态翻转在 UI 层直接完成（抽卡是纯大厅功能，不绕 controller）；`showTitle`/`showGame` 都调用 `stopGacha()` 并隐藏 gacha 屏，动画计时器统一登记在 `GachaPage.timers`，切屏时 `clearTimers()`；6★ 全屏闪为纯 CSS 动画，不挂清理计时器。
 - 抽卡 API 走 `public/js/api.js` 的通用 `request()`，不改 `api.js` 文件本身（不在 Touches）。
+
+验收记录（2026-11-06，`LANG=zh_CN.UTF-8 LANGUAGE=zh_CN node tests/browser-gacha.mjs` 通过）：
+
+- 三态互斥：进抽卡页后 `title/game` 均 hidden、`gacha` 可见；返回后 `gacha` hidden、标题页可见。
+- 页面读数：余额 300、碎片 5、保底剩余 48 抽、单抽 15 / 十连 150 星核、卡池 5 塔。
+- 概率公示 4 档（5%/12%/28%/55%）与 `/api/gacha/pool` 的 rates 一致；历史 3 行、snake_case 行归一化后显示塔名。
+- 单抽：请求体 `{count:1, request_id}`，结果卡 data-star=5/data-rarity=epic，余额刷新为 285。
+- 十连：请求体 `{count:10, request_id}`，10 张卡逐张翻开（pending 清零），6★/5★/4★ 分档、6★ 触发全屏金光、网格布局，余额刷新为 135。
+- 动画中途返回标题页：`_gachaPage.timers` 清零、busy 复位；移动端 390×844 无横向溢出（`scrollWidth <= innerWidth`）。
+- 语言切换：en-US 下抽卡页动态区零 CJK（卡池塔名/保底/空态文案全部刷新），切回 zh-CN 恢复。
+- 同时通过：`tests/i18n-coverage.test.mjs`、`tests/ui-styles.test.mjs`、`scripts/style-check.mjs`、`scripts/structure-budget.mjs --check`、`scripts/import-graph.mjs`。
