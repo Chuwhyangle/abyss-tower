@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-ui
 title: 抽卡·阶段1 前端：全屏抽卡页 + 三态切屏 + 出货动画 + 概率公示/历史弹窗
-status: todo
+status: ready
 labels:
   - feat
 parent: null
