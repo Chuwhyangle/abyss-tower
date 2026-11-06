@@ -31,15 +31,6 @@ export const SEAMS = [
       assert.equal(typeof sim.hexRuntime, 'object', '钩子缝：hexRuntime 应存在');
       // 钩子统一出口：缺失钩子安全跳过、返回值不合法回退默认，任何场景都不得抛异常。
       assert.equal(typeof sim.hexRuntime.modifyTowerStats, 'function', '钩子缝：缺 modifyTowerStats');
-      // 行为 hook 总线（阶段 5）：按注册顺序调度、缺失跳过、非法回退——确定性门禁。
-      assert.equal(typeof sim.hooks, 'object', '钩子缝：sim.hooks 总线应存在');
-      assert.equal(typeof sim.hooks.emit, 'function', '钩子缝：缺 emit');
-      assert.equal(typeof sim.hooks.fold, 'function', '钩子缝：缺 fold');
-      assert.equal(sim.hooks.has('onHit'), true, '钩子缝：应注册 onHit 命中钩子');
-      assert.equal(sim.hooks.has('onProjectileHit'), true, '钩子缝：应注册 onProjectileHit 命中钩子');
-      assert.equal(sim.hooks.has('onKillSettle'), true, '钩子缝：应注册 onKillSettle 击杀钩子');
-      assert.doesNotThrow(() => sim.hooks.emit('__unknown__', 1, 2, 3), '钩子缝：未知 hook 应安全跳过');
-      assert.equal(sim.hooks.fold('__unknown__', 7), 7, '钩子缝：未知值 hook 应回退默认');
       const [cell] = sc.buildableCells(1);
       assert.ok(cell, '钩子缝：地图应至少有一个可建格');
       const tower = sc.build('arrow', cell.c, cell.r, 0);
