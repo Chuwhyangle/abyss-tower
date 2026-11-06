@@ -1,7 +1,7 @@
 ---
 id: refactor-sim-hooks
 title: 并发重构·阶段5 重做：sim 战斗 hook 总线（上一版破坏确定性已回滚，AC 已重置）
-status: ready
+status: done
 labels:
   - refactor
 parent: null
