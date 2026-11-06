@@ -35,10 +35,17 @@ depends_on:
 
 ## Touches
 
-- `public/styles.css`
-- `public/index.html`
+- `public/css/hud.css`
+- `public/css/shop.css`
+- `public/css/skills.css`
 - `tasks/feat-true-fullscreen.md`
 
 ## Notes
 
 立案 2026-11-06，源自 P0-1「电脑版全屏不是真全屏」。⚠️ 改 `.stage`/HUD 布局可能触发 visual-parity 像素漂移——若 visual 套件红，按「同环境对照」判定是布局改动导致的真漂移（需复采基线）还是 Chrome 陈旧（环境噪声）。与 `feat-gacha-ui`/`feat-title-polish-2` 都改 `styles.css`，依赖它们落地后派发（depends_on）。
+
+### 实现记录（2026-11-06）
+
+- `public/styles.css` 已被 `refactor-css-partition` 拆为 `public/css/*`，实际落在 `hud.css`（.stage/.stage-wrap/.hud/.relic-panel/.tower-panel/.toast）、`shop.css`（.shop）、`skills.css`（.btn-skill）。`index.html` 无需结构调整（纯 CSS 覆盖，DOM 不变）。
+- 断点选 `(min-width: 1200px) and (min-height: 521px)`：1200px 是 HUD 单行 + 8 张塔卡单行都放得下的最小宽度（实测 1150px 时中英文 HUD 已换行）；521px 高度与紧凑断点 `(max-height: 520px)` 互补，移动端横屏 844×390 完全不受影响。
+- 停靠高度用 `--dock-top` / `--dock-bottom` 变量：中文 HUD 59px / 商店 98px，英文 93px / 117px，取上界（≥1440px 时 HUD 中英文都稳定 59px，回落到 64px）；遗物栏、塔面板、技能钮、toast 据此避让，不被停靠条压住。
