@@ -14,6 +14,7 @@ import settings from './en-US.ui.settings.js';
 import result from './en-US.ui.result.js';
 import share from './en-US.ui.share.js';
 import meta from './en-US.ui.meta.js';
+import gacha from './en-US.ui.gacha.js';
 
 export default {
   ...common,
@@ -30,4 +31,5 @@ export default {
   ...result,
   ...share,
   ...meta,
+  ...gacha,
 };

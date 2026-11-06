@@ -15,6 +15,7 @@ import { towerMethods } from './ui/tower.js';
 import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
+import { gachaMethods } from './ui/gacha-ui.js';
 import { MenuBackground, menuTheme, createMenuCanvas } from './render/menu-background.js';
 import { battleTransition } from './render/transition.js';
 import { loadSettings } from './settings.js';
@@ -85,6 +86,22 @@ class UI {
       toast: $('toast'),
       modalRoot: $('modal-root'),
       hpStat: $('hud-hp')?.closest('.stat'),
+      gacha: $('gacha-screen'),
+      gachaBtn: $('btn-gacha'),
+      gachaBack: $('btn-gacha-back'),
+      gachaRatesBtn: $('btn-gacha-rates'),
+      gachaHistoryBtn: $('btn-gacha-history'),
+      gachaSingle: $('btn-gacha-single'),
+      gachaTen: $('btn-gacha-ten'),
+      gachaCores: $('gacha-cores'),
+      gachaShards: $('gacha-shards'),
+      gachaShardsBar: $('gacha-shards-bar'),
+      gachaPity: $('gacha-pity'),
+      gachaPool: $('gacha-pool'),
+      gachaResult: $('gacha-result'),
+      gachaSinglePrice: $('gacha-single-price'),
+      gachaTenPrice: $('gacha-ten-price'),
+      gachaFlash: $('gacha-flash'),
     };
 
     hydrateIcons();
@@ -113,6 +130,15 @@ class UI {
     };
     this.el.sound.onclick = () => this.handlers.onSound?.();
     if (this.el.btnSkill) this.el.btnSkill.onclick = () => this.handlers.onSkill?.();
+
+    // 抽卡是纯大厅功能，UI 层直接管三态翻转，不需要绕 controller。
+    if (this.el.gachaBtn) this.el.gachaBtn.onclick = () => this.showGacha();
+    if (this.el.gachaBack) this.el.gachaBack.onclick = () => this.hideGacha();
+    if (this.el.gachaRatesBtn) this.el.gachaRatesBtn.onclick = () => this.showGachaRates();
+    if (this.el.gachaHistoryBtn) this.el.gachaHistoryBtn.onclick = () => this.showGachaHistory();
+    if (this.el.gachaSingle) this.el.gachaSingle.onclick = () => this.drawGacha(1);
+    if (this.el.gachaTen) this.el.gachaTen.onclick = () => this.drawGacha(10);
+    if (this.el.gachaResult) this.el.gachaResult.onclick = () => this.skipGachaReveal();
 
     document.querySelectorAll('.speed-btn').forEach((button) => {
       button.onclick = () => this.handlers.onSpeed?.(Number(button.dataset.speed));
@@ -172,8 +198,10 @@ class UI {
     this._titleExtras = extras;
     this.game = null;
     audio.startMusic('menu');
+    this.stopGacha();
     this.el.title.hidden = false;
     this.el.game.hidden = true;
+    if (this.el.gacha) this.el.gacha.hidden = true;
     battleTransition.cancel();
     this.hideBossBanner();
     this.playViewEnter(this.el.title);
@@ -238,6 +266,11 @@ class UI {
   refreshLocale() {
     if (!this.el) return;
     this.updateSoundIcon();
+    // 抽卡页是三屏之一：动态区（卡池/碎片/结果/弹窗）由 GachaPage 重建，不重渲染标题页。
+    if (this.el.gacha && !this.el.gacha.hidden) {
+      this._gachaPage?.refreshLocale();
+      return;
+    }
     if (this.game) {
       this.updateHud(this.game.getHud());
       this.renderShop();
@@ -252,9 +285,11 @@ class UI {
     this.game = game;
     if (profile) this.profile = profile;
     this.stopMenuBackground();
+    this.stopGacha();
     audio.startMusic('battle');
     this.el.title.hidden = true;
     this.el.game.hidden = false;
+    if (this.el.gacha) this.el.gacha.hidden = true;
     battleTransition.play();
     this._bossBannerWave = null;
     this.hideBossBanner();
@@ -287,7 +322,8 @@ const settingsMethodsWithMenu = {
 Object.assign(
   UI.prototype,
   titleMethods, hudMethods, shopMethods, modalMethods, draftMethods, hexSelectMethods,
-  starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods
+  starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods,
+  gachaMethods
 );
 
 export const ui = new UI();

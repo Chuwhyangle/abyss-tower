@@ -14,6 +14,7 @@ import settings from './zh-CN.ui.settings.js';
 import result from './zh-CN.ui.result.js';
 import share from './zh-CN.ui.share.js';
 import meta from './zh-CN.ui.meta.js';
+import gacha from './zh-CN.ui.gacha.js';
 
 export default {
   ...common,
@@ -30,4 +31,5 @@ export default {
   ...result,
   ...share,
   ...meta,
+  ...gacha,
 };

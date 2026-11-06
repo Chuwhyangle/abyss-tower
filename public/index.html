@@ -32,6 +32,7 @@
             <button id="btn-endless" class="btn ghost" type="button"><span data-i18n="title.endless">无尽模式</span> <span id="endless-label" data-i18n="title.endless.tag">30 波后继续挑战</span></button>
             <button id="btn-resume" class="btn ghost" type="button" data-i18n="title.resume" hidden>继续上一局</button>
             <div class="row" role="group" aria-label="更多功能" data-i18n-aria="shell.moreActions">
+              <button id="btn-gacha" class="btn small" type="button" data-i18n="title.gacha">星核抽卡</button>
               <button id="btn-shop" class="btn small" type="button" data-i18n="title.shop">星核商店</button>
               <button id="btn-board" class="btn small" type="button" data-i18n="title.board">排行榜</button>
               <button id="btn-daily-history" class="btn small" type="button" data-i18n="shell.dailyHistory">每日历史</button>
@@ -205,6 +206,51 @@
         <div id="shop-list" class="shop-list" role="group" aria-label="可用塔" data-i18n-aria="shell.availableTowers"></div>
         <div class="shop-hint" data-i18n="shop.hint">选择塔卡 → 点击空地建造 · 快捷键 1–5 · U 升级 · S 出售 · 空格暂停 · Esc 取消</div>
       </footer>
+    </section>
+
+    <section id="gacha-screen" class="screen gacha-screen" aria-label="星核抽卡" data-i18n-aria="gacha.screen" hidden>
+      <div class="gacha-inner">
+        <header class="gacha-top">
+          <button id="btn-gacha-back" class="icon-btn gacha-back" type="button" title="返回标题页" data-i18n-title="gacha.back" data-i18n-aria="gacha.back">
+            <span data-icon="close" aria-hidden="true"></span><span class="gacha-back-label" data-i18n="gacha.backShort">返回</span>
+          </button>
+          <div class="gacha-wallet">
+            <span class="cores-badge" aria-label="星核数量" data-i18n-aria="shell.coresCount"><span data-icon="cores" aria-hidden="true"></span> <b id="gacha-cores">0</b></span>
+            <span class="gacha-shard-badge" title="塔碎片" data-i18n-title="gacha.shardsTitle"><span data-icon="empty" aria-hidden="true"></span> <b id="gacha-shards" data-i18n="gacha.shardsEmpty">暂无碎片</b></span>
+          </div>
+          <div class="gacha-top-actions">
+            <button id="btn-gacha-rates" class="btn small ghost" type="button" data-i18n="gacha.rates">概率公示</button>
+            <button id="btn-gacha-history" class="btn small ghost" type="button" data-i18n="gacha.history">抽卡历史</button>
+          </div>
+        </header>
+
+        <div id="gacha-banner" class="gacha-banner">
+          <p class="gacha-kicker" data-i18n="gacha.kicker">深渊寻访</p>
+          <h1 class="gacha-title" data-i18n="gacha.bannerTitle">深渊寻访</h1>
+          <p class="gacha-subtitle" data-i18n="gacha.bannerSubtitle">消耗星核召唤防御塔，重复塔将转化为塔碎片。</p>
+          <div id="gacha-pool" class="gacha-pool"></div>
+          <div class="gacha-banner-meta">
+            <span id="gacha-pity" class="gacha-pity"></span>
+            <div id="gacha-shards-bar" class="gacha-shards-bar"></div>
+          </div>
+        </div>
+
+        <div id="gacha-result" class="gacha-result" role="region" aria-label="抽取结果" data-i18n-aria="gacha.resultRegion">
+          <p class="gacha-empty" data-i18n="gacha.empty">尚未召唤。选择单抽或十连，开始深渊寻访。</p>
+        </div>
+
+        <footer class="gacha-actions">
+          <button id="btn-gacha-single" class="btn primary gacha-summon" type="button">
+            <img class="gacha-summon-art" src="/assets/gacha/summon-button.png" alt="" aria-hidden="true" />
+            <span class="gacha-summon-text"><b data-i18n="gacha.single">单抽</b><em id="gacha-single-price"></em></span>
+          </button>
+          <button id="btn-gacha-ten" class="btn primary gacha-summon ten" type="button">
+            <img class="gacha-summon-art" src="/assets/gacha/summon-button-ten.png" alt="" aria-hidden="true" />
+            <span class="gacha-summon-text"><b data-i18n="gacha.ten">十连</b><em id="gacha-ten-price"></em></span>
+          </button>
+        </footer>
+      </div>
+      <div id="gacha-flash" class="gacha-flash" aria-hidden="true"></div>
     </section>
 
     <div id="modal-root"></div>
