@@ -144,7 +144,29 @@ async function main() {
     if (!screens.title || !screens.game || screens.gacha) {
       throw new Error(`三屏互斥失败：${JSON.stringify(screens)}`);
     }
+    const menuBackground = await browser.evaluate(
+      `window.__rtd.ui._menuBackground ? window.__rtd.ui._menuBackground.running : null`
+    );
+    if (menuBackground !== false) throw new Error('进抽卡页后菜单背景动画仍在运行');
     await browser.screenshot(path.join(OUT_DIR, 'rtd-gacha-02-page.png'));
+
+    // ---------- 移动端不横向溢出 ----------
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: true,
+    });
+    const mobile = await browser.evaluate(`({
+      scrollWidth: document.documentElement.scrollWidth,
+      innerWidth: window.innerWidth,
+      bodyWidth: document.body.scrollWidth,
+    })`);
+    await browser.screenshot(path.join(OUT_DIR, 'rtd-gacha-02b-mobile.png'));
+    await browser.send('Emulation.clearDeviceMetricsOverride');
+    if (mobile.scrollWidth > mobile.innerWidth + 1 || mobile.bodyWidth > mobile.innerWidth + 1) {
+      throw new Error(`抽卡页在移动端横向溢出：${JSON.stringify(mobile)}`);
+    }
 
     // ---------- 余额 / 碎片 / 保底 / 价格 ----------
     const header = await browser.evaluate(`({
