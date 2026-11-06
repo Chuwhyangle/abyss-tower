@@ -73,3 +73,11 @@ depends_on:
 - 动画中途返回标题页：`_gachaPage.timers` 清零、busy 复位；移动端 390×844 无横向溢出（`scrollWidth <= innerWidth`）。
 - 语言切换：en-US 下抽卡页动态区零 CJK（卡池塔名/保底/空态文案全部刷新），切回 zh-CN 恢复。
 - 同时通过：`tests/i18n-coverage.test.mjs`、`tests/ui-styles.test.mjs`（含分区 link 顺序）、`scripts/ui-animation-audit.mjs`、`scripts/style-check.mjs`、`scripts/structure-budget.mjs --check`、`scripts/import-graph.mjs`、`scripts/check-doc-ownership.mjs`。
+
+## Blocker
+
+**2026-11-06T02:12:56.546Z — worker 未落地（exited-not-landed）**
+
+- 未落地原因：step=suite: name: 'AssertionError'
+- run_id：wk-prod-anchor
+- session_id：4eb5875e-541c-4b3a-8e0a-55c923c04c0f
