@@ -275,3 +275,36 @@ export function seasonPassTerminal({ points = 0, claimed = [] } = {}) {
     milestones,
   };
 }
+
+// —— 赛季商店（赛季积分长期消耗出口）——
+// 用赛季积分兑换的重复性物资，毕业玩家把溢出积分转化为皮肤碎片，再喂给皮肤升级。
+// 积分是里程碑轨道之外的可消耗余额：里程碑进度看总积分，商店可用余额 = 总积分 - 已兑换。
+export const SEASON_SHOP_OFFERS = Object.freeze([
+  Object.freeze({
+    id: 'season_supplies',
+    name: '赛季物资箱',
+    costPoints: 5_000,
+    reward: Object.freeze({ shards: 3 }),
+  }),
+  Object.freeze({
+    id: 'season_supplies_large',
+    name: '赛季物资大箱',
+    costPoints: 12_000,
+    reward: Object.freeze({ shards: 8 }),
+  }),
+]);
+
+export const SEASON_SHOP_BY_ID = Object.freeze(
+  Object.fromEntries(SEASON_SHOP_OFFERS.map((offer) => [offer.id, offer]))
+);
+
+export function seasonShopOffer(id) {
+  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(SEASON_SHOP_BY_ID, id)
+    ? SEASON_SHOP_BY_ID[id]
+    : null;
+}
+
+// 可兑换余额 = 总积分 - 已兑换积分；负分或坏数据按 0 处理。
+export function seasonShopAvailable(points, spent = 0) {
+  return Math.max(0, Math.floor(Number(points) || 0) - Math.floor(Number(spent) || 0));
+}

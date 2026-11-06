@@ -123,8 +123,43 @@ export function candidatePlan(seed, count = 3) {
 
 // 三张候选地图：固定为 canyon → twin → ring，count 截断（最多 3 张）。
 // seed 仅为兼容旧签名保留；几何与 trait 均与种子无关，同一 id 输出完全一致。
+// 本函数保持 seed 无关：平衡模拟与固定图测试直接依赖它，随机词缀只在服务端运行路径叠加。
 export function generateMapCandidates(_seed, count = 3) {
   return fixedMapCandidates(_seed).slice(0, Math.max(0, Math.min(count, 3)));
+}
+
+// 本局随机词缀：每局开局由服务端按独立派生 seed 从 MAP_MODIFIERS 挑一条（确定性）。
+// 客户端只渲染、不自行派生；RNG 用独立 seed，绝不进 sim.js 的战斗 RNG 顺序。
+export function seedMapModifier(seed) {
+  return { ...new RNG(`${seed}:map-modifier`).pick(MAP_MODIFIERS) };
+}
+
+// 把开局随机词缀叠加到固定地图上：数值乘进 map.modifier / meta.scoreMul，
+// trait id 保持不变（trait 是地图身份，词缀是每局随机增益/代价），extraPortal 不作用于写死的固定几何。
+// 返回新对象，绝不改原图；调用方传入的固定图候选已是独立副本。
+export function applySeedModifier(map, seedModifier) {
+  const out = cloneMapData(map);
+  const trait = out.modifier || null;
+  const combined = {
+    id: trait?.id ?? null,
+    name: trait?.name ?? '',
+    color: trait?.color ?? '',
+    desc: trait?.desc ?? '',
+    hpMul: round3((trait?.hpMul ?? 1) * (seedModifier.hpMul ?? 1)),
+    speedMul: round3((trait?.speedMul ?? 1) * (seedModifier.speedMul ?? 1)),
+    goldMul: round3((trait?.goldMul ?? 1) * (seedModifier.goldMul ?? 1)),
+    rangeMul: round3((trait?.rangeMul ?? 1) * (seedModifier.rangeMul ?? 1)),
+    scoreMul: round3((trait?.scoreMul ?? 1) * (seedModifier.scoreMul ?? 1)),
+    extraPortal: trait?.extraPortal ?? 0,
+  };
+  out.modifier = combined;
+  out.trait = combined;
+  out.meta.modifier = combined;
+  out.meta.seedModifier = cloneMapData(seedModifier);
+  out.meta.scoreMul = Math.round(
+    Math.max(0.9, Math.min(1.25, out.meta.scoreMul * (seedModifier.scoreMul ?? 1))) * 100
+  ) / 100;
+  return out;
 }
 
 // 兼容旧调用：单入口峡谷地图（固定 canyon）。
@@ -475,4 +510,8 @@ function isAdjacentToPath(pathSet, c, r, rows) {
     if (pathSet.has((c + dc) * rows + (r + dr))) return true;
   }
   return false;
+}
+
+function round3(n) {
+  return Math.round(n * 1000) / 1000;
 }

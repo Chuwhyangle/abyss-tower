@@ -135,13 +135,14 @@ export const shopMethods = {
       button.dataset.type = id;
       button.disabled = locked;
       const level0 = def.levels[0];
+      const targets = t(def.groundOnly ? 'shop.targets.groundOnly' : 'shop.targets.airGround');
       const statsText = def.support
         ? t('shop.auraStats', {
             dmg: Math.round(level0.buffDmg * 100),
             rate: Math.round(level0.buffRate * 100),
             range: level0.range,
           })
-        : t('shop.baseStats', { dmg: level0.dmg, range: level0.range });
+        : t('shop.cardStats', { dmg: level0.dmg, range: level0.range, targets });
       button.dataset.tip = `<b style="color:${def.color}">${towerName(def)}</b><p>${def.desc}</p>
         <p class="tip-stats">${t('shop.cost')} ${this.game.towerCost(id)} · ${statsText}</p>`;
       button.innerHTML = `
@@ -149,6 +150,7 @@ export const shopMethods = {
         <span class="glyph" style="color:${def.color}"><canvas width="48" height="48" style="width:var(--icon-size-lg);height:var(--icon-size-lg)"></canvas></span>
         <span class="name">${towerName(def)}</span>
         <span class="cost">${iconSvg('gold', 'icon-inline')}${this.game.towerCost(id)}</span>
+        <span class="stats">${statsText}</span>
         ${locked ? `<span class="lock">${t('shop.locked')}</span>` : ''}
       `;
       button.onclick = () => this.handlers.onSelectShop?.(id);
@@ -156,6 +158,12 @@ export const shopMethods = {
       const portrait = button.querySelector('canvas');
       if (portrait) drawPortrait(portrait.getContext('2d'), `tower.${id}`, 48);
     });
+    if (!this._shopScrollHint) {
+      this._shopScrollHint = document.createElement('div');
+      this._shopScrollHint.className = 'shop-scroll-hint';
+      this.el.shopList.closest('.shop').appendChild(this._shopScrollHint);
+    }
+    this._shopScrollHint.textContent = t('shop.scrollHint');
     this.updateShopState();
   },
 
@@ -253,8 +261,7 @@ export const shopMethods = {
     const picked = this.game.towerEvolutions?.(tower) || [];
     const options = this.game.evolutionOptions?.(tower) || [];
     const title = picked.length
-      ? `${towerName(def)} · ${picked.map((entry) => entry.name).join(' / ')}`
-      : towerName(def);
+      ? `${towerName(def)} · ${picked.map((entry) => entry.name).join(' / ')}` : towerName(def);
     this.el.towerPanel.hidden = false;
     this.el.towerPanel.innerHTML = `
       <div class="tp-head">
@@ -309,7 +316,12 @@ export const shopMethods = {
     this.el.towerPanel.querySelectorAll('[data-evolve]').forEach((button) => {
       button.onclick = () => this.handlers.onEvolve?.(tower, button.dataset.evolve);
     });
-    this.el.towerPanel.querySelector('.sell').onclick = () => this.handlers.onSell?.(tower);
+    this.el.towerPanel.querySelector('.sell').onclick = () => this.showConfirm({
+      title: t('towerPanel.sellConfirm.title'),
+      text: t('towerPanel.sellConfirm.text', { value: sell }),
+      confirmText: t('towerPanel.sellConfirm.confirm'),
+      danger: true, onConfirm: () => this.handlers.onSell?.(tower),
+    });
     this.updateTowerPanelState(this.game.gold);
   },
 

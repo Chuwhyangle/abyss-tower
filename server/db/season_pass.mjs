@@ -1,6 +1,7 @@
 // 赛季通行证持久化：积分由赛季内的对局、赛季悬赏与成就三类来源派生，里程碑领取与奖励发放同事务。
 // 赛季边界直接复用排行榜的 seasonOf / seasonBounds，保证与榜单口径一致。
 import { db, grantCores, getCores, transaction } from '../db.mjs';
+import { getSeasonShards, grantShardsInTx, spendSeasonShardsInTx } from './shards.mjs';
 import { isSeasonKey, seasonBounds, seasonOf } from './leaderboard-sql.mjs';
 import { ACHIEVEMENT_BY_ID } from '../../public/js/shared/achievements.js';
 import {
@@ -9,6 +10,7 @@ import {
   SEASON_POINT_LEDGER_NAMESPACE,
   SEASON_POINT_SOURCE_LABELS,
   SEASON_POINT_SOURCES,
+  SEASON_SHOP_OFFERS,
   pointsBreakdown,
   seasonAchievementPoints,
   seasonBonusLedgerPrefix,
@@ -16,34 +18,14 @@ import {
   seasonPassMilestone,
   seasonPassProgress,
   seasonPassTerminal,
+  seasonShopAvailable,
 } from '../../public/js/shared/season-pass.js';
 
-const SHARD_CURRENCY = 'skin_shards';
+// 皮肤碎片钱包迁到 shards.mjs（皮肤升级/里程碑/商店共用），这里只做再导出以保持调用方不变。
+export { getSeasonShards, spendSeasonShardsInTx };
+
 const COSMETIC_NAMESPACE = 'cosmetics';
 const SOURCE_NAMESPACE = 'season_pass_sources';
-
-export const SEASON_PASS_SHARD_CURRENCY = SHARD_CURRENCY;
-
-export function getSeasonShards(accountId) {
-  const row = db
-    .prepare('SELECT balance FROM player_wallets WHERE account_id = ? AND currency_id = ?')
-    .get(accountId, SHARD_CURRENCY);
-  return Math.max(0, Math.floor(Number(row?.balance) || 0));
-}
-
-// 必须在调用方事务内执行：奖励与领取状态要么一起落库，要么一起回滚。
-function grantShardsInTx(accountId, amount, now) {
-  const gain = Math.floor(Number(amount));
-  if (!Number.isFinite(gain) || gain <= 0) return getSeasonShards(accountId);
-  db.prepare(
-    `INSERT INTO player_wallets (account_id, currency_id, balance, updated_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(account_id, currency_id) DO UPDATE SET
-       balance = balance + excluded.balance,
-       updated_at = excluded.updated_at`
-  ).run(accountId, SHARD_CURRENCY, gain, now);
-  return getSeasonShards(accountId);
-}
 
 // 称号写入与成就相同的 cosmetics 命名空间，外观接口无需新增读取分支。
 function grantTitleInTx(accountId, titleId, season, milestoneId, now) {
@@ -158,7 +140,7 @@ function storedPoints(accountId, season) {
 
 // 赛季积分 = 对局 + 已领取赛季悬赏 + 本赛季解锁成就 + 解锁一次性加成。
 // 旧数据只有总分、没有来源记录：整笔按对局积分处理，保证明细合计不丢分。
-function seasonSources(accountId, season, bounds) {
+export function seasonSources(accountId, season, bounds) {
   if (!bounds) return pointsBreakdown([]);
   const derived = pointsBreakdown([
     matchSource(accountId, bounds),
@@ -243,6 +225,36 @@ function wallet(accountId) {
   return { cores: getCores(accountId), shards: getSeasonShards(accountId) };
 }
 
+// —— 赛季商店：已兑换积分账本 ——
+// 键里带赛季，换季后自然隔离；与成就一次性加成共用 ledger 命名空间、不同键前缀。
+function seasonSpentKey(season) {
+  return `spent:${season}`;
+}
+
+export function getSeasonSpent(accountId, season) {
+  const row = db
+    .prepare('SELECT value_json FROM player_kv WHERE account_id = ? AND namespace = ? AND key = ?')
+    .get(accountId, SEASON_POINT_LEDGER_NAMESPACE, seasonSpentKey(season));
+  if (!row) return 0;
+  try {
+    return Math.max(0, Math.floor(Number(JSON.parse(row.value_json || 'null')) || 0));
+  } catch {
+    return 0;
+  }
+}
+
+export function writeSeasonSpentInTx(accountId, season, spent, now) {
+  db.prepare(
+    `INSERT INTO player_kv (account_id, namespace, key, value_json, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(account_id, namespace, key) DO UPDATE SET
+       value_json = excluded.value_json,
+       updated_at = excluded.updated_at`
+  ).run(accountId, SEASON_POINT_LEDGER_NAMESPACE, seasonSpentKey(season), JSON.stringify(spent), now);
+}
+
+// 赛季商店兑换逻辑迁到 season-shop.mjs（依赖本模块的积分派生与已兑换账本），避免本文件超行数预算。
+
 export function seasonLabel(season) {
   if (typeof season !== 'string' || !/^\d{4}-\d{2}$/.test(season)) return season || '';
   const [year, month] = season.split('-');
@@ -282,6 +294,7 @@ export function seasonPassSummary(accountId, now = Date.now()) {
     ...milestone,
     claimedAt: claims.get(milestone.id) ?? null,
   }));
+  const spent = getSeasonSpent(accountId, season);
 
   return {
     season,
@@ -295,6 +308,10 @@ export function seasonPassSummary(accountId, now = Date.now()) {
     wallet: wallet(accountId),
     sources: breakdown.sources,
     milestones,
+    // 赛季商店：已兑换积分 + 可兑换余额 + 可重复兑换项。
+    spent,
+    shopAvailable: seasonShopAvailable(points, spent),
+    shop: SEASON_SHOP_OFFERS.map((offer) => ({ ...offer, reward: { ...offer.reward } })),
   };
 }
 

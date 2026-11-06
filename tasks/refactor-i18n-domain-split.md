@@ -1,7 +1,7 @@
 ---
 id: refactor-i18n-domain-split
 title: 并发重构·阶段1：拆 i18n ui 域词典（feature 片段 + 聚合器）
-status: ready
+status: done
 labels:
   - refactor
 parent: null

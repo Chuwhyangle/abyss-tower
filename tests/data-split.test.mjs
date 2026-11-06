@@ -40,10 +40,12 @@ const EXPECTED_EXPORTS = [
 // AC-050：敌人扩容到 14 种（相位幽魂 + 岩石魔像），内容快照随之更新。
 // AC-055：70 件遗物逐件新增 faction 字段（五派系 + 中立），内容快照随之更新。
 // feat-new-enemies：敌人扩容到 21 种（穹翼精英/反伤壁垒/回春图腾/自爆虫/潜行者/裂隙召唤师/破盾者），内容快照随之更新。
+// feat-enemy-variety：敌人扩容到 24 种（黑曜魔像/再生者/守望者），内容快照随之更新。
 // 天赋三层重做：EFFECT_REGISTRY 新增 skillCd/skillPower 键，GLOBAL_MOD_CAPS 随之派生两个新键，
 // 内容快照哈希更新（行为本身无改动）。
 // TODO-14 §5：重排零 meta 基线 hpMul（深渊 1.34→1.50、远征 1.10→1.22、漫游 0.85→0.90），内容快照随之更新。
-const BASELINE_HASH = 'd39df3c32065e85e495b790e9cb276de1aea0bf911a3c36d60a40af9593ab0a2';
+// feat-relic-behaviors：8 件遗物新增 behaviors 字段（Ⅱ/Ⅲ 级机制词条）+ relicBehaviorsAtLevel 导出，内容快照随之更新。
+const BASELINE_HASH = '472fda1ac15a397211eebed1fd8c1bb4cd97d09e80e67d2577b0b95f6d0f3259';
 
 function canonicalize(value) {
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -147,18 +149,22 @@ test('各主题模块的导出面保持单一职责', () => {
     'SKILLS', 'SKILL_LEVEL_COSTS', 'SKILL_ORDER', 'isSkillUnlocked',
     'skillStats', 'skillUnlockText', 'skillUpgradeCost',
   ]);
-  assert.deepEqual(Object.keys(unlocks).sort(), ['UNLOCKS', 'UNLOCK_BY_ID', 'unlockedTowerIds']);
+  assert.deepEqual(Object.keys(unlocks).sort(), [
+    'TOWER_STAR_COST', 'TOWER_STAR_MAX', 'UNLOCKS', 'UNLOCK_BY_ID',
+    'normalizeTowerStars', 'towerStarOf', 'towerStarTowerIds', 'towerStarUpCost',
+    'unlockedTowerIds',
+  ]);
   assert.deepEqual(Object.keys(relics).sort(), [
     'MODE_RARITY_WEIGHTS', 'RARITY', 'RELICS', 'RELIC_BY_ID', 'RELIC_LEVEL_LABELS', 'RELIC_MAX_LEVEL',
     'fallbackOffers', 'normalizeRelicState', 'normalizeRelicStates', 'rarityWeightForMode',
-    'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers', 'rollStarterOffers',
+    'relicBehaviorsAtLevel', 'relicEffectText', 'relicLevelOf', 'relicModsAtLevel', 'rollRelicOffers', 'rollStarterOffers',
   ]);
 });
 
 test('数量与拆分前一致', () => {
   assert.equal(Object.keys(data.TOWERS).length, 8);
   assert.equal(data.TOWER_ORDER.length, 8);
-  assert.equal(Object.keys(data.ENEMIES).length, 21);
+  assert.equal(Object.keys(data.ENEMIES).length, 24);
   assert.equal(data.RELICS.length, 70);
   assert.equal(Object.keys(data.RARITY).length, 3);
   assert.equal(data.UNLOCKS.length, 9);
@@ -210,6 +216,7 @@ test('data/ 模块之间单向依赖，无循环', () => {
   assert.deepEqual(cycles, []);
   // 依赖方向固定：relics/unlocks -> towers，其余只依赖上游基础模块。
   assert.deepEqual(graph.get('towers.js'), []);
-  assert.deepEqual(graph.get('relics.js').sort(), ['towers.js']);
+  // relics.js 已改为纯门面（export...from './relics/index.js'），不再有 import...from 直连。
+  assert.deepEqual(graph.get('relics.js'), []);
   assert.deepEqual(graph.get('unlocks.js').sort(), ['towers.js']);
 });

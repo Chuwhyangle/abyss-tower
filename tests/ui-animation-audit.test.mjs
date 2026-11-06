@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { auditCss, formatViolation } from '../scripts/ui-animation-audit.mjs';
+import { readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REDUCED = [
@@ -145,8 +146,8 @@ test('reduced-motion 只关 animation 不关 transition 也会被标记', () => 
   assert.equal(hits[0].property, 'transition');
 });
 
-test('当前仓库 public/styles.css 审计零违规', () => {
-  const css = fs.readFileSync(path.join(ROOT, 'public/styles.css'), 'utf8');
+test('当前仓库 public/css 分区审计零违规', () => {
+  const css = readCss();
   assert.deepEqual(auditCss(css).violations, []);
 });
 

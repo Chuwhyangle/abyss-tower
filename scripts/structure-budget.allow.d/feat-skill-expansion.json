@@ -1,0 +1,14 @@
+{
+  "entries": [
+    {
+      "path": "public/js/sim/skill-system.js",
+      "maxLines": 700,
+      "owner": "feat-skill-expansion"
+    },
+    {
+      "path": "tests/sim-skills.test.mjs",
+      "maxLines": 850,
+      "owner": "feat-skill-expansion"
+    }
+  ]
+}

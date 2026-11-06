@@ -1,7 +1,7 @@
 ---
 id: feat-endless-post-60
 title: 无尽模式 60 波后内容：周期词缀 + 首领循环
-status: ready
+status: done
 labels:
   - feat
   - gameplay

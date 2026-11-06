@@ -2,6 +2,7 @@
 import { DIFFICULTIES, ENEMIES, MAX_WAVE, SKILLS, skillStats } from '../shared/data.js';
 import { DOCTRINES } from '../shared/doctrines.js';
 import { t, tOr } from '../i18n.js';
+import { layoutForViewport } from '../app/input.js';
 import { audio } from '../audio.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { fmt, diffName, enemyName, escapeHtml } from './shared.js';
@@ -146,15 +147,10 @@ export const hudMethods = {
 
     if (hud.phase === 'wave') {
       audio.startMusic(hud.waveDef?.boss || hud.waveDef?.finalBoss ? 'boss' : 'battle');
-      const bossKey = hud.waveDef?.finalBoss
-        ? 'hud.state.finalBoss'
-        : hud.waveDef?.boss
-          ? 'hud.state.boss'
-          : null;
+      const bossKey = hud.waveDef?.finalBoss ? 'hud.state.finalBoss'
+        : hud.waveDef?.boss ? 'hud.state.boss' : null;
       if (bossKey) {
-        this.el.waveState.innerHTML = `${iconSvg('warning', 'icon-inline')}${escapeHtml(
-          t(bossKey).replace(/^[^\p{L}\p{N}]+/u, '')
-        )}`;
+        this.el.waveState.innerHTML = `${iconSvg('warning', 'icon-inline')}${escapeHtml(t(bossKey).replace(/^[^\p{L}\p{N}]+/u, ''))}`;
       } else {
         this.el.waveState.textContent = t('hud.state.fighting');
       }
@@ -177,9 +173,7 @@ export const hudMethods = {
           count: next.totalCount,
           boss: '',
         });
-        this.el.waveState.innerHTML = `${escapeHtml(label)}${
-          next.boss ? ` ${iconSvg('warning')}` : ''
-        }`;
+        this.el.waveState.innerHTML = `${escapeHtml(label)}${next.boss ? ` ${iconSvg('warning')}` : ''}`;
       } else {
         this.el.waveState.textContent = t(hud.wave === 0 ? 'hud.phase.ready' : 'hud.phase.rallyStage');
       }
@@ -279,10 +273,15 @@ export const hudMethods = {
     hint.innerHTML = `<span class="portal-label">${t(inWave ? 'hud.portal.active' : 'hud.portal.label')}</span>${chips}`;
   },
 
-  // 下一波情报：整备阶段挂在遗物面板底部；波中隐藏，避免干扰战斗。
+  // 下一波情报：整备阶段显示在 .stage（紧凑）或遗物面板底部（桌面）；波中隐藏，避免干扰战斗。
   updateNextWave(hud) {
     const panel = this.el?.nextWavePanel;
     if (!panel) return;
+    const compact = layoutForViewport(window.innerWidth, window.innerHeight).compact;
+    const host = document.querySelector(compact ? '.stage' : '.relic-body');
+    if (host && panel.parentElement !== host) {
+      host.insertBefore(panel, compact ? null : document.getElementById('btn-bonus-summary'));
+    }
     const preview = hud.phase === 'prep' ? hud.nextWave : null;
     if (!preview) {
       panel.hidden = true;

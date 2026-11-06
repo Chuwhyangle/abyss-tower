@@ -138,9 +138,16 @@ export const TEST_MAP = [
   { match: 'public/js/i18n.js', tests: ['tests/i18n.test.mjs'] },
   { match: 'public/js/leaderboard-ui.js', tests: ['tests/leaderboard.test.mjs'] },
   { match: 'public/index.html', tests: ['tests/ui-styles.test.mjs', 'tests/leaderboard.test.mjs'] },
-  { match: 'public/styles.css', tests: [
+  { match: 'public/css/', tests: [
     'tests/ui-animation-audit.test.mjs',
     'tests/ui-styles.test.mjs',
+    'tests/panels-visual.test.mjs',
+    'tests/a11y-color.test.mjs',
+    'tests/transition.test.mjs',
+    'tests/mobile-input.test.mjs',
+    'tests/hex-flow.test.mjs',
+    'tests/result-audio.test.mjs',
+    'tests/icon-system.test.mjs',
   ] },
 
   // 渲染层
@@ -321,7 +328,7 @@ export const TEST_MAP = [
     'tests/stats.test.mjs',
     'tests/runs-service.test.mjs',
   ] },
-  { match: 'server/db.mjs', tests: ['tests/migration.test.mjs'] },
+  { match: 'server/db.mjs', tests: ['tests/gacha.test.mjs', 'tests/migration.test.mjs'] },
   { match: 'server/http/respond.mjs', tests: [
     'tests/http-hardening.test.mjs',
     'tests/security-headers.test.mjs',
@@ -330,6 +337,7 @@ export const TEST_MAP = [
   { match: 'server/routes/', tests: [
     'tests/architecture.test.mjs',
     'tests/auth.test.mjs',
+    'tests/gacha.test.mjs',
     'tests/leaderboard.test.mjs',
     'tests/leaderboard-season.test.mjs',
     'tests/stats.test.mjs',
@@ -374,6 +382,7 @@ export const TEST_MAP = [
   { match: 'scripts/test-stability.mjs', tests: ['tests/test-stability.test.mjs'] },
   { match: 'scripts/check-stability.mjs', tests: ['tests/check-stability.test.mjs'] },
   { match: 'scripts/test-timing.mjs', tests: ['tests/test-timing.test.mjs'] },
+  { match: 'scripts/touches-conflict.mjs', tests: ['tests/touches-conflict.test.mjs'] },
   { match: 'scripts/ui-animation-audit.mjs', tests: ['tests/ui-animation-audit.test.mjs'] },
   { match: 'scripts/visual-check.mjs', tests: ['tests/visual-check.test.mjs'] },
   { match: 'scripts/visual-parity.mjs', tests: ['tests/structure-budget.test.mjs'] },

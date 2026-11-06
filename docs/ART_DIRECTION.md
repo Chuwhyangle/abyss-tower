@@ -28,7 +28,7 @@
 | 友方（召唤物/同伴） | `role.friendly` | 冷白蓝，与塔的身份色区分开 |
 | 危险 | `role.hazard` | 红橙，配合环形预警；禁止用于装饰 |
 | 奖励 | `role.reward` | 金色，金币/拾取/增益；禁止用于危险提示 |
-| UI | `role.ui` | 镜像 `public/styles.css` 的 `:root` 变量，两处必须一致（测试会拦漂移） |
+| UI | `role.ui` | 镜像 `public/css/tokens.css` 的 `:root` 变量，两处必须一致（测试会拦漂移） |
 
 色板纪律：
 
@@ -145,5 +145,5 @@ WCAG 对比度（相对亮度比）。阈值：正文 4.5、大块图形/非文�
 
 - 色值、字号、动效节奏：`public/js/render/art-tokens.js`（唯一）。
 - 生物群系派生色、可访问性重映射的消费方：`public/js/render/palette.js`（只取值与派生，不写字面色值）。
-- UI 颜色：`public/styles.css` 的 `:root` 与 `art-tokens.js` 的 `ui` 令牌互为镜像，任何一侧改动都必须同步另一侧。
+- UI 颜色：`public/css/tokens.css` 的 `:root` 与 `art-tokens.js` 的 `ui` 令牌互为镜像，任何一侧改动都必须同步另一侧。
 - 资源来源与授权：`docs/ASSET_PIPELINE.md` 的资源清单（manifest）。

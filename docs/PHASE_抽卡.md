@@ -23,7 +23,9 @@
 | 基础 | 1★ | arrow 弩、cannon 炮、frost 霜 | ❌ 开局拥有，不进池，图鉴展示 |
 | （预留） | 2★ | 暂无 | — |
 
+<!-- docs-consistency:planned-start -->
 - 数据契约：新增 `public/js/shared/data/towers-rarity.js`（`TOWER_RARITY`：id→rarity/star/color），**不动 `towers.js` 战斗数值职责**。
+<!-- docs-consistency:planned-end -->
 - 抽卡池 = 可抽 5 塔；免费三塔保留 `towers.js` 的「无 `unlock` 字段」护栏（`unlockedTowerIds` 里 `!TOWERS[id].unlock` 恒可用）。
 
 ## 2. 概率与保底（对标舟，适配 5 塔池）
@@ -55,7 +57,9 @@
 
 - **塔拥有**：复用 `player_unlocks` 表（`grantUnlock(accountId, 'tower_<id>')` 幂等 `INSERT OR IGNORE`）。存量 `tower_*` 商店数据与抽卡 key **同空间**，零迁移。
 - ⚠️ **地雷修复（必须做）**：`server/routes/unlock.mjs` 的 `updateProfile({ unlocks })` 走 `DELETE-all` 全量重写（`db.mjs:174-194`），会清掉抽到的塔——**改为增量 `grantUnlock`**（或 `updateProfile` 内按 diff 增删），否则 perk 商店购买会 lost-update 掉抽卡塔。
+<!-- docs-consistency:planned-start -->
 - **抽卡历史**：新建 `gacha_history` 表（`account_id`、`drawn_at`、`tower_id`、`rarity`、`is_new`、`shards`、`request_id`），迁移 `server/db/migrations/0012_gacha.mjs`；加索引 `idx_gacha_history_account(account_id, id DESC)`。
+<!-- docs-consistency:planned-end -->
 - **保底计数**：`player_kv('gacha','pity6')`（整数 JSON），读改写压进同一事务。
 - **碎片**：`player_kv('gacha','shards')`（JSON map）。
 - 塔拥有判定：`unlockedTowerIds()` 逻辑**基本不动**（`TOWERS[id].unlock` 就是 `tower_<id>`，与 `grantUnlock` 对齐），只确保不删免费塔护栏、不删 `towers.js` 的 `unlock` 字段。下游 `towersUnlocked → sim.unlockedTowers` 链路零改动。
@@ -79,23 +83,29 @@
 
 ## 7. 美术资源（CC0 拉取 + 程序化补）
 
+<!-- docs-consistency:planned-start -->
 - 召唤按钮：Summer Engine「Summon Button」/「Challenge Button」。
 - 出货特效：Summer Engine「Pixel Sparkle Burst」+ itch.io FX 魔法爆裂/火花。
 - 稀有度光效/边框/金色粒子：程序化（复用现有 canvas 精灵管线风格）为主，CC0 精灵图集为辅。
 - 所有拉取资源落 `public/assets/gacha/`，标注来源与许可（CC0）。
+<!-- docs-consistency:planned-end -->
 
 ## 8. 测试（走 harness）
 
+<!-- docs-consistency:planned-start -->
 - 抽卡概率/保底：新 `tests/gacha.test.mjs`（喂临时 DB 断言：draw 扣费/落库/保底计数/十连保底/首 6★ 必新/碎片分层/request_id 幂等/余额不足拒绝）。
+<!-- docs-consistency:planned-end -->
 - 轴/缝：`tests/lib/axes.mjs` 注册「塔稀有度」轴；`tests/lib/seams.mjs` 注册「抽卡→拥有塔→局内可建造」缝。
 - 概率公示一致性：UI 展示概率与 `pool` 接口一致。
 - `npm test` 全绿；`test-changed.mjs` 的 TEST_MAP 登记新文件。
 
 ## 9. 实施拆分（阶段0 串行 → 阶段1 三并行）
 
+<!-- docs-consistency:planned-start -->
 - **阶段 0（串行，契约/数据层）**：`towers-rarity.js` + `unlocks.js` 判定护栏 + `unlock.mjs` 增量修复 + `db.mjs` 抽卡读写 + 迁移 `0012_gacha.mjs` + gacha 配置（池/概率/价格/碎片）。
 - **阶段 1（并行，依赖阶段0）**：
   - 服务端：`server/routes/gacha.mjs`（pool/draw/history）+ request_id 幂等 + 单事务。
   - 前端 UI：`#gacha-screen` + `ui.js` 三态翻转 + `gacha-ui.js`（页面/动画/结果/公示/历史）+ styles + i18n。
   - 美术：拉取 CC0 资源到 `public/assets/gacha/` + 集成。
 - **阶段 2（集成，后置）**：塔升星（碎片消耗）、i18n 收口、`npm test` 全绿、`npm run balance` 复测、文档同步。
+<!-- docs-consistency:planned-end -->

@@ -1,7 +1,7 @@
 ---
 id: feat-modal-navigation
 title: 点功能改居中弹窗：天赋树/图鉴/成就/悬赏/生涯/赛季统一 openModal 可关闭
-status: ready
+status: done
 labels:
   - feat
   - ui

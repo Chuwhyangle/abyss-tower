@@ -8,6 +8,7 @@ import {
   seasonPassArchivedSummary,
   seasonPassSummary,
 } from '../db/season_pass.mjs';
+import { buySeasonShopOffer as buyPersisted } from '../db/season-shop.mjs';
 import { seasonOf } from '../db/leaderboard-sql.mjs';
 import {
   isSeasonClosed,
@@ -19,6 +20,8 @@ const FAILURE = {
   UNKNOWN_MILESTONE: [404, '里程碑不存在', 'UNKNOWN_MILESTONE'],
   SEASON_PASS_INCOMPLETE: [400, '赛季积分尚未达到该里程碑', 'SEASON_PASS_INCOMPLETE'],
   SEASON_UNAVAILABLE: [400, '当前赛季不可用', 'SEASON_UNAVAILABLE'],
+  UNKNOWN_OFFER: [404, '兑换项不存在', 'UNKNOWN_OFFER'],
+  SEASON_SHOP_INSUFFICIENT: [400, '赛季积分不足', 'SEASON_SHOP_INSUFFICIENT'],
 };
 
 function failure([status, message, code]) {
@@ -92,6 +95,15 @@ export class SeasonPassService {
     if (!result.ok) {
       return failure(FAILURE[result.code] || [400, '无法领取里程碑', result.code]);
     }
+    return { ok: true, body: result };
+  }
+
+  // 赛季商店兑换：只能发生在当前赛季，可重复兑换（余额不足按当前可用积分拒绝）。
+  buySeasonShopOffer(accountId, { offerId = null, season = null } = {}, now = Date.now()) {
+    const rejected = this.rejectNonCurrentSeason(season, now);
+    if (rejected) return rejected;
+    const result = buyPersisted(accountId, offerId, now);
+    if (!result.ok) return failure(FAILURE[result.code] || [400, '无法兑换该物资', result.code]);
     return { ok: true, body: result };
   }
 

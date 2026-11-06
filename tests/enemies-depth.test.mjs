@@ -1,4 +1,4 @@
-// 敌人扩容：21 种敌人、机制行为（护盾/分裂/光环/远程/闪烁 + 再生/反伤/治疗光环/自爆/潜行/召唤/穿透）、波次接入、渲染分派与模拟确定性。
+// 敌人扩容：24 种敌人、机制行为（护盾/分裂/光环/远程/闪烁 + 再生/反伤/治疗光环/自爆/潜行/召唤/穿透/伤害上限/自愈/护盾光环）、波次接入、渲染分派与模拟确定性。
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Simulation } from '../public/js/sim.js';
@@ -10,10 +10,11 @@ import { EnemyRenderer } from '../public/js/render/enemy-renderer.js';
 const STEP = 1 / 60;
 const REQUIRED_FIELDS = ['hp', 'speed', 'armor', 'gold', 'dmg'];
 const NEW_TYPES = ['shielder', 'splitter', 'splitling', 'herald', 'caster', 'wraith', 'golem'];
-const MECHANIC_TYPES = ['skywing', 'bastion', 'mender', 'bomber', 'stalker', 'riftcaller', 'shieldbreaker'];
+const MECHANIC_TYPES = ['skywing', 'bastion', 'mender', 'bomber', 'stalker', 'riftcaller', 'shieldbreaker', 'obsidian', 'regenerator', 'warden'];
 const WAVE_TYPES = [
   'shielder', 'splitter', 'herald', 'caster', 'wraith', 'golem',
   'skywing', 'bastion', 'mender', 'bomber', 'stalker', 'riftcaller', 'shieldbreaker',
+  'obsidian', 'regenerator', 'warden',
 ];
 
 function makeSim(seed = 'enemies-depth-seed') {
@@ -91,7 +92,7 @@ test('新敌人各有机制说明，五种机制齐备', () => {
   assert.ok(Object.values(ENEMIES).some((e) => e.blink), '缺少闪烁型敌人');
 });
 
-test('七种新型敌人各有独特机制字段与说明', () => {
+test('十种新型敌人各有独特机制字段与说明', () => {
   const mechanicFields = {
     skywing: 'shieldRegen',
     bastion: 'thorns',
@@ -100,6 +101,9 @@ test('七种新型敌人各有独特机制字段与说明', () => {
     stalker: 'lurk',
     riftcaller: 'summon',
     shieldbreaker: 'pierce',
+    obsidian: 'damageCap',
+    regenerator: 'regen',
+    warden: 'guard',
   };
   for (const [type, field] of Object.entries(mechanicFields)) {
     assert.ok(ENEMIES[type], `缺少敌人 ${type}`);
@@ -110,7 +114,7 @@ test('七种新型敌人各有独特机制字段与说明', () => {
 
 test('新敌人接入波次生成', () => {
   const seen = new Set();
-  for (const seed of ['w19-a', 'w19-b', 'w19-c', 'w19-d', 'w19-e', 'w19-f']) {
+  for (const seed of ['w19-a', 'w19-b', 'w19-c', 'w19-d', 'w19-e', 'w19-f', 'w19-g', 'w19-h', 'w19-i', 'w19-j', 'w19-k', 'w19-l']) {
     for (let wave = 1; wave <= MAX_WAVE; wave++) {
       for (const group of generateWave(seed, wave, 'standard').groups) seen.add(group.type);
     }
@@ -349,6 +353,54 @@ test('破盾者漏怪无视守护套装减伤', () => {
   assert.equal(sim.baseHp, hpBeforeBreaker - 2, '破盾者漏怪应无视减伤');
 });
 
+test('黑曜魔像单次伤害上限：大额命中被封顶，小额命中不受影响', () => {
+  const sim = makeWaveSim('obsidian-seed');
+  sim.spawnEnemy('obsidian', 0);
+  const enemy = lastEnemy(sim);
+  enemy.hp = enemy.maxHp = 1000;
+  enemy.armor = 0;
+
+  sim.damage(enemy, 100, { ignoreArmor: true, silent: true });
+  assert.equal(enemy.hp, 1000 - ENEMIES.obsidian.damageCap, '大额命中应被伤害上限封顶');
+
+  sim.damage(enemy, 5, { ignoreArmor: true, silent: true });
+  assert.equal(enemy.hp, 1000 - ENEMIES.obsidian.damageCap - 5, '小额命中不应被封顶');
+});
+
+test('再生者周期性自愈自身，不治疗友军', () => {
+  const run = () => {
+    const sim = makeWaveSim('regenerator-seed');
+    sim.spawnEnemy('regenerator', 0);
+    const regen = lastEnemy(sim);
+    regen.hp = regen.maxHp = 100;
+    regen.hp = 30;
+    sim.spawnEnemy('grunt', 0);
+    const grunt = sim.enemies.find((e) => e.type === 'grunt');
+    grunt.hp = grunt.maxHp = 100;
+    grunt.hp = 30;
+    for (let i = 0; i < 120; i++) sim.update(STEP);
+    return [regen.hp, grunt.hp];
+  };
+  const [regenHp, gruntHp] = run();
+  assert.ok(regenHp > 30, '再生者应自愈自身');
+  assert.equal(gruntHp, 30, '再生者不应治疗友军');
+});
+
+test('守望者周期性为光环内友军施加护盾，且可复现', () => {
+  const run = () => {
+    const sim = makeWaveSim('warden-seed');
+    sim.spawnEnemy('warden', 0);
+    sim.spawnEnemy('grunt', 0);
+    const grunt = sim.enemies.find((e) => e.type === 'grunt');
+    for (let i = 0; i < 120; i++) sim.update(STEP);
+    return grunt.shield;
+  };
+  const first = run();
+  assert.ok(first > 0, '光环内友军应获得护盾');
+  assert.ok(first <= ENEMIES.warden.guard.maxShield, '护盾不应超过上限');
+  assert.equal(run(), first, '同种子护盾光环必须可复现');
+});
+
 test('新敌人可通过类型分派渲染', () => {
   const sim = makeWaveSim();
   for (const type of [...NEW_TYPES, ...MECHANIC_TYPES]) sim.spawnEnemy(type);
@@ -371,7 +423,7 @@ test('同种子两次模拟状态一致', () => {
   const run = () => {
     const sim = makeSim('determinism-seed');
     sim.beginWave(generateWave('determinism-seed', 12, 'standard', sim.map.meta || {}));
-    // 直接补入机制型敌人，确保护盾/分裂/闪烁/再生/反伤/自爆/潜行/召唤也进入确定性轨迹。
+    // 直接补入机制型敌人，确保护盾/分裂/闪烁/再生/反伤/自爆/潜行/召唤/伤害上限/自愈/护盾光环也进入确定性轨迹。
     sim.spawnEnemy('splitter', 0);
     sim.spawnEnemy('shielder', 0);
     sim.spawnEnemy('wraith', 0);
@@ -383,6 +435,9 @@ test('同种子两次模拟状态一致', () => {
     sim.spawnEnemy('stalker', 0);
     sim.spawnEnemy('riftcaller', 0);
     sim.spawnEnemy('shieldbreaker', 0);
+    sim.spawnEnemy('obsidian', 0);
+    sim.spawnEnemy('regenerator', 0);
+    sim.spawnEnemy('warden', 0);
     const anchor = sim.posAt(sim.lanes[0].len * 0.35, 0);
     const tower = sim.makeTower(
       'cannon',

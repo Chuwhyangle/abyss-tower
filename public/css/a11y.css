@@ -1,0 +1,89 @@
+/* ============ 无障碍：高对比度预设 ============ */
+/* settings.js 会把设置写到 <html data-contrast="high">；只提升对比，不改变布局与玩法。 */
+:root[data-contrast="high"] {
+  --bg: #000000;
+  --surface-1: #070b0f;
+  --surface-2: #111a22;
+  --surface-deep: #000000;
+  --surface-raised: #1b2731;
+  --line: #b9ccd6;
+  --line-soft: #7d96a4;
+  --text: #ffffff;
+  --muted: #dbe4e9;
+  --gold: #ffe066;
+  --green: #7dffb0;
+  --red: #ff9a9a;
+  --focus-ring: #ffffff;
+}
+
+:root[data-contrast="high"] .btn,
+:root[data-contrast="high"] .icon-btn,
+:root[data-contrast="high"] .speed-btn,
+:root[data-contrast="high"] .tower-card,
+:root[data-contrast="high"] .relic-card,
+:root[data-contrast="high"] .diff-card,
+:root[data-contrast="high"] .map-card,
+:root[data-contrast="high"] .setting-control select,
+:root[data-contrast="high"] .text-input {
+  border-color: var(--line);
+  border-width: 2px;
+}
+
+:root[data-contrast="high"] .relic-card,
+:root[data-contrast="high"] .tower-card,
+:root[data-contrast="high"] .rarity {
+  text-shadow: 0 0 1px #000000, 0 1px 2px #000000;
+}
+
+/* 色弱模式下稀有度始终附带图形前缀，避免只靠颜色传达。 */
+:root[data-colorblind]:not([data-colorblind="none"]) .rarity::before {
+  content: "◆ ";
+}
+
+/* ============ 无障碍：系统要求减少动效 ============ */
+/* 尊重 prefers-reduced-motion：关闭位移动画与长过渡，保留即时状态变化。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .title-glow {
+    animation: none !important;
+  }
+
+  .stat.hp.low b {
+    animation: none !important;
+  }
+
+  .btn-skill.ready::after {
+    animation: none !important;
+  }
+
+  /* 界面转场与首领横幅：直接显示，不播放位移/淡出动画。 */
+  .view-enter,
+  .boss-banner,
+  .result-fade {
+    animation: none !important;
+  }
+
+  /* 结算页：分数直接落定，入场与纪录脉冲都不播放。 */
+  .result-hero,
+  .result-score,
+  .result-cores,
+  .result-grid,
+  .result-unlocks,
+  .result-record {
+    animation: none !important;
+  }
+
+  /* 过场：直接显示战场，遮罩不播放淡出与展开。 */
+  .battle-transition {
+    animation: none !important;
+    transition: none !important;
+  }
+}

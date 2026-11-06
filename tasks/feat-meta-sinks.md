@@ -1,7 +1,7 @@
 ---
 id: feat-meta-sinks
 title: 局外三币种长期出口：星核升星消耗 + 皮肤/赛季可重复消耗
-status: ready
+status: done
 labels:
   - feat
   - gameplay

@@ -16,10 +16,11 @@ import {
   transitionPhaseAt,
   transitionSnapshot,
 } from '../public/js/render/transition.js';
+import { readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
-const CSS = read('public/styles.css');
+const CSS = readCss();
 const UI_SRC = read('public/js/ui.js');
 const TRANSITION_SRC = read('public/js/render/transition.js');
 

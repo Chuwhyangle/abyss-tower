@@ -8,8 +8,8 @@ import { rarityName, renderCodex, setName } from './relic-codex-draw.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
+import { ui } from './ui.js';
 
-const PANEL_ID = 'relic-codex-panel';
 const LIST_ID = 'relic-codex-list';
 const HISTORY_LIMIT = 10;
 const STORAGE_KEY = 'abyss-tower.relic-codex.v1';
@@ -327,28 +327,37 @@ async function load(panel, state) {
 }
 
 let installed = false;
+let open = false;
+let state = null;
+
+function openCodex() {
+  state = state || createCodexState();
+  open = true;
+  const modal = ui.openModal('', {
+    className: 'codex-modal panel-modal',
+    closable: true,
+    onClose: () => {
+      open = false;
+    },
+  });
+  build(modal, state, () => ui.closeModal());
+  load(modal, state);
+}
 
 export function install() {
   if (installed) return;
-  const panel = document.getElementById(PANEL_ID);
   const trigger = document.getElementById('btn-relic-codex');
-  if (!panel || !trigger) return;
+  if (!trigger) return;
   installed = true;
   ensureStyle();
 
-  const state = createCodexState();
-  const setOpen = (open) => {
-    panel.hidden = !open;
-    if (open) load(panel, state);
-  };
-  const close = () => setOpen(false);
-
-  build(panel, state, close);
-  trigger.addEventListener('click', () => setOpen(panel.hidden));
+  trigger.addEventListener('click', openCodex);
   document.addEventListener('i18n:change', () => {
-    if (panel.hidden) return;
-    build(panel, state, close);
-    load(panel, state);
+    if (!open) return;
+    const modal = document.querySelector('.codex-modal');
+    if (!modal) return;
+    build(modal, state, () => ui.closeModal());
+    load(modal, state);
   });
 }
 
