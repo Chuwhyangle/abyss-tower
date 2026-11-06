@@ -1,7 +1,7 @@
 ---
 id: feat-title-polish-2
 title: 标题页二波：霓虹粒子背景 + 13 按钮分组 + 开局 4 弹窗合并配置页
-status: ready
+status: done
 labels:
   - feat
   - ui
