@@ -291,7 +291,7 @@
 /* 5★/6★ 出货：光晕脉冲拉长，6★ 额外加一圈金环；3★ 只有普通过场。 */
 .gacha-card.revealed[data-star="5"] .gacha-card-glow,
 .gacha-card.revealed[data-star="6"] .gacha-card-glow {
-  animation: gacha-glow-pulse 1.6s var(--ease-standard) 2;
+  animation: gacha-glow-pulse 0.8s var(--ease-standard) 2;
 }
 
 .gacha-card.revealed[data-star="6"] {
@@ -571,6 +571,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .gacha-screen,
+  .gacha-screen * {
+    transition-duration: 0.01ms !important;
+  }
+
   .gacha-card.revealed,
   .gacha-card.revealed .gacha-card-glow {
     animation: none !important;
