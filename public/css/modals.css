@@ -692,6 +692,104 @@ kbd {
   font-size: 10.5px;
 }
 
+/* 开局配置页：模式页签 + 技能 / 变异 / 难度分区。
+   原先「难度」「变异」两个弹窗合并成这一张单页，模式也可以就地切换。 */
+
+.run-config-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.run-config-head h2 {
+  margin: 0;
+}
+
+.run-config-mode {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  letter-spacing: 0.1em;
+}
+
+.run-config-tabs {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin: var(--space-4) 0;
+}
+
+.run-config-tab {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  background: var(--surface-faint);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    background var(--duration-fast) var(--ease-standard);
+}
+
+.run-config-tab b {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.run-config-tab span {
+  color: var(--muted);
+  font-size: var(--text-2xs);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.run-config-tab:hover:not(:disabled):not(.active) {
+  transform: translateY(-2px);
+  border-color: var(--line-hover);
+}
+
+.run-config-tab.active {
+  border-color: color-mix(in srgb, var(--gold) 60%, transparent);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  color: var(--gold);
+}
+
+.run-config-tab:disabled {
+  opacity: var(--disabled-opacity);
+  cursor: not-allowed;
+}
+
+.config-section {
+  margin-top: var(--space-4);
+}
+
+.config-section-title {
+  margin: 0 0 var(--space-2);
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: var(--text-min);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.config-section .diff-cards {
+  margin-top: var(--space-2);
+}
+
+.config-section .diff-skill-bar {
+  margin-top: 0;
+}
+
+@media (max-width: 760px) {
+  .run-config-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 /* 设置页：分区（画面/音频/辅助/账号），每项带说明与重置 */
 
 .settings-sections {

@@ -33,6 +33,11 @@ const FACADE_METHODS = [
   'bindSkillChips',
   'showDifficultySelect',
   'showMutationSelect',
+  'runConfigModes',
+  'enterRunConfigMode',
+  'modeTabsHtml',
+  'mutationSectionHtml',
+  'bindMutationSection',
   'buildPortalHint',
   'bindClickSound',
   'bindTooltips',
@@ -81,6 +86,7 @@ const FACADE_METHODS = [
 // 每个面板模块只导出一个方法集合，避免面板之间互相耦合。
 const METHOD_MODULES = {
   'title.js': 'titleMethods',
+  'run-config.js': 'runConfigMethods',
   'hud.js': 'hudMethods',
   'shop.js': 'shopMethods',
   'modals.js': 'modalMethods',

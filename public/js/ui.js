@@ -1,9 +1,10 @@
 // DOM 界面层门面：持有页面状态与事件绑定，渲染职责按面板拆到 ./ui/。
-import { weekKey, weeklyChallenge } from './shared/scoring.js';
+import { weekKey } from './shared/scoring.js';
 import { t, initI18n } from './i18n.js';
 import { audio } from './audio.js';
 import { $, hydrateIcons, fmt } from './ui/shared.js';
 import { titleMethods } from './ui/title.js';
+import { runConfigMethods } from './ui/run-config.js';
 import { hudMethods } from './ui/hud.js';
 import { shopMethods } from './ui/shop.js';
 import { modalMethods } from './ui/modals.js';
@@ -161,15 +162,6 @@ class UI {
     this.el.mutation = button;
   }
 
-  // 周规则来自共享派生函数：同一周键与服务端派生同一套种子和词缀。
-  showWeeklySelect() {
-    this.showDifficultySelect('weekly', {
-      weekly: weeklyChallenge(),
-      skillState: this._titleExtras?.skillState,
-      selectedSkill: this.selectedSkill,
-    });
-  }
-
   showTitle(profile, extras = {}) {
     this.profile = profile;
     this._titleExtras = extras;
@@ -291,7 +283,7 @@ const settingsMethodsWithMenu = {
 };
 
 // 各面板以方法集合形式挂在同一原型上，对外仍是同一个 UI 实例与同一套方法签名。
-Object.assign(UI.prototype, titleMethods, hudMethods, shopMethods, modalMethods, draftMethods,
+Object.assign(UI.prototype, titleMethods, runConfigMethods, hudMethods, shopMethods, modalMethods, draftMethods,
   hexSelectMethods, starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods, gachaMethods);
 
 export const ui = new UI();

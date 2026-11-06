@@ -26,6 +26,8 @@
   <main id="app">
     <section id="title-screen" class="screen title-screen" aria-label="标题页" data-i18n-aria="shell.titleScreen">
       <div class="title-glow" aria-hidden="true"></div>
+      <!-- 霓虹微粒：纯 CSS 静态点阵（不参与动效预算），与 canvas 大厅背景叠加出纵深。 -->
+      <div class="title-neon" aria-hidden="true"></div>
       <div class="title-inner">
         <p class="logo-kicker" data-i18n="title.kicker">ROGUELIKE TOWER DEFENSE</p>
         <h1 data-i18n="title.name">渊塔守卫</h1>
@@ -41,26 +43,48 @@
           </div>
 
           <nav class="title-actions" aria-label="主菜单" data-i18n-aria="shell.mainMenu">
-            <button id="btn-play" class="btn primary big" type="button" data-i18n="title.play">开始远征</button>
-            <button id="btn-daily" class="btn ghost" type="button"><span data-i18n="title.daily">每日挑战</span> <span id="daily-label"></span></button>
-            <button id="btn-endless" class="btn ghost" type="button"><span data-i18n="title.endless">无尽模式</span> <span id="endless-label" data-i18n="title.endless.tag">30 波后继续挑战</span></button>
-            <button id="btn-resume" class="btn ghost" type="button" data-i18n="title.resume" hidden>继续上一局</button>
-            <div class="row" role="group" aria-label="更多功能" data-i18n-aria="shell.moreActions">
-              <button id="btn-gacha" class="btn small" type="button" data-i18n="title.gacha">星核抽卡</button>
-              <button id="btn-shop" class="btn small" type="button" data-i18n="title.shop">星核商店</button>
-              <button id="btn-board" class="btn small" type="button" data-i18n="title.board">排行榜</button>
-              <button id="btn-daily-history" class="btn small" type="button" data-i18n="shell.dailyHistory">每日历史</button>
-              <button id="btn-achievements" class="btn small" type="button" data-i18n="title.achievements">成就</button>
-              <button id="btn-bounties" class="btn small" type="button" data-i18n="shell.bounties">悬赏</button>
-              <button id="btn-cosmetics" class="btn small" type="button" data-i18n="shell.cosmetics">称号</button>
-              <button id="btn-stats" class="btn small" type="button" data-i18n="title.stats">生涯</button>
-              <button id="btn-season" class="btn small" type="button" data-i18n="title.season">赛季</button>
-              <button id="btn-season-pass" class="btn small" type="button" data-i18n="shell.seasonPass">通行证</button>
-              <button id="btn-meta-tree" class="btn small" type="button" data-i18n="talent.title">天赋树</button>
-              <button id="btn-relic-codex" class="btn small" type="button" data-i18n="title.relicCodex">遗物图鉴</button>
-              <button id="btn-share" class="btn small" type="button" data-i18n="shell.shareCode">分享码</button>
-              <button id="btn-help" class="btn small" type="button" data-i18n="title.help">玩法</button>
+            <!-- 主行动：开始远征独占首屏 CTA；继续上一局仅在存在快照时出现。 -->
+            <div class="title-cta">
+              <button id="btn-play" class="btn primary big title-play" type="button" data-i18n="title.play">开始远征</button>
+              <button id="btn-resume" class="btn ghost title-resume" type="button" data-i18n="title.resume" hidden>继续上一局</button>
             </div>
+
+            <!-- 挑战模式：每日/无尽为静态入口，本周/变异/爬塔由 ui 动态插入到同一分组。 -->
+            <section class="title-group title-modes" aria-label="挑战模式" data-i18n-aria="title.groupModes">
+              <h2 class="title-group-title" data-i18n="title.groupModes">挑战模式</h2>
+              <div class="title-group-grid title-mode-grid" role="group" aria-label="挑战模式" data-i18n-aria="title.groupModes">
+                <button id="btn-daily" class="btn ghost" type="button"><span data-i18n="title.daily">每日挑战</span> <span id="daily-label"></span></button>
+                <button id="btn-endless" class="btn ghost" type="button"><span data-i18n="title.endless">无尽模式</span> <span id="endless-label" data-i18n="title.endless.tag">30 波后继续挑战</span></button>
+              </div>
+            </section>
+
+            <!-- 成长：养成、收集与货币出口。 -->
+            <section class="title-group" aria-label="成长" data-i18n-aria="title.groupGrowth">
+              <h2 class="title-group-title" data-i18n="title.groupGrowth">成长</h2>
+              <div class="title-group-grid" role="group" aria-label="成长" data-i18n-aria="title.groupGrowth">
+                <button id="btn-meta-tree" class="btn small" type="button" data-i18n="talent.title">天赋树</button>
+                <button id="btn-gacha" class="btn small" type="button" data-i18n="title.gacha">星核抽卡</button>
+                <button id="btn-shop" class="btn small" type="button" data-i18n="title.shop">星核商店</button>
+                <button id="btn-relic-codex" class="btn small" type="button" data-i18n="title.relicCodex">遗物图鉴</button>
+                <button id="btn-achievements" class="btn small" type="button" data-i18n="title.achievements">成就</button>
+                <button id="btn-bounties" class="btn small" type="button" data-i18n="shell.bounties">悬赏</button>
+                <button id="btn-cosmetics" class="btn small" type="button" data-i18n="shell.cosmetics">称号</button>
+                <button id="btn-season" class="btn small" type="button" data-i18n="title.season">赛季</button>
+                <button id="btn-season-pass" class="btn small" type="button" data-i18n="shell.seasonPass">通行证</button>
+              </div>
+            </section>
+
+            <!-- 记录：历史、榜单与社交入口。 -->
+            <section class="title-group" aria-label="记录" data-i18n-aria="title.groupRecords">
+              <h2 class="title-group-title" data-i18n="title.groupRecords">记录</h2>
+              <div class="title-group-grid" role="group" aria-label="记录" data-i18n-aria="title.groupRecords">
+                <button id="btn-stats" class="btn small" type="button" data-i18n="title.stats">生涯</button>
+                <button id="btn-board" class="btn small" type="button" data-i18n="title.board">排行榜</button>
+                <button id="btn-daily-history" class="btn small" type="button" data-i18n="shell.dailyHistory">每日历史</button>
+                <button id="btn-share" class="btn small" type="button" data-i18n="shell.shareCode">分享码</button>
+                <button id="btn-help" class="btn small" type="button" data-i18n="title.help">玩法</button>
+              </div>
+            </section>
           </nav>
 
           <div id="title-skills" class="skill-cards"></div>

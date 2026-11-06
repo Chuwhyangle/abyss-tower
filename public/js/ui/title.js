@@ -1,7 +1,5 @@
-// 标题页与开局选择：技能卡、技能条、难度 / 变异弹窗。
+// 标题页：技能卡、技能条与标题场景。开局配置页见 ./run-config.js。
 import {
-  DIFFICULTIES,
-  DIFFICULTY_ORDER,
   SKILLS,
   SKILL_ORDER,
   skillStats,
@@ -9,18 +7,12 @@ import {
   skillUnlockText,
   isSkillUnlocked,
 } from '../shared/data.js';
-import { MUTATIONS, MUTATION_MAX, MUTATION_ORDER, mutationScoreMul } from '../shared/mutations.js';
-import { weekKey } from '../shared/scoring.js';
 import { SCENE_SPRITE_PLACEMENT, applySceneSpritesTo, sceneSpriteIds } from '../shared/scene-sprites.js';
-import { t, tData } from '../i18n.js';
+import { t } from '../i18n.js';
 import { iconSvg } from '../render/canvas-shapes.js';
 import { SpritePipeline } from '../render/sprite-pipeline.js';
 import {
-  fmt,
   ROMAN,
-  diffName,
-  diffDesc,
-  modifierName,
   skillName,
   skillDesc,
   skillRole,
@@ -232,165 +224,4 @@ export const titleMethods = {
     });
   },
 
-  showDifficultySelect(
-    mode = 'normal',
-    { dailyLeft = null, daily = null, weekly = null, skillState = null, selectedSkill = null } = {}
-  ) {
-    this._fixedMode = mode === 'daily' || mode === 'weekly';
-    const stats = this.profile?.stats?.byDifficulty || {};
-    const cards = DIFFICULTY_ORDER.map((id) => {
-      const diff = DIFFICULTIES[id];
-      const best = stats[id] || {};
-      return `
-        <button class="diff-card" data-id="${id}" style="--diff:${diff.color}">
-          <span class="diff-name">${diffName(diff)}</span>
-          <p>${diffDesc(diff)}</p>
-          <div class="diff-mods">
-            <span>${t('difficulty.hp', { mul: diff.hpMul.toFixed(2) })}</span>
-            <span>${t('difficulty.count', { mul: diff.countMul.toFixed(2) })}</span>
-            <span>${t('difficulty.score', { mul: diff.scoreMul.toFixed(2) })}</span>
-          </div>
-          <div class="diff-best">${t('difficulty.best', { wave: fmt(best.bestWave), score: fmt(best.bestScore) })}</div>
-        </button>`;
-    }).join('');
-
-    const endless = mode === 'endless';
-    const weeklyMode = mode === 'weekly';
-    const towerMode = mode === 'tower';
-    const title = towerMode ? t('difficulty.towerTitle')
-      : weeklyMode ? t('difficulty.weeklyTitle')
-        : mode === 'daily' ? t('difficulty.dailyTitle')
-          : endless ? t('difficulty.endlessTitle') : t('difficulty.startTitle');
-    const affixes = ((weeklyMode ? weekly?.modifiers : daily?.modifiers) || [])
-      .map((modifier) => `<span style="color:${modifier.color}">${modifierName(modifier)}</span>`)
-      .join(' · ');
-    const streakNote = daily?.streak > 0 ? t('difficulty.streak', { n: daily.streak }) : '';
-    const note = towerMode
-      ? `<p class="muted">${t('difficulty.towerNote')}</p>`
-      : weeklyMode
-        ? `<p class="muted">${t('difficulty.weeklyNote', { week: weekly?.week || weekKey() })}</p>
-           ${affixes ? `<p class="muted">${t('difficulty.weeklyAffixes', { affixes })}</p>` : ''}`
-        : mode === 'daily'
-          ? `<p class="muted">${t('difficulty.dailyNote', { n: dailyLeft ?? 0 })}</p>
-             ${affixes ? `<p class="muted">${t('difficulty.dailyAffixes', { affixes })}${streakNote}</p>` : ''}`
-          : endless
-            ? `<p class="muted">${t('difficulty.endlessNote')}</p>`
-            : `<p class="muted">${t('difficulty.note')}</p>`;
-    const eyebrow = towerMode ? t('difficulty.eyebrowTower')
-      : weeklyMode ? t('difficulty.eyebrowWeekly')
-        : mode === 'daily' ? t('difficulty.eyebrowDaily')
-          : endless ? t('difficulty.eyebrowEndless') : t('difficulty.eyebrowNormal');
-
-    const modal = this.openModal(
-      `<div class="difficulty">
-        <p class="eyebrow">${eyebrow}</p>
-        <h2>${title} · ${t('difficulty.title')}</h2>
-        ${note}
-        ${this.skillBarHtml(skillState, selectedSkill)}
-        <div class="diff-cards">${cards}</div>
-        <div class="modal-actions">
-          <button class="btn ghost" id="btn-cancel-diff">${t('difficulty.cancel')}</button>
-        </div>
-      </div>`,
-      { className: 'difficulty-modal', closable: true }
-    );
-
-    modal.querySelectorAll('.diff-card').forEach((card) => {
-      card.onclick = () => this.handlers.onChooseDifficulty?.(mode, card.dataset.id);
-    });
-    this.bindSkillChips(modal);
-    modal.querySelector('#btn-cancel-diff').onclick = () => this.closeModal();
-  },
-
-  // 变异挑战面板：复用难度弹窗结构，变异多选 + 难度单选。
-  showMutationSelect({ skillState = null, selectedSkill = null } = {}) {
-    this._fixedMode = false;
-    const chosen = new Set(this._mutationSelection || []);
-    const mutationCards = MUTATION_ORDER.map((id) => {
-      const def = MUTATIONS[id];
-      const on = chosen.has(id);
-      const name = tData('mutation', id, 'name', def.name);
-      const desc = tData('mutation', id, 'desc', def.desc);
-      return `
-        <button class="diff-card" type="button" data-mutation="${id}" aria-pressed="${on}"
-          style="--diff:#c58cff${on ? ';border-color:#c58cff' : ''}">
-          <span class="diff-name">${escapeHtml(name)}</span>
-          <p>${escapeHtml(desc)}</p>
-          <div class="diff-mods"><span>${t('title.scoreMul', { mul: def.scoreMul.toFixed(2) })}</span></div>
-        </button>`;
-    }).join('');
-    const diffCards = DIFFICULTY_ORDER.map((id) => {
-      const diff = DIFFICULTIES[id];
-      return `
-        <button class="diff-card" type="button" data-diff="${id}" style="--diff:${diff.color}">
-          <span class="diff-name">${diffName(diff)}</span>
-          <p>${diffDesc(diff)}</p>
-          <div class="diff-mods">
-            <span>${t('difficulty.hp', { mul: diff.hpMul.toFixed(2) })}</span>
-            <span>${t('difficulty.count', { mul: diff.countMul.toFixed(2) })}</span>
-            <span>${t('difficulty.score', { mul: diff.scoreMul.toFixed(2) })}</span>
-          </div>
-        </button>`;
-    }).join('');
-
-    const modal = this.openModal(
-      `<div class="difficulty">
-        <p class="eyebrow">SELF TRANSCENDENCE</p>
-        <h2>${t('title.mutationTitle', { max: MUTATION_MAX })}</h2>
-        <p class="muted">${t('title.mutationNote')}</p>
-        ${this.skillBarHtml(skillState, selectedSkill)}
-        <div class="diff-cards" data-mutation-cards>${mutationCards}</div>
-        <p class="muted" id="mutation-summary"></p>
-        <h2>${t('difficulty.title')}</h2>
-        <div class="diff-cards">${diffCards}</div>
-        <div class="modal-actions">
-          <button class="btn ghost" id="btn-cancel-mutation">${t('difficulty.cancel')}</button>
-        </div>
-      </div>`,
-      { className: 'difficulty-modal', closable: true }
-    );
-
-    const summary = modal.querySelector('#mutation-summary');
-    const refresh = () => {
-      const ids = [...chosen].sort();
-      const mul = mutationScoreMul(ids);
-      summary.textContent = ids.length
-        ? t('title.mutationSelected', { count: ids.length, max: MUTATION_MAX, mul: mul.toFixed(2) })
-        : t('title.mutationLimit', { max: MUTATION_MAX });
-      modal.querySelectorAll('[data-mutation]').forEach((card) => {
-        const on = chosen.has(card.dataset.mutation);
-        card.setAttribute('aria-pressed', String(on));
-        card.style.borderColor = on ? '#c58cff' : '';
-      });
-    };
-    refresh();
-
-    modal.querySelectorAll('[data-mutation]').forEach((card) => {
-      card.onclick = () => {
-        const id = card.dataset.mutation;
-        if (chosen.has(id)) {
-          chosen.delete(id);
-        } else if (chosen.size >= MUTATION_MAX) {
-          this.toast(t('title.mutationLimit', { max: MUTATION_MAX }), 2200);
-          return;
-        } else {
-          chosen.add(id);
-        }
-        refresh();
-      };
-    });
-
-    modal.querySelectorAll('[data-diff]').forEach((card) => {
-      card.onclick = () => {
-        if (chosen.size < 1) {
-          this.toast(t('title.mutationRequired'), 2200);
-          return;
-        }
-        this._mutationSelection = [...chosen].sort();
-        this.handlers.onChooseMutation?.(card.dataset.diff, this._mutationSelection);
-      };
-    });
-    this.bindSkillChips(modal);
-    modal.querySelector('#btn-cancel-mutation').onclick = () => this.closeModal();
-  },
 };
