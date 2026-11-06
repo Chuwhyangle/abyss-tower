@@ -13,6 +13,7 @@ import { HEXES, HEX_BY_ID, HEX_POOL_VERSION } from '../public/js/shared/hexes.js
 import { decodeRun, encodeRun } from '../public/js/shared/replay.js';
 import zhCN from '../public/js/shared/i18n/zh-CN.js';
 import enUS from '../public/js/shared/i18n/en-US.js';
+import { readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let PORT = 0;
@@ -26,7 +27,7 @@ const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 const RUN_SOURCE = read('public/js/app/run.js');
 const HEX_SELECT_SOURCE = read('public/js/ui/hex-select.js');
 const API_SOURCE = read('public/js/api.js');
-const STYLES = read('public/styles.css');
+const STYLES = readCss();
 
 let server = null;
 

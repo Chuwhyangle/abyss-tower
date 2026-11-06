@@ -1,0 +1,224 @@
+/* ─── 成就 / 生涯面板（V24-001）：只用设计令牌，不硬编码主色 ─── */
+/* PANEL-TOKENS-BEGIN */
+.panel-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-3);
+  text-align: center;
+  color: var(--muted);
+}
+
+.panel-empty-glyph {
+  font-size: var(--text-xl);
+  line-height: 1;
+  color: var(--line-hover);
+}
+
+.panel-empty-title {
+  margin: 0;
+  max-width: 34ch;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.achievements-panel,
+.career-panel {
+  min-width: 0;
+  margin-top: var(--space-5);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface-glass);
+  text-align: left;
+}
+
+.achievements-head,
+.career-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.achievements-head h2,
+.career-head h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  letter-spacing: 0.04em;
+}
+
+.achievements-progress {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.career-head .icon-btn {
+  margin-left: auto;
+}
+
+.achievements-list {
+  min-width: 0;
+  max-height: 46vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.achievement-group + .achievement-group {
+  margin-top: var(--space-4);
+}
+
+.achievement-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.achievement-group-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.achievement-group-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  opacity: 0.8;
+}
+
+.achievement-group-meter,
+.career-meter,
+.career-diff-meter,
+.achievement-progress-track {
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--line-soft);
+}
+
+.achievement-group-meter {
+  flex: 1;
+  min-width: 48px;
+  height: 4px;
+}
+
+.achievement-group-meter span,
+.career-meter span,
+.career-diff-meter span,
+.achievement-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--gold);
+}
+
+.achievement-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-2);
+}
+
+.achievement-card {
+  --rarity-color: var(--muted);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--rarity-color);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  opacity: 0.66;
+}
+
+.achievement-card.rarity-rare {
+  --rarity-color: var(--cyan);
+}
+
+.achievement-card.rarity-epic {
+  --rarity-color: var(--purple);
+}
+
+.achievement-card.unlocked {
+  opacity: 1;
+  border-color: var(--line-strong);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+.achievement-card.hidden-card {
+  border-left-style: dashed;
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--surface-2),
+    var(--surface-2) 8px,
+    var(--surface-1) 8px,
+    var(--surface-1) 16px
+  );
+}
+
+.achievement-card h3 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-md);
+  overflow-wrap: anywhere;
+}
+
+.achievement-rarity,
+.achievement-state {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-2xs);
+}
+
+.achievement-rarity {
+  border: 1px solid var(--rarity-color);
+  color: var(--rarity-color);
+}
+
+.achievement-state {
+  margin-left: auto;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.achievement-card.unlocked .achievement-state {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.achievement-card p {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.achievement-progress-track {
+  height: 5px;
+  margin: var(--space-2) 0 3px;
+}
+
+.achievement-progress-fill {
+  background: var(--rarity-color);
+}
+
+.achievement-progress-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+

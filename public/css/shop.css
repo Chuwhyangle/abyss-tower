@@ -1,0 +1,126 @@
+/* 商店 */
+
+.shop {
+  flex: 0 0 auto;
+  padding: var(--space-2);
+  padding-right: max(var(--space-4), env(safe-area-inset-right));
+  padding-bottom: max(var(--space-3), env(safe-area-inset-bottom));
+  padding-left: max(var(--space-4), env(safe-area-inset-left));
+  border-top: 1px solid var(--line-soft);
+  background: linear-gradient(180deg, var(--surface-overlay), var(--surface-deep));
+}
+
+.shop-list {
+  display: flex;
+  justify-content: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.tower-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: 7px;
+  width: 122px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-1));
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: transform var(--duration-fast) var(--ease-standard),
+    border-color var(--duration-fast) var(--ease-standard),
+    box-shadow var(--duration-fast) var(--ease-standard);
+}
+
+.tower-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--line-hover);
+}
+
+.tower-card .key {
+  position: absolute;
+  top: 5px;
+  left: 7px;
+  color: var(--muted-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+}
+
+.tower-card .glyph {
+  grid-row: 1 / 3;
+  text-align: center;
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.tower-card .name {
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.tower-card .cost {
+  color: var(--gold);
+  font-family: var(--font-mono);
+  font-size: var(--text-min);
+}
+
+/* 塔卡属性行：移动端直接显示伤害/射程/对空对地，桌面仍由悬浮提示承担。 */
+.tower-card .stats {
+  display: none;
+  grid-column: 1 / -1;
+  margin-top: 1px;
+  color: var(--muted);
+  font-size: var(--text-min);
+  line-height: 1.25;
+}
+
+.tower-card:disabled .cost {
+  color: var(--muted);
+}
+
+.tower-card.selected {
+  border-color: color-mix(in srgb, var(--gold) 70%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent),
+    0 0 22px color-mix(in srgb, var(--gold) 14%, transparent);
+}
+
+.tower-card.poor .cost {
+  color: var(--red);
+}
+
+.tower-card.locked {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tower-card .lock {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: inherit;
+  background: rgba(5, 9, 12, 0.72);
+  color: var(--muted);
+  font-size: var(--text-min);
+}
+
+.shop-hint {
+  margin-top: 7px;
+  text-align: center;
+  color: var(--muted-dim);
+  font-size: var(--text-min);
+  letter-spacing: 0.05em;
+}
+
+/* 移动端横滚提示：与 .shop-hint 同款样式，紧凑视口显示、桌面隐藏。 */
+.shop-scroll-hint {
+  display: none;
+}
+

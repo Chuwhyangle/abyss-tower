@@ -1,0 +1,158 @@
+/* ============ 设计令牌 ============ */
+/* 颜色、间距、圆角、阴影、字号与动效只在这里定义，组件一律引用。 */
+
+:root {
+  /* 表面 */
+  --bg: #070b0e;
+  --surface-deep: #0a1116;
+  --surface-1: #0d151b;
+  --surface-2: #111d25;
+  --surface-raised: #111d25;
+  --surface-overlay: rgba(9, 15, 20, 0.92);
+  --surface-glass: rgba(13, 21, 27, 0.96);
+  --surface-faint: rgba(255, 255, 255, 0.02);
+  --overlay: rgba(3, 6, 8, 0.74);
+
+  /* 线条 */
+  --line: #22333f;
+  --line-muted: rgba(120, 160, 175, 0.1);
+  --line-soft: rgba(120, 160, 175, 0.16);
+  --line-strong: rgba(120, 160, 175, 0.24);
+  --line-hover: #3c5a6c;
+
+  /* 文本 */
+  --text: #e7eef4;
+  --text-strong: #eef5fa;
+  --text-body: #c6d5df;
+  --text-soft: #a9bcc9;
+  --muted: #8fa3b2;
+  --muted-dim: #5b6f7d;
+
+  /* 语义色 */
+  --gold: #ffd36b;
+  --gold-bright: #ffe391;
+  --gold-deep: #e0a93c;
+  --gold-border: #f2c45c;
+  --ink-on-gold: #231a06;
+  --danger-text: #ffb3bd;
+  --green: #6fe0a8;
+  --red: #ff6b7d;
+  --cyan: #5ce2d0;
+  --purple: #b48cff;
+  --focus-ring: var(--gold);
+
+  /* 兼容旧引用 */
+  --panel: var(--surface-1);
+  --panel-2: var(--surface-2);
+
+  /* 间距阶梯 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+
+  /* 圆角 */
+  --radius-xs: 6px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+  --radius: var(--radius-lg);
+
+  /* 阴影 */
+  --shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.28);
+  --shadow-md: 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 30px 80px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  --shadow-glow-gold: 0 8px 26px rgba(232, 178, 74, 0.16);
+
+  /* 字号阶梯 */
+  /* 可访问性下限：任何可见正文不小于 12px（AC-027，桌面与移动同口径）。
+     紧凑标签（HUD、技能卡、徽标）一律引用 --text-min，不再往 9–11px 压。 */
+  --text-min: 12px;
+  --text-2xs: 10px;
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-md: 14px;
+  --text-lg: 17px;
+  --text-xl: 22px;
+  --text-2xl: 26px;
+  --text-3xl: 30px;
+
+  /* 图标：与 canvas-shapes.js 的程序化图标配套，尺寸只在这里定义 */
+  --icon-size-xs: 12px;
+  --icon-size-sm: 14px;
+  --icon-size-md: 16px;
+  --icon-size-lg: 20px;
+  --icon-size-xl: 24px;
+  --icon-stroke: 1.75px;
+  --icon-gap: 4px;
+
+  /* 动效 */
+  --duration-fast: 120ms;
+  --duration-base: 160ms;
+  --duration-slow: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0.2, 1);
+
+  /* 状态 */
+  --disabled-opacity: 0.45;
+
+  --font-sans: "Inter", "Noto Sans SC", "Noto Sans CJK SC", "PingFang SC",
+    "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "DejaVu Sans Mono", ui-monospace, monospace;
+  --font-display: "Orbitron", "Inter", "Noto Sans SC", system-ui, sans-serif;
+}
+
+/* ============ 显示字体（OFL 开源，本地化） ============ */
+
+@font-face {
+  font-family: "Orbitron";
+  src: url("assets/fonts/Orbitron.ttf") format("truetype");
+  font-weight: 400 900;
+  font-display: swap;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(900px 500px at 15% 0%, rgba(64, 140, 120, 0.1), transparent 65%),
+    radial-gradient(800px 600px at 90% 20%, rgba(120, 80, 190, 0.08), transparent 60%),
+    radial-gradient(700px 500px at 50% 110%, rgba(200, 150, 60, 0.06), transparent 65%),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  overscroll-behavior-y: none;
+}
+
+.mobile-only {
+  display: none !important;
+}
+
+button {
+  font-family: inherit;
+}
+
+.screen {
+  min-height: 100vh;
+}
+

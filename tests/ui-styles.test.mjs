@@ -6,11 +6,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { CSS_PARTS, readCss } from './lib/css-source.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (relative) => fs.readFileSync(path.join(ROOT, relative), 'utf8');
 
-const CSS = read('public/styles.css');
+const CSS = readCss();
 const HTML = read('public/index.html');
 
 const escapeRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -315,4 +316,13 @@ test('交互依赖的 DOM id 与结构保持不变', () => {
   }
   // 塔卡由商店动态渲染，只能校验样式规则仍在。
   assert.match(CSS, /\.tower-card\b/, '缺少塔卡样式规则 .tower-card');
+});
+
+test('styles.css 拆为分区 css，index.html 按级联顺序多 link', () => {
+  const links = [...HTML.matchAll(/<link rel="stylesheet" href="([^"]+)" \/>/g)].map((match) => match[1]);
+  const cssLinks = links.filter((href) => href.startsWith('/css/'));
+  assert.equal(cssLinks.length, CSS_PARTS.length, '分区 css link 数量不符');
+  assert.deepEqual(cssLinks, CSS_PARTS.map((part) => `/${part.slice('public/'.length)}`), '分区 css link 顺序与级联顺序不符');
+  assert.equal(cssLinks[0], '/css/tokens.css', 'tokens.css 必须最先加载');
+  assert.ok(links.includes('/auth.css'), 'auth.css 仍应加载');
 });

@@ -4,12 +4,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { ACHIEVEMENT_GROUPS } from '../public/js/shared/achievements.js';
+import { readCss } from './lib/css-source.mjs';
 
 const read = (path) => fs.readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 const ACHIEVEMENTS_UI = read('public/js/achievements-ui.js');
 const STATS_UI = read('public/js/stats-ui.js');
-const STYLES = read('public/styles.css');
+const STYLES = readCss();
 const INDEX_HTML = read('public/index.html');
 
 function panelStyles() {
