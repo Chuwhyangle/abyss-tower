@@ -8,7 +8,7 @@ import {
   chooseFirstMap,
   registerAndLogin,
 } from './harness.mjs';
-import { UNLOCKS } from '../public/js/shared/data.js';
+import { SKILL_ORDER, UNLOCKS } from '../public/js/shared/data.js';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
@@ -26,8 +26,11 @@ async function main() {
     // 开局与预建三塔
     await browser.evaluate(`document.querySelector('#btn-play').click()`);
     await browser.waitFor(`!!document.querySelector('.difficulty-modal')`, '难度弹窗');
-    // 难度弹窗顶部技能条：选择极光作为本局携带技能。
-    await browser.waitFor(`document.querySelectorAll('.skill-chip').length === 3`, '技能条');
+    // 难度弹窗顶部技能条：数量随技能池扩展（SKILL_ORDER 为唯一事实源）。
+    await browser.waitFor(
+      `document.querySelectorAll('.skill-chip').length === ${SKILL_ORDER.length}`,
+      '技能条'
+    );
     await browser.evaluate(`document.querySelector('.skill-chip[data-skill="aurora"]').click()`);
     await browser.evaluate(`document.querySelector('.diff-card[data-id="roam"]').click()`);
     await chooseFirstMap(browser);
@@ -41,7 +44,13 @@ async function main() {
         for (const p of map.pathCells) {
           for (const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]) {
             const c = p.c + dc, r = p.r + dr;
-            if (map.buildable[r]?.[c] && !sim.towerAt(c, r) && !cells.some(x => x.c === c && x.r === r)) {
+            // 可破坏物占格时 canBuild=false，必须跳过（MAP-005 起物件生成在可建造格上）。
+            if (
+              map.buildable[r]?.[c] &&
+              !sim.towerAt(c, r) &&
+              !sim.destructibleAt(c, r) &&
+              !cells.some(x => x.c === c && x.r === r)
+            ) {
               cells.push({ c, r });
             }
             if (cells.length >= 3) break;
@@ -165,6 +174,7 @@ async function main() {
       wave: window.__rtd.state.sim.wave,
       clearedWave: window.__rtd.state.sim.clearedWave,
       pending: window.__rtd.state.sim.pendingDraft,
+      relics: window.__rtd.state.sim.relics.length,
     })`);
     if (beforeDraft.clearedWave !== 1) throw new Error('清波未推进已清波次');
     if (!beforeDraft.pending) throw new Error('待选遗物状态未记录');
@@ -200,8 +210,9 @@ async function main() {
     if (!restoredDraft.pending) {
       throw new Error(`遗物选择未恢复：${JSON.stringify(restoredDraft)}`);
     }
-    if (restoredDraft.relics !== 0 || restoredDraft.clearedWave !== 1) {
-      throw new Error(`恢复状态不一致：${JSON.stringify(restoredDraft)}`);
+    // 遗物选择中刷新前已有初始遗物（血桩等），恢复后数量必须与刷新前一致。
+    if (restoredDraft.relics !== beforeDraft.relics || restoredDraft.clearedWave !== 1) {
+      throw new Error(`恢复状态不一致：${JSON.stringify({ restoredDraft, beforeDraft })}`);
     }
     if (offersBeforeReload.length !== restoredDraft.cards) {
       throw new Error('恢复后的选项数量与刷新前不一致');
@@ -215,7 +226,7 @@ async function main() {
       pending: window.__rtd.state.sim.pendingDraft,
       saved: !!localStorage.getItem('abyss-tower.snapshot.v2'),
     })`);
-    if (afterPick.relics.length !== 1) throw new Error('遗物未加入');
+    if (afterPick.relics.length !== preWave.relics + 1) throw new Error('遗物未加入');
     if (afterPick.pending) throw new Error('遗物选择状态未清除');
     if (!afterPick.saved) throw new Error('波次快照未写入');
 
@@ -240,7 +251,7 @@ async function main() {
     if (withRelic.clearedWave !== 1 || withRelic.wave !== 1) {
       throw new Error(`带遗物续玩波次错误：${JSON.stringify(withRelic)}`);
     }
-    if (withRelic.relics.length !== 1 || withRelic.relics[0].level !== 1) {
+    if (withRelic.relics.length !== preWave.relics + 1 || withRelic.relics.some((r) => r.level !== 1)) {
       throw new Error(`带遗物续玩遗物状态错误：${JSON.stringify(withRelic.relics)}`);
     }
     await browser.evaluate(`document.querySelector('#btn-next-wave').click()`);

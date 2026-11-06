@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { escapeHtml } from './kit/dom.js';
 import { createPanel } from './kit/panel.js';
 import { t } from '../i18n.js';
+import { registerPanel } from './registry.js';
 
 // 通知类型标签的词典键；未知 kind 回退到通用提示（见 notificationKindLabel）。
 // 词典键对照：notify.kind.announcement: '系统公告'；偏好 key: 'announcements' 与 kind='announcement' 一一对应。
@@ -509,11 +510,5 @@ function install() {
   refreshBadge();
 }
 
-// 浏览器环境才自动安装；Node 测试可直接导入上面的纯函数。
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', install, { once: true });
-  } else {
-    install();
-  }
-}
+// 浏览器环境才由面板注册表挂载；Node 测试可直接导入上面的纯函数。
+registerPanel('notifications', install);

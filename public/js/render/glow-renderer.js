@@ -1,5 +1,6 @@
 // 光晕贴图缓存：每帧新建 radial gradient 在软件渲染下开销明显，按颜色缓存一次。
 // 低配档位直接跳过额外光晕；缓存条数有上限，避免配色变化时无限增长。
+import { registerRenderer } from './registry.js';
 import { Palette } from './palette.js';
 
 export const GLOW_QUALITY = {
@@ -89,3 +90,6 @@ export class GlowRenderer {
     return true;
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('glow', GlowRenderer);

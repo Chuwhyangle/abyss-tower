@@ -1,4 +1,6 @@
 // 屏幕空间叠加层：基地受击/低血红色暗角贴图与 FPS 面板。
+import { registerRenderer } from './registry.js';
+
 export class OverlayRenderer {
   // 屏幕空间红色暗角：基地受击闪烁 + 低血常驻警示，烘焙一次按透明度复用。
   buildHurtOverlay(width, height) {
@@ -41,3 +43,6 @@ export class OverlayRenderer {
     g.restore();
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('overlay', OverlayRenderer);

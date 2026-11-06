@@ -4,19 +4,9 @@ import { TILE } from './shared/data.js';
 import { SCENE_SPRITES } from './shared/scene-sprites.js';
 import { normalizeSettings } from './settings.js';
 import { biomePalette } from './render/palette.js';
-import { GlowRenderer } from './render/glow-renderer.js';
-import { BackgroundRenderer } from './render/background-renderer.js';
-import { PortalRenderer } from './render/portal-renderer.js';
-import { TowerRenderer } from './render/tower-renderer.js';
-import { EnemyRenderer } from './render/enemy-renderer.js';
-import { AllyRenderer } from './render/ally-renderer.js';
-import { ProjectileRenderer } from './render/projectile-renderer.js';
-import { DestructibleRenderer } from './render/destructible-renderer.js';
-import { EffectRenderer } from './render/effect-renderer.js';
-import { FloaterRenderer } from './render/floater-renderer.js';
-import { OverlayRenderer } from './render/overlay-renderer.js';
-import { SkillRenderer } from './render/skill-renderer.js';
-import { CulminationRenderer } from './render/culmination-renderer.js';
+import { createRenderer } from './render/registry.js';
+// 注册清单：各渲染器在自身模块里自注册，这里只保证它们被装载（顺序 = 层序）。
+import './render/renderers.js';
 import { SpritePipeline } from './render/sprite-pipeline.js';
 import { detectReducedMotion } from './render/transition.js';
 import { t } from './i18n.js';
@@ -52,28 +42,28 @@ export class Renderer {
     // 系统级 reduced-motion：高潮演出与既有镜头震动的共同降级来源。
     this.reducedMotion = detectReducedMotion(typeof window !== 'undefined' ? window.document : null);
 
-    // 各层显式持有依赖：共享同一份光晕缓存。
-    this.glow = new GlowRenderer();
-    this.backgroundRenderer = new BackgroundRenderer(game);
-    this.portals = new PortalRenderer(game);
+    // 各层显式持有依赖：共享同一份光晕缓存。渲染器类经注册表按 id 取得。
+    this.glow = createRenderer('glow');
+    this.backgroundRenderer = createRenderer('background', game);
+    this.portals = createRenderer('portal', game);
     // 实体渲染器只接收注入的精灵管线（自己不加载图片）：
     // 有可用帧时用图集贴图替换形体，缺资源时完整回退既有程序化绘制。
-    this.towers = new TowerRenderer(game, { glow: this.glow, sprites: this.sprites });
-    this.enemies = new EnemyRenderer(game, { glow: this.glow, sprites: this.sprites });
+    this.towers = createRenderer('tower', game, { glow: this.glow, sprites: this.sprites });
+    this.enemies = createRenderer('enemy', game, { glow: this.glow, sprites: this.sprites });
     // 友方单位（海克斯召唤物）：塔之上、敌人之下的独立层。
-    this.allyRenderer = new AllyRenderer(game);
-    this.projectiles = new ProjectileRenderer(game, { glow: this.glow });
+    this.allyRenderer = createRenderer('ally', game);
+    this.projectiles = createRenderer('projectile', game, { glow: this.glow });
     // 场景可破坏物：地面层，塔之下、范围圈之上（只读 game.destructibles）。
-    this.destructibleRenderer = new DestructibleRenderer(game);
+    this.destructibleRenderer = createRenderer('destructible', game);
     // 这三个渲染器的构造签名被既有测试断言固定为 (game)，精灵管线用 setter 注入。
     this.portals.setSprites(this.sprites);
     this.allyRenderer.setSprites(this.sprites);
     this.destructibleRenderer.setSprites(this.sprites);
-    this.effects = new EffectRenderer(game, { glow: this.glow });
-    this.floaters = new FloaterRenderer(game);
-    this.overlay = new OverlayRenderer();
+    this.effects = createRenderer('effect', game, { glow: this.glow });
+    this.floaters = createRenderer('floater', game);
+    this.overlay = createRenderer('overlay');
     // 技能表现独立成层：L0/L1/L2/L3 由 Renderer 编排，粒子自池化。
-    this.skillRenderer = new SkillRenderer(game, {
+    this.skillRenderer = createRenderer('skill', game, {
       width: this.W,
       height: this.H,
       dpr: this.dpr,
@@ -83,7 +73,7 @@ export class Renderer {
     });
     // 高潮演出层（漏怪 / 清波 / 首领死亡）：屏幕空间，文案经注入的 t() 解析，
     // 渲染器本身不 import i18n / sim / 随机源。
-    this.culmination = new CulminationRenderer(game, {
+    this.culmination = createRenderer('culmination', game, {
       width: this.W,
       height: this.H,
       text: (key, params) => t(key, params),

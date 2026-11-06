@@ -201,7 +201,8 @@ test('大厅入口、容器与脚本已接线', () => {
   assert.match(INDEX_HTML, /id="btn-relic-codex"/, '缺少图鉴入口按钮');
   assert.match(INDEX_HTML, /data-i18n="title\.relicCodex"/, '入口按钮未走 i18n');
   assert.match(INDEX_HTML, /id="relic-codex-panel"/, '缺少图鉴面板容器');
-  assert.match(INDEX_HTML, /src="\/js\/relic-codex-ui\.js"/, 'index.html 未引入图鉴脚本');
+  assert.match(INDEX_HTML, /src="\/js\/main\.js"/, 'index.html 缺少单一入口脚本');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\.\/relic-codex-ui\.js'/, '面板注册清单缺少图鉴模块');
   assert.match(CODEX_UI, /id="btn-relic-codex-close"/, '缺少关闭按钮');
   assert.match(CODEX_UI, /\/api\/profile/, '未读取玩家档案');
   assert.match(CODEX_UI, /\/api\/stats/, '未读取最近对局');

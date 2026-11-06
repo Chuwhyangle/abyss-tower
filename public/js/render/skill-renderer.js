@@ -11,6 +11,7 @@
 //   - 粒子池 + 上限（full 180 / standard 120 / minimal 48），见 skill-particles.js；
 //   - 全屏色层、极光帘幕、星空、光柱、焦痕全部预烘焙，绘制时只 drawImage；
 //   - 不使用 ctx.filter / shadowBlur / getImageData，也不在每帧创建渐变。
+import { registerRenderer } from './registry.js';
 import { TILE, SKILLS, SKILL_ORDER, skillStats } from '../shared/data.js';
 import { RNG } from '../shared/rng.js';
 import {
@@ -532,3 +533,6 @@ export class SkillRenderer {
 
 // 各层绘制与粒子池以方法集合形式挂在同一原型上，对外仍是同一个 SkillRenderer 实例与同一套方法签名。
 Object.assign(SkillRenderer.prototype, skillWarningMethods, skillDrawMethods, skillParticleMethods);
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('skill', SkillRenderer);

@@ -6,6 +6,7 @@ import { escapeHtml } from './ui/kit/dom.js';
 import { createPanel } from './ui/kit/panel.js';
 import { fmt } from './ui/shared.js';
 import { t, tData } from './i18n.js';
+import { registerPanel } from './ui/registry.js';
 
 const PANEL_ID = 'leaderboard-panel';
 const STYLE_ID = 'leaderboard-ui-style';
@@ -383,8 +384,4 @@ function install() {
   });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
-}
+registerPanel('leaderboard', install);

@@ -8,7 +8,10 @@ import { rarityName, renderCodex, setName } from './relic-codex-draw.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { ui } from './ui.js';
+import { registerPanel } from './ui/registry.js';
+
+// ui 实例由面板注册表在挂载时注入（避免「门面 ↔ 面板」的静态环）。
+let ui = null;
 
 const LIST_ID = 'relic-codex-list';
 const HISTORY_LIMIT = 10;
@@ -344,8 +347,9 @@ function openCodex() {
   load(modal, state);
 }
 
-export function install() {
+export function install(context = {}) {
   if (installed) return;
+  ui = context.ui || ui;
   const trigger = document.getElementById('btn-relic-codex');
   if (!trigger) return;
   installed = true;
@@ -361,10 +365,4 @@ export function install() {
   });
 }
 
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', install, { once: true });
-  } else {
-    install();
-  }
-}
+registerPanel('relic-codex', install);

@@ -1,4 +1,5 @@
 // 入口传送门与基地水晶：入口状态既用于绘制，也通过 portalStates() 暴露给验收测试。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { Palette } from './palette.js';
 import { baseSpriteId, portalSpriteId } from './sprite-coverage.js';
@@ -276,3 +277,6 @@ export class PortalRenderer {
     }
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('portal', PortalRenderer);

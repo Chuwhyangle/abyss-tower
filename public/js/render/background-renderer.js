@@ -1,6 +1,7 @@
 // 静态背景烘焙：草地、网格、路径、岩石、生物群系地表道具、氛围光点与暗角。
 // 只在构造/画质变更时执行，结果是一张离屏 canvas。
 // 数据表在 background-data.js，绘制原语在 background-draw.js，本文件只做烘焙编排与天气派生。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { RNG } from '../shared/rng.js';
 import { AMBIENCE_TINTS, resolveAmbience } from '../shared/ambience.js';
@@ -325,3 +326,6 @@ export class BackgroundRenderer {
     return bg;
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('background', BackgroundRenderer);

@@ -1,6 +1,7 @@
 // 敌人绘制门面：遍历敌人、阴影/光晕/加速环/状态层/血条/首领标签与精灵或形体选择。
 //
 // 形体与首领地面层拆到 ./enemy-*.js，方法集合挂回同一原型——对外仍是同一个 EnemyRenderer。
+import { registerRenderer } from './registry.js';
 import { TILE, ENEMIES, BOSS_SKILLS } from '../shared/data.js';
 import { BOSS_VARIANTS } from '../shared/data/enemies.js';
 import { Palette } from './palette.js';
@@ -246,3 +247,6 @@ export class EnemyRenderer {
 
 // 首领地面层与形体绘制以方法集合形式挂在同一原型上，对外仍是同一个 EnemyRenderer 实例与同一套方法签名。
 Object.assign(EnemyRenderer.prototype, enemyBossMethods, enemyBodyMethods);
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('enemy', EnemyRenderer);

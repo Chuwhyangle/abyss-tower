@@ -267,7 +267,8 @@ test('客户端铃铛、面板与脚本已接入', () => {
   assert.match(INDEX_HTML, /id="btn-notifications"/, 'index.html 缺少通知铃铛');
   assert.match(INDEX_HTML, /id="notifications-badge"/, 'index.html 缺少未读角标');
   assert.match(INDEX_HTML, /id="notifications-panel"/, 'index.html 缺少通知面板');
-  assert.match(INDEX_HTML, /src="\/js\/ui\/notifications\.js"/, 'index.html 未引入通知脚本');
+  assert.match(INDEX_HTML, /src="\/js\/main\.js"/, 'index.html 缺少单一入口脚本');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\/notifications\.js'/, '面板注册清单缺少通知模块');
   assert.match(NOTIFICATIONS_UI, /\/api\/notifications/);
   assert.match(NOTIFICATIONS_UI, /\/api\/notifications\/read/);
   assert.match(NOTIFICATIONS_UI, /notifications-badge/);

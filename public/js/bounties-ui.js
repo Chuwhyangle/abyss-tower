@@ -3,8 +3,11 @@
 import { api } from './api.js';
 import { t, tData } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
-import { ui } from './ui.js';
 import { escapeHtml } from './ui/kit/dom.js';
+import { registerPanel } from './ui/registry.js';
+
+// ui 实例由面板注册表在挂载时注入（避免「门面 ↔ 面板」的静态环）。
+let ui = null;
 
 // 池子条目的 id 形如 `<模板键>` 或 `<模板键>:<档位>`；词典按模板键收录。
 function templateKey(item) {
@@ -188,7 +191,8 @@ async function populateBounties(modal) {
   }
 }
 
-function install() {
+function install(context = {}) {
+  ui = context.ui || ui;
   const button = document.getElementById('btn-bounties');
   if (!button) return;
 
@@ -202,8 +206,4 @@ function install() {
   });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
-}
+registerPanel('bounties', install);

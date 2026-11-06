@@ -208,7 +208,7 @@ test('结算与回放同事务：一局只产生一条回放，未结算不产�
 });
 
 test('结算页回放面板：脚本接入、摘要拉取、时间线与转义齐备', () => {
-  assert.match(INDEX_HTML, /src="\/js\/replay-ui\.js"/, '结算页未加载回放面板脚本');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\.\/replay-ui\.js'/, '面板注册清单缺少回放模块');
   assert.match(REPLAY_UI, /\/api\/replays/, '回放面板未走回放接口');
   assert.match(REPLAY_UI, /credentials: 'same-origin'/, '请求未携带同源凭据');
   assert.match(REPLAY_UI, /status === 401/, '未处理未登录');

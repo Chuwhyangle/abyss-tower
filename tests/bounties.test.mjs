@@ -341,7 +341,8 @@ test('接口：未登录 401，登录后返回周期结构且提单拒绝非法�
 test('大厅悬赏面板：入口、容器、进度与领取接线齐备', () => {
   assert.match(INDEX_HTML, /id="btn-bounties"/, '大厅缺少悬赏入口');
   assert.match(INDEX_HTML, /id="bounties-panel"/, '缺少悬赏面板容器');
-  assert.match(INDEX_HTML, /src="\/js\/bounties-ui\.js"/, '悬赏面板脚本未加载');
+  assert.match(INDEX_HTML, /src="\/js\/main\.js"/, 'index.html 缺少单一入口脚本');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\.\/bounties-ui\.js'/, '面板注册清单缺少悬赏模块');
 
   assert.match(BOUNTIES_UI, /#bounties-list/, '缺少悬赏列表容器');
   assert.match(BOUNTIES_UI, /import \{ escapeHtml \} from '\.\/ui\/kit\/dom\.js'/, '应复用统一 HTML 转义');

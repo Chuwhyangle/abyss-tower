@@ -19,6 +19,7 @@ import { gachaMethods } from './ui/gacha-ui.js';
 import { MenuBackground, menuTheme, createMenuCanvas } from './render/menu-background.js';
 import { battleTransition } from './render/transition.js';
 import { loadSettings } from './settings.js';
+import { bootstrapPanels } from './ui/bootstrap.js';
 
 class UI {
   constructor() {
@@ -290,10 +291,9 @@ const settingsMethodsWithMenu = {
 };
 
 // 各面板以方法集合形式挂在同一原型上，对外仍是同一个 UI 实例与同一套方法签名。
-Object.assign(
-  UI.prototype,
-  titleMethods, hudMethods, shopMethods, modalMethods, draftMethods, hexSelectMethods,
-  starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods, gachaMethods
-);
+Object.assign(UI.prototype, titleMethods, hudMethods, shopMethods, modalMethods, draftMethods,
+  hexSelectMethods, starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods, gachaMethods);
 
 export const ui = new UI();
+// 大厅面板统一由注册表动态装载（单一入口，index.html 不再逐个挂载面板 script）。
+bootstrapPanels({ ui });

@@ -1,6 +1,7 @@
 // 友方单位渲染：亡者军团的骷髅等临时盟友。
 // 数据全部来自 sim.allies，渲染层只读（不写模拟状态、不消耗随机数）。
 // 每帧每个盟友固定 3 次绘制（投影 / 身体 / 武器），不创建临时对象或贴图。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { SUMMON_SPRITE_RADIUS, summonSpriteId } from './sprite-coverage.js';
 
@@ -85,3 +86,6 @@ function hexToRgba(color, alpha) {
   const value = parseInt(match[1], 16);
   return `rgba(${(value >> 16) & 255}, ${(value >> 8) & 255}, ${value & 255}, ${alpha})`;
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('ally', AllyRenderer);

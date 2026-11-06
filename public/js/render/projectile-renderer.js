@@ -2,6 +2,7 @@
 // 每帧不产生临时对象（固定桶 + 贴图缓存），也不改动模拟状态与随机数。
 //
 // 形态表与逐弹种绘制规格在 projectile-draw.js，本模块只留贴图光栅化缓存与逐桶编排。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { DOCTRINES } from '../shared/doctrines.js';
 import { projectileArt, projectileTowerForm } from './projectile-draw.js';
@@ -217,3 +218,6 @@ export class ProjectileRenderer {
     return calls;
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('projectile', ProjectileRenderer);

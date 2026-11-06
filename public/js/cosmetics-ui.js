@@ -5,6 +5,7 @@ import { setActiveSkins } from './shared/skins.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
 import { createPanel } from './ui/kit/panel.js';
+import { registerPanel } from './ui/registry.js';
 
 const ENDPOINT = '/api/profile/cosmetics';
 const SKINS_ENDPOINT = '/api/profile/skins';
@@ -374,8 +375,4 @@ function install() {
   });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
-}
+registerPanel('cosmetics', install);

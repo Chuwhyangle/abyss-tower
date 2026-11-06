@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import { escapeHtml } from './kit/dom.js';
 import { createPanel } from './kit/panel.js';
 import { getLocale, t, tData } from '../i18n.js';
+import { registerPanel } from './registry.js';
 
 const PANEL_ID = 'season-pass-panel';
 const LIST_ID = 'season-pass-list';
@@ -400,8 +401,4 @@ function install() {
   refreshBadge();
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
-}
+registerPanel('season-pass', install);

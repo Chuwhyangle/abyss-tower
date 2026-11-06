@@ -7,6 +7,7 @@ import {
   chooseFirstMap,
   registerAndLogin,
 } from './harness.mjs';
+import { SKILL_ORDER } from '../public/js/shared/data.js';
 
 const OUT_DIR = process.env.OUT_DIR || '/tmp';
 
@@ -25,8 +26,11 @@ async function main() {
     if (bootErrors.length) throw new Error(`页面启动错误：${bootErrors.join(' | ')}`);
     await browser.screenshot(path.join(OUT_DIR, 'rtd-01-title.png'));
 
-    // 标题页技能卡：3 个技能、等级 Ⅰ–Ⅹ、选中态可切换。
-    await browser.waitFor(`document.querySelectorAll('#title-skills .skill-card').length === 3`, '标题页技能卡');
+    // 标题页技能卡：技能池（SKILL_ORDER）全量渲染、等级 Ⅰ–Ⅹ、选中态可切换。
+    await browser.waitFor(
+      `document.querySelectorAll('#title-skills .skill-card').length === ${SKILL_ORDER.length}`,
+      '标题页技能卡'
+    );
     const titleSkills = await browser.evaluate(`
       (() => {
         const cards = [...document.querySelectorAll('#title-skills .skill-card')];
@@ -38,7 +42,7 @@ async function main() {
         };
       })()
     `);
-    if (titleSkills.count !== 3) throw new Error(`技能卡数量异常：${titleSkills.count}`);
+    if (titleSkills.count !== SKILL_ORDER.length) throw new Error(`技能卡数量异常：${titleSkills.count}`);
     if (!titleSkills.selected) throw new Error('标题页没有默认选中的技能');
     if (titleSkills.levels.some((level) => !level)) throw new Error('技能等级未渲染');
 
@@ -50,7 +54,7 @@ async function main() {
         selected: document.querySelector('.difficulty-modal .skill-chip.selected')?.dataset.skill || null,
       }))()
     `);
-    if (diffSkills.chips !== 3) throw new Error(`难度弹窗技能条异常：${diffSkills.chips}`);
+    if (diffSkills.chips !== SKILL_ORDER.length) throw new Error(`难度弹窗技能条异常：${diffSkills.chips}`);
     // 显式选择极光（初始解锁），并验证记忆写入 localStorage。
     await browser.evaluate(`document.querySelector('.skill-chip[data-skill="aurora"]').click()`);
     const remembered = await browser.evaluate(`localStorage.getItem('abyss-tower.skill.selected.v1')`);

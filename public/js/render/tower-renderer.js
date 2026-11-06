@@ -2,6 +2,7 @@
 //
 // 动画/进化/皮肤预算表在 tower-data.js，进化与停摆绘制在 tower-draw.js，八种塔体造型在 tower-body.js
 // （方法集合挂回本类原型，对外仍是同一个 TowerRenderer、同一套方法签名）。
+import { registerRenderer } from './registry.js';
 import { TILE, TOWERS } from '../shared/data.js';
 import { MIRROR_STAT_MUL } from '../shared/hexes/mirror-engineering.js';
 import { DOCTRINES } from '../shared/doctrines.js';
@@ -394,3 +395,6 @@ export class TowerRenderer {
 }
 
 Object.assign(TowerRenderer.prototype, towerDrawMethods, towerBodyMethods);
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('tower', TowerRenderer);

@@ -1,5 +1,6 @@
 // 飘字：伤害数字与关键提示。
 // 分层绘制：层决定 z 序/字号/字重/颜色，帧预算与同层合并由 shared/floaters.js 统一裁决。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import {
   BIG_SIZE_BONUS,
@@ -54,3 +55,6 @@ export class FloaterRenderer {
     }
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('floater', FloaterRenderer);

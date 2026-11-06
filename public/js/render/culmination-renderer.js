@@ -10,6 +10,7 @@
 //   - 文案由外部注入的 `text(key, params)` 解析（渲染层不直接依赖 i18n 模块），
 //     缺注入时只画色块与边框，不抛错。
 
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { culminationPlan } from '../shared/culmination.js';
 
@@ -323,3 +324,6 @@ export class CulminationRenderer {
     g.globalAlpha = 1;
   }
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('culmination', CulminationRenderer);

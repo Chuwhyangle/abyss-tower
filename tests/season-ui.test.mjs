@@ -99,7 +99,8 @@ test('大厅入口、容器与脚本已接线，且只消费两条赛季接口',
   assert.match(INDEX_HTML, /id="btn-season"/, '缺少赛季入口按钮');
   assert.match(INDEX_HTML, /data-i18n="title\.season"/, '入口按钮未走 i18n');
   assert.match(INDEX_HTML, /id="season-panel"/, '缺少赛季面板容器');
-  assert.match(INDEX_HTML, /src="\/js\/season-ui\.js"/, 'index.html 未引入赛季脚本');
+  assert.match(INDEX_HTML, /src="\/js\/main\.js"/, 'index.html 缺少单一入口脚本');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\.\/season-ui\.js'/, '面板注册清单缺少赛季模块');
 
   assert.match(SEASON_UI, /\/api\/leaderboard\?mode=normal&size=1/, '未读取当前赛季榜');
   assert.match(

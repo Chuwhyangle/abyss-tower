@@ -429,7 +429,7 @@ test('接口：赛季商店未登录 401，未知/不足被拒', async () => {
 test('面板与路由接线齐备', () => {
   assert.match(INDEX_HTML, /id="btn-season-pass"/, '大厅缺少通行证入口');
   assert.match(INDEX_HTML, /id="season-pass-panel"/, '缺少通行证面板容器');
-  assert.match(INDEX_HTML, /src="\/js\/ui\/season-pass\.js"/, '通行证脚本未加载');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\/season-pass\.js'/, '面板注册清单缺少通行证模块');
 
   assert.match(SEASON_PASS_UI, /#season-pass-list|season-pass-list/, '缺少里程碑列表容器');
   assert.match(SEASON_PASS_UI, /import \{ escapeHtml \} from '\.\/kit\/dom\.js'/, '应复用统一 HTML 转义');

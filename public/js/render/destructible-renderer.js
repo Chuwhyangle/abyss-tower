@@ -2,6 +2,7 @@
 // 数据唯一来源是 shared/destructibles.js 的类型注册表（name/glyph/color/cost/effect）；
 // 本模块不引用模拟层：DestructibleRenderer 只读 game.destructibles / game.hover，
 // 展示模型（effect/warning/cost/failure）供 ui/modals.js 组装确认面板文案。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { destructibleTypeOf } from '../shared/destructibles.js';
 import { Palette } from './palette.js';
@@ -404,3 +405,6 @@ function drawRuins(g, cx, cy, item, color) {
   }
   g.restore();
 }
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('destructible', DestructibleRenderer);

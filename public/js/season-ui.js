@@ -4,8 +4,11 @@ import { t } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { ui } from './ui.js';
 import { fmt } from './ui/shared.js';
+import { registerPanel } from './ui/registry.js';
+
+// ui 实例由面板注册表在挂载时注入（避免「门面 ↔ 面板」的静态环）。
+let ui = null;
 
 const STYLE_ID = 'season-ui-style';
 const BODY_ID = 'season-body';
@@ -270,7 +273,8 @@ async function populateSeason(modal) {
   }
 }
 
-function install() {
+function install(context = {}) {
+  ui = context.ui || ui;
   const trigger = document.getElementById('btn-season');
   if (!trigger) return;
 
@@ -295,10 +299,4 @@ function install() {
   });
 }
 
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', install, { once: true });
-  } else {
-    install();
-  }
-}
+registerPanel('season', install);

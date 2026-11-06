@@ -5,7 +5,10 @@ import { seasonPanelView } from './ui/panels.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { ui } from './ui.js';
+import { registerPanel } from './ui/registry.js';
+
+// ui 实例由面板注册表在挂载时注入（避免「门面 ↔ 面板」的静态环）。
+let ui = null;
 
 function progressBar(item) {
   const progress = item.progress;
@@ -204,7 +207,8 @@ async function populateAchievements(modal) {
   }
 }
 
-function install() {
+function install(context = {}) {
+  ui = context.ui || ui;
   const button = document.getElementById('btn-achievements');
   if (!button) return;
 
@@ -228,8 +232,4 @@ function install() {
   });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
-}
+registerPanel('achievements', install);

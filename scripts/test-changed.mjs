@@ -123,6 +123,7 @@ export const TEST_MAP = [
     'tests/relic-codex.test.mjs',
     'tests/season-ui.test.mjs',
     'tests/share-ui.test.mjs',
+    'tests/ui-registry.test.mjs',
     'tests/ui-split.test.mjs',
   ] },
   { match: 'public/js/app/', tests: ['tests/controller-wiring.test.mjs'] },
@@ -137,7 +138,11 @@ export const TEST_MAP = [
   ] },
   { match: 'public/js/i18n.js', tests: ['tests/i18n.test.mjs'] },
   { match: 'public/js/leaderboard-ui.js', tests: ['tests/leaderboard.test.mjs'] },
-  { match: 'public/index.html', tests: ['tests/ui-styles.test.mjs', 'tests/leaderboard.test.mjs'] },
+  { match: 'public/index.html', tests: [
+    'tests/ui-styles.test.mjs',
+    'tests/leaderboard.test.mjs',
+    'tests/ui-registry.test.mjs',
+  ] },
   { match: 'public/css/', tests: [
     'tests/ui-animation-audit.test.mjs',
     'tests/ui-styles.test.mjs',
@@ -158,6 +163,8 @@ export const TEST_MAP = [
     'tests/skill-visuals.test.mjs',
   ] },
   { match: 'public/js/render/camera-feedback.js', tests: ['tests/hitstop.test.mjs'] },
+  { match: 'public/js/render/registry.js', tests: ['tests/ui-registry.test.mjs'] },
+  { match: 'public/js/render/renderers.js', tests: ['tests/ui-registry.test.mjs'] },
   { match: 'public/js/render/culmination-renderer.js', tests: ['tests/feel-culmination.test.mjs'] },
   { match: 'public/js/render/ally-renderer.js', tests: ['tests/hex-runtime.test.mjs', 'tests/sprite-coverage.test.mjs'] },
   { match: 'public/js/render/art-tokens.js', tests: [

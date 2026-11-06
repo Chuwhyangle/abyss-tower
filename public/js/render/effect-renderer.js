@@ -4,6 +4,7 @@
 //
 // 事件表与变体在 effect-data.js，粒子池在 effect-pool.js，逐事件画法在 effect-draw.js /
 // effect-boss.js（方法集合挂回本类原型，对外仍是同一个 EffectRenderer、同一套方法签名）。
+import { registerRenderer } from './registry.js';
 import { TILE } from '../shared/data.js';
 import { Palette } from './palette.js';
 import { IMPACT_POOL_CAPACITY, ImpactVfxPool, impactBudget } from './impact-vfx.js';
@@ -143,3 +144,6 @@ export class EffectRenderer {
 }
 
 Object.assign(EffectRenderer.prototype, effectDrawMethods, effectBossDrawMethods);
+
+// 自注册到渲染器注册表：render.js 经 id 创建实例，不再逐个静态 import。
+registerRenderer('effect', EffectRenderer);

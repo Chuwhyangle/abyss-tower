@@ -340,8 +340,9 @@ test('确认面板 → destroyDestructible：成功扣费/加金/变废墟/格�
 });
 
 test('渲染层与 UI 层已接入：注册渲染器、确认面板调用 destroyDestructible 并播放拆除音效', () => {
-  assert.match(RENDER_SRC, /import \{ DestructibleRenderer \} from '\.\/render\/destructible-renderer\.js'/);
-  assert.match(RENDER_SRC, /new DestructibleRenderer\(game\)/);
+  assert.match(RENDER_SRC, /createRenderer\('destructible', game\)/);
+  assert.match(read('public/js/render/destructible-renderer.js'), /registerRenderer\('destructible', DestructibleRenderer\)/);
+  assert.match(read('public/js/render/renderers.js'), /'\.\/destructible-renderer\.js'/);
   assert.match(RENDER_SRC, /this\.destructibleRenderer\.render\(g, this\.time, this\.settings\)/);
   assert.equal(typeof modalMethods.showDestructibleConfirm, 'function');
   assert.match(MODAL_SRC, /sim\.destroyDestructible\?\.\(item\.id\)/);

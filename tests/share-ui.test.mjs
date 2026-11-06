@@ -27,7 +27,8 @@ const STATE = {
 test('大厅入口与结算面板接线：脚本、容器、接口、零第三方依赖', () => {
   assert.match(INDEX_HTML, /id="btn-share"/, '大厅缺少分享码入口');
   assert.match(INDEX_HTML, /id="share-panel"/, '大厅缺少导入容器');
-  assert.match(INDEX_HTML, /src="\/js\/share-ui\.js"/, '页面未引入 share-ui.js');
+  assert.match(INDEX_HTML, /src="\/js\/main\.js"/, 'index.html 缺少单一入口脚本');
+  assert.match(read('public/js/ui/bootstrap.js'), /'\.\.\/share-ui\.js'/, '面板注册清单缺少分享码模块');
   assert.match(SOURCE, /'\/api\/replay'/, '分享码入口应调用既有 /api/replay');
   assert.match(SOURCE, /navigator\?\.clipboard|clipboard\.writeText/, '缺少剪贴板写入');
   assert.match(SOURCE, /i18n:change/, '切换语言时应刷新文案');

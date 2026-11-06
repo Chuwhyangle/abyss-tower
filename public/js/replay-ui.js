@@ -7,6 +7,7 @@ import { getLocale, t, tFor, tOrFor } from './i18n.js';
 import { copyToClipboard, errorText } from './share-ui.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
+import { registerPanel } from './ui/registry.js';
 
 const API_URL = '/api/replays';
 const SHARE_API_URL = '/api/replay';
@@ -552,9 +553,11 @@ class ReplayUI {
 
 let singleton = null;
 
-if (typeof document !== 'undefined') {
-  singleton = new ReplayUI();
+function install() {
+  if (!singleton) singleton = new ReplayUI();
   singleton.install();
 }
+
+registerPanel('replay', install);
 
 export { ReplayUI };

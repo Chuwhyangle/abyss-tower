@@ -245,7 +245,11 @@ test('未登录访问排行榜保持 401', async () => {
 test('前端接入：容器、脚本与空榜占位齐备', () => {
   const html = fs.readFileSync(path.join(ROOT, 'public/index.html'), 'utf8');
   assert.match(html, /id="leaderboard-panel"/);
-  assert.match(html, /\/js\/leaderboard-ui\.js/);
+  assert.match(html, /\/js\/main\.js/);
+  assert.match(
+    fs.readFileSync(path.join(ROOT, 'public/js/ui/bootstrap.js'), 'utf8'),
+    /'\.\.\/leaderboard-ui\.js'/
+  );
 
   const source = fs.readFileSync(path.join(ROOT, 'public/js/leaderboard-ui.js'), 'utf8');
   // 文案已收进词典：断言键存在且文案一致，不再断言源码字面量。

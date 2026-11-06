@@ -431,7 +431,8 @@ test('接线源码：三处事件、渲染层与视觉 dt 缩放都已接上', (
   assert.match(waveDirector, /addCulmination\('waveClear'/, 'completeWave() 必须记录清波');
 
   const render = readSource('public/js/render.js');
-  assert.match(render, /new CulminationRenderer/, 'render.js 必须构造 CulminationRenderer');
+  assert.match(render, /createRenderer\('culmination'/, 'render.js 必须经注册表构造 CulminationRenderer');
+  assert.match(readSource('public/js/render/culmination-renderer.js'), /registerRenderer\('culmination', CulminationRenderer\)/);
   assert.match(render, /this\.culmination\.update\(/, 'render.js 必须在渲染中推进演出');
   assert.match(render, /this\.culmination\.render\(/, 'render.js 必须在渲染中绘制演出');
   assert.match(render, /get visualTimeScale\(\)/, 'render.js 必须暴露 visualTimeScale');

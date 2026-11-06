@@ -4,7 +4,10 @@ import { t, tData } from './i18n.js';
 import { iconSvg } from './render/canvas-shapes.js';
 import { api } from './api.js';
 import { escapeHtml } from './ui/kit/dom.js';
-import { ui } from './ui.js';
+import { registerPanel } from './ui/registry.js';
+
+// ui 实例由面板注册表在挂载时注入（避免「门面 ↔ 面板」的静态环）。
+let ui = null;
 
 const RECENT_LIMIT = 10;
 
@@ -166,7 +169,8 @@ async function populateStats(modal) {
   }
 }
 
-function install() {
+function install(context = {}) {
+  ui = context.ui || ui;
   const button = document.getElementById('btn-stats');
   if (!button) return;
 
@@ -190,8 +194,4 @@ function install() {
   });
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', install, { once: true });
-} else {
-  install();
-}
+registerPanel('stats', install);
