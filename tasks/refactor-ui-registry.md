@@ -1,7 +1,7 @@
 ---
 id: refactor-ui-registry
 title: 并发重构·阶段3：UI/render 面板注册表，统一双 UI 装配
-status: todo
+status: ready
 labels:
   - refactor
 parent: null
