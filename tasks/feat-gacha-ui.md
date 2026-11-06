@@ -1,7 +1,7 @@
 ---
 id: feat-gacha-ui
 title: 抽卡·阶段1 前端：全屏抽卡页 + 三态切屏 + 出货动画 + 概率公示/历史弹窗
-status: ready
+status: done
 labels:
   - feat
 parent: null
@@ -74,10 +74,8 @@ depends_on:
 - 语言切换：en-US 下抽卡页动态区零 CJK（卡池塔名/保底/空态文案全部刷新），切回 zh-CN 恢复。
 - 同时通过：`tests/i18n-coverage.test.mjs`、`tests/ui-styles.test.mjs`（含分区 link 顺序）、`scripts/ui-animation-audit.mjs`、`scripts/style-check.mjs`、`scripts/structure-budget.mjs --check`、`scripts/import-graph.mjs`、`scripts/check-doc-ownership.mjs`。
 
-## Blocker
+suite 修复（2026-11-06 复跑，上一轮 exited-not-landed 的真因）：
 
-**2026-11-06T02:12:56.546Z — worker 未落地（exited-not-landed）**
-
-- 未落地原因：step=suite: name: 'AssertionError'
-- run_id：wk-prod-anchor
-- session_id：4eb5875e-541c-4b3a-8e0a-55c923c04c0f
+- 失败用例：`tests/ui-split.test.mjs` →「门面低于 300 行，子模块低于 400 行」，`ui.js` 因抽卡接线增至 329 行（develop 基线 293）。
+- 修法：把抽卡屏 16 个 DOM 引用、7 个事件接线与三态辅助（`initGacha`/`leaveGacha`/`refreshGachaLocale`）收进 `gachaMethods`（`public/js/ui/gacha-ui.js`，已在 Touches），`ui.js` 的 `init()` 只调用一次 `initGacha()`；`showTitle`/`showGame` 改用 `leaveGacha()`，`refreshLocale()` 改用 `refreshGachaLocale()` 短路。
+- 结果：`ui.js` 299 行（<300），`gacha-ui.js` 598 行（<600 运行时预算），行为不变；`npm test` 2126/2126 全绿；anti-drift Touches 检查通过（11 个实际文件全部在声明内）。

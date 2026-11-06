@@ -21,6 +21,7 @@ export const CSS_PARTS = [
   'public/css/meta.css',
   'public/css/transitions.css',
   'public/css/hex.css',
+  'public/css/gacha.css',
   'public/css/a11y.css',
 ];
 

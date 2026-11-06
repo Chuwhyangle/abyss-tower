@@ -15,6 +15,7 @@ import { towerMethods } from './ui/tower.js';
 import { resultMethods } from './ui/result.js';
 import { settingsPanelMethods } from './ui/settings-panel.js';
 import { panelMethods } from './ui/panels.js';
+import { gachaMethods } from './ui/gacha-ui.js';
 import { MenuBackground, menuTheme, createMenuCanvas } from './render/menu-background.js';
 import { battleTransition } from './render/transition.js';
 import { loadSettings } from './settings.js';
@@ -88,6 +89,7 @@ class UI {
     };
 
     hydrateIcons();
+    this.initGacha();
 
     this.el.play.onclick = () => this.handlers.onPlay?.();
     this.el.daily.onclick = () => this.handlers.onDaily?.();
@@ -172,6 +174,7 @@ class UI {
     this._titleExtras = extras;
     this.game = null;
     audio.startMusic('menu');
+    this.leaveGacha();
     this.el.title.hidden = false;
     this.el.game.hidden = true;
     battleTransition.cancel();
@@ -238,6 +241,8 @@ class UI {
   refreshLocale() {
     if (!this.el) return;
     this.updateSoundIcon();
+    // 抽卡页是三屏之一：动态区由 GachaPage 重建，不重渲染标题页。
+    if (this.refreshGachaLocale()) return;
     if (this.game) {
       this.updateHud(this.game.getHud());
       this.renderShop();
@@ -252,6 +257,7 @@ class UI {
     this.game = game;
     if (profile) this.profile = profile;
     this.stopMenuBackground();
+    this.leaveGacha();
     audio.startMusic('battle');
     this.el.title.hidden = true;
     this.el.game.hidden = false;
@@ -287,7 +293,7 @@ const settingsMethodsWithMenu = {
 Object.assign(
   UI.prototype,
   titleMethods, hudMethods, shopMethods, modalMethods, draftMethods, hexSelectMethods,
-  starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods
+  starterSelectMethods, bossCoreMethods, towerMethods, resultMethods, settingsMethodsWithMenu, panelMethods, gachaMethods
 );
 
 export const ui = new UI();

@@ -560,6 +560,7 @@ const CSS_CASCADE_ORDER = [
   'meta.css',
   'transitions.css',
   'hex.css',
+  'gacha.css',
   'a11y.css',
 ];
 
