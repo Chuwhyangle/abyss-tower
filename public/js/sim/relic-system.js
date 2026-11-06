@@ -52,7 +52,9 @@ export class RelicSystem {
     else this.sim.relics.push({ id, level: toLevel });
 
     // 获得/升级遗物都走同一钩子；它先跑，随后统一重算，钩子对状态的改动才能落到塔属性上。
-    this.sim.hooks.emit('onRelicGained', { id, level: toLevel });
+    if (this.sim.hexRuntime.active) {
+      this.sim.hexCall('onRelicGained', { id, level: toLevel }, this.sim.hexCtx);
+    }
     this.sim.recomputeMods();
     this.sim.save();
     return { applied: true, id, fromLevel, toLevel, baseHpDelta: delta };

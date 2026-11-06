@@ -19,8 +19,6 @@ import { normalizeBonusPoints, normalizeContractRecords } from './shared/contrac
 import { TOWER_TYPE_DOCTRINE, applyDoctrine as applyDoctrineEffect, normalizeDoctrineIds } from './shared/doctrines.js';
 import { normalizeAwakenings } from './shared/awakenings.js';
 import { HexRuntime } from './shared/hexes/runtime.js';
-import { HookBus } from './shared/hooks.js';
-import { createRelicBehaviorProvider } from './shared/relic-behaviors.js';
 import { CombatSystem } from './sim/combat-system.js';
 import {
   DestructibleSystem,
@@ -37,17 +35,6 @@ import { WaveDirector } from './sim/wave-director.js';
 
 // 高潮演出事件的环形上限：低频事件，16 条足以覆盖任何一帧内的积压。
 const CULMINATION_RING_MAX = 16;
-
-// 海克斯副作用钩子 → 总线适配器：ctx 在此补挂，总线调用点不需要知道 hexCtx。
-function createHexHookProvider(sim) {
-  return {
-    name: 'hex',
-    onHit(enemy, tower, dealt) { sim.hexCall('onHit', enemy, tower, dealt, sim.hexCtx); },
-    onEnemyKilled(enemy) { sim.hexCall('onEnemyKilled', enemy, sim.hexCtx); },
-    onLeak(enemy) { sim.hexCall('onLeak', enemy, sim.hexCtx); },
-    onRelicGained(payload) { sim.hexCall('onRelicGained', payload, sim.hexCtx); },
-  };
-}
 
 export class Simulation {
   constructor(opts) {
@@ -188,11 +175,6 @@ export class Simulation {
     this.relicSystem = new RelicSystem(this);
     this.destructibleSystem = new DestructibleSystem(this);
     this.snapshotMapper = new SnapshotMapper(this);
-
-    // 行为 hook 总线：海克斯 / 遗物（未来天赋）按注册顺序调度，替代散落在 sim 核心的行为分支。
-    this.hooks = new HookBus();
-    this.hooks.register(createHexHookProvider(this));
-    this.hooks.register(createRelicBehaviorProvider(this));
 
     this.buildPath();
     this.recomputeMods();
