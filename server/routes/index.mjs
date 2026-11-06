@@ -10,6 +10,7 @@ import { LeaderboardRoutes } from './leaderboard.mjs';
 import { RunRoutes } from './runs.mjs';
 import { SkillRoutes } from './skills.mjs';
 import { UnlockRoutes } from './unlock.mjs';
+import { GachaRoutes } from './gacha.mjs';
 import { AchievementRoutes } from './achievements.mjs';
 import { BountyRoutes } from './bounties.mjs';
 import { SeasonPassRoutes } from './season-pass.mjs';
@@ -44,6 +45,7 @@ export function createApiRouter() {
     .addProtected(new RunRoutes())
     .addProtected(new SkillRoutes())
     .addProtected(new UnlockRoutes())
+    .addProtected(new GachaRoutes())
     .addProtected(new AchievementRoutes())
     .addProtected(new BountyRoutes())
     .addProtected(new SeasonPassRoutes())

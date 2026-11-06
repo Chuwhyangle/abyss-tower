@@ -321,7 +321,7 @@ export const TEST_MAP = [
     'tests/stats.test.mjs',
     'tests/runs-service.test.mjs',
   ] },
-  { match: 'server/db.mjs', tests: ['tests/migration.test.mjs'] },
+  { match: 'server/db.mjs', tests: ['tests/gacha.test.mjs', 'tests/migration.test.mjs'] },
   { match: 'server/http/respond.mjs', tests: [
     'tests/http-hardening.test.mjs',
     'tests/security-headers.test.mjs',
@@ -330,6 +330,7 @@ export const TEST_MAP = [
   { match: 'server/routes/', tests: [
     'tests/architecture.test.mjs',
     'tests/auth.test.mjs',
+    'tests/gacha.test.mjs',
     'tests/leaderboard.test.mjs',
     'tests/leaderboard-season.test.mjs',
     'tests/stats.test.mjs',
