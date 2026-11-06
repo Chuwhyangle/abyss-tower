@@ -44,8 +44,18 @@ depends_on:
 - `public/styles.css`
 - `public/js/shared/i18n/zh-CN.ui.js`
 - `public/js/shared/i18n/en-US.ui.js`
+- `public/js/shared/i18n/zh-CN.ui.gacha.js` (new)
+- `public/js/shared/i18n/en-US.ui.gacha.js` (new)
+- `tests/browser-gacha.mjs` (new)
 - `tasks/feat-gacha-ui.md`
 
 ## Notes
 
 立案 2026-11-06。依赖 `feat-gacha-contract`（数据层，需 `towers-rarity.js`/`gacha.js`）。实现 agent 论证的 UI 风险点：三态翻转不对称会叠屏、菜单背景 rAF 泄漏、refreshLocale 漏 gacha 分支、出货动画孤儿计时器——本任务 AC 已逐条覆盖。美术资源由 `feat-gacha-art` 提供，本任务消费 `public/assets/gacha/` 下资源（缺资源时回退到程序化塔绘制，不崩）。
+
+实现说明（2026-11-06）：
+
+- 抽卡文案按既有片段化模式拆成 `zh-CN.ui.gacha.js` / `en-US.ui.gacha.js` 两个新词典文件，由两个聚合器 `...gacha` 展开；因此 Touches 增列这两个新文件。
+- 服务端 gacha 路由由 `feat-gacha-server` 落地；本任务的浏览器验收 `tests/browser-gacha.mjs` 用注入脚本按冻结契约模拟 `/api/gacha/*`（其余请求透传真实测试服务端），聚焦前端行为：三态互斥、余额/碎片/保底刷新、单抽与十连、分档动画、公示/历史弹窗、切屏计时器清理、切语言刷新。
+- 三态翻转在 UI 层直接完成（抽卡是纯大厅功能，不绕 controller）；`showTitle`/`showGame` 都调用 `stopGacha()` 并隐藏 gacha 屏，动画计时器统一登记在 `GachaPage.timers`，切屏时 `clearTimers()`；6★ 全屏闪为纯 CSS 动画，不挂清理计时器。
+- 抽卡 API 走 `public/js/api.js` 的通用 `request()`，不改 `api.js` 文件本身（不在 Touches）。
