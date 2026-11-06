@@ -7,7 +7,7 @@ import { TOWERS } from '../shared/data.js';
 import { GACHA_PITY, GACHA_POOL_TOWER_IDS } from '../shared/data/gacha.js';
 import { TOWER_RARITY } from '../shared/data/towers-rarity.js';
 import { drawPortrait } from '../render/portrait-draw.js';
-import { escapeHtml, fmt, towerName } from './shared.js';
+import { $, escapeHtml, fmt, towerName } from './shared.js';
 
 // 稀有度 key → 档位（服务端旧响应缺 star 时的兜底，与 towers-rarity.js 一致）。
 const STAR_BY_RARITY = { legendary: 6, epic: 5, rare: 4, uncommon: 2, common: 3, basic: 1 };
@@ -510,6 +510,39 @@ export class GachaPage {
 
 // 挂在 UI 原型上的门面：页面单例懒创建，UI 只负责三态翻转与事件接线。
 export const gachaMethods = {
+  // 抽卡页的元素注册与事件接线集中在这里，ui.js 门面只在 init() 里调用一次，
+  // 避免抽卡屏的 16 个 DOM 引用继续撑大通用门面。
+  initGacha() {
+    this.el.gacha = $('gacha-screen');
+    this.el.gachaBtn = $('btn-gacha');
+    this.el.gachaBack = $('btn-gacha-back');
+    this.el.gachaRatesBtn = $('btn-gacha-rates');
+    this.el.gachaHistoryBtn = $('btn-gacha-history');
+    this.el.gachaSingle = $('btn-gacha-single');
+    this.el.gachaTen = $('btn-gacha-ten');
+    this.el.gachaCores = $('gacha-cores');
+    this.el.gachaShards = $('gacha-shards');
+    this.el.gachaShardsBar = $('gacha-shards-bar');
+    this.el.gachaPity = $('gacha-pity');
+    this.el.gachaPool = $('gacha-pool');
+    this.el.gachaResult = $('gacha-result');
+    this.el.gachaSinglePrice = $('gacha-single-price');
+    this.el.gachaTenPrice = $('gacha-ten-price');
+    this.el.gachaFlash = $('gacha-flash');
+
+    // 抽卡是纯大厅功能，UI 层直接管三态翻转，不需要绕 controller。
+    const bind = (el, handler) => {
+      if (el) el.onclick = handler;
+    };
+    bind(this.el.gachaBtn, () => this.showGacha());
+    bind(this.el.gachaBack, () => this.hideGacha());
+    bind(this.el.gachaRatesBtn, () => this.showGachaRates());
+    bind(this.el.gachaHistoryBtn, () => this.showGachaHistory());
+    bind(this.el.gachaSingle, () => this.drawGacha(1));
+    bind(this.el.gachaTen, () => this.drawGacha(10));
+    bind(this.el.gachaResult, () => this.skipGachaReveal());
+  },
+
   showGacha() {
     if (!this.el?.gacha || !this.profile) return;
     this._gachaPage ||= new GachaPage(this);
@@ -525,9 +558,21 @@ export const gachaMethods = {
   },
 
   hideGacha() {
+    this.leaveGacha();
+    if (this.profile) this.showTitle(this.profile, this._titleExtras);
+  },
+
+  // 离开抽卡页：停止出货动画并隐藏页面；标题页/战斗页的三态翻转共用。
+  leaveGacha() {
     this.stopGacha();
     if (this.el?.gacha) this.el.gacha.hidden = true;
-    if (this.profile) this.showTitle(this.profile, this._titleExtras);
+  },
+
+  // 抽卡页可见时动态区由 GachaPage 重建：返回 true 表示本次语言刷新已接管。
+  refreshGachaLocale() {
+    if (!this.el?.gacha || this.el.gacha.hidden) return false;
+    this._gachaPage?.refreshLocale();
+    return true;
   },
 
   // 标题页/战斗页切回时调用：停掉出货动画与所有待触发的翻牌计时器。
