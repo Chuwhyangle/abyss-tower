@@ -1,7 +1,7 @@
 ---
 id: fix-baseline-mismatch-race
 title: 修复 BASELINE-MISMATCH 竞态：fan-in 目标 develop 与 task_store main 不同源，致 43% worker 失败
-status: todo
+status: ready
 labels:
   - fix
   - infra
