@@ -59,6 +59,51 @@ function processAlive(pid) {
   }
 }
 
+// 自起子进程自成进程组（POSIX）：父进程收到信号时能一次回收整棵树——包括服务、浏览器
+// 与浏览器自己 spawn 的辅助进程。没有这一步，父进程被终止后子进程会逃逸成 ppid=1 的孤儿。
+export const USE_PROCESS_GROUP = process.platform !== 'win32';
+
+export function killProcessTree(child, signal = 'SIGKILL') {
+  if (!child || child.exitCode != null) return;
+  if (USE_PROCESS_GROUP && Number.isInteger(child.pid) && child.pid > 0) {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      /* 进程组已不存在，退回单进程信号 */
+    }
+  }
+  try {
+    child.kill(signal);
+  } catch {
+    /* ignore */
+  }
+}
+
+// 活跃子进程注册表：进程收到 SIGINT/SIGTERM/SIGHUP 时同步回收，不依赖 finally 有机会执行。
+const activeChildren = new Set();
+const TERMINATION_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'];
+let terminationHooksInstalled = false;
+
+function installTerminationHooks() {
+  if (terminationHooksInstalled) return;
+  terminationHooksInstalled = true;
+  for (const signal of TERMINATION_SIGNALS) {
+    process.once(signal, () => {
+      for (const child of activeChildren) killProcessTree(child, 'SIGKILL');
+      activeChildren.clear();
+      process.exit(signal === 'SIGINT' ? 130 : signal === 'SIGHUP' ? 129 : 143);
+    });
+  }
+}
+
+// 供 harness 也把浏览器登记进来：同一个信号兜底覆盖服务与浏览器。
+export function trackChild(child) {
+  activeChildren.add(child);
+  installTerminationHooks();
+  child.once('exit', () => activeChildren.delete(child));
+}
+
 // 进程异常退出会留下租约：pid 已消失或租约过期即视为可回收。
 export function pruneLeases(now = Date.now()) {
   let entries = [];
@@ -191,16 +236,16 @@ export class TestServer {
   }
 
   kill(signal = 'SIGTERM') {
-    if (this.child.exitCode == null) this.child.kill(signal);
+    killProcessTree(this.child, signal);
   }
 
   async stop() {
     const child = this.child;
-    if (child.exitCode == null) child.kill('SIGTERM');
+    killProcessTree(child, 'SIGTERM');
     for (let i = 0; i < this.stopAttempts && child.exitCode == null; i += 1) {
       await sleep(this.stopIntervalMs);
     }
-    if (child.exitCode == null) child.kill('SIGKILL');
+    if (child.exitCode == null) killProcessTree(child, 'SIGKILL');
     releasePort(this.port);
     removeDbFiles(this.dbPath);
   }
@@ -241,7 +286,9 @@ export async function startServer({
         ...env,
       },
       stdio: ['ignore', 'pipe', 'pipe'],
+      detached: USE_PROCESS_GROUP,
     });
+    trackChild(child);
     let log = '';
     child.stdout.on('data', (chunk) => { log += chunk; });
     child.stderr.on('data', (chunk) => { log += chunk; });
@@ -251,7 +298,7 @@ export async function startServer({
       await waitForHealth({ base, port, child, log: () => log, attempts: healthAttempts, intervalMs: healthIntervalMs });
     } catch {
       lastError = log;
-      if (child.exitCode == null) child.kill('SIGKILL');
+      killProcessTree(child, 'SIGKILL');
       releasePort(port);
       continue;
     }

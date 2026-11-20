@@ -6,7 +6,7 @@ import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { allocatePort, releasePort, startServer } from './test-server.mjs';
+import { allocatePort, killProcessTree, releasePort, startServer, trackChild, USE_PROCESS_GROUP } from './test-server.mjs';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -24,6 +24,8 @@ export const HARNESS_TIMEOUTS = Object.freeze({
   healthIntervalMs: envNumber('HARNESS_HEALTH_INTERVAL_MS', 100),
   cdpAttempts: envNumber('HARNESS_CDP_ATTEMPTS', 160),
   cdpIntervalMs: envNumber('HARNESS_CDP_INTERVAL_MS', 120),
+  // 单次 CDP 调用的上限：没有它，浏览器半死时 send() 的 Promise 永不返回，整个测试进程会永久挂起。
+  cdpSendTimeoutMs: envNumber('HARNESS_CDP_SEND_TIMEOUT_MS', 30000),
   bootTimeoutMs: envNumber('HARNESS_BOOT_TIMEOUT_MS', 20000),
   waitTimeoutMs: envNumber('HARNESS_WAIT_TIMEOUT_MS', 20000),
   stopAttempts: envNumber('HARNESS_STOP_ATTEMPTS', 40),
@@ -73,6 +75,14 @@ export class Browser {
     this.pageErrors = [];
     this.onError = onError;
     this.retried = false;
+    this.closed = false;
+    // 连接断开时把挂起的 CDP 调用立即失败：否则 send() 的 Promise 永不返回，测试进程永久挂起。
+    ws.onclose = () => {
+      this.rejectPending(new HarnessEnvError('CDP 连接已断开', 'cdp'));
+    };
+    ws.onerror = () => {
+      this.rejectPending(new HarnessEnvError('CDP 连接错误', 'cdp'));
+    };
     ws.onmessage = (event) => {
       let message;
       try {
@@ -103,11 +113,37 @@ export class Browser {
     };
   }
 
-  send(method, params = {}) {
+  rejectPending(error) {
+    this.closed = true;
+    for (const { reject } of this.pending.values()) reject(error);
+    this.pending.clear();
+  }
+
+  send(method, params = {}, timeoutMs = HARNESS_TIMEOUTS.cdpSendTimeoutMs) {
+    if (this.closed) {
+      return Promise.reject(new HarnessEnvError('CDP 连接已关闭', 'cdp'));
+    }
     return new Promise((resolve, reject) => {
       const id = ++this.nextId;
-      this.pending.set(id, { resolve, reject });
-      this.ws.send(JSON.stringify({ id, method, params }));
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        // 单次调用超时视为连接半死：关闭连接让后续调用快速失败，而不是把整棵进程树无限挂住。
+        const error = new HarnessEnvError(`CDP 调用超时：${method}（${timeoutMs}ms）`, 'timeout');
+        this.rejectPending(error);
+        try { this.ws.close(); } catch { /* ignore */ }
+        reject(error);
+      }, timeoutMs);
+      this.pending.set(id, {
+        resolve: (value) => { clearTimeout(timer); resolve(value); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
+      });
+      try {
+        this.ws.send(JSON.stringify({ id, method, params }));
+      } catch (error) {
+        this.pending.delete(id);
+        clearTimeout(timer);
+        reject(new HarnessEnvError(`CDP 发送失败：${error.message}`, 'cdp'));
+      }
     });
   }
 
@@ -130,9 +166,16 @@ export class Browser {
   async waitFor(expression, label, timeout = HARNESS_TIMEOUTS.waitTimeoutMs) {
     const start = Date.now();
     while (Date.now() - start < timeout) {
+      // 连接已关闭时继续轮询只会把进程挂住：立即失败，交给上层按环境错误处理。
+      if (this.closed) throw new HarnessEnvError(`等待中断（${label}）：CDP 连接已关闭`, 'cdp');
       try {
         if (await this.evaluate(expression)) return;
-      } catch {
+      } catch (error) {
+        if (this.closed) {
+          throw error instanceof HarnessEnvError
+            ? error
+            : new HarnessEnvError(`等待中断（${label}）：${error.message}`, 'cdp');
+        }
         /* page busy */
       }
       await sleep(120);
@@ -163,9 +206,10 @@ export class Browser {
   }
 
   async close() {
+    this.rejectPending(new HarnessEnvError('CDP 连接已关闭', 'cdp'));
     try { this.ws.close(); } catch { /* ignore */ }
     if (this.chrome && this.chrome.exitCode == null) {
-      this.chrome.kill('SIGKILL');
+      killProcessTree(this.chrome, 'SIGKILL');
       await sleep(100);
     }
     if (this.debugPort !== null) releasePort(this.debugPort);
@@ -279,8 +323,9 @@ async function launchBrowserOnce({
       `--window-size=${width},${height}`,
       'about:blank',
     ],
-    { stdio: 'ignore' }
+    { stdio: 'ignore', detached: USE_PROCESS_GROUP }
   );
+  trackChild(chrome);
   let spawnError = null;
   chrome.once('error', (error) => { spawnError = error; });
 
@@ -328,7 +373,7 @@ async function launchBrowserOnce({
     if (browser) {
       await browser.close();
     } else {
-      try { chrome.kill('SIGKILL'); } catch { /* ignore */ }
+      killProcessTree(chrome, 'SIGKILL');
       releasePort(debugPort);
       try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch { /* ignore */ }
     }

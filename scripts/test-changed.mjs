@@ -347,6 +347,7 @@ export const TEST_MAP = [
   { match: 'scripts/build-entity-sprites.mjs', tests: ['tests/sprite-coverage.test.mjs'] },
   { match: 'scripts/check-doc-ownership.mjs', tests: ['tests/docs-phase-sync.test.mjs'] },
   { match: 'scripts/check-version.mjs', tests: ['tests/check-version.test.mjs'] },
+  { match: 'scripts/cleanup-test-orphans.mjs', tests: ['tests/test-isolation-audit.test.mjs'] },
   { match: 'scripts/coverage.mjs', tests: ['tests/coverage-script.test.mjs'] },
   { match: 'scripts/dead-exports.mjs', tests: ['tests/import-graph.test.mjs'] },
   { match: 'scripts/docs-consistency.mjs', tests: ['tests/docs-consistency.test.mjs'] },
